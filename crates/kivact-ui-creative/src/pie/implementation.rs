@@ -1,16 +1,17 @@
 //! Role: Pie menu of the Creative kit with pointer and keyboard selection.
 use super::data::{PieEntry, PieState};
 use super::machine;
-use kivact::state::Signal;
+use kivact::component;
+use kivact::state::{Callback, Signal, Value};
 use kivact::ui::button;
-use kivact::view::HandlerResult;
 
 use kivact::geometry::Rect;
 use kivact::i18n::message;
 use kivact::interaction::use_popup;
 use kivact::state::IntoValue;
-use kivact::style::{ColorToken, style};
-use kivact::view::{Element, IntoView, Key, Node, Role, column, node, text};
+use kivact::style::color as style_color;
+use kivact::style::style;
+use kivact::view::{Element, HandlerResult, IntoView, Key, Node, Role, column, node, text};
 
 use kivact::state::binding;
 use kivact::state::callback;
@@ -19,48 +20,21 @@ use kivact::view::Handled;
 use kivact::view::{ButtonPress, MouseButton, Placement, PointerPhase, overlay_at};
 
 /// A directional popup with pointer selection and keyboard numbers/arrows/Enter/Escape.
+/// `on_activate` runs the selected directional command with its index.
 /// To implement a held shortcut, open `PieState::open_at(point, true)` on key-down and
 /// commit its `hot` choice on key-up using the same application command callback.
-#[track_caller]
-pub fn pie_menu(items: impl IntoValue<Vec<PieEntry>>, state: Signal<PieState>) -> PieMenu {
-    PieMenu {
-        root: column(()).style(style().height(0).gap(0)),
-        entries: items.into_value(),
-        state,
-        choose: None,
-    }
-}
-
-/// A directional popup with an application activation handler.
-pub struct PieMenu {
-    root: Node,
-    entries: kivact::state::Value<Vec<PieEntry>>,
-    state: kivact::state::Signal<PieState>,
-    choose: Option<kivact::state::Callback<usize>>,
-}
-impl PieMenu {
-    /// Run the selected directional command.
-    pub fn on_activate<R: HandlerResult>(mut self, choose: impl Fn(usize) -> R + 'static) -> Self {
-        self.choose = Some(callback(choose));
-        self
-    }
-}
-impl Element for PieMenu {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for PieMenu {
-    fn into_view(self) -> kivact::view::View {
-        let choose = self.choose;
-        pie_menu_view(self.root, self.entries, self.state, move |index| {
-            if let Some(choose) = choose {
-                choose.call(index);
-            }
-        })
-        .into_view()
-    }
+#[component]
+pub fn pie_menu(
+    items: Value<Vec<PieEntry>>,
+    state: Signal<PieState>,
+    on_activate: Option<Callback<usize>>,
+) -> impl Element {
+    let root = column(()).style(style().height(0).gap(0));
+    pie_menu_view(root, items, state, move |index| {
+        if let Some(choose) = on_activate {
+            choose.call(index);
+        }
+    })
 }
 
 fn pie_menu_view<R: HandlerResult>(
@@ -118,7 +92,7 @@ fn pie_menu_view<R: HandlerResult>(
                     draw.rounded_rect(
                         Rect::new(92.0, 92.0, 136.0, 136.0),
                         68.0,
-                        ColorToken::Raised,
+                        style_color::RAISED,
                     )
                 })
                 .on_pointer_default(move |event| {

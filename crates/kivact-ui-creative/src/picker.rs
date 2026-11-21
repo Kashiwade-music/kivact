@@ -1,6 +1,8 @@
 //! Role: A searchable, sectioned list of keyed items in a popup.
 
-use crate::ColorName;
+use crate::color::{DIM, MUTED, SELECTION, TEXT_HIGH};
+use crate::fonts::mono_family;
+use crate::size::ROW;
 use kivact::state::Signal;
 
 use kivact::style::use_theme;
@@ -11,7 +13,7 @@ use kivact::geometry::Point;
 use kivact::i18n::message;
 use kivact::interaction::ListItem;
 use kivact::interaction::{
-    ComboboxApi, PopupApi, PopupCloseReason, Selection, use_combobox, use_popup,
+    ComboboxApi, ComboboxOptions, PopupApi, PopupCloseReason, Selection, use_combobox, use_popup,
 };
 use kivact::state::{
     Callback, Machine, MachineHandle, Step, Value, binding, machine, memo, on_cleanup, signal,
@@ -24,7 +26,7 @@ use kivact::view::{
     PointerPhase, Role, View, dynamic, for_each, node_ref, overlay, overlay_at,
 };
 
-use crate::feedback::glass_style;
+use crate::recipe_parts::glass_style;
 
 /// One choosable row of a [`SearchPicker`].
 ///
@@ -149,7 +151,7 @@ impl<K> PickerItem<K> {
 /// popup closes without a pick. After Escape and a pick the focus goes back to
 /// the button (`attach`) or to the anchor (`at`); after an outside press or Tab
 /// it stays where the user put it.
-/// With additional [`column`](Self::column)s, Tab/Shift+Tab and Right/Left
+/// With additional [`columns`](Self::columns), Tab/Shift+Tab and Right/Left
 /// cycle through columns with enabled matches instead of closing. The search
 /// field keeps focus and all columns share its query.
 ///
@@ -175,17 +177,31 @@ pub struct SearchPicker<K: 'static> {
 #[derive(Clone)]
 struct Parts<K: 'static> {
     items: Value<Vec<PickerItem<K>>>,
-    columns: Rc<Vec<Column<K>>>,
+    columns: Rc<Vec<PickerColumn<K>>>,
     placeholder: Value<String>,
     pick: Option<Callback<K>>,
     preview: Option<Callback<Option<K>>>,
     cancel: Option<Callback<()>>,
 }
 
+/// A named column of a [`SearchPicker`] beyond the first, given to
+/// [`columns`](SearchPicker::columns). Its items share the picker's search and
+/// keys, and its title is the heading of the column.
 #[derive(Clone)]
-struct Column<K: 'static> {
+pub struct PickerColumn<K: 'static> {
     title: Value<String>,
     items: Value<Vec<PickerItem<K>>>,
+}
+
+impl<K: kivact::state::ItemKey> PickerColumn<K> {
+    /// A column titled `title` that lists `items`. Setup only.
+    #[track_caller]
+    pub fn new(title: impl IntoText, items: impl IntoValue<Vec<PickerItem<K>>>) -> Self {
+        Self {
+            title: title.into_text_value(),
+            items: items.into_value(),
+        }
+    }
 }
 
 /// A searchable picker over `items`. Setup only.
@@ -206,23 +222,15 @@ pub fn search_picker<K: kivact::state::ItemKey>(
 }
 
 impl<K: kivact::state::ItemKey> SearchPicker<K> {
-    /// Append a named column to the right of the initial column. Setup only.
+    /// Append these columns to the right of the initial column. Setup only.
     ///
     /// All columns share the search field and keys must be unique across the
     /// whole picker. Tab/Shift+Tab and Right/Left wrap between columns, skipping
     /// columns without enabled matches; entering a column activates its first
     /// enabled match. Up/Down and picking keep the usual combobox behavior.
     /// Titles and item lists follow their reactive values while open.
-    #[track_caller]
-    pub fn column(
-        mut self,
-        title: impl IntoText,
-        items: impl IntoValue<Vec<PickerItem<K>>>,
-    ) -> Self {
-        Rc::make_mut(&mut self.parts.columns).push(Column {
-            title: title.into_text_value(),
-            items: items.into_value(),
-        });
+    pub fn columns(mut self, columns: Vec<PickerColumn<K>>) -> Self {
+        Rc::make_mut(&mut self.parts.columns).extend(columns);
         self
     }
 
@@ -400,11 +408,11 @@ fn column_availability<K>(lists: &[Vec<PickerItem<K>>], query: &str) -> Vec<bool
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum PickerColumn {
+enum ColumnFocus {
     Empty,
     Active(usize),
 }
-impl PickerColumn {
+impl ColumnFocus {
     fn index(self) -> Option<usize> {
         match self {
             Self::Empty => None,
@@ -430,7 +438,7 @@ enum ColumnEffect<K> {
 /// open.
 #[derive(Clone, PartialEq)]
 struct PickerState<K> {
-    column: PickerColumn,
+    column: ColumnFocus,
     phase: PickerPhase<K>,
 }
 
@@ -473,7 +481,7 @@ impl<K: kivact::state::ItemKey> Machine for ColumnMachine<K> {
             ColumnEvent::Cancel => return settle(next, PickerOutcome::Canceled),
             ColumnEvent::Activate(index) => {
                 return Step::to(PickerState {
-                    column: PickerColumn::Active(index),
+                    column: ColumnFocus::Active(index),
                     ..next
                 });
             }
@@ -499,7 +507,7 @@ impl<K: kivact::state::ItemKey> Machine for ColumnMachine<K> {
                 }
             })
             .find(|index| available[*index])
-            .map_or(PickerColumn::Empty, PickerColumn::Active);
+            .map_or(ColumnFocus::Empty, ColumnFocus::Active);
         next.column = next_column;
         Step::to(next)
     }
@@ -614,7 +622,7 @@ impl<K: kivact::state::ItemKey> Parts<K> {
             cancel,
         } = self;
         let multiple = !columns.is_empty();
-        let mut sources = vec![Column {
+        let mut sources = vec![PickerColumn {
             title: placeholder,
             items,
         }];
@@ -645,8 +653,8 @@ impl<K: kivact::state::ItemKey> Parts<K> {
             })
         });
         let columns = column_machine(outcomes, popup);
-        let combo = column_combobox(options, lists, columns);
-        let query = combo.query();
+        let query = signal(String::new());
+        let combo = column_combobox(options, lists, columns, query);
         follow_columns(multiple, lists, query, columns);
         let shown = memo(move || {
             let query = query.get().trim().to_lowercase();
@@ -685,7 +693,7 @@ fn column_machine<K: kivact::state::ItemKey>(
 ) -> MachineHandle<ColumnMachine<K>> {
     machine(
         PickerState {
-            column: PickerColumn::Active(0),
+            column: ColumnFocus::Active(0),
             phase: PickerPhase::Open { previewed: None },
         },
         || ColumnMachine(std::marker::PhantomData),
@@ -693,7 +701,7 @@ fn column_machine<K: kivact::state::ItemKey>(
             ColumnEffect::Preview(key) => outcomes.preview(key),
             ColumnEffect::Settle(outcome) => {
                 if let PickerOutcome::Picked(_) = &outcome {
-                    popup.hide(PopupCloseReason::Selection);
+                    popup.close(PopupCloseReason::Selection);
                 }
                 outcomes.settle(outcome);
             }
@@ -725,6 +733,7 @@ fn column_combobox<K: kivact::state::ItemKey>(
     options: Value<Vec<ListItem<K>>>,
     lists: Value<Vec<Vec<PickerItem<K>>>>,
     columns: MachineHandle<ColumnMachine<K>>,
+    query: kivact::state::Signal<String>,
 ) -> ComboboxApi<K> {
     let active_column = columns.state();
     let chosen = signal(None::<K>);
@@ -737,7 +746,14 @@ fn column_combobox<K: kivact::state::ItemKey>(
             columns.send(ColumnEvent::Pick(index, key));
         }
     });
-    use_combobox(options, Selection::Single(value)).filter(move |query, option| {
+    use_combobox(
+        options,
+        Selection::Single(value),
+        query,
+        signal(true),
+        ComboboxOptions { inline: true },
+    )
+    .filter(move |query, option| {
         let query = query.trim().to_lowercase();
         lists.with(|all| {
             available_column(all, &query, active_column.get().index().unwrap_or(0), 1)
@@ -822,7 +838,7 @@ fn picker_list<K: kivact::state::ItemKey>(
                     .role(Role::ListBox)
                     .name(title),
                 ))
-                .style(style().min_width(240).grow(1))
+                .style(style().min_width(240).flex_grow(1))
                 .into_view()
             })
             .collect::<Vec<_>>();
@@ -854,19 +870,12 @@ fn picker_panel<K: kivact::state::ItemKey>(
         dynamic(
             memo(move || shown.with(|lists| lists.iter().all(Vec::is_empty))),
             move |none| {
-                none.then(|| {
-                    text(empty).style(move || {
-                        let t = &use_theme().get();
-                        let p = t.ext::<crate::tokens::Tokens>();
-                        style().height(p.row).padding_x(7).color(p.dim)
-                    })
-                })
+                none.then(|| text(empty).style(move || style().height(ROW).padding_x(7).color(DIM)))
             },
         ),
     ))
     .style(move || {
-        let t = &use_theme().get();
-        glass_style(t)
+        glass_style()
             .gap(6)
             .align_items(Align::Stretch)
             .min_width(260)
@@ -921,7 +930,7 @@ fn search_field<K: kivact::state::ItemKey>(
     placeholder: Value<String>,
     navigate: impl Fn(KeyEvent) -> Handled + 'static,
 ) -> Node {
-    let search = kivact::ui::text_input(placeholder, session.combo.query());
+    let search = kivact::ui::text_input(session.combo.query());
     let search = if session.column.is_some() {
         search.forward_keys(vec![Key::Tab, Key::ArrowLeft, Key::ArrowRight])
     } else {
@@ -932,11 +941,11 @@ fn search_field<K: kivact::state::ItemKey>(
         .placeholder(placeholder)
         .with_node(move |node| node.node_ref(session.field))
         .with_node(move |node| node.on_key(navigate))
-        .with_node(move |node| node.style(style().grow(1).min_width(0)));
+        .with_node(move |node| node.style(style().flex_grow(1).min_width(0)));
     row((
         icon("search")
-            .style(style().shrink(0))
-            .style(style().color(ColorName::Dim)),
+            .style(style().flex_shrink(0))
+            .style(style().color(DIM)),
         search,
     ))
     .style(style().gap(6).align_items(Align::Center).padding_left(6))
@@ -969,11 +978,11 @@ fn run_view<K: kivact::state::ItemKey>(
         text(name).style(
             style()
                 .font_size(10.5)
-                .weight(600)
+                .font_weight(600)
                 .padding_x(7)
                 .padding_top(6)
                 .padding_bottom(2)
-                .color(ColorName::Dim),
+                .color(DIM),
         ),
         rows,
     ))
@@ -997,25 +1006,23 @@ fn item_row<K: kivact::state::ItemKey>(
     let disabled = memo(move || item.with(|item| !item.enabled));
     let option = row((
         dynamic(memo(move || item.with(|item| item.icon.clone())), |glyph| {
-            glyph.map(|glyph| icon(glyph).style(style().shrink(0)))
+            glyph.map(|glyph| icon(glyph).style(style().flex_shrink(0)))
         }),
-        text(label).style(style().grow(1).min_width(0).single_line()),
+        text(label).style(style().flex_grow(1).min_width(0).single_line()),
         dynamic(description, |description| {
             description.map(|description| {
                 text(description)
                     .style(style().min_width(0).single_line())
-                    .style(style().font_size(11).color(ColorName::Muted))
+                    .style(style().font_size(11).color(MUTED))
             })
         }),
         dynamic(shortcut, |shortcut| {
             shortcut.map(|shortcut| {
-                text(shortcut).style(style().shrink(0)).style(move || {
-                    let t = &use_theme().get();
-                    let p = t.ext::<crate::tokens::Tokens>();
+                text(shortcut).style(style().flex_shrink(0)).style(move || {
                     style()
-                        .font_family(p.mono_font.as_str())
+                        .font_family(mono_family(&use_theme().get()))
                         .font_size(10)
-                        .color(p.dim)
+                        .color(DIM)
                 })
             })
         }),
@@ -1031,15 +1038,13 @@ fn item_row<K: kivact::state::ItemKey>(
     .selected(is_active)
     .disabled(disabled)
     .style(move || {
-        let t = &use_theme().get();
-        let p = t.ext::<crate::tokens::Tokens>();
         style()
-            .height(p.row + 3.0)
+            .height(ROW + 3.0)
             .gap(9)
             .padding_x(7)
-            .radius(6)
+            .border_radius(6)
             .align_items(Align::Center)
-            .selected(style().background(p.selection).color(p.text_high))
+            .selected(style().background(SELECTION).color(TEXT_HIGH))
     });
     node()
         .on_pointer_default(move |event: PointerEvent| {

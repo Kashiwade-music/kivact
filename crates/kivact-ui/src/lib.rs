@@ -188,7 +188,7 @@ pub use radio_group::{RadioGroup, radio_group};
 pub use select::{Select, SelectSheetOption, select};
 pub use slider::{RangeSlider, Slider, range_slider, slider};
 pub use splitter::{Splitter, splitter};
-pub use tabs::{Tabs, tabs};
+pub use tabs::{TabOverflow, Tabs, tabs};
 pub use toast::{ToastRegion, toast_region};
 pub use tooltip::{Tooltip, tooltip};
 
@@ -329,3 +329,18 @@ pub use crate::stepper::StepIndicatorKind;
 pub use crate::stepper::StepStatus;
 
 pub use crate::data_table::types::RowStatus;
+
+mod syntax;
+pub mod syntax_colors;
+mod variant_marks;
+pub use syntax::{SyntaxKind, Tokenizer, syntax_ranges};
+pub use variant_marks::{Slant, Striped};
+
+mod sidebar;
+pub use sidebar::{
+    Sidebar, SidebarCollapsible, SidebarFrame, SidebarGroup, SidebarInput, SidebarMenu,
+    SidebarMenuButton, SidebarMenuButtonSize, SidebarMenuSkeleton, SidebarMenuSubButton,
+    SidebarProvider, SidebarResize, SidebarSeparator, SidebarSide, SidebarTrigger, sidebar,
+    sidebar_group, sidebar_input, sidebar_menu, sidebar_menu_button, sidebar_menu_skeleton,
+    sidebar_menu_sub_button, sidebar_provider, sidebar_separator, sidebar_trigger,
+};

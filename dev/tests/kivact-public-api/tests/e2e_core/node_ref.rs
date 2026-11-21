@@ -211,3 +211,30 @@ fn activating_itself_or_each_other_does_not_hang() {
         "{errors:?}"
     );
 }
+
+#[test]
+fn once_visible_turns_true_when_scrolled_in_and_stays_true() {
+    let (screen, (scroller, seen)) = mount(|| {
+        let scroller = node_ref();
+        let tile = node_ref();
+        let seen = tile.once_visible(0.3);
+        (
+            (scroller, seen),
+            scroll(column((
+                node().style(style().height(2000).flex_shrink(0)),
+                node()
+                    .node_ref(tile)
+                    .style(style().height(100).flex_shrink(0)),
+            )))
+            .node_ref(scroller)
+            .style(style().size(200, 300)),
+        )
+    });
+    assert!(!seen.get(), "the tile starts below the window");
+    scroller.scroll_to(Point::new(0.0, 10000.0), ScrollBehavior::Instant);
+    screen.run_until_idle();
+    assert!(seen.get(), "the tile is inside the window");
+    scroller.scroll_to(Point::new(0.0, 0.0), ScrollBehavior::Instant);
+    screen.run_until_idle();
+    assert!(seen.get(), "the latch stays true");
+}

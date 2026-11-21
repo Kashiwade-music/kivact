@@ -174,7 +174,7 @@ impl NumericView {
             && self.text_entry
             && matches!(self.kind, NumericKind::Number | NumericKind::Slider)
         {
-            self.typing.show(());
+            self.typing.edit(());
         }
     }
 

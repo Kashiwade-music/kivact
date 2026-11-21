@@ -54,7 +54,7 @@ impl Default for NodeData {
             label: String::new(),
             position: Point::new(0.0, 0.0),
             size: Size::new(180.0, 160.0),
-            color: crate::color::default_item_color(),
+            color: crate::color::DEFAULT_ITEM_COLOR,
             inputs: Vec::new(),
             outputs: Vec::new(),
             parameters: Vec::new(),
@@ -76,7 +76,7 @@ impl NodeData {
             label: label.into(),
             position: Point::new(0.0, 0.0),
             size: Size::new(180.0, 160.0),
-            color: crate::color::default_item_color(),
+            color: crate::color::DEFAULT_ITEM_COLOR,
             inputs,
             outputs,
             ..Self::default()

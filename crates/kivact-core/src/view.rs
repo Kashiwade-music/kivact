@@ -37,6 +37,7 @@ mod mounted;
 mod node_draw;
 mod node_modifiers;
 pub(crate) mod node_ref;
+mod node_ref_visibility;
 pub(crate) mod node_states;
 mod node_status;
 pub(crate) mod node_status_data;

@@ -1,11 +1,11 @@
 //! Role: Container chrome of a dock: the tab strip, inline rename and the container menu.
-use crate::ColorName;
+use crate::color::{ACCENT, HAIR, ISLAND, MUTED, STRONG, TEXT_HIGH};
+
 use kivact::interaction::{ListItem, MenuEntry};
 use kivact::ui::ButtonVariant;
 use kivact::view::Element;
 use kivact::view::IntoView;
 
-use kivact::style::use_theme;
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -16,7 +16,7 @@ use kivact::interaction::{
 };
 use kivact::state::callback;
 use kivact::state::{Callback, Value, binding, memo, signal, var};
-use kivact::style::{Align, Cursor, Direction, Overflow, style};
+use kivact::style::{Align, Cursor, FlexDirection, Overflow, style};
 use kivact::view::{
     ButtonPress, Handled, Key, MouseButton, PointerPhase, Role, View, dynamic, for_each, node_ref,
     show,
@@ -83,8 +83,8 @@ pub(super) fn container<K: kivact::state::ItemKey>(cx: DockCx<K>, item: Value<It
         ))
         .style(
             style()
-                .direction(Direction::Row)
-                .grow(1)
+                .flex_direction(FlexDirection::Row)
+                .flex_grow(1)
                 .min_width(0)
                 .gap(2)
                 .align_items(Align::End)
@@ -100,14 +100,14 @@ pub(super) fn container<K: kivact::state::ItemKey>(cx: DockCx<K>, item: Value<It
         row((strip, menu)).style(
             style()
                 .height(STRIP)
-                .shrink(0)
+                .flex_shrink(0)
                 .padding_x(4)
                 .gap(4)
                 .align_items(Align::Center)
-                .background(ColorName::Header)
-                .border_bottom(1, ColorName::Hair),
+                .background(crate::color::HEADER)
+                .border_bottom(1, crate::color::HAIR),
         ),
-        node().style(style().grow(1)),
+        node().style(style().flex_grow(1)),
     ))
     .role(Role::Group)
     .name(message_with(
@@ -182,7 +182,7 @@ fn tab_view<K: kivact::state::ItemKey>(
     cx.register_rect(id, member_ref.rect());
     let renaming = renaming(cx, key);
     let tab_drag = tab_drag(cx, key, renaming);
-    let start_rename = move || cx.rename.show(key.get());
+    let start_rename = move || cx.rename.edit(key.get());
     let dragged = dragged(cx, key);
     let glyph_ref = node_ref();
     let glyph_rect = glyph_ref.rect();
@@ -195,7 +195,7 @@ fn tab_view<K: kivact::state::ItemKey>(
     );
     let label = show(
         move || !renaming(),
-        move || text(title).style(style().shrink(1).min_width(0)),
+        move || text(title).style(style().flex_shrink(1).min_width(0)),
     );
     let editor = rename_editor(cx, key, title, member_ref, texts, renaming);
     let close = close_tab(cx, key, title, tab);
@@ -366,7 +366,7 @@ where
     .hide_label(true)
     .icon(icon("menu"))
     .variant(ButtonVariant::Ghost)
-    .with_node(move |node| node.style(style().width(24).height(22).padding(0).shrink(0)));
+    .with_node(move |node| node.style(style().width(24).height(22).padding(0).flex_shrink(0)));
     kivact::ui::menu("", entries)
         .on_activate(move |value| choose.try_call(value))
         .offset(0.0)
@@ -622,7 +622,7 @@ fn close_tab<K: kivact::state::ItemKey>(
     .icon(icon("x"))
     .variant(ButtonVariant::Ghost)
     .with_node(move |node| node.hidden(move || !tab.with(|tab| tab.closable)))
-    .with_node(move |node| node.style(style().size(16, 16).padding(0).radius(4)))
+    .with_node(move |node| node.style(style().size(16, 16).padding(0).border_radius(4)))
     // Presses on the close button never start a tab drag or rename.
     .with_node(move |node| {
         node.on_pointer_default(|event| {
@@ -641,30 +641,26 @@ fn close_tab<K: kivact::state::ItemKey>(
 
 /// Derive tab chrome from the current theme and actual drag observation.
 fn tab_style(dragged: bool) -> kivact::style::Style {
-    let t = &use_theme().get();
-    let p = t.ext::<crate::tokens::Tokens>();
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .height(STRIP - 6.0)
         .padding_x(8)
         .gap(6)
-        .shrink(0)
+        .flex_shrink(0)
         .align_items(Align::Center)
-        .radius(5)
-        .color(p.muted)
+        .border_radius(5)
+        .color(MUTED)
         .cursor(Cursor::Grab)
         .opacity(if dragged { 0.55 } else { 1.0 })
-        .selected(style().background(p.strong).color(p.text_high))
-        .hover(style().color(p.text_high))
+        .selected(style().background(STRONG).color(TEXT_HIGH))
+        .hover(style().color(TEXT_HIGH))
 }
 
 /// Draw the theme surface and actual maximized container border.
 fn container_style(maximized: Value<bool>) -> kivact::style::Style {
-    let t = &use_theme().get();
-    let p = t.ext::<crate::tokens::Tokens>();
     style()
-        .background(p.island)
-        .border(1, if maximized.get() { p.accent } else { p.hair })
-        .radius(5)
+        .background(ISLAND)
+        .border(1, if maximized.get() { ACCENT } else { HAIR })
+        .border_radius(5)
         .overflow(Overflow::Hidden)
 }

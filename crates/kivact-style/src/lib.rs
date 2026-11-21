@@ -21,6 +21,7 @@ pub mod font;
 pub mod geometry;
 mod grid;
 mod icon;
+mod icons_macro;
 #[doc(hidden)]
 pub mod internal;
 

@@ -66,6 +66,8 @@ arvane-asset = ["arvane", "kivact-engine"]
 arvane-protocol = ["arvane", "arvane-shell", "arvane-native", "arvane-virtual", "arvane-text", "arvane-render", "arvane-compose", "kivact-engine"]
 # 試験だけの engine（自前の device で frame を描いて共有する）。dev-dependency だけが使う（dev-dependency は visible_to の対象外）。
 gpu-interop-producer = []
+catalog-shell = ["kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog"]
+kivact-plot = ["kivact-ui-basic", "kivact-ui-basic-catalog", "kivact-docs"]
 
 # xtask-core は、外部 crate の glob import（`use kivact::prelude::*` など）がある module で、
 # macro と derive の提供元を決められない。標準の macro と derive は glob で上書きされない前提で信頼する。
@@ -311,7 +313,7 @@ disabled_rules = ["missing-docs"]
 api_packages = [
     "kivact", "kivact-test", "kivact-core", "kivact-editing", "kivact-gpu-share", "kivact-i18n", "kivact-interaction",
     "kivact-runtime", "kivact-style", "kivact-types", "kivact-ui",
-    "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft",
+    "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft", "kivact-plot",
 ]
 # 関数に渡す「option の束」。必須の値（親 window、texture の大きさ）は束に入れず引数で渡す。
 options_structs = [
@@ -399,6 +401,11 @@ reason = "Kit E2E tests are written from the user's side and import `kivact::pre
 
 [[style.exceptions]]
 rule = "glob-imports"
+path = "crates/kivact-plot/tests/*"
+reason = "Plot E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
 path = "crates/kivact-ui-creative/tests/*"
 reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
 
@@ -449,7 +456,7 @@ reason = "Glue: `open` only selects the Win32 or X11 child backend by cfg; other
 [[style.exceptions]]
 rule = "non-leaf-implementation"
 path = "examples/kivact-ui-basic/src/docs.rs"
-item = "docs::PAGES"
+item = "docs::pages"
 reason = "Glue: the page registry only lists each child page module's `page()` in navigation order."
 
 [[style.exceptions]]
@@ -506,6 +513,9 @@ allowed_impls = [
   "kivact_ui::item_list::row::ItemRow crates/kivact-ui/src/item_list/row.rs",
   "kivact_ui::date_input::view::DateInput crates/kivact-ui/src/date_input/view.rs",
   "kivact_ui::date_range_input::view::DateRangeInput crates/kivact-ui/src/date_range_input/view.rs",
+  "kivact_ui_basic::native_select::NativeSelect crates/kivact-ui-basic/src/native_select.rs",
+  # 理由 (5)：generic の setter `menu<C, R>` を持つ builder（DataTable と同じ扱い。設計者の回答 (B4)）。
+  "kivact_ui_creative::dock::view::Dock crates/kivact-ui-creative/src/dock/view.rs",
 ]
 
 [module_rules.arvane-virtual.uses]

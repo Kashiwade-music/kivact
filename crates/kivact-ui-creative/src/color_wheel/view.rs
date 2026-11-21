@@ -1,25 +1,20 @@
-//! Role: The ColorWheel builder and its wheel, sliders, fields and swatches.
+//! Role: The color_wheel component and its wheel, sliders, fields and swatches.
 
 use super::data::ColorModel;
 use super::geometry::{Channel, Geometry};
 use super::state::{ColorOwner, Model, State};
+use kivact::component;
 use kivact::custom::part;
 use kivact::geometry::Size;
 use kivact::i18n::message;
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_drag};
-use kivact::state::Signal;
-use kivact::state::{Callback, Value, memo};
-use kivact::state::{IntoValue, callback};
-use kivact::style::{Color, pct, style};
-use kivact::view::EditPhase;
-use kivact::view::HandlerResult;
+use kivact::state::{Callback, IntoValue, Signal, Value, memo};
+use kivact::style::{Color, pct, style, use_theme};
 use kivact::view::{
-    A11yAction, A11yEvent, A11yRequest, Handled, IntoView, Key, KeyEvent, Role, View, node_ref,
-    show,
+    A11yAction, A11yEvent, A11yRequest, EditPhase, Handled, Key, KeyEvent, Role, column, node,
+    node_ref, show,
 };
-use kivact::view::{Element, Node, column, node};
 
-// xtask-allow(state): record: the builder's props, each written only by its own setter; color and model are the caller's bindings of the color and of the fields' color model, written by the wheel, the fields and the model switch
 /// A hue wheel, saturation/value square, optional alpha strip, model fields
 /// and optional swatches. Element modifiers apply to the whole group.
 /// RGB fields use normalized channels, HSV uses hue degrees and normalized
@@ -27,83 +22,94 @@ use kivact::view::{Element, Node, column, node};
 /// visible without writing, Enter confirms and Escape discards the draft.
 /// Hidden alpha is preserved. Gray colors retain the last hue.
 ///
+/// `model` is the channel model the fields show, which the model selector
+/// writes without changing the color. `alpha` and `fields` show the alpha
+/// strip and the model fields (both default true). `swatches` binds editable
+/// swatches; local swatch selection is not an edit. `on_edit` observes each
+/// continuous edit, including palette additions and removals. `wheel_size`
+/// sets the canvas height, at least 96 pixels; non-finite values use 220.
+///
 /// Names use `color.wheel`, `color.model`, `color.hue`, `color.sv`,
 /// `color.alpha_slider`, `color.red`, `color.green`, `color.blue`, `color.h`,
 /// `color.s`, `color.v`, `color.alpha`, `color.hex`, `color.swatch`,
 /// `color.add_swatch` and `color.remove_swatch`. Escape, pointer cancellation, hiding,
 /// disabling and disposal restore the starting color, hue and palette before
 /// Cancel. During a pointer drag, other channel edits are consumed.
-pub struct ColorWheel {
-    root: Node,
+#[component]
+pub fn color_wheel(
     color: Signal<Color>,
     model: Signal<ColorModel>,
-    options: ColorWheelOptions,
-}
-struct ColorWheelOptions {
-    alpha: Value<bool>,
-    fields: Value<bool>,
+    #[prop(default = true)] alpha: Value<bool>,
+    #[prop(default = true)] fields: Value<bool>,
     swatches: Option<Signal<Vec<Color>>>,
-    edit: Option<Callback<EditPhase>>,
-    size: Value<f64>,
-}
-
-/// Edit `color` using normalized RGB/HSV fields or a hexadecimal draft;
-/// `model` is the channel model the fields show, which the model selector
-/// writes without changing the color.
-#[track_caller]
-pub fn color_wheel(color: Signal<Color>, model: Signal<ColorModel>) -> ColorWheel {
-    ColorWheel {
-        root: column(())
-            .role(Role::Group)
-            .style(style().min_width(0).width(pct(100)).gap(8)),
-        color,
-        model,
-        options: ColorWheelOptions {
-            alpha: true.into_value(),
-            fields: true.into_value(),
-            swatches: None,
-            edit: None,
-            size: 220.0.into_value(),
+    on_edit: Option<Callback<EditPhase>>,
+    #[prop(default = 220.0)] wheel_size: Value<f64>,
+) -> impl Element {
+    let root = column(())
+        .role(Role::Group)
+        .style(style().min_width(0).width(pct(100)).gap(8));
+    let root_part = part(|input| input);
+    let root_state = root_part.state();
+    let blocked = memo(move || {
+        let input = root_state.get();
+        input.is_disabled() || input.is_hidden()
+    });
+    let drag = use_drag::<Channel>(DragCoordinates::Local);
+    let state = Model::new(color, swatches, on_edit, blocked, drag);
+    let value = color.into_value();
+    let size = memo(move || {
+        let size = wheel_size.get();
+        if size.is_finite() {
+            size.max(96.0)
+        } else {
+            220.0
+        }
+    });
+    let reference = node_ref();
+    let rect = reference.rect();
+    let geometry = move || {
+        Geometry::new(
+            rect.get_untracked().map_or_else(
+                || Size::new(size.get_untracked(), size.get_untracked()),
+                |r| Size::new(r.width, r.height),
+            ),
+            alpha.get_untracked(),
+        )
+    };
+    let active = memo(move || state.controls.get().channel);
+    let gesture = wheel_gesture(state, drag, geometry, value);
+    let state = State::new(state, gesture);
+    let (canvas_part, group) = observed_canvas(state, alpha);
+    let canvas = node()
+        .role(Role::Canvas)
+        .name(message("creative.color.wheel", "Color wheel"))
+        .style(move || style().height(size.get()).min_width(0).width(pct(100)))
+        .node_ref(reference)
+        .disabled(state.blocked)
+        .part(canvas_part)
+        .part(gesture.source(Channel::Hue))
+        .draw(move |draw, size| {
+            let g = Geometry::new(size, alpha.get());
+            g.regions(draw);
+            super::geometry::paint(draw, g, value.get(), state.hue.get());
+        })
+        .on_key(move |event| key(state, active.get(), event));
+    let canvas = canvas.regions(
+        move || {
+            let mut channels = vec![Channel::Hue, Channel::Sv];
+            if alpha.get() {
+                channels.push(Channel::Alpha);
+            }
+            channels
         },
-    }
-}
-
-impl ColorWheel {
-    /// Reactively show model selection and channel input fields (default true).
-    /// Removing an edited field cancels its edit and restores the starting color.
-    pub fn fields(mut self, fields: impl IntoValue<bool>) -> Self {
-        self.options.fields = fields.into_value();
-        self
-    }
-
-    /// Reactively show the alpha strip and field (default true).
-    /// Hiding them cancels their current edit and otherwise preserves alpha.
-    pub fn alpha(mut self, alpha: impl IntoValue<bool>) -> Self {
-        self.options.alpha = alpha.into_value();
-        self
-    }
-    /// Bind editable swatches. Local swatch selection is not an edit.
-    pub fn swatches(mut self, swatches: Signal<Vec<Color>>) -> Self {
-        self.options.swatches = Some(swatches);
-        self
-    }
-    /// Observe each continuous edit, including palette additions and removals.
-    pub fn on_edit<R: HandlerResult>(mut self, edit: impl Fn(EditPhase) -> R + 'static) -> Self {
-        self.options.edit = Some(callback(edit));
-        self
-    }
-    /// Reactively set canvas height, at least 96 pixels; non-finite values use 220.
-    pub fn wheel_size(mut self, size: impl IntoValue<f64>) -> Self {
-        self.options.size = size.into_value();
-        self
-    }
-}
-
-impl Element for ColorWheel {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
+        |channel| channel.id(),
+        move |_, channel| channel_part(state, value, gesture, channel.get_untracked()),
+    );
+    root.node_ref(group).part(root_part).child((
+        canvas,
+        show(fields, move || super::fields::fields(state, model, alpha)),
+        super::fields::swatches(state, alpha),
+    ))
 }
 
 fn pair(text: &str) -> Option<(f64, f64)> {
@@ -116,7 +122,8 @@ fn pair(text: &str) -> Option<(f64, f64)> {
 }
 
 fn key(state: State, channel: Channel, event: KeyEvent) -> Handled {
-    let (x, y) = state.channel(channel);
+    let theme = use_theme().get();
+    let (x, y) = state.channel(channel, &theme);
     let delta = if channel == Channel::Hue { 1.0 } else { 0.01 }
         * if event.modifiers().shift { 10.0 } else { 1.0 };
     let next = match event.key() {
@@ -128,89 +135,10 @@ fn key(state: State, channel: Channel, event: KeyEvent) -> Handled {
         Key::ArrowDown => (x - delta, y),
         _ => return Handled::No,
     };
-    state.once(ColorOwner::Wheel, || state.set(channel, next.0, next.1));
+    state.once(ColorOwner::Wheel, || {
+        state.set(channel, next.0, next.1, &theme)
+    });
     Handled::Yes
-}
-
-impl IntoView for ColorWheel {
-    fn into_view(self) -> View {
-        let root_part = part(|input| input);
-        let root_state = root_part.state();
-        let blocked = memo(move || {
-            let input = root_state.get();
-            input.is_disabled() || input.is_hidden()
-        });
-        let alpha = self.options.alpha;
-        let drag = use_drag::<Channel>(DragCoordinates::Local);
-        let state = Model::new(
-            self.color,
-            self.options.swatches,
-            self.options.edit,
-            blocked,
-            drag,
-        );
-        let value = self.color.into_value();
-        let size = kivact::state::memo(move || {
-            let size = self.options.size.get();
-            if size.is_finite() {
-                size.max(96.0)
-            } else {
-                220.0
-            }
-        });
-        let reference = node_ref();
-        let rect = reference.rect();
-        let geometry = move || {
-            Geometry::new(
-                rect.get_untracked().map_or_else(
-                    || Size::new(size.get_untracked(), size.get_untracked()),
-                    |r| Size::new(r.width, r.height),
-                ),
-                alpha.get_untracked(),
-            )
-        };
-        let active = memo(move || state.controls.get().channel);
-        let gesture = wheel_gesture(state, drag, geometry, value);
-        let state = State::new(state, gesture);
-        let (canvas_part, group) = observed_canvas(state, alpha);
-        let canvas = node()
-            .role(Role::Canvas)
-            .name(message("creative.color.wheel", "Color wheel"))
-            .style(move || style().height(size.get()).min_width(0).width(pct(100)))
-            .node_ref(reference)
-            .disabled(state.blocked)
-            .part(canvas_part)
-            .part(gesture.source(Channel::Hue))
-            .draw(move |draw, size| {
-                let g = Geometry::new(size, alpha.get());
-                g.regions(draw);
-                super::geometry::paint(draw, g, value.get(), state.hue.get());
-            })
-            .on_key(move |event| key(state, active.get(), event));
-        let canvas = canvas.regions(
-            move || {
-                let mut channels = vec![Channel::Hue, Channel::Sv];
-                if alpha.get() {
-                    channels.push(Channel::Alpha);
-                }
-                channels
-            },
-            |channel| channel.id(),
-            move |_, channel| channel_part(state, value, gesture, channel.get_untracked()),
-        );
-        let model = self.model;
-        self.root
-            .node_ref(group)
-            .part(root_part)
-            .child((
-                canvas,
-                show(self.options.fields, move || {
-                    super::fields::fields(state, model, alpha)
-                }),
-                super::fields::swatches(state, alpha),
-            ))
-            .into_view()
-    }
 }
 
 /// Preserve the shared color session's wheel ownership throughout one pointer drag.
@@ -224,11 +152,13 @@ fn wheel_gesture(
         if state.blocked.get_untracked() || state.edit.owner() != Some(ColorOwner::Wheel) {
             return;
         }
+        let theme = use_theme().get();
         let (next, h) = geometry().update(
             update.payload,
             update.pos,
             value.get_untracked(),
             state.hue.get_untracked(),
+            &theme,
         );
         state
             .controls
@@ -279,7 +209,7 @@ fn channel_part(
                 .value_text(move || {
                     value.get();
                     state.hue.get();
-                    let (x, y) = state.channel(channel);
+                    let (x, y) = state.channel(channel, &use_theme().get());
                     if channel == Channel::Sv {
                         format!("{x},{y}")
                     } else {
@@ -291,7 +221,7 @@ fn channel_part(
                 .value_now(move || {
                     value.get();
                     state.hue.get();
-                    state.channel(channel).0
+                    state.channel(channel, &use_theme().get()).0
                 })
         })
     };
@@ -325,7 +255,8 @@ fn channel_action(state: State, channel: Channel, target: kivact::view::NodeRef,
         target.focus();
         return;
     }
-    let (x, y) = state.channel(channel);
+    let theme = use_theme().get();
+    let (x, y) = state.channel(channel, &theme);
     let step = if channel == Channel::Hue { 1.0 } else { 0.01 };
     let next = match &event.request {
         A11yRequest::SetValue(text) if channel == Channel::Sv => pair(text),
@@ -339,7 +270,7 @@ fn channel_action(state: State, channel: Channel, target: kivact::view::NodeRef,
         _ => None,
     };
     if let Some((x, y)) = next {
-        state.once(ColorOwner::Wheel, || state.set(channel, x, y));
+        state.once(ColorOwner::Wheel, || state.set(channel, x, y, &theme));
     }
 }
 

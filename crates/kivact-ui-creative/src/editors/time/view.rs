@@ -15,11 +15,12 @@ use kivact::interaction::EditSession;
 use kivact::interaction::ListItem;
 use kivact::state::IntoValue;
 use kivact::state::{Callback, Value};
-use kivact::style::{ColorToken, Overflow, style};
+use kivact::style::{Overflow, color, style};
 
-use kivact::view::{A11yAction, IntoView, Role, View, node_ref};
+use kivact::view::{A11yAction, Role, View, node_ref};
 use kivact::view::{Node, node};
 
+/// The editor of the timeline and the dope sheet, built by its component.
 pub(crate) struct TimeEditor<T: TimeItem> {
     pub(crate) root: Node,
     pub(crate) items: Value<Vec<T>>,
@@ -48,7 +49,7 @@ impl<T: TimeItem> TimeEditor<T> {
                 style()
                     .height(280)
                     .overflow(Overflow::Hidden)
-                    .background(ColorToken::Surface),
+                    .background(color::SURFACE),
             ),
             items: items.into_value(),
             state,
@@ -63,8 +64,10 @@ impl<T: TimeItem> TimeEditor<T> {
     }
 }
 
-impl<T: TimeItem> IntoView for TimeEditor<T> {
-    fn into_view(self) -> View {
+impl<T: TimeItem> TimeEditor<T> {
+    /// Build the editor's root node. With a context menu the root is the
+    /// menu's trigger, so the node returned is a plain wrapper around it.
+    pub(crate) fn into_node(self) -> Node {
         let Prepared {
             root,
             state,
@@ -115,14 +118,14 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
                 })
             });
         match extensions.menu {
-            Some(menu) => menu.call((
+            Some(menu) => node().child(menu.call((
                 root.a11y_action(A11yAction::ShowMenu, move |event| {
                     state.cancel();
                     state.context_request(event.region);
                 }),
                 state.context.into_value(),
-            )),
-            None => root.into_view(),
+            ))),
+            None => root,
         }
     }
 }

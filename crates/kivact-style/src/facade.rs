@@ -33,6 +33,6 @@ pub use crate::{
     ScrollbarWidth, Style, StyledRange, TextAlign, TextDecorationLine, TextDecorationStyle,
     TextOverflow, TextTransform, Theme, ThemeExtension, ThemeMode, ThemeRef, ThemeValue, ThemeVar,
     Track, TransformStyle, TransitionProp, VarValue, Visibility, WillChange, auto, color, control,
-    em, font, hsl, hwb, lab, lch, oklab, oklch, pct, radius, rgb, rgba, space, style,
+    em, font, hsl, hwb, icons, lab, lch, oklab, oklch, pct, radius, rgb, rgba, space, style,
     try_use_theme, use_theme,
 };

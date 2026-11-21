@@ -9,22 +9,33 @@ use crate::editors::time::model::TimeItem;
 use kivact::draw::{Draw, Layer, TextFormat};
 use kivact::geometry::{Point, Rect, Size};
 pub(crate) fn paint_item<T: TimeItem>(draw: &mut Draw, item: &T, rect: Rect, selected: bool) {
-    let p = draw.theme().ext::<crate::tokens::Tokens>();
-    let color = if selected { p.accent } else { item.color() }.with_alpha(if item.muted() {
-        0.28
+    let color = if selected {
+        crate::color::ACCENT
     } else {
-        1.0
-    });
+        item.color()
+    }
+    .with_alpha(if item.muted() { 0.28 } else { 1.0 });
     if item.duration() > 0.0 {
         draw.rounded_rect(rect, 5.0, color.with_alpha(0.3));
         draw.stroke_rect(rect, 1.0, color);
-        label(draw, item.label(), rect.x + 6.0, rect.y + 4.0, 10.0, p.text);
+        label(
+            draw,
+            item.label(),
+            rect.x + 6.0,
+            rect.y + 4.0,
+            10.0,
+            crate::color::TEXT,
+        );
     } else {
         item.glyph().paint(
             draw,
             rect.center(),
             5.0,
-            if selected { p.accent } else { p.text },
+            if selected {
+                crate::color::ACCENT
+            } else {
+                crate::color::TEXT
+            },
         );
     }
 }
@@ -39,11 +50,10 @@ pub(crate) fn paint_grid(
     layout: (f64, f64),
 ) {
     let (height, cells_width) = layout;
-    let p = draw.theme().ext::<crate::tokens::Tokens>();
-    draw.fill_rect(Rect::new(0.0, 0.0, size.width, RULER), p.header);
+    draw.fill_rect(Rect::new(0.0, 0.0, size.width, RULER), crate::color::HEADER);
     draw.fill_rect(
         Rect::new(0.0, RULER, SIDEBAR, (size.height - RULER).max(0.0)),
-        p.header,
+        crate::color::HEADER,
     );
     ruler.draw(draw, size, SIDEBAR, zoom, pan, RULER);
     for (index, lane) in lanes.iter().enumerate() {
@@ -73,7 +83,7 @@ pub(crate) fn paint_grid(
                     12.0,
                     y + (height - text_height) * 0.5,
                     11.5,
-                    p.text,
+                    crate::color::TEXT,
                 );
             },
         );
@@ -81,14 +91,14 @@ pub(crate) fn paint_grid(
             Point::new(0.0, y + height),
             Point::new(size.width, y + height),
             1.0,
-            p.hair,
+            crate::color::HAIR,
         );
     }
     draw.line(
         Point::new(SIDEBAR, 0.0),
         Point::new(SIDEBAR, size.height),
         1.0,
-        p.hair_strong,
+        crate::color::HAIR_STRONG,
     );
 }
 
@@ -161,7 +171,7 @@ pub(crate) fn paint<T: TimeItem>(
             Point::new(x, RULER),
             Point::new(x, size.height),
             1.0,
-            draw.theme().ext::<crate::tokens::Tokens>().text_high,
+            crate::color::TEXT_HIGH,
         );
         ruler.badge(draw, x, frame.get());
         if let Some(id) = scene.id(&Target::Playhead) {
@@ -172,10 +182,6 @@ pub(crate) fn paint<T: TimeItem>(
         }
     }
     if let Some(Drag::Marquee(from, to)) = state.drag_state() {
-        draw.stroke_rect(
-            Rect::from_points(from, to),
-            1.0,
-            draw.theme().ext::<crate::tokens::Tokens>().accent,
-        );
+        draw.stroke_rect(Rect::from_points(from, to), 1.0, crate::color::ACCENT);
     }
 }

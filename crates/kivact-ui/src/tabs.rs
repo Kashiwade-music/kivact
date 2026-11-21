@@ -11,6 +11,8 @@
 //! (close, reorder, icons, counters) moves and selects with the same
 //! interaction parts and draws its ordinary parts with [`TabsTheme`](crate::theme::TabsTheme).
 pub(crate) mod look;
+mod overflow;
 mod view;
 
+pub use overflow::TabOverflow;
 pub use view::{Tabs, tabs};
