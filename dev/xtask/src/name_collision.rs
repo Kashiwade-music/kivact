@@ -1,6 +1,8 @@
 //! Role: Keep kit public names distinct from core and standard prelude names.
 //!
 //! Kits can be imported alongside kivact::prelude without ambiguous names.
+//! A core module's name is not reserved: a module is in the type namespace and does not make a
+//! kit's function or value of the same name ambiguous.
 use crate::check_source::Source;
 use crate::public_surface::{Surface, export_span};
 use std::collections::BTreeSet;
@@ -58,6 +60,9 @@ pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>
     }
     let mut reserved: BTreeSet<&str> = STANDARD.iter().copied().collect();
     for path in surface.exports.keys() {
+        if surface.modules.contains(path) {
+            continue;
+        }
         if (path.starts_with("kivact::prelude::") || path.starts_with("kivact::ui::"))
             && let Some(name) = path.rsplit("::").next()
         {
@@ -108,6 +113,22 @@ mod tests {
         let mut errors = Vec::new();
         super::check(&source, &surface, &mut errors);
         assert_eq!(errors.len(), 2);
+    }
+    #[test]
+    fn a_core_module_name_is_not_reserved() {
+        let mut source = crate::check_source::fixture("pub fn theme() {} pub struct Button;");
+        source.module.clear();
+        let mut surface = crate::public_surface::build(std::slice::from_ref(&source));
+        surface
+            .exports
+            .insert("kivact::ui::theme".into(), "kivact::ui::theme".into());
+        surface.modules.insert("kivact::ui::theme".into());
+        surface
+            .exports
+            .insert("kivact::ui::Button".into(), "kivact_ui::Button".into());
+        let mut errors = Vec::new();
+        super::check(&source, &surface, &mut errors);
+        assert_eq!(errors.len(), 1);
     }
     #[test]
     fn includes_module_names_and_respects_inline_markers() {
