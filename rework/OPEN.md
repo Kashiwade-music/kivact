@@ -1127,3 +1127,13 @@ U51（lane `wt/rw-W8-U3`、commit `46b10e0a`）は付属書どおりに commit �
 
 - **menu の surface の名前**：(a) を採り、試験の driver で解決する。engine は surface の `labelled_by` の関係を正しく publish していて、実際の支援技術（AccessKit の platform の adapter）は名前の無い node の名前を `labelled_by` の先の名前・内容から計算する（ARIA の accname と同じ）。`kivact-test` の `screen/query.rs` の `name_of` を、`name` も `content` も無いとき `labelled_by` の先の各 node の `name_of` を空白で繋いだものにする（循環は一段だけ辿る）。facts に `labelled_by` を読む関数が無ければ足す。この 1〜2 file は所有の外だが許す。`menu/view.rs` の WIP（`f3a67c1a`）はそのまま。menu の試験と、`get_by_role` を使う e2e_ui・e2e_core の全件を走らせ、名前の変わった node で落ちる試験が出たら STOP。
 - **`combobox/labels.rs:54`（ui-machine）**：選んだ項目の label を、非同期の結果の差し替えをまたいで覚えておく cache（`KnownLabels`）は、combobox の入力と選択の振る舞いなので interaction に移す（ui-machine の規則の意図どおり）。`crates/kivact-interaction/src/combobox/` に移し（今の S-9 の `effect-writes` の印ごと）、`ComboboxApi` に `pub fn known_options(self) -> Value<Vec<ListItem<K>>>`（今の `KnownLabels::values` と同じ：今の options に、選択中で options から消えた項目を足したもの）を足す。`use_combobox` の中で `observe` を一度呼ぶ。ui の `combobox/render.rs` は `known_options()` を読み、ui の `labels.rs` は `label` 関数だけを残す（使われなければ消す）。統合 branch の上で「U48b」として行う。試験（combobox の e2e_ui と interaction の試験）の期待値は変えない。
+
+## 差戻し（W8・menu の surface の名前、e2e_ui の tabs、2026-11-22）
+
+W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が worktree にある）の menu の直し（設計者の (a)）で、名前の変わった試験が 1 件落ちた。STOP。
+
+- 試験：`interaction_tabs::the_list_tabs_and_the_panel_publish_roles_and_relations`（`dev/tests/kivact-public-api/tests/e2e_ui/interaction_tabs.rs:96`）。
+- 失敗：`no element matches role TabPanel named ""`（candidates 0）。TabPanel は labelled_by で「Beta」のタブを指す。labelled_by の名前が「Beta」になったので、試験の query の名前 `""` に当たらなくなった。試験の `labelled_by()` の名前の assert（`["Beta"]`）は通る。
+- 変えたこと（設計者の (a) に加えて）：`name_of` のほかに、`screen/query.rs` の `role_matches` が、公開済みの name が空のとき labelled_by の先の名前を空白で繋いだものを名前として比べるようにした。役割の query は `name_of` ではなく公開済みの tree の name を見るため、`name_of` だけでは menu の `get_by_role(Menu, "Custom")` が通らなかった。`facts.rs` に `Facts::labelled_by` を足した。menu の `ui_components` は 11/11 通る。e2e_ui は 281 件成功、1 件落ち（上の試験）。e2e_core と kivact-test は未実行。
+- **設計者が決める**：(a1) 上の `role_matches` の変更を採り、tabs の試験の query を `get_by_role(Role::TabPanel, "")` から `get_by_role(Role::TabPanel, "Beta")` に直す（labelled_by の assert は変えない。a11y の名前の期待値の変更なので設計者の判断）。(a2) 別の形（role の query の名前は公開済みの name だけを見る。menu の試験の query を別の形にする）。
+- 作業：(a1) か (a2) の答えを待つ間、W8-fix の menu の変更は未 commit のまま残す。U48b（combobox の KnownLabels の移動）は別の worktree（`wt/rw-W8-fix2`）で進める。
