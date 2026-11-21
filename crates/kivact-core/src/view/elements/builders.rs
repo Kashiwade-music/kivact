@@ -48,7 +48,9 @@ impl Node {
     /// its name, description, test id, variants and node refs over the body's
     /// (a node ref is added, so the body's own refs stay bound). Disabled is
     /// the OR of both: a busy body stays disabled under the caller's enabled
-    /// state. Generated code calls it; write `.style(..)` and friends instead.
+    /// state. Generated code and the hand-written builders listed in
+    /// `[hand_element] allowed_impls` call it; write `.style(..)` and friends
+    /// instead.
     #[doc(hidden)]
     pub fn absorb(mut self, caller: Node) -> Node {
         let body_disabled = self
