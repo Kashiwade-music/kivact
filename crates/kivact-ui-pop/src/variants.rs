@@ -151,18 +151,6 @@ pub struct AvatarHue(pub f64);
 
 impl Variant for AvatarHue {}
 
-/// Whether an avatar wears its halo.
-#[derive(Clone, Copy, Debug, PartialEq, Prop)]
-pub struct AvatarHalo(pub bool);
-
-impl Variant for AvatarHalo {}
-
-/// Whether an avatar shows its online dot.
-#[derive(Clone, Copy, Debug, PartialEq, Prop)]
-pub struct AvatarOnline(pub bool);
-
-impl Variant for AvatarOnline {}
-
 /// The hue of each weekday of a calendar, Monday first; `None` keeps the plain color.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Prop)]
 pub struct CalendarWeekdayHues(pub [Option<Hue>; 7]);
