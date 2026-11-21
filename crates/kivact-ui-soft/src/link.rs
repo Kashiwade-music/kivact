@@ -78,7 +78,7 @@ pub fn link(label: impl IntoText) -> Link {
 
 #[track_caller]
 /// Mount custom link content once; use `name` to give it an accessible label.
-pub fn link_with(content: impl IntoView) -> Link {
+pub(crate) fn link_with(content: impl IntoView) -> Link {
     Link {
         root: row(()),
         label: None,

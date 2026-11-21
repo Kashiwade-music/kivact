@@ -297,10 +297,6 @@ pub fn layout_header(children: impl IntoView) -> LayoutRegion {
 pub fn layout_content(children: impl IntoView) -> LayoutRegion {
     region(Region::Content, children)
 }
-/// Create a non-scrolling footer region.
-pub fn layout_footer(children: impl IntoView) -> LayoutRegion {
-    region(Region::Footer, children)
-}
 /// Create a scrolling side region; assigning it to start/end determines its logical side.
 pub fn layout_panel(children: impl IntoView) -> LayoutRegion {
     region(Region::Start, children)

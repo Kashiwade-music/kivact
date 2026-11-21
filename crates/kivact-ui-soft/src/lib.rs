@@ -1,241 +1,53 @@
-//! Role: Expose Astryx Neutral as an official Kivact UI kit.
-mod alert_dialog;
-mod app_shell;
-mod aspect_ratio;
-mod avatar;
-mod avatar_options;
-mod avatar_status_dot;
-mod banner;
-mod blockquote;
-mod bottom_sheet;
-mod breadcrumbs;
-mod card;
-mod chat_appearance;
-mod chat_dictation;
-mod choice_list;
-mod citation;
-mod code;
-mod code_syntax;
+//! Role: Expose Astryx Neutral as an official Kivact UI kit: its color, space and radius variables and its theme.
 mod color;
-mod color_name;
-mod container_reveal;
-mod dialog_header;
-mod disclosure_appearance;
-mod divider;
-mod elevation;
-mod empty_state;
-mod feedback;
-mod field_status;
-mod form_layout;
-mod grid;
-mod hover_card;
-mod icon;
 mod icons;
-mod indicator;
-mod input_group;
-mod item_values;
-mod kbd;
-mod key_hints;
-mod layout;
-mod lightbox;
-mod link;
-mod markdown;
-mod markdown_parser;
-mod media_overlay;
-mod media_query;
-mod mobile_nav;
-mod more_menu;
-mod nav_heading;
-mod nav_icon;
-mod navigation_session;
-mod outline;
-mod power_search;
-mod recipe_style;
-mod recipes;
-mod recipes_badge;
-mod recipes_calendar;
-mod recipes_carousel;
-mod recipes_chat;
-mod recipes_code;
-mod recipes_collections;
-mod recipes_combobox;
-mod recipes_controls;
-mod recipes_controls_choice;
-mod recipes_controls_value;
-mod recipes_dialog;
-mod recipes_dropzone;
-mod recipes_field;
-mod recipes_groups;
-mod recipes_menu;
-mod recipes_metrics;
-mod recipes_navigation;
-mod recipes_pagination;
-mod recipes_popup;
-mod recipes_popup_command;
-mod recipes_select;
-mod recipes_skeleton;
-mod rich_block_doc;
-mod rich_blocks;
-mod rich_text;
-mod scroll_observer;
-mod scrollable_area;
-mod section;
-mod segmented_control;
+mod metrics;
+mod motion;
+mod radius;
 mod shadows;
-mod side_navigation;
-mod soft_chat_tools;
-mod soft_list;
-
-mod recipes_table;
-mod soft_overflow;
-mod soft_table;
-mod soft_tree;
-mod spinner;
-mod stack;
-mod stepper;
-mod tab_entries;
-mod tab_list;
-mod text;
+mod space;
 mod theme;
-mod theme_scope;
-mod thumbnail;
-mod timer;
-mod timestamp;
-mod token;
-mod tokens;
-mod top_nav;
-mod visually_hidden;
+mod theme_policy;
+mod type_scale;
 
-pub use alert_dialog::{AlertDialog, alert_dialog};
-pub use app_shell::{
-    AppShell, MobileNavConfig, MobileNavMode, ShellHeight, ShellVariant, app_shell,
+pub use color::{
+    ACCENT, ACCENT_HOVER, ACCENT_MUTED, BG_BODY, BG_CARD, BG_ERROR_INVERTED, BG_INVERTED, BG_MUTED,
+    BG_POPOVER, BG_SURFACE, BORDER_EMPHASIZED, CHOICE_BORDER_HOVER, CHOICE_SURFACE_HOVER,
+    DATA_BLUE, DATA_BLUE_RAMP_1, DATA_BLUE_RAMP_2, DATA_BLUE_RAMP_3, DATA_BLUE_RAMP_4,
+    DATA_BLUE_RAMP_5, DATA_BROWN, DATA_CYAN, DATA_GRAY_RAMP_1, DATA_GRAY_RAMP_2, DATA_GRAY_RAMP_3,
+    DATA_GRAY_RAMP_4, DATA_GRAY_RAMP_5, DATA_GREEN, DATA_INDIGO, DATA_NEUTRAL, DATA_ORANGE,
+    DATA_ORANGE_RAMP_1, DATA_ORANGE_RAMP_2, DATA_ORANGE_RAMP_3, DATA_ORANGE_RAMP_4,
+    DATA_ORANGE_RAMP_5, DATA_PINK, DATA_PINK_RAMP_1, DATA_PINK_RAMP_2, DATA_PINK_RAMP_3,
+    DATA_PINK_RAMP_4, DATA_PINK_RAMP_5, DATA_PURPLE, DATA_PURPLE_RAMP_1, DATA_PURPLE_RAMP_2,
+    DATA_PURPLE_RAMP_3, DATA_PURPLE_RAMP_4, DATA_PURPLE_RAMP_5, DATA_RED, DATA_RED_RAMP_1,
+    DATA_RED_RAMP_2, DATA_RED_RAMP_3, DATA_RED_RAMP_4, DATA_RED_RAMP_5, DATA_SHAMROCK_RAMP_1,
+    DATA_SHAMROCK_RAMP_2, DATA_SHAMROCK_RAMP_3, DATA_SHAMROCK_RAMP_4, DATA_SHAMROCK_RAMP_5,
+    DATA_TEAL, DATA_TEAL_RAMP_1, DATA_TEAL_RAMP_2, DATA_TEAL_RAMP_3, DATA_TEAL_RAMP_4,
+    DATA_TEAL_RAMP_5, DATA_YELLOW_RAMP_1, DATA_YELLOW_RAMP_2, DATA_YELLOW_RAMP_3,
+    DATA_YELLOW_RAMP_4, DATA_YELLOW_RAMP_5, ERROR, ERROR_MUTED, HUE_BLUE_BG, HUE_BLUE_BORDER,
+    HUE_BLUE_ICON, HUE_BLUE_TEXT, HUE_CYAN_BG, HUE_CYAN_BORDER, HUE_CYAN_ICON, HUE_CYAN_TEXT,
+    HUE_GRAY_BG, HUE_GRAY_BORDER, HUE_GRAY_ICON, HUE_GRAY_TEXT, HUE_GREEN_BG, HUE_GREEN_BORDER,
+    HUE_GREEN_ICON, HUE_GREEN_TEXT, HUE_ORANGE_BG, HUE_ORANGE_BORDER, HUE_ORANGE_ICON,
+    HUE_ORANGE_TEXT, HUE_PINK_BG, HUE_PINK_BORDER, HUE_PINK_ICON, HUE_PINK_TEXT, HUE_PURPLE_BG,
+    HUE_PURPLE_BORDER, HUE_PURPLE_ICON, HUE_PURPLE_TEXT, HUE_RED_BG, HUE_RED_BORDER, HUE_RED_ICON,
+    HUE_RED_TEXT, HUE_TEAL_BG, HUE_TEAL_BORDER, HUE_TEAL_ICON, HUE_TEAL_TEXT, HUE_YELLOW_BG,
+    HUE_YELLOW_BORDER, HUE_YELLOW_ICON, HUE_YELLOW_TEXT, ICON_ACCENT, ICON_DISABLED, ICON_PRIMARY,
+    ICON_SECONDARY, INFO, INFO_MUTED, NEUTRAL, ON_ACCENT, ON_DARK, ON_ERROR, ON_ERROR_MUTED,
+    ON_INFO, ON_INFO_MUTED, ON_LIGHT, ON_SUCCESS, ON_SUCCESS_MUTED, ON_WARNING, ON_WARNING_MUTED,
+    OVERLAY_HOVER, OVERLAY_LIGHT_SCRIM, OVERLAY_PRESSED, OVERLAY_SCRIM, SHADOW, SKELETON, SUCCESS,
+    SUCCESS_MUTED, SWITCH_OFF_HOVER, SYNTAX_ADDED, SYNTAX_ADDED_MARKER, SYNTAX_BACKGROUND,
+    SYNTAX_DIFF_HEADER, SYNTAX_REMOVED, SYNTAX_REMOVED_MARKER, TEXT_ACCENT, TEXT_DISABLED,
+    TEXT_ERROR, TEXT_INFO, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_SUCCESS, TEXT_WARNING, TINT_HOVER,
+    TRACK, WARNING, WARNING_MUTED,
 };
-pub use aspect_ratio::aspect_ratio;
-pub use avatar::{AvatarAppearance, AvatarGroupAppearance, avatar_silhouette};
-pub use avatar_options::AvatarSize;
-pub use avatar_status_dot::{AvatarStatus, AvatarStatusDot, avatar_status_dot};
-pub use banner::{BannerAppearance, BannerContainer, banner_icon};
-pub use blockquote::{Blockquote, blockquote, blockquote_text};
-pub use bottom_sheet::{
-    BottomSheet, DialogPurpose, SheetHeight, SnapPoint, bottom_sheet, bottom_sheet_flow,
-};
-pub use breadcrumbs::BreadcrumbsVariant;
-pub use card::{CardAppearance, CardVariant, with_card_insets};
-pub use chat_appearance::{
-    BubbleVariant, ChatAppearance, ChatDensity, ComposerElevation, SystemMessageVariant,
-};
-pub use chat_dictation::{ChatDictationButton, DictationState, chat_dictation_button};
-pub use choice_list::{CheckboxList, checkbox_list, checkbox_list_item, radio_list};
-pub use citation::{Citation, CitationSource, CitationVariant, citation};
-pub use code::{Code, CodeColor, code};
-pub use code_syntax::{CodeLanguage, CodeLanguageInput, TokenKind, code_highlight};
-pub use color::{Colors, DataColors, HueColors, Hues, SyntaxColors};
-pub use color_name::ColorName;
-pub use container_reveal::{
-    RevealContent, RevealForce, RevealVisibility, reveal_container, reveal_content,
-};
-pub use dialog_header::{
-    DialogHeader, DrawerHeader, EdgeCompensation, dialog_header, drawer_header,
-};
-pub use disclosure_appearance::{ChevronPosition, DisclosureDensity, DisclosureVariant};
-pub use divider::{Divider, DividerVariant, divider};
-pub use elevation::Elevation;
-pub use empty_state::EmptyStateVariant;
-pub use feedback::{StatusDot, StatusDotVariant, status_dot};
-pub use field_status::{FieldStatus, FieldStatusVariant, StatusKind, field_status};
-pub use form_layout::{
-    FormDirection, FormLayout, FormLayoutCx, Optionality, form_layout, form_row,
-};
-pub use grid::{
-    GridColumns, GridRepeat, GridSpan, GridSpanItem, LayoutGrid, grid_span, layout_grid,
-};
-pub use hover_card::hover_card_text;
-pub use icon::{IconColor, IconSize, IconView, icon_style, icon_view};
 pub use icons::ICON_NAMES;
-pub use indicator::{Indicator, check_indicator, checkbox_indicator, radio_indicator};
-pub use item_values::{ItemAlign, ItemDensity, ItemLayout, ItemLook, ListEdge, ListLook};
-pub use key_hints::{keyboard_hint, with_key_hints};
-pub use layout::{
-    Layout, LayoutHeight, LayoutInset, LayoutRegion, layout, layout_content, layout_footer,
-    layout_header, layout_panel,
+pub use radius::{
+    RADIUS_CHAT, RADIUS_CONTAINER, RADIUS_ELEMENT, RADIUS_FULL, RADIUS_INNER, RADIUS_NONE,
+    RADIUS_PAGE,
 };
-pub use lightbox::{Lightbox, LightboxHandle, LightboxMedia, lightbox, use_lightbox};
-pub use link::{Link, LinkColor, link, link_with};
-pub use markdown::{ContentAlign, HeadingLinks, Markdown, MarkdownDensity, markdown};
-pub use media_overlay::{MediaOverlay, OverlayPosition, OverlayScrim, ShowOn, media_overlay};
-pub use media_query::{Breakpoint, container_below, is_compact, viewport_below, viewport_from};
-pub use mobile_nav::{
-    AppShellMobile, DrawerSide, MobileNav, MobileNavToggle, mobile_nav, mobile_nav_toggle,
-    use_app_shell_mobile,
-};
-pub use more_menu::{MoreMenu, more_menu};
-pub use nav_heading::{
-    NavHeadingMenu, NavHeadingMenuItem, SideNavHeading, nav_heading_menu, nav_heading_menu_item,
-    side_nav_heading, top_nav_heading,
-};
-pub use nav_icon::nav_icon;
-pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
-pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
-pub use recipes_badge::BadgeVariant;
-pub use recipes_code::{CodeAppearance, CodeBlockContainer, CodeBlockSize, CodeBlockWidth};
-pub use recipes_dropzone::DropzoneVariant;
-pub use recipes_groups::{ButtonGroupVariant, ToolbarVariant};
-pub use recipes_metrics::HeadingDisplay;
-pub use recipes_metrics::{LabelPosition, MetadataColumns, MetadataLook};
-pub use recipes_pagination::{
-    PaginationAppearance, pagination_count, pagination_page_summary, pagination_status,
-};
-pub use recipes_skeleton::SkeletonRadius;
-pub use recipes_table::{TableCellAppearance, TableRowAppearance};
-pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor, rich_text_toolbar, rich_text_view};
-pub use scroll_observer::{
-    AxisScroll, OverflowOptions, ScrollOverflow, ScrollState, use_overflow, use_scroll_overflow,
-    use_scroll_state,
-};
-pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
-pub use section::{Edges, Section, SectionVariant, section};
-pub use segmented_control::{SegmentedLayout, SegmentedLook};
-pub use shadows::Shadows;
-pub use side_navigation::{
-    ItemCollapse, SideNav, SideNavCollapse, SideNavCollapseButton, SideNavItem, SideNavResize,
-    SideNavSection, side_nav, side_nav_collapse_button, side_nav_item, side_nav_section,
-};
-pub use soft_chat_tools::{
-    ChatToken, ChatTokenTone, ChatToolCalls, StreamSpeed, ToolCall, ToolStatus, chat_token,
-    chat_tokenized_text, chat_tool_calls, streaming_text, use_streaming_text,
-};
-pub use soft_overflow::{CollapseFrom, OverflowList, OverflowMeasure, overflow_list};
-pub use soft_table::{
-    RowStatusDot, RowStatusTone, TableSelectionToolbar, table_row_index, table_row_status,
-    table_selection_toolbar,
-};
-pub use soft_tree::TreeLook;
-pub use spinner::{SpinnerShade, SpinnerVariant};
-pub use stack::{
-    CenterAxis, ContainerInset, FlexStack, Space, StackAlign, StackItem, StackItemSize, StackWrap,
-    center, flex_stack, hstack, stack_item, vstack,
-};
-pub use stepper::{StepCollapsedVariant, StepDensity, StepIndicatorPosition, StepperAppearance};
-pub use tab_list::{
-    Tab, TabEntry, TabLayout, TabList, TabMenu, TabMenuOption, TabOverflow, TabPattern, tab,
-    tab_list, tab_menu,
-};
-pub use text::{
-    StyledText, TextColor, TextJustify, TextKind, TextSize, TextWeight, TextWrap, TruncateTooltip,
-    WordBreak, styled_text,
+pub use space::{
+    SPACE_CARD_PADDING, SPACE_DIALOG_PADDING, SPACE_LAYER_VIEWPORT_GUTTER, SPACE_S0, SPACE_S0_5,
+    SPACE_S1, SPACE_S1_5, SPACE_S2, SPACE_S3, SPACE_S4, SPACE_S5, SPACE_S6, SPACE_S7, SPACE_S8,
+    SPACE_S9, SPACE_S10, SPACE_S11, SPACE_S12, SPACE_SECTION_PADDING,
 };
 pub use theme::theme;
-pub use theme_scope::{MediaMode, media_theme, syntax_theme};
-pub use thumbnail::{RemoveReveal, Thumbnail, thumbnail};
-pub use timer::{Timer, TimerFormat, timer};
-pub use timestamp::{
-    InstantFormat, TimeZone, Timestamp, TimestampEntry, TimestampFormat, TimestampValue, timestamp,
-};
-pub use token::{Token, TokenColor, token};
-pub use tokens::{MotionTokens, RadiusTokens, Sizes, SpaceTokens, Tokens, TypeStyle, TypeTokens};
-pub use top_nav::{
-    TopNav, TopNavItem, TopNavMegaMenu, TopNavMegaMenuFeaturedCard, TopNavMegaMenuItem, TopNavMenu,
-    top_nav, top_nav_featured_card, top_nav_item, top_nav_mega_menu, top_nav_mega_menu_item,
-    top_nav_menu, top_nav_menu_item,
-};
-pub use visually_hidden::{VisuallyHidden, visually_hidden};

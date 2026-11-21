@@ -76,24 +76,10 @@ impl EditorMode {
 }
 
 /// Render the supported Markdown blocks and inline marks.
-pub fn rich_text_view(source: impl IntoText) -> impl kivact::view::Element {
+pub(crate) fn rich_text_view(source: impl IntoText) -> impl kivact::view::Element {
     node().child(markdown(source.into_text_value()))
 }
 
-/// A toolbar for switching the Markdown editor between source and preview.
-pub fn rich_text_toolbar(preview: Signal<bool>) -> impl kivact::view::Element {
-    let mode = binding(
-        move || {
-            if preview.get() {
-                EditorMode::Preview
-            } else {
-                EditorMode::Write { composing: false }
-            }
-        },
-        move |mode| preview.set(mode == EditorMode::Preview),
-    );
-    toolbar(mode, None, false)
-}
 
 fn toolbar(
     mode: Signal<EditorMode>,

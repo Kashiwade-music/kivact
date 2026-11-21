@@ -423,25 +423,6 @@ fn token_colors(tone: ChatTokenTone) -> (kivact::style::Color, kivact::style::Co
     }
 }
 
-/// Render a standalone styled chat token label.
-pub fn chat_token(token: ChatToken) -> impl kivact::view::Element {
-    let tone = token.tone;
-    text(token.label).with_node(move |node| {
-        node.base_style(move || {
-            let (fill, ink) = token_colors(tone);
-            style()
-                .height(20)
-                .padding_x(8)
-                .radius(10)
-                .font_size(12)
-                .line_height(20.0 / 12.0)
-                .weight(500)
-                .single_line()
-                .background(fill)
-                .color(ink)
-        })
-    })
-}
 
 fn tokenize(source: &str, tokens: &[ChatToken]) -> Vec<Span> {
     let mut spans = Vec::new();
@@ -472,15 +453,6 @@ fn tokenize(source: &str, tokens: &[ChatToken]) -> Vec<Span> {
     spans
 }
 
-/// Render text with matching source substrings replaced by styled token labels.
-pub fn chat_tokenized_text(
-    source: impl IntoText,
-    tokens: impl IntoValue<Vec<ChatToken>>,
-) -> impl kivact::view::Element {
-    let source = source.into_text_value();
-    let tokens = tokens.into_value();
-    rich_text(move || source.with(|source| tokens.with(|tokens| tokenize(source, tokens))))
-}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 /// Reveal pacing used while streamed text is arriving.
@@ -494,54 +466,7 @@ pub enum StreamSpeed {
     Instant,
 }
 
-/// Reveal a reactive target at the natural pace while streaming is active.
-pub fn use_streaming_text(target: impl IntoText, streaming: impl IntoValue<bool>) -> Value<String> {
-    streaming_text(target, streaming, StreamSpeed::Natural)
-}
 
-/// Reveal a reactive target at the selected pace, respecting reduced motion.
-pub fn streaming_text(
-    target: impl IntoText,
-    streaming: impl IntoValue<bool>,
-    speed: StreamSpeed,
-) -> Value<String> {
-    let target = target.into_text_value();
-    let streaming = streaming.into_value();
-    let stream = machine(
-        StreamSnapshot {
-            source: String::new(),
-            phase: Stream::Idle,
-        },
-        move || StreamInput {
-            target: target.get(),
-            animated: streaming.get()
-                && speed != StreamSpeed::Instant
-                && !kivact::platform::is_motion_reduced().get(),
-            speed,
-        },
-        |_, ()| {},
-    );
-    stream.feed(
-        move || {
-            (
-                target.get(),
-                streaming.get(),
-                kivact::platform::is_motion_reduced().get(),
-            )
-        },
-        |_| StreamEvent::Changed,
-    );
-    stream.send(StreamEvent::Changed);
-    memo(move || {
-        let state = stream.get();
-        match state.phase {
-            Stream::Idle => String::new(),
-            Stream::Revealing { shown } => state.source[..shown].to_owned(),
-            Stream::Done => state.source,
-        }
-    })
-    .into_value()
-}
 
 #[derive(Clone, PartialEq)]
 enum Stream {

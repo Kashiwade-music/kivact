@@ -125,7 +125,7 @@ impl IntoView for IconView {
 }
 
 /// Resolve the Neutral icon size and color against the current theme.
-pub fn icon_style(size: IconSize, color: IconColor) -> Style {
+pub(crate) fn icon_style(size: IconSize, color: IconColor) -> Style {
     let tokens = kivact::style::use_tokens::<crate::Tokens>();
     let s = &tokens.sizes;
     let size = match size {

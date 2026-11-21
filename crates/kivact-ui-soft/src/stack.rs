@@ -288,10 +288,6 @@ pub struct FlexStack {
     vertical: Option<StackAlign>,
 }
 
-/// Create a vertical flex stack with zero gap and padding.
-pub fn flex_stack(children: impl IntoView) -> FlexStack {
-    vstack(children)
-}
 
 /// Create a reading-direction-aware horizontal stack with zero gap and padding.
 pub fn hstack(children: impl IntoView) -> FlexStack {

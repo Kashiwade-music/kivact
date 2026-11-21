@@ -88,21 +88,6 @@ pub fn media_theme(mode: MediaMode, content: impl IntoView) -> View {
     )
 }
 
-/// Replace only the syntax colors of the active Neutral theme.
-///
-/// The supplied palette stays fixed within this subtree while all other theme
-/// values continue to follow the surrounding theme.
-pub fn syntax_theme(colors: SyntaxColors, content: impl IntoView) -> View {
-    provide_theme(
-        memo(move || {
-            let outer = use_theme().get();
-            let mut tokens = (*outer.ext::<Tokens>()).clone();
-            tokens.colors.syntax = colors;
-            outer.with(tokens)
-        }),
-        move || content,
-    )
-}
 
 fn luminance(r: f64, g: f64, b: f64) -> f64 {
     let linear = |channel: f64| {

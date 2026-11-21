@@ -174,19 +174,6 @@ pub struct GridSpanItem {
     root: Node,
 }
 
-/// Wrap content in one flexible inner column, ready for grid placement.
-pub fn grid_span(children: impl IntoView) -> GridSpanItem {
-    GridSpanItem {
-        root: native_grid(children).with_node(move |node| {
-            node.base_style(
-                style()
-                    .min_width(0)
-                    .height(pct(100))
-                    .grid_template_columns(Track::minmax(0, Track::fr(1))),
-            )
-        }),
-    }
-}
 
 impl GridSpanItem {
     /// Set a fixed column span or cover all explicit columns.
