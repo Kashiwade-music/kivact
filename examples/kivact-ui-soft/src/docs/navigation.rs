@@ -32,9 +32,9 @@ fn example_app_shell() -> Node {
         "Application frame",
         app_shell(text("Project notes"))
             .top_nav(|| top_nav().heading(kivact::custom::scope(|| top_nav_heading("Workspace"))))
-            .side_nav(|| side_nav(side_nav_item("Documents")))
+            .sidebar(|| side_nav(side_nav_item("Documents")))
             .style(style().width(520).height(216)),
-        "app_shell(content).top_nav(top_navigation).side_nav(side_navigation)",
+        "app_shell(content).top_nav(top_navigation).sidebar(sidebar_navigation)",
     )
 }
 

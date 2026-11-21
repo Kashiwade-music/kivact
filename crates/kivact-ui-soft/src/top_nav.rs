@@ -352,9 +352,7 @@ fn menu_chevron(open: Value<bool>) -> Node {
 }
 
 fn drawer_menu_item(item: &NavHeadingMenuItem) -> View {
-    // STOP (K42): the central `sidebar_menu_button` has no `disabled`, so `item.disabled` is not
-    // applied to the drawer row. Waiting for the designer's decision.
-    let mut row = sidebar_menu_button(item.label);
+    let mut row = sidebar_menu_button(item.label).disabled(item.disabled);
     if let Some(icon) = &item.icon {
         row = row.icon(icon.call(()));
     }
