@@ -14,6 +14,7 @@ mod avatar_status_dot;
 mod banner;
 mod blockquote;
 mod card;
+mod choice_list;
 mod citation;
 mod code;
 mod color;
@@ -81,6 +82,7 @@ pub use avatar_status_dot::{AvatarStatus, avatar_status_dot};
 pub use banner::{BannerIcon, banner_icon};
 pub use blockquote::{Blockquote, BlockquoteText, blockquote, blockquote_text};
 pub use card::with_card_insets;
+pub use choice_list::{CheckboxList, checkbox_list, checkbox_list_item, radio_list};
 pub use citation::{Citation, CitationSource, CitationVariant, citation};
 pub use code::{Code, CodeColor, code};
 pub use color::{
