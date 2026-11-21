@@ -129,13 +129,7 @@ impl Shape {
         DialogState {
             input: state.input,
             open: state.open,
-            // STOP U30a: DialogState.kind is a DialogMode, which has no popover
-            kind: match self.kind {
-                DialogKind::Modal => DialogMode::Modal,
-                DialogKind::AlertModal => DialogMode::AlertModal,
-                DialogKind::Drawer(edge) => DialogMode::Drawer(edge),
-                DialogKind::Popover => DialogMode::Popover,
-            },
+            kind: self.kind,
             media: self.media,
         }
     }
