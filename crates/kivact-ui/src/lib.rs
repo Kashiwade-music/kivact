@@ -340,7 +340,7 @@ mod sidebar;
 pub use sidebar::{
     Sidebar, SidebarCollapsible, SidebarFrame, SidebarGroup, SidebarInput, SidebarMenu,
     SidebarMenuButton, SidebarMenuButtonSize, SidebarMenuSkeleton, SidebarMenuSubButton,
-    SidebarProvider, SidebarSeparator, SidebarSide, SidebarTrigger, sidebar, sidebar_group,
-    sidebar_input, sidebar_menu, sidebar_menu_button, sidebar_menu_skeleton,
+    SidebarProvider, SidebarResize, SidebarSeparator, SidebarSide, SidebarTrigger, sidebar,
+    sidebar_group, sidebar_input, sidebar_menu, sidebar_menu_button, sidebar_menu_skeleton,
     sidebar_menu_sub_button, sidebar_provider, sidebar_separator, sidebar_trigger,
 };

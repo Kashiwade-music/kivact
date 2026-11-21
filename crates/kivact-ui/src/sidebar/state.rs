@@ -9,6 +9,19 @@ use kivact_core::state::{Signal, Value, memo, signal, try_use_context};
 use kivact_core::view::Variant;
 use kivact_macros::Prop;
 
+/// The width of a resizable sidebar: its inner edge drags it between `min` and `max`.
+///
+/// `width` is the application's state, so it can persist the width.
+#[derive(Clone, Copy, Debug)]
+pub struct SidebarResize {
+    /// The width in px. Kept between `min` and `max` while the sidebar is open.
+    pub width: Signal<f64>,
+    /// The narrowest width.
+    pub min: f64,
+    /// The widest width.
+    pub max: f64,
+}
+
 /// The side of the window a sidebar sits on.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum SidebarSide {
@@ -87,6 +100,12 @@ pub(crate) struct SidebarCx {
     pub(crate) collapsible: SidebarCollapsible,
 }
 
+/// The resize setting of the provider above the current owner: `None` unless it is resizable.
+///
+/// It is its own context, so [`SidebarCx`] keeps the open state alone.
+#[derive(Clone, Copy)]
+pub(crate) struct SidebarResizeCx(pub(crate) Option<SidebarResize>);
+
 impl SidebarCx {
     /// An open sidebar with the defaults, for a sidebar outside a provider.
     pub(crate) fn standalone() -> Self {
@@ -125,6 +144,11 @@ impl SidebarCx {
 /// The sidebar state of the provider above the current owner.
 pub(crate) fn current() -> Option<SidebarCx> {
     try_use_context::<SidebarCx>()
+}
+
+/// The resize setting of the provider above the current owner.
+pub(crate) fn current_resize() -> Option<SidebarResize> {
+    try_use_context::<SidebarResizeCx>().and_then(|cx| cx.0)
 }
 
 /// The state the parts read: the provider's, or an expanded sidebar's outside one.

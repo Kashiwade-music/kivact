@@ -32,6 +32,8 @@ pub struct SidebarItemState {
     pub rtl: bool,
     /// The row's height.
     pub size: SidebarMenuButtonSize,
+    /// Whether the row's sub list is open, or `None` when the row has no toggle.
+    pub expanded: Option<bool>,
 }
 
 recipe_table! {
@@ -55,10 +57,14 @@ recipe_table! {
         inset(inset_recipe): SidebarState = recipes::inset,
         /// The button that toggles the sidebar.
         trigger(trigger_recipe): SidebarState = recipes::trigger,
+        /// The strip on the inner edge that drags a resizable sidebar's width.
+        resize_handle(resize_handle_recipe): SidebarState = recipes::resize_handle,
         /// A labelled group of the sidebar.
         group(group_recipe): SidebarState = recipes::group,
         /// The label row of a group.
         group_label(group_label_recipe): SidebarState = recipes::group_label,
+        /// The line under a group's label.
+        group_description(group_description_recipe): SidebarState = recipes::group_description,
         /// The action at the end of a group's label row.
         group_action(group_action_recipe): SidebarState = recipes::group_action,
         /// The body of a group.
@@ -77,6 +83,10 @@ recipe_table! {
         menu_button(menu_button_recipe): SidebarItemState = recipes::menu_button,
         /// The label of a menu row.
         menu_button_label(menu_button_label_recipe): SidebarItemState = recipes::menu_button_label,
+        /// The element at the end of a menu row, before its badge.
+        menu_button_end(menu_button_end_recipe): SidebarItemState = recipes::menu_button_end,
+        /// The chevron of a menu row with a sub list: down while the list is open.
+        menu_button_chevron(menu_button_chevron_recipe): SidebarItemState = recipes::menu_button_chevron,
         /// The count at the end of a menu row.
         menu_badge(menu_badge_recipe): SidebarItemState = recipes::menu_badge,
         /// The label shown beside an icon-only menu row.

@@ -10,6 +10,7 @@ pub mod vars;
 mod menu;
 mod panel;
 mod recipes;
+mod resize;
 mod state;
 mod trigger;
 
@@ -19,5 +20,7 @@ pub use menu::{
     sidebar_menu_button, sidebar_menu_skeleton, sidebar_menu_sub_button, sidebar_separator,
 };
 pub use panel::{Sidebar, SidebarProvider, sidebar, sidebar_provider};
-pub use state::{SidebarCollapsible, SidebarFrame, SidebarMenuButtonSize, SidebarSide};
+pub use state::{
+    SidebarCollapsible, SidebarFrame, SidebarMenuButtonSize, SidebarResize, SidebarSide,
+};
 pub use trigger::{SidebarTrigger, sidebar_trigger};

@@ -3,7 +3,11 @@
 use super::look::{SidebarState, SidebarTheme};
 use super::menu::pressable;
 use super::recipes::themed;
-use super::state::{SidebarCollapsible, SidebarCx, SidebarFrame, SidebarSide, current};
+use super::resize::{open_width, resize_handle};
+use super::state::{
+    SidebarCollapsible, SidebarCx, SidebarFrame, SidebarResize, SidebarResizeCx, SidebarSide,
+    current, current_resize,
+};
 use super::vars;
 use kivact_core::geometry::Rect;
 use kivact_core::i18n::message;
@@ -44,9 +48,15 @@ pub fn sidebar(
         move || rail.get() && collapsible != SidebarCollapsible::None,
         move || rail_node(cx, state),
     );
-    themed(node(), |r: &SidebarTheme| r.sidebar_recipe(), state)
-        .child(inner)
+    let resize = current_resize();
+    let root = themed(node(), |r: &SidebarTheme| r.sidebar_recipe(), state);
+    let root = match resize {
+        Some(resize) => root.style(move || open_width(cx, resize)),
+        None => root,
+    };
+    root.child(inner)
         .child(rail_view)
+        .child(resize.map(|resize| resize_handle(cx, resize, state)))
 }
 
 /// The strip on the inner edge: a click toggles the sidebar, and a hover shows a thin line.
@@ -118,6 +128,7 @@ pub fn sidebar_provider(
     #[prop(default = SidebarSide::Left)] side: SidebarSide,
     #[prop(default = SidebarFrame::Sidebar)] frame: SidebarFrame,
     #[prop(default = SidebarCollapsible::Offcanvas)] collapsible: SidebarCollapsible,
+    resize: Option<SidebarResize>,
 ) -> impl Element {
     let cx = SidebarCx {
         open,
@@ -127,11 +138,13 @@ pub fn sidebar_provider(
     };
     let state = memo(move || cx.state());
     let body = provide(cx, move || {
-        let page = inset(state, page).into_view();
-        match side {
-            SidebarSide::Left => (sidebar, page),
-            SidebarSide::Right => (page, sidebar),
-        }
+        provide(SidebarResizeCx(resize), move || {
+            let page = inset(state, page).into_view();
+            match side {
+                SidebarSide::Left => (sidebar, page),
+                SidebarSide::Right => (page, sidebar),
+            }
+        })
     });
     themed(row(body), |r: &SidebarTheme| r.root_recipe(), state).on_key(move |event| {
         let m = event.modifiers();

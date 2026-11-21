@@ -130,6 +130,23 @@ pub(super) fn rail(_theme: &Theme, state: &Look<SidebarState>) -> Style {
     }
 }
 
+/// The handle on the inner edge of a resizable sidebar: 4 px wide, with the border color while hovered.
+pub(super) fn resize_handle(_theme: &Theme, state: &Look<SidebarState>) -> Style {
+    let s = style()
+        .position(Position::Absolute)
+        .top(0)
+        .bottom(0)
+        .width(4)
+        .z_index(20)
+        .cursor(Cursor::EwResize)
+        .hover(style().background(vars::BORDER))
+        .focus_visible(style().outline(2, vars::RING));
+    match state.side {
+        SidebarSide::Left => s.right(0),
+        SidebarSide::Right => s.left(0),
+    }
+}
+
 /// The page beside an inset sidebar: a card that keeps its gap to the sidebar.
 pub(super) fn inset(theme: &Theme, state: &Look<SidebarState>) -> Style {
     let s = style()
@@ -184,6 +201,16 @@ pub(super) fn group_label(theme: &Theme, _state: &Look<SidebarState>) -> Style {
         .border_radius(vars::ITEM_RADIUS)
         .font_size(theme.get(&font::SIZE_SMALL_VAR))
         .color(vars::FOREGROUND.with_alpha(0.7))
+}
+
+/// A group's description: one line of small, muted text under the label.
+pub(super) fn group_description(theme: &Theme, _state: &Look<SidebarState>) -> Style {
+    style()
+        .flex_shrink(0)
+        .padding_x(theme.get(&space::MD_VAR))
+        .font_size(theme.get(&font::SIZE_SMALL_VAR))
+        .color(color::TEXT_MUTED)
+        .single_line()
 }
 
 /// A group's action, a 20 px square at the end of the label row.
@@ -311,6 +338,24 @@ pub(super) fn menu_button_label(_theme: &Theme, state: &Look<SidebarItemState>) 
         })
         .flex_grow(1)
         .min_width(0)
+}
+
+/// The element at the end of a menu row, before its badge: a centered row.
+pub(super) fn menu_button_end(_theme: &Theme, _state: &Look<SidebarItemState>) -> Style {
+    style()
+        .flex_shrink(0)
+        .flex_direction(FlexDirection::Row)
+        .align_items(Align::Center)
+}
+
+/// The chevron of a menu row with a sub list: a 16 px square.
+pub(super) fn menu_button_chevron(_theme: &Theme, _state: &Look<SidebarItemState>) -> Style {
+    style()
+        .flex_shrink(0)
+        .size(16, 16)
+        .flex_direction(FlexDirection::Row)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center)
 }
 
 /// The count at the end of a menu row: a 20 px pill, tabular.
