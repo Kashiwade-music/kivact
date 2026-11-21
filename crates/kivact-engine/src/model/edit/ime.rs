@@ -29,7 +29,6 @@ impl Model {
             let selected = selection.map(|(a, b)| a.min(b)..a.max(b));
             self.compose_text(None, text, selected);
         }
-        self.sync();
     }
 
     /// Text the IME committed.
@@ -38,7 +37,6 @@ impl Model {
             return;
         }
         self.insert_text(text);
-        self.sync();
     }
 
     /// The IME ended its session: the composition is gone.

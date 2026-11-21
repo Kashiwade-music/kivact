@@ -675,7 +675,8 @@ impl Model {
             self.forget_presence(gone);
             self.presence.sizes.remove(&gone);
         }
-        for gone in self.remove_slots(id) {
+        let gone = self.remove_slots(id);
+        for gone in gone.iter().copied() {
             if notify.contains(&gone) {
                 self.push(HostEvent::ExitComplete { node: gone });
             }
@@ -686,6 +687,11 @@ impl Model {
             self.paint.forget_fact(gone);
             self.forget_sources(gone);
         }
+        let gone: std::collections::HashSet<NodeId> = gone.into_iter().collect();
+        self.paint.forget_missing(|x| !gone.contains(&x));
+        self.assets
+            .borrow_mut()
+            .prune_reports(|x| !gone.contains(&x));
         self.focus.forget_missing(&self.tree);
         self.clear_removed_hits();
         self.pointer.forget_missing(&self.tree);

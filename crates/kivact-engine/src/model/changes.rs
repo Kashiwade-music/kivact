@@ -185,6 +185,17 @@ impl Changes {
         }
     }
 
+    /// Whether nothing is pending: no node is marked, no layout, paint,
+    /// restack or font work waits and no box moved.
+    pub(crate) fn is_clean(&self) -> bool {
+        self.dirty.is_empty()
+            && self.geometry == Geometry::Kept
+            && self.layout.bits() == 0
+            && !self.paint
+            && !self.restack
+            && !self.fonts
+    }
+
     /// Record `bits` for `id`.
     pub(super) fn mark(&mut self, id: NodeId, bits: Dirty) {
         self.dirty.entry(id).or_default().insert(bits);

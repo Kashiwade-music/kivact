@@ -196,6 +196,10 @@ impl Model {
 
     /// Dispatch pending writes and input changes into derived work once.
     pub(crate) fn sync(&mut self) {
+        // Nothing to dispatch: a sync after another, or an input that changed nothing.
+        if self.changes.is_clean() && !self.tree.child_orders_pending() {
+            return;
+        }
         let reasons = self.changes.layout.bits();
         self.retarget_frame();
         self.finish_entrances();
@@ -221,11 +225,6 @@ impl Model {
         {
             self.layout.topology_changed();
         }
-        let tree = &self.tree;
-        self.paint.forget_missing(|id| tree.contains(id));
-        self.assets
-            .borrow_mut()
-            .prune_reports(|id| tree.contains(id));
         if self.changes.fonts {
             self.remeasure_for_fonts();
         }
@@ -334,7 +333,6 @@ impl Model {
     pub(crate) fn settle(&mut self, engine: &mut arvane_text::TextEngine) -> Settled {
         self.sync();
         let settled = if self.needs_layout() {
-            #[cfg(debug_assertions)]
             let remeasured: Vec<NodeId> = self.changes.marked(Dirty::MEASURE).collect();
             self.layout(engine);
             let pending = self.assets.borrow_mut().take_pending();
@@ -348,9 +346,12 @@ impl Model {
             #[cfg(debug_assertions)]
             self.lint_layout(engine, self.changes.was_laid_out(), &remeasured);
             self.sync();
-            // In-memory sources may finish decoding during layout without a
-            // later store poll. Publish the same actual asset projection now.
-            let images: Vec<NodeId> = self.tree.images.iter().copied().collect();
+            // Images measured in this pass may have finished decoding during it.
+            let images: Vec<NodeId> = remeasured
+                .iter()
+                .copied()
+                .filter(|id| self.tree.images.contains(id))
+                .collect();
             self.report_images(&images);
             Settled::Updated
         } else {
@@ -371,6 +372,7 @@ impl Model {
             return;
         }
         let images: Vec<NodeId> = self.tree.images.iter().copied().collect();
+        let mut resized = Vec::new();
         if changed {
             for id in &images {
                 let node = self.tree.get(*id);
@@ -380,13 +382,18 @@ impl Model {
                     self.remeasure(*id);
                     self.changes.mark(*id, Dirty::REDRAW);
                     self.a11y.payload(*id);
+                    resized.push(*id);
                 }
             }
             self.changes.restack = true;
             self.changes.paint = true;
         }
         self.sync();
-        self.report_images(&images);
+        if failed {
+            self.report_images(&images);
+        } else {
+            self.report_images(&resized);
+        }
     }
 
     /// Report the loading status of the `Image` nodes among `nodes` when it

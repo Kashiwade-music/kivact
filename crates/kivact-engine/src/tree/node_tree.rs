@@ -548,6 +548,11 @@ impl NodeTree {
         }
     }
 
+    /// Whether a sibling order waits for `pack_child_orders`.
+    pub(crate) fn child_orders_pending(&self) -> bool {
+        !self.pending_child_order.is_empty()
+    }
+
     /// Remove one node at a time, preparing its upper payload before slot reuse.
     /// The callback returns an opaque payload destroyed after this node's index
     /// cleanup and before the next descendant, matching structural removal order.
