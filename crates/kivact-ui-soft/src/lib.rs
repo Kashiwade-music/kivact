@@ -33,6 +33,7 @@ mod layout;
 mod link;
 mod media_query;
 mod metrics;
+mod more_menu;
 mod motion;
 mod radius;
 mod recipe_parts;
@@ -139,6 +140,7 @@ pub use layout::{
 };
 pub use link::{Link, LinkColor, link};
 pub use media_query::Breakpoint;
+pub use more_menu::{MoreMenu, more_menu};
 pub use radius::{
     RADIUS_CHAT, RADIUS_CONTAINER, RADIUS_ELEMENT, RADIUS_FULL, RADIUS_INNER, RADIUS_NONE,
     RADIUS_PAGE,
