@@ -244,7 +244,7 @@ impl Child {
     }
 }
 
-// xtask-allow(state): legacy: child, keys, resize, answers; injected_input normalizes DevTools input apart from the platform's input and pairs with no other field
+// xtask-allow(state): independent: the child lifecycle, the key verdict ledger (keys), the one pending resize (resize) and the deferred-answer mailbox (answers) each have their own writer; resize::settle moves a request from resize to answers in one call; injected_input normalizes DevTools input apart from the platform's input and pairs with no other field
 pub(in crate::port) struct Session {
     child: RefCell<Child>,
     shared: Arc<Shared>,

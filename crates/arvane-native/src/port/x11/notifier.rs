@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use std::thread::JoinHandle;
 /// Largest physical dimension an X11 window accepts (16-bit extents).
 pub(super) const MAX_DIMENSION: u32 = u16::MAX as u32;
-// xtask-allow(state): legacy: reasons, thread; bits OR-ed in by `request` on any thread and swapped to zero by `take` on the UI thread; a request in any UiThread state only sets
+// xtask-allow(state): independent: reasons is the wake mailbox OR-ed in by request on any thread and swapped out by take on the UI thread; thread is the UI thread lifecycle enum written by spawn and join; a request is valid in every thread state
 pub(super) struct Notifier {
     pub(super) wake: OwnedFd,
     pub(super) reasons: AtomicU8,

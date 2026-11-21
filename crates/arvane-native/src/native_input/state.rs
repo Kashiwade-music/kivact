@@ -9,7 +9,7 @@ use kivact_types::cell::LocalMailbox;
 
 use kivact_types::{Environment, PointerSettings};
 
-// xtask-allow(state): legacy: ime, text, scale, subclass_installed, reduced_motion, mouse, locale, contacts; written only by the IME port's `surrounding` when the application
+// xtask-allow(state): record: per-window facts the subclass shares with the runner, one writer each: ime and text by the IME port, scale by the scale-change paths, reduced_motion, mouse and locale by the settings and focus messages, subclass_installed by the subclass install and remove, contacts by the pointer messages
 /// What the window's subclass shares with the window and the runner.
 pub(crate) struct NativeInput {
     pub(crate) ime: RefCell<arvane_shell::pipeline::ImeDriver>,

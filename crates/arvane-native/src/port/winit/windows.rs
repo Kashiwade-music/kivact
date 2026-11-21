@@ -19,7 +19,7 @@ pub(super) struct NativeWindow {
     pub(super) modal_parent: Option<WindowId>,
 }
 
-// xtask-allow(state): legacy: placement, foreign; filled when the handler opens a window during a callback and emptied by the runner once it returns; placement is fixed when the
+// xtask-allow(state): independent: placement is the platform capability fixed by WindowTable::new; foreign is the loop's foreign-child connections, written only through foreign_connections_mut while a window opens
 /// The open windows of one running loop.
 pub(super) struct WindowTable {
     by_id: BTreeMap<WindowId, NativeWindow>,

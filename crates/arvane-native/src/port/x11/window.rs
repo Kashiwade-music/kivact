@@ -25,7 +25,7 @@ pub(super) enum ChildRedraw {
     Needed,
 }
 
-// xtask-allow(state): legacy: redraw, ime, ime_driver
+// xtask-allow(state): independent: redraw is the dirty bit set by Expose, resize and visibility and cleared by the present; ime is the XIM port and ime_driver the shell IME normalizer that drives it; neither stores the other's facts
 pub(super) struct Window {
     pub(super) shared: Arc<Shared>,
     pub(super) backend: Arc<Notifier>,

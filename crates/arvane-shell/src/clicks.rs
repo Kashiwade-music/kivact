@@ -34,7 +34,7 @@ struct Tap {
     count: u8,
 }
 
-// xtask-allow(state): legacy: last, tap; written only by a mouse `Down`, while tap is written only by a touch or pen `Down`; a window may see either device first or only one of
+// xtask-allow(state): independent: last is written only by a mouse Down and tap only by a touch or pen Down; a window may see either device first or only one of them
 /// Counts the presses of the pointer events a window delivers.
 #[derive(Clone, Debug, Default)]
 pub struct ClickCounter {

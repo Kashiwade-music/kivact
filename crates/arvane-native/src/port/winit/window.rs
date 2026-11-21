@@ -32,7 +32,7 @@ pub(super) enum Surface {
     },
 }
 
-// xtask-allow(state): legacy: foreign, subclass, monitor; present exactly for windows opened with WindowContent::Foreign; dropped before the winit window so the child goes first
+// xtask-allow(state): independent: foreign and subclass are set once by open (foreign content, the Windows subclass install) and only dropped; monitor is the last-seen monitor, written only by the move and scale-change handler
 /// Native window and CPU surface; deliberately !Send and !Sync through Rc.
 pub struct WinitWindow {
     /// The child window that fills a foreign window's content area.

@@ -89,7 +89,7 @@ impl Uia {
     }
 }
 
-// xtask-allow(state): legacy: surface, events, original_proc, cursor, decoder, mouse, modifiers, clicks, environment, scale_source, cpu, services, uia
+// xtask-allow(state): record: separate facts of the embedded child, one writer each: events (the queue), original_proc (the subclass), cursor, decoder, mouse, modifiers and clicks (input messages), environment (the last announced, compared on change), scale_source (set_scale), cpu, services and uia (released once by dispose)
 pub(super) struct State {
     pub(super) shared: Arc<Shared>,
     pub(super) native: Arc<Native>,

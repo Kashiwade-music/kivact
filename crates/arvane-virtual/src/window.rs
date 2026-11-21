@@ -117,7 +117,7 @@ pub(crate) enum Display {
     Mirrored(Box<dyn Mirror>),
 }
 
-// xtask-allow(state): legacy: saved_state, responders, clipboard, dialogs, opened, revealed, next_foreign_child, fail_next; allocates native child ids; no other field derives from
+// xtask-allow(state): record: scripted service records, one writer each: saved_state (the SaveState script item), responders (Script::respond), clipboard, dialogs, opened and revealed (service requests), next_foreign_child (the native child id allocator), fail_next (FailEffect, taken by the next effect)
 /// The state of the whole virtual loop: the services every window shares.
 pub(crate) struct VirtualPlatform {
     /// Saved application bytes, shared with the script that supplies them.
@@ -141,7 +141,7 @@ pub(crate) struct VirtualPlatform {
     pub(crate) fail_next: RefCell<Option<ShellError>>,
 }
 
-// xtask-allow(state): legacy: env, redraw, title, min_size, ime_purpose, ime, ime_text, cursor, soft_keyboard_shown, soft_keyboard_requests, foreign_child, resizable, gpu, occluded, focus_requests, unhandled_keys; the script's redraw request is recorded separately; every combination is a valid script state
+// xtask-allow(state): record: what the app last asked of one scripted window, one ShellWindow setter per field (title, min_size, ime_purpose, ime, ime_text, cursor, soft_keyboard_shown, foreign_child, resizable); env and occluded are written by script items; redraw is the undelivered request; soft_keyboard_requests and focus_requests are statistics
 /// One virtual window: the state of a single window of the loop.
 pub(crate) struct VirtualWindow {
     /// The loop state this window's requests go to.

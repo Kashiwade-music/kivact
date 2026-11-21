@@ -20,7 +20,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
-// xtask-allow(state): legacy: windows, input
+// xtask-allow(state): record: windows is the open-window table and input the scripted input queue and clock; two tables shared by Rc with Running, Probe and WindowProbe
 /// Backend whose input and clock are advanced explicitly.
 pub struct VirtualBackend {
     options: VirtualOptions,
@@ -181,7 +181,7 @@ enum State {
     Exited,
     Failed(ShellError),
 }
-// xtask-allow(state): legacy: windows, input
+// xtask-allow(state): record: windows and input are the backend's open-window table and scripted input queue, shared by Rc; the loop's own phase is the State enum
 /// The running loop: the handler, the shared window table and the input queue.
 struct Running {
     options: VirtualOptions,
@@ -523,7 +523,7 @@ fn theme_hint(dark: bool) -> ThemeMode {
 fn surface_event(window: &mut VirtualWindow, live: bool) -> Option<ShellEvent> {
     window.surface.apply(live)
 }
-// xtask-allow(state): legacy: windows, input
+// xtask-allow(state): record: windows and input are read aliases of the backend's two tables; the probe writes only the logs the test reads
 /// Cloneable read-only observations. Values never borrow backend state.
 #[derive(Clone)]
 pub struct Probe {
@@ -575,7 +575,7 @@ impl Probe {
         self.platform.revealed.borrow().clone()
     }
 }
-// xtask-allow(state): legacy: windows, input
+// xtask-allow(state): record: windows and input are read aliases of the backend's two tables, narrowed to one window id
 /// Cloneable read-only observations of one virtual window.
 #[derive(Clone)]
 pub struct WindowProbe {
