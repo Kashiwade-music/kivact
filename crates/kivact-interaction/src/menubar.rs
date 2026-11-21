@@ -62,7 +62,7 @@ impl<K: kivact_core::state::ItemKey> Clone for MenubarApi<K> {
 }
 impl<K: kivact_core::state::ItemKey> Copy for MenubarApi<K> {}
 
-// xtask-allow(state): legacy: focus, menus; the trigger list's selection, written by use_list as the arrows and activation move along the bar; menus is fixed at setup, so any
+// xtask-allow(state): independent: focus is the trigger list's selection, written only through use_list's binding; menus holds the menus given at setup and nothing writes it afterwards
 /// A menu bar over the triggers titled `titles` that open `menus`, in order.
 /// The number of menus is read once, when the bar is built; the titles follow
 /// the value. Setup only.

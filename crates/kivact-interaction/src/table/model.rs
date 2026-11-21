@@ -297,7 +297,7 @@ impl<R: 'static, K: 'static, C: 'static> Clone for DataTableModelApi<R, K, C> {
 
 impl<R: 'static, K: 'static, C: 'static> Copy for DataTableModelApi<R, K, C> {}
 
-// xtask-allow(state): legacy: sort, query, column_queries, arrangement, typed_queries, paging; the sort order a setter supplies; absent keeps the caller's order
+// xtask-allow(state): independent: six optional model settings, each set only by its own by-value builder (multi_sort or sort, filter, column_filters, arrange_rows, typed_column_filters, page); None skips that stage of ordered_rows, so every combination is valid
 /// Create a row model over `rows`, identified by `key`, with `columns` in
 /// display order. Without [`sort`](DataTableModelApi::sort),
 /// [`filter`](DataTableModelApi::filter) and [`page`](DataTableModelApi::page) it shows

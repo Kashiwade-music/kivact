@@ -18,7 +18,7 @@ pub(super) trait TrackSlot {
     fn publish(&self, value: &[f64]);
 }
 
-// xtask-allow(state): legacy: value, last
+// xtask-allow(state): cache: last holds the components that publish last wrote into value (set from the initial value by Timeline::track), written only by TrackSlot::publish so an unchanged frame skips the signal write
 pub(super) struct TrackState<T: Animatable> {
     pub(super) value: Signal<T>,
     pub(super) initial: Vec<f64>,

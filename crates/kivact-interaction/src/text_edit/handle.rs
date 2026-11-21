@@ -487,7 +487,7 @@ struct TextEditOptions {
     composition: Option<Callback<bool>>,
 }
 
-// xtask-allow(state): legacy: next_control_id; the counter that gives each attached control its generation
+// xtask-allow(state): identity: next_control_id allocates the id of each mounted control (TextEditApi::control)
 struct Data {
     binding: Signal<String>,
     lines: Lines,

@@ -31,7 +31,7 @@ pub(crate) enum Workers {
     Closed,
 }
 
-// xtask-allow(state): legacy: workers, fallbacks, outstanding; the submitted blocking jobs not yet finished; only TaskState::stats reads it, for DevTools and the test driver's
+// xtask-allow(state): independent: workers is the worker-thread lifecycle (new, take_panic, shutdown); fallbacks holds the threads submit starts when no worker takes a job; outstanding is a statistic of submitted unfinished jobs, read only by the task stats
 /// Fixed pool of worker threads (default `min(4, CPUs)`).
 pub(crate) struct Pool {
     workers: Mutex<Workers>,

@@ -19,7 +19,7 @@ enum Latest {
     },
 }
 
-// xtask-allow(state): legacy: current, generation
+// xtask-allow(state): identity: generation only allocates run ids (start) and keeps counting across Idle so a stale run's id never matches; current is the only phase, Idle or Running with the task and the id start gave it, written by start, cancel and end
 /// At most one run in flight; starting one cancels the previous one, and a run publishes only
 /// while it is still the current one (a `start` or `cancel` during its last poll stops it too).
 pub(crate) struct LatestRun {
