@@ -39,10 +39,11 @@
 
 use crate::env::RendererStart;
 use crate::presentation::{GpuStartCause, Notes, RendererChange};
-use arvane_compose::{GpuContext, GpuEnv, GpuSurface, Presentation};
+use arvane_compose::{GpuContext, GpuDevice, GpuEnv, GpuSurface, Presentation};
 use arvane_protocol::{Composition, CpuFrame, FrameReport};
 use arvane_render::RenderError;
 use arvane_shell::ShellWaker;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
@@ -66,9 +67,9 @@ pub(crate) type MakeSurface<'a> =
     &'a dyn Fn(&GpuContext, &mut dyn arvane_shell::ShellWindow) -> Result<GpuSurface, RenderError>;
 
 /// A device and how long the worker took to create it.
-type Started = Result<(Box<GpuContext>, Duration), RenderError>;
-/// A device, the window's configured surface, and how long configuring took.
-type Configured = (Box<GpuContext>, Result<(GpuSurface, Duration), RenderError>);
+type Started = Result<(GpuDevice, Duration), RenderError>;
+/// The window's configured surface, and how long configuring took.
+type Configured = Result<(GpuSurface, Duration), RenderError>;
 
 /// A worker thread not joined yet, and the channel of its one result.
 struct Running<T> {
@@ -238,11 +239,13 @@ enum Step {
         context: Box<GpuContext>,
         init: Duration,
     },
-    /// A worker configures the swapchain for the current or destroyed surface.
+    /// A worker configures the swapchain for the current or destroyed surface;
+    /// the context waits here (the worker has only the configurer).
     Configuring {
         worker: Worker<Configured>,
         init: Duration,
         surface: ConfigureTarget,
+        context: Box<GpuContext>,
     },
     /// Frames go to the GPU.
     Ready(Device),
@@ -480,27 +483,14 @@ impl Gpu {
                 worker,
                 init,
                 surface,
-            } => match worker.poll() {
-                Polled::Working(worker) => Step::Configuring {
-                    worker,
-                    init,
-                    surface,
-                },
-                // The platform destroyed the window's surface meanwhile:
-                // whatever configuring did, the window's next frame makes a
-                // new one (a device failure stays recorded in the context
-                // and fails that frame).
-                Polled::Sent((context, _)) if surface == ConfigureTarget::Destroyed => {
-                    Step::Waiting { context, init }
+                context,
+            } => match poll_configuring(worker, init, surface, context, notes) {
+                Ok(step) => step,
+                Err(ConfigureFailure::Stopped) => {
+                    self.state = cpu_session(notes, "GPU surface configuration stopped");
+                    return;
                 }
-                Polled::Sent((context, Ok((surface, configure)))) => {
-                    notes.note(ready_note(&context, init, Some(configure)));
-                    Step::Ready(Device {
-                        surface: DeviceSurface::Live(Box::new(surface)),
-                        context,
-                    })
-                }
-                Polled::Sent((context, Err(error))) => {
+                Err(ConfigureFailure::Failed { context, error }) => {
                     let note = ready_note(&context, init, None);
                     self.state = State::Background(Background {
                         wake,
@@ -508,10 +498,6 @@ impl Gpu {
                         step: Step::Ready(Device::new(context)),
                     });
                     self.unconfigured(&error, note, notes);
-                    return;
-                }
-                Polled::Stopped => {
-                    self.state = cpu_session(notes, "GPU surface configuration stopped");
                     return;
                 }
             },
@@ -645,7 +631,7 @@ impl Gpu {
     /// The adapter of the device drawing the window's frames, when it can
     /// import shared textures.
     pub(crate) fn adapter(&self) -> Option<kivact_types::GpuAdapter> {
-        self.device()?.context.interop_adapter()
+        self.device()?.context.device().interop_adapter()
     }
 
     /// The context of the device drawing the window's frames, when ready.
@@ -683,7 +669,7 @@ fn window_surface<'a>(
 fn start_device(env: GpuEnv, wake: &Wake) -> Option<Worker<Started>> {
     Worker::spawn("arvane-gpu-init", Arc::clone(wake), move || {
         let since = Instant::now();
-        GpuContext::new(&env).map(|context| (Box::new(context), since.elapsed()))
+        GpuDevice::new(&env).map(|device| (device, since.elapsed()))
     })
 }
 
@@ -696,16 +682,17 @@ fn configure(
     mut surface: GpuSurface,
     (width, height): (u32, u32),
 ) -> Option<Step> {
+    let configurer = context.device().configurer();
     let worker = Worker::spawn("arvane-gpu-configure", Arc::clone(wake), move || {
         let since = Instant::now();
-        let configured = context.configure(&mut surface, width, height);
-        let configured = configured.map(|()| (surface, since.elapsed()));
-        (context, configured)
+        let configured = configurer.configure(&mut surface, width, height);
+        configured.map(|()| (surface, since.elapsed()))
     })?;
     Some(Step::Configuring {
         worker,
         init,
         surface: ConfigureTarget::Current,
+        context,
     })
 }
 
@@ -717,10 +704,10 @@ fn cpu_session(notes: &mut Notes, reason: impl Into<String>) -> State {
 
 fn ready_note(context: &GpuContext, init: Duration, configure: Option<Duration>) -> RendererChange {
     RendererChange::Gpu {
-        adapter: context.describe(),
+        adapter: context.device().describe(),
         init,
         configure,
-        interop: context.interop_adapter(),
+        interop: context.device().interop_adapter(),
     }
 }
 
@@ -728,12 +715,59 @@ fn cpu(reason: String) -> RendererChange {
     RendererChange::Cpu { reason }
 }
 
+/// Why a configuring step ended without a ready device with its surface.
+enum ConfigureFailure {
+    /// The worker ended without a result.
+    Stopped,
+    /// Configuring failed: the device stays (without a surface).
+    Failed {
+        context: Box<GpuContext>,
+        error: RenderError,
+    },
+}
+
+/// Poll a configuring worker: the next step while it works, the ready device
+/// with its surface, or why configuring did not end with one.
+fn poll_configuring(
+    worker: Worker<Configured>,
+    init: Duration,
+    surface: ConfigureTarget,
+    context: Box<GpuContext>,
+    notes: &mut Notes,
+) -> Result<Step, ConfigureFailure> {
+    Ok(match worker.poll() {
+        Polled::Working(worker) => Step::Configuring {
+            worker,
+            init,
+            surface,
+            context,
+        },
+        // The platform destroyed the window's surface meanwhile:
+        // whatever configuring did, the window's next frame makes a
+        // new one (a device failure stays recorded in the context
+        // and fails that frame).
+        Polled::Sent(_) if surface == ConfigureTarget::Destroyed => Step::Waiting { context, init },
+        Polled::Sent(Ok((surface, configure))) => {
+            notes.note(ready_note(&context, init, Some(configure)));
+            Step::Ready(Device {
+                surface: DeviceSurface::Live(Box::new(surface)),
+                context,
+            })
+        }
+        Polled::Sent(Err(error)) => return Err(ConfigureFailure::Failed { context, error }),
+        Polled::Stopped => return Err(ConfigureFailure::Stopped),
+    })
+}
+
 /// Poll device initialization before beginning surface configuration.
 fn poll_start(step: Step, notes: &mut Notes) -> Result<Step, State> {
     Ok(match step {
         Step::Starting(worker) => match worker.poll() {
             Polled::Working(worker) => Step::Starting(worker),
-            Polled::Sent(Ok((context, init))) => Step::Waiting { context, init },
+            Polled::Sent(Ok((device, init))) => Step::Waiting {
+                context: Box::new(GpuContext::new(Rc::new(device))),
+                init,
+            },
             Polled::Sent(Err(error)) => {
                 return Err(cpu_session(notes, format!("GPU unavailable: {error}")));
             }

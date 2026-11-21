@@ -258,7 +258,7 @@ impl Run<'_> {
         b: Option<&wgpu::Texture>,
         cs: FilterColorSpace,
     ) -> Result<Img, RenderError> {
-        let out = targets::target(&self.gpu.device, self.size);
+        let out = targets::target(&self.gpu.gpu.device, self.size);
         let buffers = extra.unwrap_or(&self.tables);
         self.gpu.draw_graph(self.encoder, op, buffers, &out, a, b)?;
         Ok(Img { tex: out, cs })
@@ -452,7 +452,7 @@ impl Run<'_> {
         cs: FilterColorSpace,
     ) -> Result<Img, RenderError> {
         let img = self.fetch_in(input, cs)?;
-        let out = targets::target(&self.gpu.device, self.size);
+        let out = targets::target(&self.gpu.gpu.device, self.size);
         self.gpu
             .color_matrix_into(self.encoder, &out, &img.tex, matrix)?;
         Ok(Img { tex: out, cs })
@@ -471,7 +471,7 @@ impl Run<'_> {
         data.set_transfer(1, g);
         data.set_transfer(2, b);
         data.set_transfer(3, a);
-        let buffers = data.buffers(&self.gpu.device, &self.gpu.queue);
+        let buffers = data.buffers(&self.gpu.gpu.device, &self.gpu.gpu.queue);
         self.pass(
             &Op::new(M_TRANSFER),
             Some(&buffers),
@@ -564,7 +564,7 @@ impl Run<'_> {
         };
         let buffers = Data::new()
             .with_kernel(conv.kernel)
-            .buffers(&self.gpu.device, &self.gpu.queue);
+            .buffers(&self.gpu.gpu.device, &self.gpu.gpu.queue);
         let mut pass = Op::new(M_CONVOLVE);
         pass.p[0] = [divisor as f32, *conv.bias as f32, 0.0, 0.0];
         pass.ints = [
@@ -626,7 +626,7 @@ impl Run<'_> {
             None => silhouette,
         };
         let shift = ((offset.x * self.ppu) as f32, (offset.y * self.ppu) as f32);
-        let out = targets::target(&self.gpu.device, self.size);
+        let out = targets::target(&self.gpu.gpu.device, self.size);
         self.gpu
             .shadow_over(self.encoder, &out, &img.tex, &blurred, shift)?;
         Ok(Img { tex: out, cs })
@@ -685,7 +685,7 @@ impl Run<'_> {
     ) -> Result<Img, RenderError> {
         let mut data = Data::new();
         data.set_turbulence(seed.trunc() as i32);
-        let buffers = data.buffers(&self.gpu.device, &self.gpu.queue);
+        let buffers = data.buffers(&self.gpu.gpu.device, &self.gpu.gpu.queue);
         let mut pass = Op::new(M_TURBULENCE);
         pass.p[0] = [
             (self.origin.x * self.ppu) as f32,
@@ -832,7 +832,7 @@ impl GpuContext {
         origin: Point,
     ) -> Result<(), RenderError> {
         graph.validate().map_err(RenderError::InvalidComposition)?;
-        let tables = Data::new().buffers(&self.device, &self.queue);
+        let tables = Data::new().buffers(&self.gpu.device, &self.gpu.queue);
         let mut run = Run {
             gpu: self,
             encoder,
@@ -868,44 +868,47 @@ impl GpuContext {
     ) -> Result<(), RenderError> {
         let size = |t: &wgpu::Texture| (t.width(), t.height());
         let bytes = op.bytes(size(out), a.map_or((0, 0), size), b.map_or((0, 0), size));
-        let params = uniform(&self.device, &self.queue, &bytes);
+        let params = uniform(&self.gpu.device, &self.gpu.queue, &bytes);
         let a_view = a.map(view);
         let b_view = b.map(view);
-        let a_ref = a_view.as_ref().unwrap_or(&self.pipelines.dummy);
-        let b_ref = b_view.as_ref().unwrap_or(&self.pipelines.dummy);
-        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Arvane filter graph"),
-            layout: &self.pipelines.graph_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: params.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(a_ref),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(b_ref),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: buffers[0].as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 4,
-                    resource: buffers[1].as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 5,
-                    resource: buffers[2].as_entire_binding(),
-                },
-            ],
-        });
+        let a_ref = a_view.as_ref().unwrap_or(&self.gpu.pipelines.dummy);
+        let b_ref = b_view.as_ref().unwrap_or(&self.gpu.pipelines.dummy);
+        let group = self
+            .gpu
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Arvane filter graph"),
+                layout: &self.gpu.pipelines.graph_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: params.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(a_ref),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(b_ref),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: buffers[0].as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
+                        resource: buffers[1].as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 5,
+                        resource: buffers[2].as_entire_binding(),
+                    },
+                ],
+            });
         let out_view = view(out);
         with_pass(encoder, &out_view, CLEAR, |pass| {
-            pass.set_pipeline(self.pipelines.graph(&self.device));
+            pass.set_pipeline(self.gpu.pipelines.graph(&self.gpu.device));
             pass.set_bind_group(0, &group, &[]);
             pass.draw(0..3, 0..1);
         });
@@ -914,7 +917,7 @@ impl GpuContext {
 
     /// A texture of `image`'s size holding its premultiplied pixels, as they are.
     fn upload_premultiplied(&self, image: &Pixels) -> wgpu::Texture {
-        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+        let texture = self.gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Arvane filter image"),
             size: wgpu::Extent3d {
                 width: image.width,
@@ -928,7 +931,7 @@ impl GpuContext {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
-        self.queue.write_texture(
+        self.gpu.queue.write_texture(
             wgpu::TexelCopyTextureInfo {
                 texture: &texture,
                 mip_level: 0,

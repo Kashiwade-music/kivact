@@ -5,6 +5,7 @@
 use arvane_render::RASTER_FORMAT;
 use kivact_types::Composite;
 use kivact_types::cell::SharedDeferred;
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 /// The draw shader: the operations' sampling, coverage and blends.
@@ -86,8 +87,8 @@ pub(crate) struct Pipelines {
     pub(crate) apply_layout: wgpu::BindGroupLayout,
     /// Clears a scissored rectangle to transparent.
     pub(crate) clear: wgpu::RenderPipeline,
-    /// The swapchain copies, by format.
-    pub(crate) present: HashMap<wgpu::TextureFormat, wgpu::RenderPipeline>,
+    /// The swapchain copies, by format (made on first use; a handle is cheap to clone).
+    pub(crate) present: RefCell<HashMap<wgpu::TextureFormat, wgpu::RenderPipeline>>,
     pub(crate) apply_module: wgpu::ShaderModule,
     /// A 1 × 1 texture bound where an operation has no texture.
     pub(crate) dummy: wgpu::TextureView,
@@ -490,7 +491,7 @@ impl Pipelines {
                 Some(multiply),
             ),
             clear,
-            present: HashMap::new(),
+            present: RefCell::new(HashMap::new()),
             dummy: dummy_view(device, RASTER_FORMAT),
             dummy_acc: dummy_view(device, ACC_FORMAT),
             dummy_buffer: buffer(device, queue, wgpu::BufferUsages::STORAGE, &[0; 16]),
@@ -532,23 +533,27 @@ impl Pipelines {
 
     /// The copy-to-swapchain pipeline for `format`, made on first use.
     pub(crate) fn present_for(
-        &mut self,
+        &self,
         device: &wgpu::Device,
         format: wgpu::TextureFormat,
-    ) -> &wgpu::RenderPipeline {
+    ) -> wgpu::RenderPipeline {
         let apply_layout = &self.apply_layout;
         let apply_module = &self.apply_module;
-        self.present.entry(format).or_insert_with(|| {
-            let over = blend(wgpu::BlendFactor::One, wgpu::BlendFactor::OneMinusSrcAlpha);
-            let pl = layout(device, &[apply_layout]);
-            pipeline(
-                device,
-                &pl,
-                apply_module,
-                ("vs_full", "fs_present"),
-                format,
-                Some(over),
-            )
-        })
+        self.present
+            .borrow_mut()
+            .entry(format)
+            .or_insert_with(|| {
+                let over = blend(wgpu::BlendFactor::One, wgpu::BlendFactor::OneMinusSrcAlpha);
+                let pl = layout(device, &[apply_layout]);
+                pipeline(
+                    device,
+                    &pl,
+                    apply_module,
+                    ("vs_full", "fs_present"),
+                    format,
+                    Some(over),
+                )
+            })
+            .clone()
     }
 }

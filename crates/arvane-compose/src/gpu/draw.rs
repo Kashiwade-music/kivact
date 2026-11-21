@@ -51,10 +51,10 @@ impl GpuContext {
             None
         };
         let copy_view = copy.as_ref().map(view);
-        let dst = copy_view.as_ref().unwrap_or(&self.pipelines.dummy);
+        let dst = copy_view.as_ref().unwrap_or(&self.gpu.pipelines.dummy);
         let cov_view = coverage.as_ref().map(|(v, _)| v);
         let cov_size = coverage.as_ref().map_or((0.0, 0.0), |(_, s)| *s);
-        let cov = cov_view.unwrap_or(&self.pipelines.dummy);
+        let cov = cov_view.unwrap_or(&self.gpu.pipelines.dummy);
         let flags = if op.sampling == crate::plan::Sampling::Nearest {
             FLAG_NEAREST
         } else {
@@ -74,7 +74,7 @@ impl GpuContext {
             .u(edges.len() as u32)
             .u(flags)
             .u(blend_index(op.blend));
-        let params = super::pass::uniform(&self.device, &self.queue, words.bytes());
+        let params = super::pass::uniform(&self.gpu.device, &self.gpu.queue, words.bytes());
         let edge_buffer = self.edge_buffer(&edges);
         let group = self.draw_group(&params, &src_view, dst, cov, &edge_buffer);
         let slot = if blended {
@@ -82,7 +82,7 @@ impl GpuContext {
         } else {
             composite_slot(op.composite)
         };
-        let pipeline = self.pipelines.draw(&self.device, slot);
+        let pipeline = self.gpu.pipelines.draw(&self.gpu.device, slot);
         let target_view = view(target);
         with_pass(encoder, &target_view, wgpu::LoadOp::Load, |pass| {
             pass.set_pipeline(pipeline);
@@ -98,7 +98,7 @@ impl GpuContext {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::Texture,
     ) -> wgpu::Texture {
-        let copy = super::targets::target(&self.device, (target.width(), target.height()));
+        let copy = super::targets::target(&self.gpu.device, (target.width(), target.height()));
         encoder.copy_texture_to_texture(
             target.as_image_copy(),
             copy.as_image_copy(),
@@ -114,8 +114,8 @@ impl GpuContext {
             .flat_map(|e| e.iter().flat_map(|v| v.to_le_bytes()))
             .collect();
         buffer(
-            &self.device,
-            &self.queue,
+            &self.gpu.device,
+            &self.gpu.queue,
             wgpu::BufferUsages::STORAGE,
             &edge_bytes,
         )
@@ -130,17 +130,19 @@ impl GpuContext {
         cov: &wgpu::TextureView,
         edges: &wgpu::Buffer,
     ) -> wgpu::BindGroup {
-        self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Arvane draw"),
-            layout: &self.pipelines.draw_layout,
-            entries: &[
-                entry(0, params.as_entire_binding()),
-                entry(1, wgpu::BindingResource::TextureView(src)),
-                entry(2, wgpu::BindingResource::TextureView(dst)),
-                entry(3, wgpu::BindingResource::TextureView(cov)),
-                entry(4, edges.as_entire_binding()),
-            ],
-        })
+        self.gpu
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Arvane draw"),
+                layout: &self.gpu.pipelines.draw_layout,
+                entries: &[
+                    entry(0, params.as_entire_binding()),
+                    entry(1, wgpu::BindingResource::TextureView(src)),
+                    entry(2, wgpu::BindingResource::TextureView(dst)),
+                    entry(3, wgpu::BindingResource::TextureView(cov)),
+                    entry(4, edges.as_entire_binding()),
+                ],
+            })
     }
 
     /// The source view, its size in px, and the map from the target px into it.

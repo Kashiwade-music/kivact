@@ -126,7 +126,7 @@ impl Presenter {
             .gpu
             .context()
             .expect("invariant: a device with an adapter is ready");
-        let result = match context.import_external(id, textures) {
+        let result = match context.device().import_external(id, textures) {
             Ok(()) => Ok(()),
             Err(failure) => {
                 let error = kivact_types::Failure::from(failure.clone());
@@ -142,7 +142,7 @@ impl Presenter {
     /// [`crate::Window::drop_external_image`]).
     pub(crate) fn drop_external(&mut self, id: kivact_types::ExternalImageId) {
         if let Some(context) = self.gpu.context() {
-            context.drop_external(id);
+            context.device().drop_external(id);
         }
     }
 
@@ -626,7 +626,7 @@ pub(super) fn make_surface(
     context: &GpuContext,
     keep_frames: bool,
 ) -> Result<GpuSurface, RenderError> {
-    let make = context.surface_maker();
+    let make = context.device().surface_maker();
     let (sender, made) = std::sync::mpsc::sync_channel(1);
     window
         .surface()

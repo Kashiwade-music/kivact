@@ -38,13 +38,14 @@ impl GpuContext {
         let row_bytes = width * 4;
         let stride = row_bytes.div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT)
             * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
-        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+        let buffer = self.gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Arvane readback"),
             size: u64::from(stride) * u64::from(height),
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
         let mut encoder = self
+            .gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Arvane readback"),
@@ -61,13 +62,14 @@ impl GpuContext {
             },
             texture.size(),
         );
-        let submission = self.queue.submit([encoder.finish()]);
+        let submission = self.gpu.queue.submit([encoder.finish()]);
         let slice = buffer.slice(..);
         let (sender, receiver) = mpsc::sync_channel(1);
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
-        self.device
+        self.gpu
+            .device
             .poll(wgpu::PollType::Wait {
                 submission_index: Some(submission),
                 timeout: Some(Duration::from_secs(30)),
@@ -84,7 +86,7 @@ impl GpuContext {
         }
         drop(data);
         buffer.unmap();
-        self.check()?;
+        self.gpu.check()?;
         Ok(rgba)
     }
 }

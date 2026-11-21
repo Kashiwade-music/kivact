@@ -42,7 +42,7 @@ impl GpuContext {
         size: (u32, u32),
         scale: f64,
     ) -> Result<Drawn, RenderError> {
-        self.check()?;
+        self.gpu.check()?;
         let cache = std::mem::take(&mut self.cache);
         match self.draw_planned(composition, size, scale, &cache) {
             Ok((drawn, records)) => {
@@ -87,7 +87,7 @@ impl GpuContext {
                 plan.targets.len()
             )));
         }
-        let limit = self.device.limits().max_texture_dimension_2d;
+        let limit = self.gpu.device.limits().max_texture_dimension_2d;
         if plan
             .targets
             .iter()
@@ -111,17 +111,17 @@ impl GpuContext {
         } = plan;
         let mut textures = self.allocate(&targets)?;
         raster_chunks(
-            &mut self.raster,
-            &self.device,
-            &self.queue,
+            &mut self.gpu.raster.borrow_mut(),
+            &self.gpu.device,
+            &self.gpu.queue,
             &mut self.chunks,
             &mut self.pool,
             &chunks,
             &mut stats,
         )?;
-        self.check()?;
+        self.gpu.check()?;
         let frames = external_frames(&ops);
-        let mut external = std::mem::take(&mut self.external);
+        let mut external = std::mem::take(&mut *self.gpu.external.borrow_mut());
         let result = self.draw_ops(
             &mut external,
             &frames,
@@ -130,7 +130,7 @@ impl GpuContext {
             &exports,
             composition,
         );
-        self.external = external;
+        *self.gpu.external.borrow_mut() = external;
         let (exported, missed, pending) = result?;
         let output = self.finish_targets(&targets, textures);
         let report = FrameReport {
@@ -163,6 +163,7 @@ impl GpuContext {
     ) -> Result<DrawOutcome, RenderError> {
         let pass = ExternalPass::begin(external, frames)?;
         let mut encoder = self
+            .gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Arvane compositor frame"),
@@ -175,11 +176,11 @@ impl GpuContext {
         let FrameTextures { targets, .. } = frame;
         *textures = targets;
         let submitted = pass.submit();
-        self.queue.submit([encoder.finish()]);
+        self.gpu.queue.submit([encoder.finish()]);
         submitted.finish()?;
         recorded?;
         let (exported, pending) = self.send_exports(exports, composition, textures)?;
-        self.check()?;
+        self.gpu.check()?;
         Ok((exported, external.take_missed(), pending))
     }
 
@@ -237,7 +238,7 @@ impl GpuContext {
         match rect {
             None => with_pass(encoder, &view, CLEAR, |_| {}),
             Some(r) => with_pass(encoder, &view, wgpu::LoadOp::Load, |pass| {
-                pass.set_pipeline(&self.pipelines.clear);
+                pass.set_pipeline(&self.gpu.pipelines.clear);
                 pass.set_scissor_rect(r.x, r.y, r.width, r.height);
                 pass.draw(0..3, 0..1);
             }),
@@ -250,7 +251,7 @@ impl GpuContext {
         let mut out = Vec::with_capacity(specs.len());
         for spec in specs {
             let texture = match spec.kind {
-                TargetKind::Temp => self.pool.take(&self.device, spec.size),
+                TargetKind::Temp => self.pool.take(&self.gpu.device, spec.size),
                 TargetKind::Kept { key, reuse, .. } => match self.kept.remove(&key) {
                     Some(texture) if (texture.width(), texture.height()) == spec.size => texture,
                     Some(texture) => {
@@ -260,12 +261,12 @@ impl GpuContext {
                             ));
                         }
                         self.pool.give(texture);
-                        targets::target(&self.device, spec.size)
+                        targets::target(&self.gpu.device, spec.size)
                     }
                     None if reuse => {
                         return Err(RenderError::Backend("a reused surface is missing".into()));
                     }
-                    None => targets::target(&self.device, spec.size),
+                    None => targets::target(&self.gpu.device, spec.size),
                 },
             };
             out.push(texture);
@@ -292,7 +293,7 @@ impl GpuContext {
                 TargetKind::Temp => self.pool.give(texture),
             }
         }
-        output.unwrap_or_else(|| targets::target(&self.device, (0, 0)))
+        output.unwrap_or_else(|| targets::target(&self.gpu.device, (0, 0)))
     }
 }
 
