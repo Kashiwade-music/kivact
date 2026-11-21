@@ -100,7 +100,7 @@ fn mount_select(
     mount_with(real_window(), move || {
         let selected = signal(initial);
         let options = options.into_value();
-        let fruit = use_select(options, selected);
+        let fruit = use_select(options, selected, signal(false));
         let trigger = select_view(node().style(style().size(160, 28)), "Fruit", options, fruit);
         (selected, column((trigger, action("After"))))
     })
@@ -300,7 +300,7 @@ fn a_preview_given_after_the_content_part_is_reported() {
     let (screen, _selected) = mount_with(real_window(), move || {
         let selected = signal(None::<&'static str>);
         let options = fruit().into_value();
-        let api = use_select(options, selected);
+        let api = use_select(options, selected, signal(false));
         // The surface part exists before the preview is given.
         let content = std::cell::RefCell::new(Some(api.content()));
         let api = api.on_active_change(move |key| seen.borrow_mut().push(key));

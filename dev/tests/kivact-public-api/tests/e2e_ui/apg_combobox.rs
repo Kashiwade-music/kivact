@@ -1,11 +1,17 @@
 //! Role: Check editable popup combobox semantics and bounded keyboard navigation.
-use kivact::interaction::{use_combobox, use_text_edit};
+use kivact::interaction::{ComboboxOptions, use_combobox, use_text_edit};
 use kivact::prelude::*;
 use kivact_public_api_tests::support::mount;
 
 fn picker() -> impl Element {
     let options = vec![ListItem::new("a", "Apple"), ListItem::new("b", "Banana")];
-    let combo = use_combobox(options, signal(None::<&str>)).popup(signal(false));
+    let combo = use_combobox(
+        options,
+        signal(None::<&str>),
+        signal(String::new()),
+        signal(false),
+        ComboboxOptions::default(),
+    );
     column((
         node()
             .name("Fruit")

@@ -10,10 +10,13 @@ use kivact_public_api_tests::support::mount_with;
 fn menu_disabled_items_receive_focus_without_activation() {
     let (screen, chosen) = mount_with(RenderOptions::from_env(), || {
         let chosen = signal(0);
-        let menu = use_menu(vec![
-            MenuEntry::item("disabled", "Disabled").disabled(true),
-            MenuEntry::item("enabled", "Enabled"),
-        ])
+        let menu = use_menu(
+            vec![
+                MenuEntry::item("disabled", "Disabled").disabled(true),
+                MenuEntry::item("enabled", "Enabled"),
+            ],
+            signal(false),
+        )
         .on_activate(move |_| chosen.update(|count| *count += 1));
         (chosen, menu_button("Actions", menu))
     });
@@ -69,11 +72,14 @@ fn menu_disabled_items_receive_focus_without_activation() {
 #[test]
 fn menu_submenu_parent_publishes_menu_popup() {
     let (screen, ()) = mount_with(RenderOptions::from_env(), || {
-        let menu = use_menu(vec![MenuEntry::submenu(
-            "more",
-            "More",
-            vec![MenuEntry::item("child", "Child")],
-        )]);
+        let menu = use_menu(
+            vec![MenuEntry::submenu(
+                "more",
+                "More",
+                vec![MenuEntry::item("child", "Child")],
+            )],
+            signal(false),
+        );
         ((), menu_button("Actions", menu))
     });
     screen

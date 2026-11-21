@@ -19,7 +19,9 @@ type ItemContent<K> = kivact_core::view::ViewFn<(Value<MenuEntry<K>>, Value<Menu
 
 pub struct Menu<K: kivact_core::state::ItemKey> {
     label: Value<String>,
-    behavior: Behavior<K>,
+    items: Value<Vec<MenuEntry<K>>>,
+    choose: Option<kivact_core::state::Callback<K>>,
+    open: Option<kivact_core::state::Signal<bool>>,
     offset: Option<f64>,
     placement: Placement,
     align: Option<OverlayAlign>,
@@ -46,7 +48,9 @@ pub fn menu<K: kivact_core::state::ItemKey>(
 ) -> Menu<K> {
     Menu {
         label: label.into_text_value(),
-        behavior: kivact_interaction::use_menu(items),
+        items: items.into_value(),
+        choose: None,
+        open: None,
         offset: None,
         placement: Placement::Below,
         align: None,
@@ -58,7 +62,12 @@ pub fn menu<K: kivact_core::state::ItemKey>(
 impl<K: kivact_core::state::ItemKey> Menu<K> {
     /// Run a handler when an item is activated.
     pub fn on_activate<R: HandlerResult>(mut self, choose: impl Fn(K) -> R + 'static) -> Self {
-        self.behavior = self.behavior.on_activate(choose);
+        self.choose = Some(kivact_core::state::callback(choose));
+        self
+    }
+    /// Use this signal as the menu's open state.
+    pub fn open(mut self, open: kivact_core::state::Signal<bool>) -> Self {
+        self.open = Some(open);
         self
     }
     /// Give the component a [`Variant`]: a look beyond the meanings its
@@ -151,10 +160,18 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
     }
 
     fn render<T: Element + IntoView>(self, trigger: Option<T>, opening: Opening) -> View {
+        let open = self
+            .open
+            .unwrap_or_else(|| kivact_core::state::signal(false));
+        let behavior = kivact_interaction::use_menu(self.items, open);
+        let behavior = match self.choose {
+            Some(choose) => behavior.on_activate(move |key| choose.call(key)),
+            None => behavior,
+        };
         let part = match opening {
-            Opening::ContextFallback => self.behavior.context_fallback_trigger(),
-            Opening::Context => self.behavior.context_trigger(),
-            Opening::Trigger => self.behavior.trigger(),
+            Opening::ContextFallback => behavior.context_fallback_trigger(),
+            Opening::Context => behavior.context_trigger(),
+            Opening::Trigger => behavior.trigger(),
         };
         let kind = if opening == Opening::Trigger {
             LevelKind::Anchored
@@ -193,7 +210,7 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
             trigger,
             surface(
                 Level {
-                    behavior: self.behavior,
+                    behavior,
                     anchor,
                     placement: self.placement,
                     align: self.align,
@@ -366,7 +383,11 @@ fn surface<K: kivact_core::state::ItemKey>(level: Level<K>, slot: Option<ItemCon
         offset,
         variants,
     } = level;
-    behavior.while_open(move || {
+    let shown = behavior.is_open();
+    let at_pointer = kivact_core::state::memo(move || {
+        matches!(behavior.origin().get(), Some(MenuOrigin::Pointer(_)))
+    });
+    let build = std::rc::Rc::new(move || {
         let part = behavior.content();
         let state = part.state();
         let rows = menu_rows(behavior, slot.clone(), variants.clone());
@@ -410,7 +431,16 @@ fn surface<K: kivact_core::state::ItemKey>(level: Level<K>, slot: Option<ItemCon
             .with_node(|node| node.part(part))
             .name(label)
             .offset(offset)
-    })
+    });
+    if kind == LevelKind::Context {
+        kivact_core::view::show(shown, move || {
+            let build = build.clone();
+            kivact_core::view::dynamic(at_pointer, move |_| build())
+        })
+        .into_view()
+    } else {
+        kivact_core::view::show(shown, move || build()).into_view()
+    }
 }
 
 /// Render the keyed rows belonging to one actual menu level.

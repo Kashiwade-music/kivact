@@ -9,8 +9,8 @@ use kivact_public_api_tests::support::mount_with;
 #[test]
 fn menubar_leaf_arrows_move_between_open_menus() {
     let (screen, ()) = mount_with(RenderOptions::from_env(), || {
-        let file = use_menu(vec![MenuEntry::item("new", "New")]);
-        let edit = use_menu(vec![MenuEntry::item("copy", "Copy")]);
+        let file = use_menu(vec![MenuEntry::item("new", "New")], signal(false));
+        let edit = use_menu(vec![MenuEntry::item("copy", "Copy")], signal(false));
         let bar = use_menubar(
             vec!["File".to_string(), "Edit".to_string()],
             vec![file, edit],
@@ -35,7 +35,7 @@ fn menubar_leaf_arrows_move_between_open_menus() {
                         .child(text("Edit")),
                 ))
                 .part(bar.bar()),
-                file.while_open(move || {
+                show(file.is_open(), move || {
                     overlay(
                         file_anchor,
                         Placement::Below,
@@ -44,7 +44,7 @@ fn menubar_leaf_arrows_move_between_open_menus() {
                     .with_node(move |node| node.part(file.content()))
                     .name("File")
                 }),
-                edit.while_open(move || {
+                show(edit.is_open(), move || {
                     overlay(
                         edit_anchor,
                         Placement::Below,
@@ -76,8 +76,8 @@ fn menubar_leaf_arrows_move_between_open_menus() {
 #[test]
 fn menubar_trigger_part_order_keeps_menuitem_role() {
     let (screen, ()) = mount_with(RenderOptions::from_env(), || {
-        let file = use_menu(vec![MenuEntry::item("new", "New")]);
-        let edit = use_menu(vec![MenuEntry::item("copy", "Copy")]);
+        let file = use_menu(vec![MenuEntry::item("new", "New")], signal(false));
+        let edit = use_menu(vec![MenuEntry::item("copy", "Copy")], signal(false));
         let bar = use_menubar(
             vec!["File".to_string(), "Edit".to_string()],
             vec![file, edit],

@@ -91,7 +91,7 @@ fn level<K: ItemKey>(m: MenuApi<K>) -> Node {
                         .child(text(label));
                     if submenu {
                         let sub = m.submenu(key);
-                        row.child(sub.while_open(move || {
+                        row.child(show(sub.is_open(), move || {
                             overlay(anchor, Placement::End, level(sub))
                                 .with_node(move |node| node.part(sub.content()))
                                 .name(label)
@@ -113,7 +113,7 @@ pub(super) fn menu_button<K: ItemKey>(name: &'static str, m: MenuApi<K>) -> View
     let anchor = node_ref();
     (
         action(name).part(trigger).node_ref(anchor),
-        m.while_open(move || {
+        show(m.is_open(), move || {
             overlay(anchor, Placement::Below, level(m))
                 .offset(4)
                 .with_node(move |node| node.part(m.content()))
@@ -131,15 +131,22 @@ fn context_area<K: ItemKey>(name: &'static str, area: Node, m: MenuApi<K>) -> Vi
     let origin = m.origin();
     (
         area.part(trigger).node_ref(anchor),
-        m.while_open(move || {
-            let content = level(m);
-            let placed = match origin.get_untracked() {
-                Some(MenuOrigin::Pointer(point)) => overlay_at(point, Placement::Below, content),
-                _ => overlay(anchor, Placement::Below, content),
-            };
-            placed
-                .with_node(move |node| node.part(m.content()))
-                .name(name)
+        show(m.is_open(), move || {
+            dynamic(
+                move || matches!(origin.get(), Some(MenuOrigin::Pointer(_))),
+                move |_| {
+                    let content = level(m);
+                    let placed = match origin.get_untracked() {
+                        Some(MenuOrigin::Pointer(point)) => {
+                            overlay_at(point, Placement::Below, content)
+                        }
+                        _ => overlay(anchor, Placement::Below, content),
+                    };
+                    placed
+                        .with_node(move |node| node.part(m.content()))
+                        .name(name)
+                },
+            )
         }),
     )
         .into_view()
@@ -151,7 +158,7 @@ fn mount_button(
 ) -> (Screen, Signal<Vec<&'static str>>) {
     mount_with(real_window(), move || {
         let chosen = signal(Vec::new());
-        let edit = use_menu(entries)
+        let edit = use_menu(entries, signal(false))
             .on_activate(move |key: &'static str| chosen.update(|chosen| chosen.push(key)));
         (chosen, column((menu_button("Edit", edit), action("After"))))
     })
@@ -418,7 +425,7 @@ struct ContextRig {
 /// An area with a focusable child, and the edit menu it opens.
 fn mount_context() -> (Screen, ContextRig) {
     mount_with(real_window(), || {
-        let edit = use_menu(edit_entries()).on_activate(|_: &'static str| ());
+        let edit = use_menu(edit_entries(), signal(false)).on_activate(|_: &'static str| ());
         let area = node()
             .role(Role::Group)
             .name("Canvas")
@@ -517,7 +524,7 @@ fn four_entrances_open_a_context_menu_at_the_pointer_or_at_the_area() {
 fn a_submenu_item_the_pointer_rests_on_during_a_held_press_opens_after_the_delay() {
     let (screen, _chosen) = mount_with(real_window(), || {
         let chosen = signal(Vec::new());
-        let file = use_menu(nested_entries())
+        let file = use_menu(nested_entries(), signal(false))
             .on_activate(move |key: &'static str| chosen.update(|c| c.push(key)));
         (chosen, column((menu_button("File", file), action("After"))))
     });

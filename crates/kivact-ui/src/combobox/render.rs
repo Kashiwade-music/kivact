@@ -13,7 +13,7 @@ use kivact_core::view::{
     Element, Handled, IntoView, Key, Placement, PointerKind, PointerPhase, View, column, for_each,
     icon, node, node_ref, overlay, row, scroll, show, text,
 };
-use kivact_interaction::{ComboboxApi, ListItem, Selection, use_combobox};
+use kivact_interaction::{ComboboxApi, ComboboxOptions, ListItem, Selection, use_combobox};
 
 /// The combobox frame takes no input while the combobox is disabled.
 fn frame_availability(disabled: bool) -> kivact_core::view::Availability {
@@ -111,6 +111,7 @@ fn suggestions<K: ItemKey>(
     name: Value<String>,
     empty: Value<String>,
     variants: kivact_core::view::Variants,
+    input: Option<kivact_core::view::NodeRef>,
 ) -> View {
     let rows = for_each(list.visible(), |key| key.clone(), {
         let variants = variants.clone();
@@ -129,7 +130,12 @@ fn suggestions<K: ItemKey>(
         }
     });
     let rows = scroll(column(rows))
-        .with_node(|node| node.part(list.content()))
+        .with_node(|node| {
+            node.part(match input {
+                Some(input) => list.content_for(input),
+                None => list.content(),
+            })
+        })
         .name(name);
     let no_results = show(move || list.visible().with(Vec::is_empty), {
         let variants = variants.clone();
@@ -411,7 +417,7 @@ fn popup_surface<K: ItemKey>(
     show(
         move || shown.get() && !sheet_shown.get(),
         move || {
-            let content = suggestions(list, source, name, empty, surface_variants.clone());
+            let content = suggestions(list, source, name, empty, surface_variants.clone(), None);
             if inline {
                 content
             } else {
@@ -448,7 +454,6 @@ fn sheet_surface<K: ItemKey>(
         }
     });
     let sheet_input = node_ref();
-    let sheet_list = list.with_input_ref(sheet_input);
     let sheet_search = kivact_core::i18n::message("combobox.sheet_search", "Search options");
     crate::dialog(name, sheet_open)
         .mode(crate::dialog::DialogKind::Drawer(
@@ -469,8 +474,15 @@ fn sheet_surface<K: ItemKey>(
                         Key::Escape,
                         Key::Backspace,
                     ])
-                    .with_node(move |node| node.part(sheet_list.input())),
-                suggestions(sheet_list, source, name, empty, variants.clone()),
+                    .with_node(move |node| node.part(list.input_for(sheet_input))),
+                suggestions(
+                    list,
+                    source,
+                    name,
+                    empty,
+                    variants.clone(),
+                    Some(sheet_input),
+                ),
             ))
         })
         .into_view()
@@ -570,18 +582,15 @@ fn configured_list<K: ItemKey>(
     search: Option<super::data::Search<K>>,
     debounce: Value<std::time::Duration>,
 ) -> (ComboboxApi<K>, bool) {
-    let local_open = signal(false);
-    let (inline, open) = match mode.unwrap_or(ComboboxMode::Popup) {
-        ComboboxMode::Inline => (true, binding(|| true, |_: bool| {})),
-        ComboboxMode::Popup => (false, controlled_open.unwrap_or(local_open)),
+    let inline = matches!(mode.unwrap_or(ComboboxMode::Popup), ComboboxMode::Inline);
+    let query = controlled.unwrap_or_else(|| signal(String::new()));
+    let open = if inline {
+        signal(true)
+    } else {
+        controlled_open.unwrap_or_else(|| signal(false))
     };
-    let mut list = use_combobox(options, selection).debounce(debounce);
-    if let Some(query) = controlled {
-        list = list.query_binding(query);
-    }
-    if !inline {
-        list = list.popup_with_focus_transfer(open, list.is_sheet_open());
-    }
+    let mut list = use_combobox(options, selection, query, open, ComboboxOptions { inline })
+        .debounce(debounce);
     if let Some(search) = search {
         list = list.search(move |query| search(query));
     }

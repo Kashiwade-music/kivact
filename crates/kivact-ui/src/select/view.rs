@@ -53,6 +53,7 @@ struct SelectOptions<K: kivact_core::state::ItemKey> {
     arrow_open: Value<bool>,
     keep_trigger_focus: Value<bool>,
     touch_sheet: Option<TouchSheet>,
+    open: Option<Signal<bool>>,
     at: &'static Location<'static>,
 }
 
@@ -85,6 +86,7 @@ pub fn select<K: kivact_core::state::ItemKey>(
             arrow_open: false.into_value(),
             keep_trigger_focus: true.into_value(),
             touch_sheet: None,
+            open: None,
             at: Location::caller(),
         },
     }
@@ -111,6 +113,12 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
 }
 
 impl<K: kivact_core::state::ItemKey> Select<K> {
+    /// Use this signal as the select's open state.
+    pub fn open(mut self, open: Signal<bool>) -> Self {
+        self.settings.open = Some(open);
+        self
+    }
+
     /// Open the options on a bare ArrowDown or ArrowUp without selecting.
     #[track_caller]
     pub fn open_on_arrow(mut self, enabled: impl IntoValue<bool>) -> Self {
@@ -225,10 +233,9 @@ impl<K: kivact_core::state::ItemKey> Element for Select<K> {
 impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
     fn into_view(mut self) -> View {
         let variants = self.root.authored().variants();
-        let behavior = configure_select(&self.settings);
+        let (behavior, open) = configure_select(&self.settings);
         let anchor = kivact_core::view::node_ref();
         let shown = behavior.is_open();
-        let open = behavior.open_binding();
         let sheet_open = behavior.is_sheet_open();
         let (trigger, sheet_factory) = select_trigger(
             behavior,
@@ -341,8 +348,11 @@ pub(crate) fn with_option_style(
 /// Apply independent interaction configuration before constructing select parts.
 fn configure_select<K: kivact_core::state::ItemKey>(
     settings: &SelectOptions<K>,
-) -> kivact_interaction::SelectApi<K> {
-    let mut behavior = kivact_interaction::use_select(settings.options, settings.selected)
+) -> (kivact_interaction::SelectApi<K>, Signal<bool>) {
+    let open = settings
+        .open
+        .unwrap_or_else(|| kivact_core::state::signal(false));
+    let mut behavior = kivact_interaction::use_select(settings.options, settings.selected, open)
         .open_on_arrow(settings.arrow_open)
         .keep_trigger_focus(settings.keep_trigger_focus);
     if let Some(observer) = settings.on_edit {
@@ -354,7 +364,7 @@ fn configure_select<K: kivact_core::state::ItemKey>(
     if let Some(preview) = settings.preview {
         behavior = behavior.on_active_change(move |key| preview.try_call(key));
     }
-    behavior
+    (behavior, open)
 }
 
 /// Recognize touch-sheet activation while preserving the canonical trigger part.

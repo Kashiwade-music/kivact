@@ -4,7 +4,7 @@
 //! the loss of the focus, and a combobox that takes several options and
 //! removes the last one with Backspace, through the public API only.
 
-use kivact::interaction::Selection;
+use kivact::interaction::{ComboboxOptions, Selection};
 use kivact::interaction::{use_combobox, use_text_edit};
 use kivact::prelude::*;
 use kivact_public_api_tests::support::mount;
@@ -29,7 +29,13 @@ fn picker(
         Some(values) => Selection::Multiple(values),
         None => Selection::Single(value),
     };
-    let combo = use_combobox(labels.clone(), selection).popup(open);
+    let combo = use_combobox(
+        labels.clone(),
+        selection,
+        signal(String::new()),
+        open,
+        ComboboxOptions::default(),
+    );
     column((
         node()
             .name("Color")
@@ -118,9 +124,13 @@ fn a_shared_query_survives_setup_and_a_hidden_hide() {
     let (screen, query) = mount(|| {
         let query = signal(String::from("abc"));
         let value = signal(None::<&'static str>);
-        let combo = use_combobox(options(), Selection::Single(value))
-            .query_binding(query)
-            .popup(signal(false));
+        let combo = use_combobox(
+            options(),
+            Selection::Single(value),
+            query,
+            signal(false),
+            ComboboxOptions::default(),
+        );
         let view = column((
             node()
                 .name("Color")
@@ -187,9 +197,13 @@ fn writing_the_query_while_closed_keeps_the_popup_closed() {
         let open = signal(false);
         let query = signal(String::new());
         let value = signal(None::<&'static str>);
-        let combo = use_combobox(options(), Selection::Single(value))
-            .query_binding(query)
-            .popup(open);
+        let combo = use_combobox(
+            options(),
+            Selection::Single(value),
+            query,
+            open,
+            ComboboxOptions::default(),
+        );
         let view = column((
             node()
                 .name("Color")
@@ -240,5 +254,82 @@ fn closing_clears_the_highlight() {
         "opening starts at the first option"
     );
     assert_eq!(value.get_untracked(), None);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_second_input_part_drives_the_same_list() {
+    let (screen, (open, value)) = mount(|| {
+        let open = signal(false);
+        let value = signal(None::<&'static str>);
+        let labels = options();
+        let combo = use_combobox(
+            labels.clone(),
+            Selection::Single(value),
+            signal(String::new()),
+            open,
+            ComboboxOptions::default(),
+        );
+        let second = node_ref();
+        let view = column((
+            node()
+                .name("Color")
+                .part(use_text_edit(combo.query()).control())
+                .part(combo.input()),
+            node()
+                .name("Shade")
+                .node_ref(second)
+                .part(use_text_edit(combo.query()).control())
+                .part(combo.input_for(second)),
+            show(combo.is_open(), move || {
+                let labels = labels.clone();
+                column(for_each(
+                    combo.visible(),
+                    |key| *key,
+                    move |row_value| {
+                        let key = row_value.with(|key| *key);
+                        let label = labels
+                            .iter()
+                            .find(|option| *option.key() == key)
+                            .map(ListItem::label)
+                            .unwrap_or_default();
+                        node().part(combo.item(key)).child(text(label))
+                    },
+                ))
+                .part(combo.content())
+                .name("Colors")
+            }),
+            button("Elsewhere"),
+        ));
+        ((open, value), view)
+    });
+    let second = screen.get_by_role(Role::ComboBox, "Shade");
+    second.focus();
+    second.type_text("gr");
+    screen.run_until_idle();
+    assert!(
+        open.get_untracked(),
+        "typing in the second field shows the list"
+    );
+    second.press_key(Key::Enter);
+    screen.run_until_idle();
+    assert_eq!(
+        value.get_untracked(),
+        Some("green"),
+        "Enter in the second field chooses"
+    );
+    assert!(!open.get_untracked(), "choosing closes the list");
+    second.type_text("gr");
+    screen.run_until_idle();
+    assert!(
+        open.get_untracked(),
+        "typing in the second field opens it again"
+    );
+    screen.get_by_role(Role::Button, "Elsewhere").focus();
+    screen.run_until_idle();
+    assert!(
+        !open.get_untracked(),
+        "leaving the second field closes the list"
+    );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

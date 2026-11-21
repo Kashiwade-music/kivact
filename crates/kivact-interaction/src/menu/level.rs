@@ -381,6 +381,9 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         };
         let expanded = move || submenu && key.with(|key| open_key.is(key));
         let item_ref = kivact_core::view::node_ref();
+        if submenu {
+            register_item_anchor(session, self.prefix.get_untracked(), key.get(), item_ref);
+        }
         if let Some(press) = session.press {
             press.row(item_ref, disabled);
         }
@@ -421,6 +424,24 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             item_role(member, kind, check, expanded)
         })
     }
+}
+
+/// Record `item` as the anchor of the submenu at `path` + `key` while the
+/// item is mounted; only that same reference is removed at its cleanup.
+fn register_item_anchor<K: kivact_core::state::ItemKey>(
+    session: Session<K>,
+    mut path: Vec<K>,
+    key: K,
+    item: kivact_core::view::NodeRef,
+) {
+    path.push(key);
+    let anchors = session.item_anchors;
+    anchors.update(|all| all.push((path, item)));
+    on_cleanup(move || {
+        if anchors.try_get_untracked().is_some() {
+            anchors.update(|all| all.retain(|(_, r)| *r != item));
+        }
+    });
 }
 
 /// What kind of row an item is: its checked state for a check or radio item,

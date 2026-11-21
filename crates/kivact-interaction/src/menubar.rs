@@ -38,8 +38,8 @@ use super::{
 /// use kivact::view::Element;
 ///
 /// fn bar() -> impl IntoView {
-///     let file = use_menu(vec![MenuEntry::item("new", "New")]).on_activate(|_| {});
-///     let edit = use_menu(vec![MenuEntry::item("undo", "Undo")]).on_activate(|_| {});
+///     let file = use_menu(vec![MenuEntry::item("new", "New")], signal(false)).on_activate(|_| {});
+///     let edit = use_menu(vec![MenuEntry::item("undo", "Undo")], signal(false)).on_activate(|_| {});
 ///     let titles = vec!["File".to_string(), "Edit".to_string()];
 ///     let menubar = use_menubar(titles, vec![file, edit]);
 ///     row((

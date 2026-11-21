@@ -9,7 +9,7 @@ use kivact_public_api_tests::support::mount_with;
 #[test]
 fn menu_button_publishes_menu_popup() {
     let (screen, ()) = mount_with(RenderOptions::from_env(), || {
-        let menu = use_menu(vec![MenuEntry::item("open", "Open")]);
+        let menu = use_menu(vec![MenuEntry::item("open", "Open")], signal(false));
         ((), menu_button("Actions", menu))
     });
     let trigger = screen.get_by_role(Role::Button, "Actions");
