@@ -96,7 +96,12 @@ pub(crate) fn paint(
                     key.key.out_tangent
                 };
                 let point = space.point(key.key.time + tangent.time, key.key.value + tangent.value);
-                draw.line(space.point(key.key.time, key.key.value), point, 1.0, crate::color::TEXT);
+                draw.line(
+                    space.point(key.key.time, key.key.value),
+                    point,
+                    1.0,
+                    crate::color::TEXT,
+                );
                 let rect = Rect::new(point.x - 4.0, point.y - 4.0, 8.0, 8.0);
                 draw.stroke_rect(rect, 1.0, crate::color::ACCENT);
                 if let Some(rect) = clipped(rect, space.plot) {

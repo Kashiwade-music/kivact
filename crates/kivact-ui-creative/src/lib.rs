@@ -46,6 +46,11 @@ mod timeline;
 mod variants;
 
 pub use crate::editors::arrangement::view_state::ArrangementState;
+pub use crate::editors::graph::model::Interpolation;
+pub use crate::editors::graph::model::{
+    Curve, CurveKey, CurveTangent, GraphRequest, GraphView, KeyMove,
+};
+pub use crate::editors::graph::view_state::GraphState;
 pub use crate::editors::shared::model::{Clip, EditorContext, EditorFocus, ItemTime, Lane};
 pub use crate::editors::time::model::{Keyframe, TimeRequest};
 pub use audio::view_state::ChannelState;
@@ -63,6 +68,7 @@ pub use editors::arrangement::{
     Arrangement, ArrangementRequest, AutomationPoint, TimelineMarker, TimelineTool, TimelineTrack,
     TrackFlag, TrackKind, arrangement,
 };
+pub use editors::graph::{GraphEditor, graph_editor};
 pub use editors::shared::lane::{EditorMenu, LaneCell};
 pub use editors::shared::model::EditorEvent;
 pub use editors::shared::ruler::RulerTicks;

@@ -1,130 +1,114 @@
-//! Role: The GraphEditor builder and the curve canvas view it builds.
+//! Role: The graph component and the curve canvas view it builds.
 
 use crate::editors::graph::gesture::{Settings, State};
-use crate::editors::graph::model::Curve;
-use crate::editors::shared::lane::{GRAPH_LANE_WIDTH, LaneExtensions, graph_lane_y};
-use crate::editors::shared::model::{EditorContext, Lane};
+use crate::editors::graph::model::{Curve, GraphRequest};
+use crate::editors::shared::lane::{
+    EditorMenu, GRAPH_LANE_WIDTH, LaneCell, LaneExtensions, graph_lane_y,
+};
+use crate::editors::shared::model::{EditorContext, EditorEvent, Lane};
 use crate::editors::shared::ruler::{Ruler, RulerTicks};
+use kivact::component;
 use kivact::custom::part;
 use kivact::interaction::ListItem;
 use kivact::interaction::{EditSession, use_space_pan};
-use kivact::state::{Callback, Value, signal};
-use kivact::state::{IntoValue, callback};
+use kivact::state::{Callback, IntoValue, Value, signal};
 use kivact::style::{Overflow, style};
-use kivact::view::{A11yAction, IntoView, Role, View, node_ref};
-use kivact::view::{Element, Node, node};
+use kivact::view::{A11yAction, Node, Role, View, node, node_ref};
 use std::rc::Rc;
 
 /// An editable graph whose curves and view intervals use application domain units.
 /// Curves are read-only: `on_edit` reports requests for the application to apply.
 /// Drag requests are absolute from the initial keys; ignored requests do not move them.
 /// Key IDs must be unique across all curves. Selection does not emit edit phases.
-pub struct GraphEditor {
-    root: Node,
+///
+/// Plot application curves without converting their time or value coordinates to pixels.
+///
+/// `state` holds the shown time and value ranges (an invalid axis draws with
+/// its default range), the selected key IDs and the playhead, in application
+/// time units. `lanes` displays only the curves whose IDs appear in it; an
+/// explicit empty list hides all. `snap` rounds edited positions to the
+/// steps when enabled. `time_step` and `value_step` set the keyboard and
+/// snapping increments; a value that is not finite and positive falls back
+/// to its default (1 and 0.01).
+#[component]
+pub fn graph_editor(
+    curves: Value<Vec<Curve>>,
+    state: crate::GraphState,
+    lanes: Option<Value<Vec<Lane>>>,
+    #[prop(default = false)] snap: Value<bool>,
+    #[prop(default = 1.0)] time_step: Value<f64>,
+    #[prop(default = 0.01)] value_step: Value<f64>,
+    time_format: Option<Rc<dyn Fn(f64) -> String>>,
+    value_format: Option<Rc<dyn Fn(f64) -> String>>,
+    ruler_ticks: Option<RulerTicks>,
+    on_edit: Option<Callback<EditorEvent<GraphRequest>>>,
+    #[prop(default = Vec::new())] lane_cells: Vec<LaneCell>,
+    on_lane_activate: Option<Callback<u64>>,
+    on_activate: Option<Callback<u64>>,
+    context_menu: Option<EditorMenu>,
+) -> impl kivact::view::Element {
+    let mut ruler = Ruler {
+        format: Rc::new(|v| v.to_string()),
+        ..Ruler::default()
+    };
+    if let Some(format) = time_format {
+        ruler.format = format;
+    }
+    if let Some(ticks) = ruler_ticks {
+        ruler.ticks = ticks;
+    }
+    let settings = Settings {
+        ruler,
+        value_format: value_format.unwrap_or_else(|| Rc::new(|v| v.to_string())),
+        step: (time_step, value_step),
+        cells_width: 0.0.into_value(),
+    };
+    let extensions = LaneExtensions {
+        cells: lane_cells
+            .into_iter()
+            .map(|cell| (cell.width, cell.render))
+            .collect(),
+        lane_activate: on_lane_activate,
+        item_activate: on_activate,
+        menu: context_menu.map(|menu| menu.0),
+    };
+    GraphCanvas {
+        curves,
+        state,
+        lanes,
+        snap,
+        settings,
+        on_edit,
+        extensions,
+    }
+    .into_node()
+}
+
+/// The settings a component collects, which build the curve canvas.
+struct GraphCanvas {
     curves: Value<Vec<Curve>>,
     state: crate::GraphState,
     lanes: Option<Value<Vec<Lane>>>,
     snap: Value<bool>,
     settings: Settings,
-    on_edit: Option<
-        Callback<
-            crate::editors::shared::model::EditorEvent<crate::editors::graph::model::GraphRequest>,
-        >,
-    >,
+    on_edit: Option<Callback<EditorEvent<GraphRequest>>>,
     extensions: LaneExtensions,
 }
 
-/// Plot application curves without converting their time or value coordinates to pixels.
-///
-/// `state` holds the shown time and value ranges (an invalid axis draws with
-/// its default range), the selected key IDs and the playhead, in application
-/// time units.
-#[track_caller]
-pub fn graph_editor(curves: impl IntoValue<Vec<Curve>>, state: crate::GraphState) -> GraphEditor {
-    GraphEditor {
-        root: node().role(Role::Canvas).focusable(true).style(
-            style()
-                .height(280)
-                .min_width(0)
-                .overflow(Overflow::Hidden)
-                .background(crate::color::ISLAND),
-        ),
-        curves: curves.into_value(),
-        state,
-        lanes: None,
-        snap: false.into_value(),
-        settings: Settings {
-            ruler: Ruler {
-                format: Rc::new(|v| v.to_string()),
-                ..Ruler::default()
-            },
-            value_format: Rc::new(|v| v.to_string()),
-            step: (1.0.into_value(), 0.01.into_value()),
-            cells_width: 0.0.into_value(),
-        },
-        on_edit: None,
-        extensions: LaneExtensions::default(),
-    }
+/// The focusable canvas that the graph's regions, pointer and keys attach to.
+fn canvas_root() -> Node {
+    node().role(Role::Canvas).focusable(true).style(
+        style()
+            .height(280)
+            .min_width(0)
+            .overflow(Overflow::Hidden)
+            .background(crate::color::ISLAND),
+    )
 }
 
-impl GraphEditor {
-    crate::editors::shared::lane::lane_extension_methods!(extensions);
-    /// Display only curves whose IDs appear in these lanes; an explicit empty list hides all.
-    pub fn lanes(mut self, lanes: impl IntoValue<Vec<Lane>>) -> Self {
-        self.lanes = Some(lanes.into_value());
-        self
-    }
-    /// Round edited positions to the corresponding time and value steps when enabled.
-    pub fn snap(mut self, snap: impl IntoValue<bool>) -> Self {
-        self.snap = snap.into_value();
-        self
-    }
-    /// Set the keyboard and snapping increments of time and value. They may
-    /// change at runtime; a value that is not finite and positive falls back
-    /// to its default (1 and 0.01).
-    pub fn step(mut self, time: impl IntoValue<f64>, value: impl IntoValue<f64>) -> Self {
-        self.settings.step = (time.into_value(), value.into_value());
-        self
-    }
-    /// Format time axis, key names and the playhead value.
-    pub fn time_format(mut self, format: impl Fn(f64) -> String + 'static) -> Self {
-        self.settings.ruler.format = Rc::new(format);
-        self
-    }
-    /// Format value axis labels and key values.
-    pub fn value_format(mut self, format: impl Fn(f64) -> String + 'static) -> Self {
-        self.settings.value_format = Rc::new(format);
-        self
-    }
-    /// Configure the common nice tick interval rules on both axes.
-    pub fn ruler_ticks(mut self, ticks: RulerTicks) -> Self {
-        self.settings.ruler.ticks = ticks;
-        self
-    }
-    /// Report edit phases and absolute requests; the application applies item changes.
-    pub fn on_edit<R: kivact::view::HandlerResult>(
-        mut self,
-        observer: impl Fn(
-            crate::editors::shared::model::EditorEvent<crate::editors::graph::model::GraphRequest>,
-        ) -> R
-        + 'static,
-    ) -> Self {
-        self.on_edit = Some(callback(observer));
-        self
-    }
-}
-
-impl Element for GraphEditor {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for GraphEditor {
-    fn into_view(self) -> View {
+impl GraphCanvas {
+    fn into_node(self) -> Node {
         let Prepared {
-            root,
             state,
             reference,
             settings,
@@ -141,14 +125,15 @@ impl IntoView for GraphEditor {
             move || state.cancel(),
         );
         let root = crate::editors::graph::a11y::attach(
-            root.value_text(move || {
-                format!(
-                    "{} keys; {} selected",
-                    curves.get().iter().map(|c| c.keys.len()).sum::<usize>(),
-                    selected.get().len()
-                )
-            })
-            .node_ref(reference),
+            canvas_root()
+                .value_text(move || {
+                    format!(
+                        "{} keys; {} selected",
+                        curves.get().iter().map(|c| c.keys.len()).sum::<usize>(),
+                        selected.get().len()
+                    )
+                })
+                .node_ref(reference),
             state,
             gesture,
             settings.clone(),
@@ -177,20 +162,19 @@ impl IntoView for GraphEditor {
             .part(state.space.control())
             .on_wheel(move |event| state.wheel(event));
         match extensions.menu {
-            Some(menu) => menu.call((
+            Some(menu) => node().child(menu.call((
                 root.a11y_action(A11yAction::ShowMenu, move |event| {
                     state.cancel();
                     state.context_request(event.region);
                 }),
                 state.context.into_value(),
-            )),
-            None => root.into_view(),
+            ))),
+            None => root,
         }
     }
 }
 
 struct Prepared {
-    root: Node,
     state: State,
     reference: kivact::view::NodeRef,
     settings: Rc<Settings>,
@@ -198,10 +182,9 @@ struct Prepared {
     cells: View,
     extensions: LaneExtensions,
 }
-impl GraphEditor {
+impl GraphCanvas {
     fn prepare(self) -> Prepared {
         let Self {
-            root,
             curves,
             state,
             lanes,
@@ -271,7 +254,6 @@ impl GraphEditor {
             context: signal(EditorContext::at_time(playhead.get_untracked())),
         };
         Prepared {
-            root,
             state,
             reference,
             settings,

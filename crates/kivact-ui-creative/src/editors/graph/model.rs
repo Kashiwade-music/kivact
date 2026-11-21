@@ -49,7 +49,7 @@ impl Curve {
         Self {
             id,
             label: label.into(),
-            color: crate::color::default_item_color(),
+            color: crate::color::DEFAULT_ITEM_COLOR,
             keys,
         }
     }
