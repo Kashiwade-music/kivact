@@ -38,7 +38,7 @@ use crate::text_measure::TextMeasurer;
 use arvane_protocol::LayerItem;
 use kivact_types::{Asset, ComputedTextStyle, DrawList, PlatformResult, Rect, Size};
 
-// xtask-allow(state): legacy: assets, scene_cache, engine
+// xtask-allow(state): independent: assets, scene_cache and engine are the output's own stores, made by Default; render and font use them, release_caches clears them, and engine is shared with TextMeasurer
 /// Resources and rasterizer of window-independent drawing, confined to the
 /// thread that made them.
 pub struct OffscreenRenderer {

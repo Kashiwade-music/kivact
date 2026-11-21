@@ -326,7 +326,7 @@ impl A11yState {
     }
 }
 
-// xtask-allow(state): legacy: next, empty_root; the next synthetic semantics id, counting down
+// xtask-allow(state): identity: next is the countdown allocator of synthetic semantics ids (next, fresh); empty_root keeps the id build_empty_semantics reserved for an empty tree, reused while no node takes it
 /// Monotonic synthetic identities; consumers reject live authored node IDs.
 #[derive(Clone)]
 pub(super) struct SemanticsIdAllocator {

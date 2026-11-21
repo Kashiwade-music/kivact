@@ -16,7 +16,7 @@ pub(crate) struct FlatChild {
     pub(crate) slot: NodeIndex,
 }
 
-// xtask-allow(state): legacy: flat, root; parents whose child order insert or detach edited, drained by pack_child_orders before layout; detached subtrees edit orders too, so
+// xtask-allow(state): independent: flat caches flat child lists (filled by flat_children, cleared by forget_flat_through, forget_flat_around and remove_with); root is written only by install and remove_with
 /// The node tree.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NodeTree {

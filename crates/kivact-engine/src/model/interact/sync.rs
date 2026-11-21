@@ -185,12 +185,13 @@ impl Model {
             .map(|(id, _)| id)
             .collect();
         for id in texts {
-            // New fonts can change fallback: an input's lines are
-            // shaped again.
+            // New fonts can change fallback: an input's lines (painted and
+            // measured) are shaped again.
             if let Some(slot) = self.tree.nodes.index_of(id)
                 && let Some(editor) = self.slots.editors[slot.0].as_mut()
             {
                 editor.lines = Default::default();
+                editor.measure_lines = Default::default();
             }
             self.a11y.payload(id);
             self.remeasure(id);

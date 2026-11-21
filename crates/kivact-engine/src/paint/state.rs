@@ -136,7 +136,7 @@ pub(crate) enum StaleFacts {
     Nodes(BTreeSet<NodeId>),
 }
 
-// xtask-allow(state): legacy: scene_cache, dropped_reported, dropped_draws, drawables, misplaced_reported, twice_reported; draw_owners lists the slots holding a kept drawing (keep_draw, evict_draws, forget_draws); rewalked says the list was walked again in part since the last frame (paint_list), taken by stamp_versions
+// xtask-allow(state): independent: scene_cache is a lowering cache; dropped_reported, misplaced_reported and twice_reported are report-once sets; dropped_draws is the DrawDropped mailbox; drawables is the frame plan (prepare_canvas); draw_owners indexes the slots holding a kept drawing (keep_draw, evict_draws, forget_draws); rewalked says the list was walked again in part since the last frame (paint_list), taken by stamp_versions
 /// The paint group of the model: derived caches and whether a
 /// frame must be redrawn. Only the paint modules read the caches.
 pub(crate) struct PaintState {

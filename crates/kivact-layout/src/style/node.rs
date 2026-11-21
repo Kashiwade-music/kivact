@@ -80,7 +80,7 @@ pub(crate) struct GridArea {
     pub(crate) justify_self: Option<AlignSelf>,
 }
 
-// xtask-allow(state): legacy: aspect_ratio, align_self, grid_area; the authored property; absent means the taffy default
+// xtask-allow(state): independent: aspect_ratio, align_self and grid_area are authored props written only by convert::taffy_style; the &mut self methods (set_min_width_floor, set_size_bounds) write only the size bounds
 /// The taffy style of one layout node (see the module docs).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NodeStyle {

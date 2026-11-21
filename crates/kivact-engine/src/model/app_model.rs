@@ -31,7 +31,7 @@ pub(crate) struct Window {
     pub(crate) host: super::window::HostWindow,
 }
 
-// xtask-allow(state): legacy: assets, focused_window
+// xtask-allow(state): independent: assets is the store shared with every Model; focused_window is the OS focus, written only by the Focused shell events and remove_window; text_ahead counts the text edits handed to the client and not yet dispatched (hold_text, delivered); font_generation counts font registrations
 /// Every window's model and the App-wide state.
 pub(crate) struct AppModel {
     /// Every window: its model from the write that opens it, and its host state (not drawable until the platform window opens).
