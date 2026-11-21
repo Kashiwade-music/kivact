@@ -872,3 +872,30 @@ U30b（lane U1、commit `a3b104c7`）は commit されたが、`cargo xtask chec
   - `PopupApi`・`DialogApi` は `use_popup(open)`・`use_dialog(open, ..)` で同じ `Signal` の handle を持つので、値の写しではない（0.5 の補足どおり）。その中の popup の machine も上の 2・3 で確かめる。
 - Orchestrator がすること（lane U1）：3 型と popup の machine について、2 を `rg`（machine に `Open`・`Close` 系の event を送る `send`/`dispatch` の呼出し）で確かめる。2 に外れる呼出しがあれば、その呼出しを `hide()`／`show()` に置き換える（挙動は同じ：`open` の follow が同じ event を送る）。置き換えは U30b の続きとして lane U1 で行い、U30b の確認をやり直す。満たしたら、各型に印を書く：`// xtask-allow(state): independent: open is the caller's binding, written by the caller and <show/hide/...>; session is the machine that follows open one way (only <effect の名前> sends it Open/Close) and holds the opening's <surface, filter phase, highlight ...>; query is ...`（field ごとに書き手を名指す）。書き手と 2 の確認の結果は「Orchestrator の判断」に書く。
 - 印の編集が権限の判定で拒否されたら、回避せず main に報告して U31 を進める。
+
+## 差戻し（W7b・U30b の開閉の一方向の条件 2、2026-11-21）
+
+設計者の回答（一方向の条件 2：machine の開閉の event は `open` の変化を受ける一つの effect（follow）からだけ送られ、key・pointer・Escape・外の press などは `hide()`／`show()` を呼ぶ）を、lane U1 で rg で確かめた。**`show()`／`hide()` に置き換えられない直接の送信が残るので、印は書かず差戻しにする**。lane U1 は止める（U31・U33 は後）。
+
+残った直接の送信（`rg -n "session\.send\(|\.send\(machine::Event::"`）と、置換できない理由：
+
+- `select/handle.rs:366`（`show_sheet` → `open_with(OpenSheet)`）、`:502`（`arrow_open` の `Open(Key(key))`）、`:634`（sheet の content の `on_attach` → `OpenSheet`）：surface（Sheet）や opener の key など、その回の値が要る。follow（`feed(open, shown)`）は `shown: bool` だけで event を決めるので作れない。
+- `select/handle.rs:407`（`hide()` = `popup.close(Programmatic)`）、`:468`（a11y Collapse）、`:478`・`:617`（Escape）、`:626`（Tab）、`:709`・`:758`（Selection）：popup の `close(reason)` の `reason`（focus の戻り先を決める）。`reason` は `open.set(false)` には載らない。`popup/machine.rs:114-120`、`popup/api.rs:324`・`:447`。
+- `combobox/handle.rs:441`（`show_sheet` → `Present(Sheet)`）：その回の surface。`:512`（`type_query` → `Typed`）：`filtering: true` はその回の入力から来る（follow は `false` しか作れない）。
+- `select/handle.rs:173`（setup 時の `Open(Pointer)`）：follow の初期値で置き換えられるかは未確認。`popup/api.rs:529`（`watch` の `Event::Open{opener, policy}`）：surface の mount から送る。`opener` と `policy` がその回の値。
+- 置換できるもの（参考）：`select` の `:373`・`:465`・`:492`（`show()`）、`combobox` の `:452`（`show()`→ `Present(Popover)`）。
+
+判定：条件 2 を満たすには、(a) popup の `reason`・surface・opener・filtering を `open` の書込みに載せる（popup と machine の設計の変更）、または (b) focus の戻り先を `reason` に依らず決める（仕様の変更）、の設計の判断が要る。付属書の形のままでは満たせない。
+
+設計者が決める：(a) か (b)、またはこの 3 型の開閉の重なりの扱いの別の案。印（`// xtask-allow(state): independent: ...`）は、決まるまで書かない。
+
+## 設計者の回答（W7b・U30b の開閉の一方向の条件 2、2026-11-21）
+
+- (a) を採る。ただし `open` の型は変えない（caller の `Signal<bool>` のまま）。その回の値（reason・surface・opener・filtering）は、**開閉を変えない「注記」の event** で machine に先に渡し、開閉そのものは `open.set` だけが決める。条件 2 を次のとおり言い直す：
+  - machine の `Closed` と `Open { .. }` を行き来させる event は、`open` の follow（`open` の変化を受ける一つの effect）だけが送る。
+  - それ以外の経路が machine に送ってよいのは、`Closed`／`Open` を変えない注記の event だけ：次に開く回の値（`Prepare { surface, opener, filtering }` の形）、今の回を閉じる理由（`Closing(reason)` の形）、開いている回の filtering の変更（combobox の `Typed`）。
+  - 手順：`show_sheet` は「`Prepare { surface: Sheet, opener, .. }` を送る → `open.set(true)`」、`arrow_open` は「`Prepare { opener: Key, .. }` → `open.set(true)`」、`type_query` の `Typed` は「開いていれば filtering を立てる注記、閉じていれば `Prepare { filtering: true, .. }`」→ 閉じていれば `open.set(true)`。popup の `close(reason)` は「`Closing(reason)` を送る → `open.set(false)`」。sheet の `on_attach` が開閉を変えているなら同じ形にする（surface の注記だけなら注記の event にする）。
+  - follow は、`open` が true になったとき machine の `Closed` が持つ次の回の値（無ければ既定：surface は今の既定、opener は `Programmatic`、filtering は false）で `Open` に入り、false になったとき `Open` が持つ閉じる理由（無ければ既定 `Reason::Programmatic` など、caller が `open.set(false)` したときの今の扱いと同じもの）で閉じる。今の focus の戻り先の規則（reason ごと）は変えない（(b) は採らない）。
+  - machine の状態の形：`Closed { next: Opening }`（`Opening` はその回の値の struct。既定を持つ）と `Open { .., closing: Option<Reason> }` のように、注記の値は machine の状態の中に置く（新しい Api の field は作らない）。
+- 置き換えは U30b の続きとして lane U1 で行い、U30b の確認（interaction と ui の試験、apg_*）をやり直す。期待値は変えない。満たしたら前の回答の形で印を書く。
+- この形が付属書の他の unit（U31・U33・W8 の U47・U48）の手順と食い違う所が出たら、その unit の時に差し戻してよい。
