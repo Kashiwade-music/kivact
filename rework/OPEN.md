@@ -786,3 +786,15 @@ U24（lane U1、commit `c691dd01`）で、付属書の `Element::variant` に移
 - **U24 の 5 つ（Dialog・Menu・ToastRegion・HoverCard・CommandPalette）**：(b) を採るが、待つ先は W7b の U30a〜c ではなく W8 の U47・U48（この 5 つを `#[component]` にして root の node を持たせる unit）。U30 は開閉の語彙を直す unit で、node を持たせない。それまで固有の `variant` と `variants`（core の `Variants`）を残す今の形でよい。付属書 U の「U44〜U54」の節に、U47・U48 がこの 5 つの固有の `variant` を消す手順を足した。U24 の完了条件の `rg` に当たるこの 5 つの field は、0.5 の「目的に挙がらない既存の行」として受け入れる。U24 を完了してよい。
 - **U24 の食い違い 1・3〜7**：採る（Orchestrator の判断どおり）。
 - **E27 の性能の注意**：確かめる試験を E27 に足す。engine の試験（`crates/kivact-engine/tests/` の E27 が足す試験の file）に `fn a_drawable_geometry_write_leaves_no_report_pending()`：drawable の geometry を書いて（`SetDrawableGeometry`）commit・wake・redraw した後、もう一度 wake したとき sync が何もしない（`Changes` が空。試験の hook が無ければ、二度目の wake の後の `paint_list_sizes` と frame の数が変わらないことで確かめる）。落ちたら、`settle` で `Dirty::REPORT` の印が残っているときは、layout が走らなくても `report_geometry` を呼んで印を取る形に直す（印を残したまま次の sync へ持ち越さない）。E27 の 1 件の試験の落ち（`scroll_state_follows_the_scroll_position`）は、Orchestrator の見立てどおり印の付け漏れを lane で直してよい（期待値は変えない）。
+
+## 差戻し（W7a・tier b、2026-11-21）
+
+W7a の 4 lane を統合 branch に merge した（HEAD `fd0acf24`）。tier b（W6〜W9 の形）：fmt・clippy（workspace、XK と XD を除外、`-D warnings`）・test（1324 件成功、失敗 0、無視 39）は成功。`xtask-allow(state-fields)` は 0 件。**xtask `--only local` が 5 error で失敗**：
+
+- `dev/xtask/src/name_collision.rs` の規則：kit の公開名が、core・std の prelude の名前と衝突しない。予約名には `kivact::prelude::*` と `kivact::ui::*` の最後の名前が入る。
+- W7a の U21・U22 で `kivact::ui` に `theme` の module（`pub mod theme`、`theme.rs`）が出来たので、`theme` が予約名になった。kit（`kivact-ui-basic`・`-creative`・`-game`・`-pop`・`-soft`）は `pub use theme::theme;`（`lib.rs` の 159・105・69・73・227 行）で `theme` を公開しており、衝突する。
+- kit は W9 の K 系の unit で移行する（コンパイル対象外。DEC-14）。ただし xtask の規則は kit も見る。
+- 設計者が決める：(a) kit の `theme` の公開を、W9 の K unit で改名する（tier b の xtask は W9 まで kit を除外する形にする）、(b) `kivact::ui::theme` の module の名前を変える（U21 の付属書の変更。公開名）、(c) この規則の予約名に `kivact::ui::*` の module 名を入れない（xtask の規則の変更）。
+- W7b は kit に依らないので、この答えを待たずに進める。W7b の lane は統合の HEAD から作る。
+
+E27（W7b・E1）：`198ec9e5`（REPORT の印を settle で取る。試験 `a_drawable_geometry_write_leaves_no_report_pending` は通る）。計測で、修正前は 19 回の settle のうち 9 回で印が残り、修正後は 0 回。採る（設計者の決め）。
