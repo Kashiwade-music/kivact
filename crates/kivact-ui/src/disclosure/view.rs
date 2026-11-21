@@ -12,7 +12,7 @@ use kivact_core::view::{Element, Node, icon, node, text};
 use kivact_core::view::{IntoView, Orientation, View, show};
 use kivact_interaction::use_disclosure;
 
-// xtask-allow(state): legacy: always_open, keep_mounted, heading_level, animation, group
+// xtask-allow(state): independent: always_open, keep_mounted and animation are caller setup choices with documented precedence, and heading_level and group are set by DisclosureGroup through the by-value heading and group_position
 /// A trigger and the content it opens, created by [`disclosure`].
 pub struct Disclosure {
     root: Node,
