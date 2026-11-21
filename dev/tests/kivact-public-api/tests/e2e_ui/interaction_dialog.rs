@@ -9,7 +9,7 @@ use kivact::geometry::Edge;
 use kivact::interaction::DialogMode;
 use kivact::interaction::{DialogApi, FocusReturn, use_dialog, use_popup};
 use kivact::prelude::*;
-use kivact::state::IntoText;
+use kivact::state::{IntoText, IntoValue};
 use kivact::test::Screen;
 use kivact::view::overlay;
 use kivact::view::{Node, Placement};
