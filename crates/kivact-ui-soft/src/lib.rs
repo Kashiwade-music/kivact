@@ -79,6 +79,7 @@ mod scrollable_area;
 mod section;
 mod shadows;
 mod side_navigation;
+mod soft_chat_tools;
 mod soft_overflow;
 mod soft_table;
 mod space;
@@ -88,7 +89,10 @@ mod theme;
 mod theme_policy;
 mod theme_scope;
 mod thumbnail;
+mod timer;
+mod timestamp;
 mod token;
+mod top_nav;
 mod type_scale;
 mod variants;
 mod visually_hidden;
@@ -184,6 +188,7 @@ pub use side_navigation::{
     ItemCollapse, SideNav, SideNavCollapse, SideNavCollapseButton, SideNavItem, SideNavResize,
     SideNavSection, side_nav, side_nav_collapse_button, side_nav_item, side_nav_section,
 };
+pub use soft_chat_tools::{ChatToolCalls, ToolCall, ToolStatus, chat_tool_calls};
 pub use soft_overflow::{CollapseFrom, OverflowList, OverflowMeasure, overflow_list};
 pub use soft_table::{
     RowStatusTone, TableSelectionToolbar, table_row_index, table_row_status,
@@ -205,7 +210,16 @@ pub use text::{
 pub use theme::theme;
 pub use theme_scope::{MediaMode, media_theme};
 pub use thumbnail::{RemoveReveal, Thumbnail, thumbnail};
+pub use timer::{Timer, TimerFormat, timer};
+pub use timestamp::{
+    InstantFormat, TimeZone, Timestamp, TimestampEntry, TimestampFormat, TimestampValue, timestamp,
+};
 pub use token::{Token, TokenColor, token};
+pub use top_nav::{
+    TopNav, TopNavFeaturedCard, TopNavItem, TopNavMegaMenu, TopNavMegaMenuItem, TopNavMenu,
+    top_nav, top_nav_featured_card, top_nav_item, top_nav_mega_menu, top_nav_mega_menu_item,
+    top_nav_menu, top_nav_menu_item,
+};
 pub use variants::{
     AvatarGroupShape, AvatarSize, BadgeVariant, BannerVariant, BreadcrumbsVariant,
     ButtonGroupVariant, CardPadding, CardVariant, ChatBubbleVariant, ChatDensity,

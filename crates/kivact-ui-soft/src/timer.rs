@@ -1,21 +1,17 @@
 //! Role: Display the elapsed time since a wall-clock instant.
-use crate::{StyledText, TextColor, TextKind, TextSize, TextWeight, styled_text};
-use kivact::view::Element;
-use kivact::view::Node;
+use crate::{TextColor, TextKind, TextSize, TextWeight, styled_text};
 
 use kivact::Prop;
-use kivact::state::IntoValue;
+use kivact::component;
 use kivact::state::Machine;
-use kivact::state::MachineHandle;
 use kivact::state::Step;
 use kivact::state::Value;
+use kivact::state::effect_on;
 use kivact::state::machine;
 use kivact::state::memo;
-use kivact::view::IntoView;
+use kivact::view::Element;
 use kivact::view::LiveRegion;
-use kivact::view::View;
-use std::cell::RefCell;
-use std::rc::Rc;
+use kivact::view::node;
 use std::time::{Duration, SystemTime};
 
 /// How elapsed time is displayed.
@@ -28,111 +24,54 @@ pub enum TimerFormat {
     Clock,
 }
 
-/// A live elapsed-time display.
-pub struct Timer {
-    text: StyledText,
-    clock: MachineHandle<ElapsedClock>,
-    settings: Rc<RefCell<TimerSettings>>,
-}
-
-/// Start a timer when mounted.
-pub fn timer() -> Timer {
-    let settings = Rc::new(RefCell::new(TimerSettings {
-        start: None,
-        format: TimerFormat::default().into_value(),
-    }));
-    let input = settings.clone();
+/// A live elapsed-time display that counts from `start` (now when omitted).
+///
+/// The text is wrapped in a node that carries the caller's modifiers, because the text takes
+/// none. `kind`, `color`, `size` and `weight` set its typography, and `live` makes the changing
+/// text a live region.
+#[component]
+pub fn timer(
+    start: Option<Value<SystemTime>>,
+    #[prop(default = TimerFormat::Elapsed)] format: Value<TimerFormat>,
+    #[prop(default = TextKind::Supporting)] kind: Value<TextKind>,
+    #[prop(default = TextColor::Secondary)] color: Value<TextColor>,
+    size: Option<Value<TextSize>>,
+    weight: Option<Value<TextWeight>>,
+    live: Option<Value<LiveRegion>>,
+) -> impl Element {
     let clock = machine(
         ElapsedTimer::Unstarted,
         move || ElapsedClock {
-            format: input.borrow().format.get(),
+            format: format.get(),
             now: SystemTime::now(),
         },
         |_, ()| {},
     );
-    let format = settings.clone();
     let display = memo(move || match clock.get() {
         ElapsedTimer::Unstarted => String::new(),
-        ElapsedTimer::Running { start, next } => {
-            presentation(start, start + next, format.borrow().format.get()).0
-        }
+        ElapsedTimer::Running { start, next } => presentation(start, start + next, format.get()).0,
     });
-    Timer {
-        text: styled_text(display)
-            .kind(TextKind::Supporting)
-            .color(TextColor::Secondary)
-            .tabular_numbers(true),
-        clock,
-        settings,
+    effect_on(format, move |_| clock.send(ElapsedEvent::Tick));
+    if let Some(start) = start {
+        clock.feed(start, ElapsedEvent::Start);
     }
-}
-
-struct TimerSettings {
-    start: Option<Value<SystemTime>>,
-    format: Value<TimerFormat>,
-}
-
-impl Timer {
-    /// Measure elapsed time from a caller-supplied wall-clock instant.
-    pub fn start(self, start: impl IntoValue<SystemTime>) -> Self {
-        self.settings.borrow_mut().start = Some(start.into_value());
-        self
+    clock.send(ElapsedEvent::Start(
+        start.map_or_else(SystemTime::now, |value| value.get()),
+    ));
+    let mut text = styled_text(display)
+        .kind(kind)
+        .color(color)
+        .tabular_numbers(true);
+    if let Some(size) = size {
+        text = text.size(size);
     }
-    /// Set the elapsed time format.
-    pub fn format(self, format: impl IntoValue<TimerFormat>) -> Self {
-        self.settings.borrow_mut().format = format.into_value();
-        self
+    if let Some(weight) = weight {
+        text = text.weight(weight);
     }
-    /// Set the typography role.
-    pub fn kind(mut self, kind: impl IntoValue<TextKind>) -> Self {
-        self.text = self.text.kind(kind);
-        self
-    }
-    /// Override the text size.
-    pub fn size(mut self, size: impl IntoValue<TextSize>) -> Self {
-        self.text = self.text.size(size);
-        self
-    }
-    /// Override the text color.
-    pub fn color(mut self, color: impl IntoValue<TextColor>) -> Self {
-        self.text = self.text.color(color);
-        self
-    }
-    /// Override the text weight.
-    pub fn weight(mut self, weight: impl IntoValue<TextWeight>) -> Self {
-        self.text = self.text.weight(weight);
-        self
-    }
-    /// Optionally announce the changing text.
-    pub fn live(self, live: impl IntoValue<LiveRegion>) -> Self {
-        self.with_node(move |node| node.live_region(live))
-    }
-}
-
-impl Element for Timer {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        self.text.node_mut()
-    }
-}
-
-impl IntoView for Timer {
-    fn into_view(self) -> View {
-        let Self {
-            text,
-            clock,
-            settings,
-        } = self;
-        let format = settings.borrow().format;
-        kivact::state::effect_on(format, move |_| clock.send(ElapsedEvent::Tick));
-        let start = settings.borrow().start;
-        if let Some(start) = start {
-            clock.feed(start, ElapsedEvent::Start);
-        }
-        clock.send(ElapsedEvent::Start(
-            start.map_or_else(SystemTime::now, |value| value.get()),
-        ));
-        text.into_view()
+    let root = node().child(text);
+    match live {
+        Some(live) => root.with_node(move |node| node.live_region(live)),
+        None => root,
     }
 }
 

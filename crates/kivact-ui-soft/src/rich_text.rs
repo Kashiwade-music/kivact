@@ -1,14 +1,13 @@
 //! Role: Source-preserving Markdown editing and a formatted read-only preview.
 use crate::markdown::markdown;
 pub(crate) use crate::rich_block_doc::EditTarget;
+use kivact::component;
 use kivact::custom::NodeRefExt;
 use kivact::custom::TextSession;
 use kivact::i18n::message;
 use kivact::state::IntoText;
-use kivact::state::IntoValue;
 use kivact::state::Signal;
 use kivact::state::Value;
-use kivact::state::binding;
 use kivact::state::memo;
 use kivact::state::on_cleanup;
 use kivact::state::signal;
@@ -210,111 +209,73 @@ fn format_selection(editor: NodeRef, marker: &'static str) {
     editor.focus();
 }
 
-/// A bound Markdown editor with formatting controls and an optional block-editing surface.
-pub struct RichTextEditor {
-    root: Node,
+/// A labelled Markdown editor that writes through the `source` signal.
+///
+/// It offers formatting controls, and Write and Preview modes. `block_editing` starts in the
+/// wrapped block editor and offers Write and Preview too. `read_only` prevents edits while
+/// keeping the document display and native selection. The Markdown source stays authoritative
+/// in every mode.
+#[component]
+pub fn rich_text_editor(
     label: Value<String>,
     source: Signal<String>,
-    read_only: Value<bool>,
-    block_editing: Value<bool>,
-}
-
-/// Build a labelled editor that writes Markdown through the supplied binding.
-pub fn rich_text_editor(label: impl IntoText, source: Signal<String>) -> RichTextEditor {
-    RichTextEditor {
-        root: node(),
-        label: label.into_text_value(),
-        source,
-        read_only: (false).into_value(),
-        block_editing: (false).into_value(),
-    }
-}
-
-impl RichTextEditor {
-    /// Start in the wrapped block editor and offer Write and Preview modes.
-    /// The Markdown binding remains authoritative in every mode.
-    pub fn block_editing(mut self, enabled: impl IntoValue<bool>) -> Self {
-        self.block_editing = enabled.into_value();
-        self
-    }
-
-    /// Prevent edits while retaining the document display and native selection.
-    pub fn read_only(mut self, value: impl IntoValue<bool>) -> Self {
-        self.read_only = value.into_value();
-        self
-    }
-}
-
-impl Element for RichTextEditor {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for RichTextEditor {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            label,
-            source,
-            read_only,
-            block_editing,
-        } = self;
-        let read_only = read_only.get();
-        let offers_blocks = !read_only && block_editing.get();
-        let mode = signal(if read_only {
-            EditorMode::Preview
-        } else if offers_blocks {
-            EditorMode::Blocks
-        } else {
-            EditorMode::Write { composing: false }
-        });
-        let blocks = offers_blocks.then(|| crate::rich_blocks::block_editor(source));
-        let write_ref = node_ref();
-        let surface = dynamic(
-            move || mode.get().surface(),
-            move |current| match current {
-                EditorMode::Preview => rich_text_view(move || source.get())
-                    .style(style().padding(12))
-                    .into_view(),
-                EditorMode::Blocks => blocks
-                    .map(|blocks| crate::rich_blocks::edit_blocks(label, blocks))
-                    .into_view(),
-                EditorMode::Write { .. } => {
-                    on_cleanup(move || {
+    #[prop(default = false)] read_only: Value<bool>,
+    #[prop(default = false)] block_editing: Value<bool>,
+) -> impl Element {
+    let read_only = read_only.get();
+    let offers_blocks = !read_only && block_editing.get();
+    let mode = signal(if read_only {
+        EditorMode::Preview
+    } else if offers_blocks {
+        EditorMode::Blocks
+    } else {
+        EditorMode::Write { composing: false }
+    });
+    let blocks = offers_blocks.then(|| crate::rich_blocks::block_editor(source));
+    let write_ref = node_ref();
+    let surface = dynamic(
+        move || mode.get().surface(),
+        move |current| match current {
+            EditorMode::Preview => rich_text_view(move || source.get())
+                .style(style().padding(12))
+                .into_view(),
+            EditorMode::Blocks => blocks
+                .map(|blocks| crate::rich_blocks::edit_blocks(label, blocks))
+                .into_view(),
+            EditorMode::Write { .. } => {
+                on_cleanup(move || {
+                    mode.update(|mode| {
+                        if let EditorMode::Write { composing } = mode {
+                            *composing = false;
+                        }
+                    })
+                });
+                text_area(source)
+                    .label(label)
+                    .node_ref(write_ref)
+                    .on_composition_change(move |active| {
                         mode.update(|mode| {
                             if let EditorMode::Write { composing } = mode {
-                                *composing = false;
+                                *composing = active == kivact::view::Composition::Composing;
                             }
                         })
-                    });
-                    text_area(label, source)
-                        .node_ref(write_ref)
-                        .on_composition_change(move |active| {
-                            mode.update(|mode| {
-                                if let EditorMode::Write { composing } = mode {
-                                    *composing = active == kivact::view::Composition::Composing;
-                                }
-                            })
-                        })
-                        .wrap(true)
-                        .rows(6..=16)
-                        .into_view()
-                }
-            },
-        );
-        let target = memo(move || match mode.get() {
-            EditorMode::Preview => EditTarget::Detached,
-            EditorMode::Write { composing: true } => EditTarget::Composing(write_ref),
-            EditorMode::Write { composing: false } => EditTarget::Ready(write_ref),
-            EditorMode::Blocks => blocks.map_or(EditTarget::Detached, |blocks| blocks.target()),
-        });
-        let toolbar = (!read_only).then(|| toolbar(mode, Some(target), offers_blocks));
-        root.child(column((toolbar, surface)).style(style().gap(4)))
-            .into_view()
-    }
+                    })
+                    .wrap(true)
+                    .rows(6..=16)
+                    .into_view()
+            }
+        },
+    );
+    let target = memo(move || match mode.get() {
+        EditorMode::Preview => EditTarget::Detached,
+        EditorMode::Write { composing: true } => EditTarget::Composing(write_ref),
+        EditorMode::Write { composing: false } => EditTarget::Ready(write_ref),
+        EditorMode::Blocks => blocks.map_or(EditTarget::Detached, |blocks| blocks.target()),
+    });
+    let toolbar = (!read_only).then(|| toolbar(mode, Some(target), offers_blocks));
+    node().child(column((toolbar, surface)).style(style().gap(4)))
 }
+
 
 #[cfg(test)]
 mod tests {
