@@ -180,5 +180,6 @@ pub(crate) fn install(theme: Theme) -> Theme {
         .with(ToggleButtonTheme::default().root(toggle));
     let theme = crate::recipes_controls_choice::install(theme);
     let theme = crate::recipes_controls_radio::install(theme);
-    crate::recipes_controls_value::install(theme)
+    let theme = crate::recipes_controls_value::install(theme);
+    crate::recipes_field::install(theme)
 }
