@@ -3,7 +3,17 @@ use kivact::i18n::Locale;
 use kivact::prelude::*;
 use kivact::test::RenderOptions;
 use kivact::ui;
+use kivact::ui::theme::{SparklineTheme, sparkline_line};
+use kivact_public_api_tests::paint::{distance, pixel};
 use kivact_public_api_tests::support::{mount, mount_with};
+
+const RED: u32 = 0xff0000;
+
+/// The pixel at `(dx, dy)` from the top left of the element `id`.
+fn at(screen: &kivact::test::Screen, id: &str, dx: f64, dy: f64) -> u32 {
+    let r = screen.get_by_test_id(id).rect().expect("laid out");
+    pixel(&screen.screenshot(), (r.x + dx) as u32, (r.y + dy) as u32)
+}
 
 /// Whether the chart with the test id "trend" is shown; a hidden chart is not found.
 fn shown(screen: &kivact::test::Screen) -> bool {
@@ -107,5 +117,25 @@ fn an_unlabelled_sparkline_is_decorative() {
     let plain = screen.get_by_test_id("plain");
     assert_eq!(plain.role(), None, "no role without a label");
     assert_eq!(plain.name(), "", "no name without a label");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_sparkline_recipe_draws_the_line_from_its_state() {
+    // A theme that colors the line red through the recipe, not a token.
+    let theme = Theme::light().with(
+        SparklineTheme::default().root(|_, look, base| base.paint(sparkline_line(look, rgb(RED)))),
+    );
+    let (screen, _) = mount_with(RenderOptions::from_env().theme(theme), || {
+        (
+            (),
+            ui::sparkline(vec![1.0, 1.0, 1.0])
+                .test_id("spark")
+                .style(style().size(60, 21)),
+        )
+    });
+    // A flat series is a horizontal line at the middle of the 21 px box (y = 10.5),
+    // so the pixel at (30, 10) is covered by the 1.5 px stroke.
+    assert!(distance(at(&screen, "spark", 30.0, 10.0), RED) <= 16);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

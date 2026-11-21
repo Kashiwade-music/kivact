@@ -484,7 +484,7 @@ allowed_paths = ["crates/arvane-native/", "crates/kivact-gpu-share/", "crates/ar
 
 [ui_machine]
 # kivact-ui に残す表示だけの timer（UI-04）。付属書 U が module を移したら、この path を同じ unit で直す。
-allowed_types = ["kivact_ui::button::BusyInput", "kivact_ui::progress::ProgressMotionInput", "kivact_ui::alert::BannerMachine", "kivact_ui::empty_state_changes::Controller"]
+allowed_types = ["kivact_ui::alert::BannerMachine", "kivact_ui::button::BusyInput", "kivact_ui::calendar::navigation::FocusSnapshot", "kivact_ui::empty_state::changes::Controller", "kivact_ui::progress::ProgressMotionInput"]
 
 [hand_element]
 # kivact-core の view の外で手書きの impl Element / impl IntoView を許す唯一の組（"<定義の path> <file>"）。
