@@ -1,5 +1,6 @@
-//! Role: Scope Neutral media contrast and syntax palettes to a subtree.
-use crate::{SyntaxColors, Tokens, theme};
+//! Role: Scope Neutral media contrast palettes to a subtree.
+use crate::color as c;
+use crate::theme::theme;
 use kivact::state::memo;
 use kivact::style::Color;
 use kivact::style::ThemeMode;
@@ -38,31 +39,16 @@ pub fn media_theme(mode: MediaMode, content: impl IntoView) -> View {
                 MediaMode::Light => ThemeMode::Light,
                 MediaMode::Off => return outer,
                 MediaMode::Auto { surface } => {
-                    let t = outer.ext::<Tokens>();
-                    let foreground = t.colors.text_primary.resolve(&outer);
-                    let surface = surface.resolve(&outer);
-                    let background = t.colors.bg_surface.resolve(&outer);
-                    let mix = |channel: f64, background: f64| {
-                        channel * surface.a + background * (1.0 - surface.a)
-                    };
-                    let surface_luminance = luminance(
-                        mix(surface.r, background.r),
-                        mix(surface.g, background.g),
-                        mix(surface.b, background.b),
-                    );
-                    if contrast(
-                        surface_luminance,
-                        luminance(foreground.r, foreground.g, foreground.b),
-                    ) >= 3.0
-                    {
+                    let alpha = surface.components(&outer)[3];
+                    let background = outer.get(&c::BG_SURFACE_VAR);
+                    let composite = surface.mix(background, 1.0 - alpha, &outer);
+                    let foreground = outer.get(&c::TEXT_PRIMARY_VAR);
+                    if composite.contrast_ratio(foreground) >= 3.0 {
                         return outer;
                     }
-                    let on_light = t.colors.on_light.resolve(&outer);
-                    if contrast(surface_luminance, 1.0)
-                        >= contrast(
-                            surface_luminance,
-                            luminance(on_light.r, on_light.g, on_light.b),
-                        )
+                    let on_light = outer.get(&c::ON_LIGHT_VAR);
+                    if composite.contrast_ratio(outer.get(&c::ON_DARK_VAR))
+                        >= composite.contrast_ratio(on_light)
                     {
                         ThemeMode::Dark
                     } else {
@@ -70,36 +56,15 @@ pub fn media_theme(mode: MediaMode, content: impl IntoView) -> View {
                     }
                 }
             };
-            let media = theme(mode);
-            let mut tokens = (*media.ext::<Tokens>()).clone();
             let ink = match mode {
-                ThemeMode::Dark => tokens.colors.on_dark,
-                ThemeMode::Light => tokens.colors.on_light,
+                ThemeMode::Dark => &c::ON_DARK_VAR,
+                ThemeMode::Light => &c::ON_LIGHT_VAR,
             };
-            tokens.colors.text_primary = ink;
-            tokens.colors.icon_primary = ink;
-            tokens.colors.accent = ink;
-            let mut palette = media.colors().clone();
-            palette.text = ink;
-            palette.accent = ink;
-            media.with_colors(palette).with(tokens)
+            theme(mode)
+                .set(&c::TEXT_PRIMARY_VAR, ink)
+                .set(&c::ICON_PRIMARY_VAR, ink)
+                .set(&c::ACCENT_VAR, ink)
         }),
         move || content,
     )
-}
-
-
-fn luminance(r: f64, g: f64, b: f64) -> f64 {
-    let linear = |channel: f64| {
-        if channel <= 0.04045 {
-            channel / 12.92
-        } else {
-            ((channel + 0.055) / 1.055).powf(2.4)
-        }
-    };
-    0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
-}
-
-fn contrast(first: f64, second: f64) -> f64 {
-    (first.max(second) + 0.05) / (first.min(second) + 0.05)
 }

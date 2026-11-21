@@ -21,6 +21,7 @@ mod field_status;
 mod hover_card;
 mod icon;
 mod icons;
+mod key_hints;
 mod layout;
 mod media_query;
 mod metrics;
@@ -61,6 +62,7 @@ mod stack;
 mod text;
 mod theme;
 mod theme_policy;
+mod theme_scope;
 mod type_scale;
 mod variants;
 mod visually_hidden;
@@ -107,6 +109,7 @@ pub use field_status::{FieldStatus, FieldStatusVariant, StatusKind, field_status
 pub use hover_card::{HoverCardText, hover_card_text};
 pub use icon::{IconColor, IconSize, IconView, icon_view};
 pub use icons::ICON_NAMES;
+pub use key_hints::{keyboard_hint, with_key_hints};
 pub use layout::{
     Layout, LayoutHeight, LayoutInset, LayoutRegion, layout, layout_content, layout_header,
     layout_panel,
@@ -131,6 +134,7 @@ pub use text::{
     WordBreak, styled_text,
 };
 pub use theme::theme;
+pub use theme_scope::{MediaMode, media_theme};
 pub use variants::{
     AvatarGroupShape, AvatarSize, BadgeVariant, BannerVariant, BreadcrumbsVariant,
     ButtonGroupVariant, CardPadding, CardVariant, ChatBubbleVariant, ChatDensity,
