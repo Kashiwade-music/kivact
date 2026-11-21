@@ -45,9 +45,9 @@ fn tokens_demo() -> impl IntoView {
                         .gap(12),
                 ),
             )
-            .style(style().grid_column(GridPlacement::span(8))),
+            .style(style().grid_column(GridPlacement::span(12))),
             card("Typography", column(type_scale).style(style().gap(12)))
-                .style(style().grid_column(GridPlacement::span(4))),
+                .style(style().grid_column(GridPlacement::span(12))),
             card(
                 "Radius, shadow and elevation",
                 grid(shapes).style(
