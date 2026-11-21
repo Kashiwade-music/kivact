@@ -1,12 +1,10 @@
-//! Game example application entry point.
+//! Role: Entry point of the Game kit catalog app.
 
 use kivact::prelude::*;
-use kivact_ui_game_catalog::{catalog, fonts, locale, messages};
+use kivact_ui_game_catalog::{START, THEME, pages};
 
 fn main() -> kivact::Result<()> {
-    let app = App::new("Kivact · Official UI · Game")
-        .locale(locale())
-        .messages(messages());
-    app.theme(kivact::style::Theme::default().with_fonts(fonts().iter().copied()))
-        .run(catalog)
+    App::new("Kivact UI · Game")
+        .window_size(1440, 900)
+        .run(move || catalog_shell::catalog("Game", pages(), THEME).start(START))
 }

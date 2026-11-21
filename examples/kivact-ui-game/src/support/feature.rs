@@ -1,12 +1,14 @@
-//! Catalog feature presentation card.
-use kivact::draw::{Path, Shape};
+//! Role: The feature card of the game catalog.
+use kivact::draw::Path;
 use kivact::geometry::Point;
 use kivact::state::IntoText;
-use kivact::style::{Align, ColorToken, Justify, pct, style};
+use kivact::style::Shape;
+use kivact::style::{Align, Justify, color, pct, style};
 use kivact::view::{Node, column, node, row, text};
+use kivact_ui_game as g;
 /// Feature card with a clipped 18 px corner and a cyan command icon.
 #[track_caller]
-pub(super) fn feature_card(
+pub(crate) fn feature_card(
     title: impl IntoText,
     body: impl IntoText,
     action: impl kivact::view::IntoView,
@@ -17,24 +19,24 @@ pub(super) fn feature_card(
                 .style(
                     style()
                         .size(34, 34)
-                        .background(kivact_ui_game::ColorName::Navy)
-                        .color(kivact_ui_game::ColorName::Cyan)
+                        .background(g::color::NAVY)
+                        .color(g::color::CYAN)
                         .align_items(Align::Center)
                         .justify_content(Justify::Center),
                 )
                 .child(kivact::view::icon("radar")),
-            text(title).style(style().font_size(14).weight(700)),
+            text(title).style(style().font_size(14).font_weight(700)),
         ))
         .style(style().gap(10).align_items(Align::Center)),
-        text(body).style(style().font_size(12).color(ColorToken::TextMuted)),
+        text(body).style(style().font_size(12).color(color::TEXT_MUTED)),
         action,
     ))
     .style(
         style()
             .padding(16)
             .gap(8)
-            .background(ColorToken::SurfaceAlt)
-            .border(1, ColorToken::Border)
+            .background(color::SURFACE_ALT)
+            .border(1, color::BORDER)
             .clip_path(
                 Shape::polygon()
                     .point(0, 0)
@@ -51,7 +53,7 @@ pub(super) fn feature_card(
                 .line_to(Point::new(s.width, 18.))
                 .line_to(Point::new(s.width - 18., 18.))
                 .close(),
-            ColorToken::Accent,
+            color::ACCENT,
         )
     })
 }

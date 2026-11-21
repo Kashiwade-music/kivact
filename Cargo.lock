@@ -2672,6 +2672,7 @@ dependencies = [
 name = "kivact-ui-game-catalog"
 version = "0.1.0"
 dependencies = [
+ "catalog-shell",
  "kivact",
  "kivact-ui-game",
 ]
