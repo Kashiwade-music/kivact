@@ -5,6 +5,7 @@ use kivact::test::Screen;
 use kivact::ui::{
     SidebarCollapsible, SidebarFrame, SidebarResize, SidebarSide, sidebar, sidebar_group,
     sidebar_menu, sidebar_menu_button, sidebar_menu_sub_button, sidebar_provider, sidebar_trigger,
+    use_sidebar,
 };
 use kivact::view::Modifiers;
 
@@ -168,6 +169,55 @@ fn a_resizable_sidebar_follows_its_width_between_min_and_max() {
     assert_eq!(width_of(&screen, "sidebar"), 200.0);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     screen.assert_layout_clean();
+}
+
+/// A page part that shows the sidebar state it reads with `use_sidebar`.
+#[component]
+fn sidebar_probe() -> impl Element {
+    let handle = use_sidebar();
+    text(move || match handle {
+        Some(handle) if handle.icon_only() => "probe icon".to_string(),
+        Some(_) => "probe full".to_string(),
+        None => "probe none".to_string(),
+    })
+}
+
+fn mount_probe() -> (Screen, Signal<bool>) {
+    kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(Theme::light())
+            .window_size(900.0, 700.0)
+            .reduced_motion(),
+        move || {
+            let open = signal(true);
+            (
+                open,
+                column(
+                    sidebar_provider(open, app_sidebar().into_view(), sidebar_probe().into_view())
+                        .collapsible(SidebarCollapsible::Icon)
+                        .test_id("provider"),
+                )
+                .style(style().width(800).height(500)),
+            )
+        },
+    )
+}
+
+#[test]
+fn use_sidebar_reads_the_providers_icon_only_state() {
+    let (screen, _) = mount_probe();
+    screen.get_by_text("probe full");
+    let rail = screen
+        .all_by_role(Role::Button, "Toggle Sidebar")
+        .into_iter()
+        .find(|e| e.rect().is_some_and(|r| r.width == 16.0))
+        .expect("the rail is 16 px wide");
+    rail.click();
+    screen.run_until_idle();
+    screen.get_by_text("probe icon");
+    rail.click();
+    screen.run_until_idle();
+    screen.get_by_text("probe full");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 fn mount_sub_menu() -> (Screen, Signal<bool>) {

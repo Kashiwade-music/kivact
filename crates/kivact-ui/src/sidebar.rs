@@ -21,6 +21,7 @@ pub use menu::{
 };
 pub use panel::{Sidebar, SidebarProvider, sidebar, sidebar_provider};
 pub use state::{
-    SidebarCollapsible, SidebarFrame, SidebarMenuButtonSize, SidebarResize, SidebarSide,
+    SidebarCollapsible, SidebarFrame, SidebarHandle, SidebarMenuButtonSize, SidebarResize,
+    SidebarSide, use_sidebar,
 };
 pub use trigger::{SidebarTrigger, sidebar_trigger};

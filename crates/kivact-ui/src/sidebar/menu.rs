@@ -169,10 +169,18 @@ pub fn sidebar_menu_button(
         None => button,
     };
     let button = match active_icon {
-        None => button.child(icon),
+        None => button.child(icon.map(|icon| menu_button_icon(icon, item))),
         Some(active_icon) => button
-            .child(icon.map(|icon| node().hidden(move || item.get().active).child(icon)))
-            .child(node().hidden(move || !item.get().active).child(active_icon)),
+            .child(icon.map(|icon| {
+                node()
+                    .hidden(move || item.get().active)
+                    .child(menu_button_icon(icon, item))
+            }))
+            .child(
+                node()
+                    .hidden(move || !item.get().active)
+                    .child(menu_button_icon(active_icon, item)),
+            ),
     };
     let button = button
         .child(menu_button_label(label, item))
@@ -254,6 +262,15 @@ pub fn sidebar_menu_skeleton(#[caller] caller: Caller) -> impl Element {
         row(skeleton().style(style().height(16).flex_grow(1).max_width(pct(width)))),
         |r: &SidebarTheme| r.skeleton_recipe(),
         part_state(current()),
+    )
+}
+
+/// The icon of a menu row, in its icon part.
+fn menu_button_icon(icon: View, item: Value<SidebarItemState>) -> Node {
+    themed(
+        node().child(icon),
+        |r: &SidebarTheme| r.menu_button_icon_recipe(),
+        item,
     )
 }
 
