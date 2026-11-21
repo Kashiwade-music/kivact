@@ -7,7 +7,7 @@ use crate::combobox::look::ComboboxTheme;
 use crate::helpers::{is_named, report_unnamed};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::{ButtonVariant, button, text_input};
-use kivact_core::custom::PartState;
+use kivact_core::custom::{PartFacts, PartState};
 use kivact_core::state::{IntoValue, ItemKey, Value, binding, memo, signal};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, Placement, PointerKind, PointerPhase, View, column, for_each,
@@ -24,6 +24,19 @@ fn frame_availability(disabled: bool) -> kivact_core::view::Availability {
     } else {
         kivact_core::view::Availability::default()
     }
+}
+
+/// The combobox frame rings while the focus is within it, and takes no input
+/// while the combobox is disabled.
+fn frame_state(within: bool, disabled: bool) -> PartState {
+    PartState::fixed(PartFacts {
+        focus: if within {
+            kivact_core::view::Focus::Focused
+        } else {
+            kivact_core::view::Focus::None
+        },
+        availability: frame_availability(disabled),
+    })
 }
 
 pub(super) fn render<K: ItemKey>(mut field: Combobox<K>) -> View {
@@ -79,14 +92,7 @@ pub(super) fn render<K: ItemKey>(mut field: Combobox<K>) -> View {
             .with_node(move |node| node.focus_on_press(input_ref)),
         |r: &ComboboxTheme| r.frame_recipe(),
         &variants,
-        move || PartState {
-            focus: if within.get() {
-                kivact_core::view::Focus::Focused
-            } else {
-                kivact_core::view::Focus::None
-            },
-            availability: frame_availability(disabled.get()),
-        },
+        move || frame_state(within.get(), disabled.get()),
     );
     let empty =
         empty.unwrap_or_else(|| kivact_core::i18n::message("combobox.empty", "No results found."));

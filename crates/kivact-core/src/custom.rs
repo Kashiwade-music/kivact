@@ -152,7 +152,7 @@ mod text_shaping;
 pub use crate::view::Authored as Caller;
 pub use crate::view::boundary::scope;
 pub use crate::view::owner::Owner;
-pub use crate::view::part::{Part, PartState, part};
+pub use crate::view::part::{Part, PartFacts, PartState, part};
 pub use crate::view::part_data::PartMount;
 /// The `!Send + !Sync` marker of Kivact's handles, for a component's own
 /// Copy handle type (`PhantomData<UiThreadOnly>`).

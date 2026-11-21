@@ -90,6 +90,59 @@ pub enum OverlayAlign {
     End,
 }
 
+/// Where a surface opens: a [`Placement`] side, with an optional
+/// [`OverlayAlign`] and offset. A bare `Placement` converts into one with
+/// the overlay's own alignment and distance.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SurfacePlacement {
+    /// The side of the anchor the surface asks for.
+    pub side: Placement,
+    /// Where along that side it sits (`None`: the overlay's own alignment).
+    pub align: Option<OverlayAlign>,
+    /// The gap from the anchor in logical px (`None`: the overlay's own offset).
+    pub offset: Option<f64>,
+}
+
+impl From<Placement> for SurfacePlacement {
+    fn from(side: Placement) -> Self {
+        Self {
+            side,
+            align: None,
+            offset: None,
+        }
+    }
+}
+
+impl Placement {
+    /// The side with its alignment along the anchor's edge.
+    pub fn align(self, align: OverlayAlign) -> SurfacePlacement {
+        SurfacePlacement::from(self).align(align)
+    }
+
+    /// The side with its gap from the anchor, in logical px.
+    pub fn offset(self, offset: f64) -> SurfacePlacement {
+        SurfacePlacement::from(self).offset(offset)
+    }
+}
+
+impl SurfacePlacement {
+    /// Aligns the surface along the anchor's edge.
+    pub fn align(self, align: OverlayAlign) -> Self {
+        Self {
+            align: Some(align),
+            ..self
+        }
+    }
+
+    /// Leaves this gap from the anchor, in logical px.
+    pub fn offset(self, offset: f64) -> Self {
+        Self {
+            offset: Some(offset),
+            ..self
+        }
+    }
+}
+
 /// The axes a scroll container scrolls along. An axis that does not scroll
 /// clips.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]

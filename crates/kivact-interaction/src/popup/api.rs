@@ -39,7 +39,7 @@ use kivact_core::state::{
 };
 use kivact_core::view::{
     A11yAction, A11yRequest, DismissReason, Element, Handled, IntoView, Key, KeyEvent, NodeRef,
-    Placement, Role, View, node_ref, overlay, show,
+    Overlay, Role, SurfacePlacement, View, node_ref, overlay, show,
 };
 
 use super::machine::{self, Event, Machine, State};
@@ -47,6 +47,19 @@ use crate::options_cell::OptionsCell;
 
 use crate::disclosure::{DisclosureApi, use_disclosure};
 use crate::focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason};
+
+/// Gives an overlay the align and offset its surface asked for; a bare
+/// placement keeps the overlay's own.
+pub(crate) fn with_placement(layer: Overlay, placement: SurfacePlacement) -> Overlay {
+    let layer = match placement.align {
+        Some(align) => layer.align(align),
+        None => layer,
+    };
+    match placement.offset {
+        Some(offset) => layer.offset(offset),
+        None => layer,
+    }
+}
 
 /// The open state and actual input state of a popup's trigger or surface.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -290,10 +303,11 @@ impl PopupApi {
         self.disclosure.content
     }
 
-    /// Request closure with `reason`: the focus return follows the caller's
-    /// `open` write. A missing target receives no focus request.
+    /// Request closure with `reason`: the reason decides where the focus
+    /// returns ([`FocusReturn`]), and the focus return follows the caller's
+    /// `open` write. `hide` is `close(PopupCloseReason::Programmatic)`.
     #[track_caller]
-    pub(crate) fn close(self, reason: PopupCloseReason) {
+    pub fn close(self, reason: PopupCloseReason) {
         if self.is_open().get_untracked() {
             self.note_close(reason);
         }
@@ -507,12 +521,16 @@ impl PopupApi {
     #[track_caller]
     pub fn surface<V: IntoView>(
         self,
-        placement: Placement,
+        placement: impl Into<SurfacePlacement>,
         content: impl Fn() -> V + 'static,
     ) -> View {
+        let placement: SurfacePlacement = placement.into();
         show(self.is_open(), move || {
-            overlay(self.anchor_ref(), placement, content())
-                .with_node(|node| node.part(self.content()))
+            with_placement(
+                overlay(self.anchor_ref(), placement.side, content()),
+                placement,
+            )
+            .with_node(|node| node.part(self.content()))
         })
         .into_view()
     }
