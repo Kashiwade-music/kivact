@@ -275,7 +275,7 @@ pub(super) fn dock_panel(
                 chip("Shader compile error: Metal.002 line 42", rgb(0xff5c6c)),
                 note("Proxy cache verified (4.1 GB)"),
             ))
-            .style(style().padding(8).gap(6)),
+            .style(style().padding_y(8).padding_x(1).gap(6)),
         )
         .into_view(),
         "text" => kivact::ui::split(

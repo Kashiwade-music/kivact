@@ -50,7 +50,7 @@ fn demo() -> impl IntoView {
     .test_id("creative-dock-workspace")
     .style(style().height(390));
     col((
-        dock.style(style().margin(6)),
+        dock.style(style().margin(6).flex_shrink(0)),
         specs((
             document_tabs_spec(),
             spec("Panel Tab Group", "panel tabs", effects_panel()),

@@ -182,7 +182,7 @@ pub(super) fn indicators_cache_render_bar() -> Node {
         "Cache",
         col((
             note("RAM preview (green) / disk cache (blue) / uncached (red)")
-                .style(style().font_size(10.5).line_height(1.1)),
+                .style(style().font_size(10.5)),
             row([
                 (22, 0x34d399),
                 (4, 0xb53838),

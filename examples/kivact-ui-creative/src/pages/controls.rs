@@ -542,12 +542,8 @@ pub(super) fn selection_text_field() -> Node {
                         .border(1, rgb(0xff5c6c))
                         .outline(2, rgb(0xff5c6c).with_alpha(0.12)),
                 ),
-            note("⚠ The sequence padding # duplicates a name in the output folder").style(
-                style()
-                    .color(rgb(0xff5c6c))
-                    .font_size(10.5)
-                    .line_height(1.2),
-            ),
+            note("⚠ The sequence padding # duplicates a name in the output folder")
+                .style(style().color(rgb(0xff5c6c)).font_size(10.5)),
         )),
     )
 }

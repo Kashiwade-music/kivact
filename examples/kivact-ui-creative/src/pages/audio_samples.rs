@@ -22,7 +22,7 @@ pub(super) fn lcd_note(value: impl IntoText) -> kivact::view::Node {
         style()
             .font_size(9.5)
             .font_family("Geist Mono")
-            .line_height(1.0),
+            .line_height(1.5),
     )
 }
 pub(super) fn locator(tag: &str, label: &str, value: Signal<f64>) -> Node {
