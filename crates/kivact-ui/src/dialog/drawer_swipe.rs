@@ -36,7 +36,7 @@ pub(crate) fn handle(
             move || crate::theme::DialogState {
                 input: state.get(),
                 open: open.get(),
-                kind: kivact_interaction::DialogMode::Drawer(edge),
+                kind: crate::DialogKind::Drawer(edge),
                 media: false,
             },
         );
