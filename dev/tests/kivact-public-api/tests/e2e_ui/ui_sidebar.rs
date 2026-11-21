@@ -274,3 +274,50 @@ fn a_menu_button_with_sub_open_toggles_its_sub_items() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     screen.assert_layout_clean();
 }
+
+#[test]
+fn a_disabled_menu_button_takes_no_press() {
+    let (screen, hits) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(Theme::light())
+            .window_size(900.0, 700.0)
+            .reduced_motion(),
+        move || {
+            let hits = signal(0_u32);
+            let menu = sidebar_menu(vec![
+                sidebar_menu_button("Locked")
+                    .icon(kivact::view::icon("calendar"))
+                    .disabled(true)
+                    .on_press(move || hits.update(|hits| *hits += 1))
+                    .into_view(),
+                sidebar_menu_button("Open")
+                    .icon(kivact::view::icon("copy"))
+                    .on_press(move || hits.update(|hits| *hits += 1))
+                    .into_view(),
+            ]);
+            (
+                hits,
+                column(
+                    sidebar_provider(
+                        signal(true),
+                        sidebar()
+                            .content(sidebar_group("Application").content(menu))
+                            .into_view(),
+                        column(text("Page content")).into_view(),
+                    )
+                    .test_id("provider"),
+                )
+                .style(style().width(800).height(500)),
+            )
+        },
+    );
+    let locked = screen.get_by_role(Role::Button, "Locked");
+    assert!(locked.is_disabled());
+    // A disabled row takes no press even where the pointer lands on it.
+    locked.force_click();
+    assert_eq!(hits.get_untracked(), 0);
+    // The enabled row next to it does.
+    screen.get_by_role(Role::Button, "Open").click();
+    assert_eq!(hits.get_untracked(), 1);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
+}
