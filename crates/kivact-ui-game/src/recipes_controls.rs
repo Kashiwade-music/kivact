@@ -4,7 +4,6 @@ use crate::color::{
     SIDEBAR_ALT, SURFACE_3, TEXT_2, TEXT_3, YELLOW,
 };
 use crate::size::CONTROL_HEIGHT;
-use crate::variants::Slant;
 use kivact::draw::{Layer, LineCap, LineJoin, Path, Stroke, TextFormat};
 use kivact::geometry::{Point, Rect};
 use kivact::style::color::{ACCENT, ACCENT_TEXT, DANGER, SURFACE, TEXT, TEXT_MUTED};
@@ -13,6 +12,7 @@ use kivact::style::{
 };
 use kivact::ui::ButtonVariant;
 use kivact::ui::ControlSize;
+use kivact::ui::Slant;
 use kivact::ui::theme::{
     ButtonState, ButtonTheme, CheckableState, CheckboxTheme, FieldState, FieldTheme, Look,
     SwitchTheme, TextAreaTheme, TextInputState, TextInputTheme, ToggleButtonState,

@@ -11,7 +11,8 @@ KPIs, file trees, banners and activity logs.
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::{ThemeMode};
-use kivact_ui_game::{Density, Slant, ThemeOptions, theme_with};
+use kivact::ui::Slant;
+use kivact_ui_game::{Density, ThemeOptions, theme_with};
 
 fn screen() -> impl IntoView {
     let approved = signal(false);
