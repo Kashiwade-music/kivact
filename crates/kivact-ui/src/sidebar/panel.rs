@@ -12,8 +12,8 @@ use super::vars;
 use kivact_core::geometry::Rect;
 use kivact_core::i18n::message;
 use kivact_core::state::{Signal, Value, callback, memo, provide};
-use kivact_core::style::{Color, style, use_theme};
-use kivact_core::view::{Handled, Key, Node, Role, View, column, node, row, scroll, show};
+use kivact_core::style::{Color, ScrollbarWidth, style, use_theme};
+use kivact_core::view::{Element, Handled, Key, Node, Role, View, column, node, row, scroll, show};
 use kivact_macros::component;
 
 /// The panel of a sidebar: its header, scrolling content and footer. Created by [`sidebar`].
@@ -33,8 +33,10 @@ pub fn sidebar(
     let collapsible = cx.collapsible;
     let offcanvas_closed = move || collapsible == SidebarCollapsible::Offcanvas && !cx.open.get();
     let head = header.map(|view| themed(column(view), |r: &SidebarTheme| r.header_recipe(), state));
-    let middle =
-        content.map(|view| themed(scroll(view), |r: &SidebarTheme| r.content_recipe(), state));
+    let middle = content.map(|view| {
+        let view = scroll(view).style(style().scrollbar_width(ScrollbarWidth::None));
+        themed(view, |r: &SidebarTheme| r.content_recipe(), state)
+    });
     let foot = footer.map(|view| themed(column(view), |r: &SidebarTheme| r.footer_recipe(), state));
     let inner = themed(
         node().hidden(offcanvas_closed),
