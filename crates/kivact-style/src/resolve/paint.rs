@@ -275,7 +275,7 @@ pub(super) fn reports(g: &Groups, theme: &Theme) -> Vec<UiError> {
         ));
     }
     if let Some(background) = &paint.background {
-        for paint in &background.0 {
+        for paint in background.0.iter() {
             for problem in paint.shader_problems() {
                 report(problem);
             }

@@ -22,13 +22,15 @@ use crate::color_value::Color;
 /// ));
 /// # let _ = grid;
 /// ```
+///
+/// The layers are shared: cloning a background never copies them.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Background(pub(crate) Vec<Paint>);
+pub struct Background(pub(crate) std::sync::Arc<[Paint]>);
 
 impl Background {
     /// The color, when this is one color covering the box.
     pub(crate) fn solid(&self) -> Option<Color> {
-        match self.0.as_slice() {
+        match &*self.0 {
             [one] => one.solid(),
             _ => None,
         }
@@ -37,7 +39,7 @@ impl Background {
 
 impl From<Paint> for Background {
     fn from(p: Paint) -> Self {
-        Background(vec![p])
+        Background(vec![p].into())
     }
 }
 
@@ -55,7 +57,7 @@ impl From<Gradient> for Background {
 
 impl From<Vec<Paint>> for Background {
     fn from(v: Vec<Paint>) -> Self {
-        Background(v)
+        Background(v.into())
     }
 }
 
@@ -64,7 +66,7 @@ macro_rules! layers {
         impl<$($t: Into<Paint>),+> From<($($t,)+)> for Background {
             #[allow(non_snake_case, reason = "the tuple's elements are named by their types")]
             fn from(($($t,)+): ($($t,)+)) -> Self {
-                Background(vec![$($t.into()),+])
+                Background(vec![$($t.into()),+].into())
             }
         }
     };
