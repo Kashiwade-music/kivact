@@ -186,7 +186,7 @@ pub use dialog::{Dialog, DialogKind, dialog};
 pub use menu::{Menu, menu};
 pub use radio_group::{RadioGroup, radio_group};
 pub use select::{Select, SelectSheetOption, select};
-pub use slider::{Slider, range_slider, slider};
+pub use slider::{RangeSlider, Slider, range_slider, slider};
 pub use splitter::{Splitter, splitter};
 pub use tabs::{Tabs, tabs};
 pub use toast::{ToastRegion, toast_region};

@@ -2,4 +2,4 @@
 pub(crate) mod look;
 mod view;
 
-pub use view::{Slider, range_slider, slider};
+pub use view::{RangeSlider, Slider, range_slider, slider};
