@@ -14,8 +14,10 @@ mod avatar_status_dot;
 mod banner;
 mod blockquote;
 mod card;
+mod citation;
 mod code;
 mod color;
+mod dialog_header;
 mod divider;
 mod feedback;
 mod field_status;
@@ -26,6 +28,7 @@ mod icons;
 mod indicator;
 mod key_hints;
 mod layout;
+mod link;
 mod media_query;
 mod metrics;
 mod motion;
@@ -66,6 +69,7 @@ mod text;
 mod theme;
 mod theme_policy;
 mod theme_scope;
+mod token;
 mod type_scale;
 mod variants;
 mod visually_hidden;
@@ -76,6 +80,7 @@ pub use avatar_status_dot::{AvatarStatus, avatar_status_dot};
 pub use banner::{BannerIcon, banner_icon};
 pub use blockquote::{Blockquote, BlockquoteText, blockquote, blockquote_text};
 pub use card::with_card_insets;
+pub use citation::{Citation, CitationSource, CitationVariant, citation};
 pub use code::{Code, CodeColor, code};
 pub use color::{
     ACCENT, ACCENT_HOVER, ACCENT_MUTED, BG_BODY, BG_CARD, BG_ERROR_INVERTED, BG_INVERTED, BG_MUTED,
@@ -107,6 +112,9 @@ pub use color::{
     TEXT_ERROR, TEXT_INFO, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_SUCCESS, TEXT_WARNING, TINT_HOVER,
     TRACK, WARNING, WARNING_MUTED,
 };
+pub use dialog_header::{
+    DialogHeader, DrawerHeader, EdgeCompensation, dialog_header, drawer_header,
+};
 pub use divider::{Divider, DividerVariant, divider};
 pub use feedback::{StatusDot, StatusDotVariant, status_dot};
 pub use field_status::{FieldStatus, FieldStatusVariant, StatusKind, field_status};
@@ -125,6 +133,7 @@ pub use layout::{
     Layout, LayoutHeight, LayoutInset, LayoutRegion, layout, layout_content, layout_header,
     layout_panel,
 };
+pub use link::{Link, LinkColor, link};
 pub use media_query::Breakpoint;
 pub use radius::{
     RADIUS_CHAT, RADIUS_CONTAINER, RADIUS_ELEMENT, RADIUS_FULL, RADIUS_INNER, RADIUS_NONE,
@@ -146,6 +155,7 @@ pub use text::{
 };
 pub use theme::theme;
 pub use theme_scope::{MediaMode, media_theme};
+pub use token::{Token, TokenColor, token};
 pub use variants::{
     AvatarGroupShape, AvatarSize, BadgeVariant, BannerVariant, BreadcrumbsVariant,
     ButtonGroupVariant, CardPadding, CardVariant, ChatBubbleVariant, ChatDensity,
