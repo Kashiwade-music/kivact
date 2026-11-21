@@ -5,7 +5,7 @@ use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::tag_input::look::TagInputTheme;
 use crate::text_input::{TextInput, text_input};
 use crate::{ButtonVariant, button};
-use kivact_core::custom::{Caller, PartState};
+use kivact_core::custom::{Caller, PartFacts, PartState};
 use kivact_core::i18n::{message, message_with};
 use kivact_core::state::signal;
 use kivact_core::state::{Callback, IntoValue, Signal, Value};
@@ -140,13 +140,15 @@ fn with_tag_box(
         root,
         |r: &TagInputTheme| r.root_recipe(),
         variants,
-        move || PartState {
-            focus: if within.get() {
-                kivact_core::view::Focus::Focused
-            } else {
-                kivact_core::view::Focus::None
-            },
-            ..PartState::default()
+        move || {
+            PartState::fixed(PartFacts {
+                focus: if within.get() {
+                    kivact_core::view::Focus::Focused
+                } else {
+                    kivact_core::view::Focus::None
+                },
+                ..PartFacts::default()
+            })
         },
     )
     .child((field, chips))
