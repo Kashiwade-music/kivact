@@ -478,3 +478,43 @@ fn a_touch_drag_half_the_track_follows_the_mapping() {
     screen.contact_up(contact);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_disabled_slider_and_number_field_take_their_disabled_state_from_the_node() {
+    let (screen, (volume, quantity, off)) = mount(|| {
+        let volume = signal(50.0);
+        let quantity = signal(2.0);
+        let off = signal(true);
+        let range = ScalarRange::new(0.0, 10.0).unwrap().with_step(1.0).unwrap();
+        (
+            (volume, quantity, off),
+            column((
+                kivact::ui::slider(volume)
+                    .label("Volume")
+                    .disabled(off)
+                    .style(style().width(200)),
+                kivact::ui::number_input(quantity, range)
+                    .label("Quantity")
+                    .disabled(off),
+            )),
+        )
+    });
+    assert!(screen.get_by_role(Role::Slider, "Volume").is_disabled());
+    assert!(
+        screen
+            .get_by_role(Role::SpinButton, "Quantity")
+            .is_disabled()
+    );
+    off.set(false);
+    screen.run_until_idle();
+    assert!(!screen.get_by_role(Role::Slider, "Volume").is_disabled());
+    screen
+        .get_by_role(Role::Slider, "Volume")
+        .press_key(Key::ArrowRight);
+    assert!(volume.get_untracked() > 50.0);
+    screen
+        .get_by_role(Role::SpinButton, "Quantity")
+        .press_key(Key::ArrowUp);
+    assert_eq!(quantity.get_untracked(), 3.0);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

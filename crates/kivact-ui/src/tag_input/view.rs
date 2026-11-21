@@ -120,7 +120,7 @@ impl IntoView for TagInput {
             .accessible_invalid()
             .unwrap_or_else(|| false.into_value());
         let labelled_by = root.accessible_labelled_by();
-        let described_by = root.accessible_described_by();
+        let described_by = root.authored().described_by().to_vec();
         let edit = kivact_interaction::EditSession::new(|(): ()| {});
         if let Some(observer) = on_edit {
             edit.on_edit(move |phase| observer.call(phase));

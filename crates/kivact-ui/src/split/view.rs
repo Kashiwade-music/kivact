@@ -263,7 +263,7 @@ fn handle(at: usize, primary: NodeRef, group: &SplitGroupOptions) -> Node {
         sizes.set(next);
     });
     let range = memo(move || boundary_range(&shares_now.get(), at, min_size));
-    let mut behavior = use_splitter(
+    let behavior = use_splitter(
         binding(position, move |value| write.try_call(value)),
         range,
         axis,
@@ -282,9 +282,6 @@ fn handle(at: usize, primary: NodeRef, group: &SplitGroupOptions) -> Node {
             on_edit.call(phase);
         }
     });
-    if let Some(disabled) = disabled {
-        behavior = behavior.disabled(move || disabled.get());
-    }
     let part = behavior.handle();
     let input = part.state();
     let state = move || AxisState {
@@ -298,6 +295,7 @@ fn handle(at: usize, primary: NodeRef, group: &SplitGroupOptions) -> Node {
     };
     with_recipe_style(
         node()
+            .disabled(move || disabled.is_some_and(|disabled| disabled.get()))
             .part(part)
             .name(message("split.handle", "Resize"))
             .controls(primary),

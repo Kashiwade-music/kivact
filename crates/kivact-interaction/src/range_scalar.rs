@@ -125,15 +125,6 @@ impl RangeScalarApi {
         Ok(self)
     }
 
-    /// Ignore input and assistive technology on both thumbs and the track
-    /// while true. Setup only.
-    #[track_caller]
-    pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
-        // Both ends share the setting.
-        self.low.disabled(disabled);
-        self
-    }
-
     /// Report the start and end of each edit of either end as an
     /// [`EditPhase`], with the rules of [`ScalarApi::on_edit`]. Setup only.
     pub fn on_edit<R: HandlerResult>(self, f: impl Fn(EditPhase) -> R + 'static) -> Self {
@@ -193,9 +184,16 @@ impl RangeScalarApi {
         let edit = self.low.edit;
         let input = part(|input| input);
         let part_state = input.state();
-        Part::new(part_state, move |host| {
+        Part::new(part_state, move |mut host| {
+            let disabled = host
+                .accessible_disabled()
+                .unwrap_or_else(|| false.into_value());
             edit.shared
-                .touch_source(host.part(input).focus_on_press(edit.thumb), Grip::Body)
+                .touch_source(
+                    host.part(input).focus_on_press(edit.thumb),
+                    Grip::Body,
+                    disabled,
+                )
                 .part(edit.shared.drag.source(Grip::Body))
         })
     }

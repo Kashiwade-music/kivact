@@ -121,8 +121,8 @@ impl IntoView for NumberInput {
             .accessible_invalid()
             .unwrap_or_else(|| false.into_value());
         let labelled_by = root.accessible_labelled_by();
-        let described_by = root.accessible_described_by();
-        let mut number = use_scalar(value, range).disabled(disabled);
+        let described_by = root.authored().described_by().to_vec();
+        let mut number = use_scalar(value, range);
         if let Some(on_edit) = on_edit {
             number = number.on_edit(move |phase| on_edit.call(phase));
         }
