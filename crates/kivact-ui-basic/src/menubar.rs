@@ -9,7 +9,7 @@ use kivact::state::{Callback, Value, callback, memo, signal};
 use kivact::style::{Align, Color, FlexDirection, style, use_theme};
 use kivact::view::IntoView;
 use kivact::view::{Node, node, row, text};
-use kivact::view::{Placement, Role, View};
+use kivact::view::{OverlayAlign, Placement, Role, View};
 use kivact::view::{ReadingDirection, use_direction};
 
 /// A menu bar (menubar.tsx): a row of triggers of standard menus.
@@ -147,9 +147,9 @@ fn menu_surface<K: kivact::state::ItemKey>(
 ) -> View {
     menu.surface(
         if sub {
-            Placement::End
+            Placement::End.align(OverlayAlign::Start).offset(0.0)
         } else {
-            Placement::Below
+            Placement::Below.align(OverlayAlign::Start).offset(8.0)
         },
         move || {
             let rows = kivact::view::for_each(
