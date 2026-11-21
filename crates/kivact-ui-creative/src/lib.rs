@@ -15,9 +15,16 @@
 
 #![forbid(unsafe_code)]
 
+mod audio;
+mod bezier;
 mod color;
+mod curve_preview;
+mod dock;
+mod feedback;
 mod fonts;
 mod icons;
+mod key_glyph;
+mod layout;
 mod options;
 mod recipe_parts;
 mod recipes_collections;
@@ -31,7 +38,20 @@ mod size;
 mod theme;
 mod variants;
 
+pub use audio::view_state::ChannelState;
+pub use audio::{Meter, Transport, TransportState, meter, transport};
+pub use bezier::{BezierCurve, CubicBezier, bezier_curve};
+pub use curve_preview::{CurvePreview, curve_preview};
+pub use dock::{
+    Dock, DockAxis, DockChild, DockLayout, DockNode, DockPlacement, DockSide, DockTab, DockTabs,
+    dock,
+};
+pub use feedback::{
+    SplitButton, ToolWindowApi, ToolWindowOptions, WindowPosition, popup_button, split_button,
+};
 pub use fonts::MONO_FAMILY_VAR;
+pub use key_glyph::KeyGlyph;
+pub use layout::{Panel, media_tile, panel, tree_row};
 pub use options::{Accent, Density, LabelTone};
 pub use theme::{ThemeOptions, theme, theme_with};
 pub use variants::NoticeVariant;

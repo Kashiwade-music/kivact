@@ -1,12 +1,11 @@
 //! Role: The level Meter: segmented, oriented, multi-channel level bars.
 
+use crate::color::{CANVAS, SUCCESS, WARNING, X};
+use kivact::component;
 use kivact::geometry::Rect;
-use kivact::view::{Element, Node, node};
-
-use kivact::state::{IntoText, IntoValue};
 use kivact::state::{Machine, Step, Value, machine, memo};
-use kivact::style::{Color, ColorToken, style};
-use kivact::view::{IntoView, Orientation, Role, View};
+use kivact::style::{Color, color, style};
+use kivact::view::{Orientation, Role, node};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum MeterClip {
@@ -31,105 +30,51 @@ impl Machine for ClipMachine {
     }
 }
 
-/// An audio meter with clip hold and accessible numeric level.
-pub struct Meter {
-    root: Node,
+/// An audio meter receiving normalized linear amplitude (0..1, >1 clips),
+/// with clip hold and an accessible numeric level.
+///
+/// `orientation` lays the channels out as a horizontal strip
+/// ([`Orientation::Horizontal`]) rather than the default vertical channel
+/// meter. `channels` shows one to eight channels. `segmented` chooses
+/// separated LED cells rather than the source's continuous bar.
+#[component]
+pub fn meter(
+    label: Value<String>,
     level: Value<f64>,
-    horizontal: Value<bool>,
-    channels: Value<usize>,
-    segmented: Value<bool>,
-}
-
-/// An audio meter receiving normalized linear amplitude (0..1, >1 clips).
-#[track_caller]
-pub fn meter(label: impl IntoText, level: impl IntoValue<f64>) -> Meter {
-    Meter {
-        root: node()
-            .role(Role::Meter)
-            .name(label)
-            .value_min(0.0)
-            .value_max(1.0)
-            .style(
-                style()
-                    .size(30, 180)
-                    .background(crate::ColorName::Canvas)
-                    .radius(5),
-            ),
-        level: level.into_value(),
-        horizontal: false.into_value(),
-        channels: 2.into_value(),
-        segmented: false.into_value(),
-    }
-}
-
-impl Meter {
-    /// Choose separated LED cells rather than the source's continuous bar
-    /// while true (constant or reactive).
-    #[track_caller]
-    pub fn segmented(mut self, enabled: impl IntoValue<bool>) -> Self {
-        self.segmented = enabled.into_value();
-        self
-    }
-    /// Lay the channels out as a horizontal strip
-    /// ([`Orientation::Horizontal`]) rather than the default vertical channel
-    /// meter (constant or reactive).
-    #[track_caller]
-    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
-        let orientation = orientation.into_value();
-        let enabled = memo(move || orientation.get() == Orientation::Horizontal);
-        self.horizontal = enabled;
-        self.root = self.root.style(move || {
-            if enabled.get() {
+    #[prop(default = Orientation::Vertical)] orientation: Value<Orientation>,
+    #[prop(default = 2)] channels: Value<usize>,
+    #[prop(default = false)] segmented: Value<bool>,
+) -> impl Element {
+    let horizontal = memo(move || orientation.get() == Orientation::Horizontal);
+    let channels = memo(move || channels.get().clamp(1, 8));
+    let clip = machine(MeterClip::Clear, || ClipMachine, |_, ()| {});
+    let clipped = clip.state();
+    clip.send(ClipEvent::LevelChanged(level.get_untracked()));
+    clip.feed(level, ClipEvent::LevelChanged);
+    node()
+        .role(Role::Meter)
+        .name(label)
+        .value_min(0.0)
+        .value_max(1.0)
+        .style(style().size(30, 180).background(CANVAS).border_radius(5))
+        .style(move || {
+            if horizontal.get() {
                 style().size(240, 18)
             } else {
                 style().size(30, 180)
             }
-        });
-        self
-    }
-    /// Display one to eight channels.
-    pub fn channels(mut self, channels: impl IntoValue<usize>) -> Self {
-        let channels = channels.into_value();
-        self.channels = memo(move || channels.get().clamp(1, 8));
-        self
-    }
-}
-
-impl Element for Meter {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for Meter {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            level,
-            horizontal,
-            channels,
-            segmented,
-        } = self;
-        let clip = machine(MeterClip::Clear, || ClipMachine, |_, ()| {});
-        let clipped = clip.state();
-        clip.send(ClipEvent::LevelChanged(level.get_untracked()));
-        clip.feed(level, ClipEvent::LevelChanged);
-        root.value_now(move || level.get().clamp(0.0, 1.0))
-            .value_text(move || format!("{:.1} dB", 20.0 * level.get().max(0.001).log10()))
-            .orientation(move || {
-                if horizontal.get() {
-                    Orientation::Horizontal
-                } else {
-                    Orientation::Vertical
-                }
-            })
-            .on_press(move || clip.send(ClipEvent::Reset))
-            .draw(move |d, size| {
-                paint_meter(d, size, level, horizontal, channels, segmented, clipped)
-            })
-            .into_view()
-    }
+        })
+        .value_now(move || level.get().clamp(0.0, 1.0))
+        .value_text(move || format!("{:.1} dB", 20.0 * level.get().max(0.001).log10()))
+        .orientation(move || {
+            if horizontal.get() {
+                Orientation::Horizontal
+            } else {
+                Orientation::Vertical
+            }
+        })
+        .on_press(move || clip.send(ClipEvent::Reset))
+        .draw(move |d, size| paint_meter(d, size, level, horizontal, channels, segmented, clipped))
 }
 
 /// Paint measured channels and the canonical clip-hold observation.
@@ -143,7 +88,6 @@ fn paint_meter(
     clipped: Value<MeterClip>,
 ) {
     let (horizontal, segmented) = (horizontal.get(), segmented.get());
-    let p = d.theme().ext::<crate::tokens::Tokens>();
     let v = level.get().clamp(0.0, 1.0);
     let extent = if horizontal {
         size.width - 10.0
@@ -160,13 +104,13 @@ fn paint_meter(
         for i in 0..40 {
             let n = i as f64 / 40.0;
             let color = if n >= amp {
-                Color::token(ColorToken::Raised)
+                color::RAISED
             } else if n > 0.9 {
-                p.x
+                X
             } else if n > 0.75 {
-                p.warning
+                WARNING
             } else {
-                p.success
+                SUCCESS
             };
             let r = if horizontal {
                 Rect::new(
@@ -191,13 +135,10 @@ fn paint_meter(
     } else {
         Rect::new(2.0, 2.0, size.width - 4.0, 4.0)
     };
-    d.rounded_rect(
-        clip,
-        2.0,
-        if clipped.get() == MeterClip::Held {
-            p.x
-        } else {
-            p.x.with_alpha(0.17)
-        },
-    );
+    let held: Color = if clipped.get() == MeterClip::Held {
+        X
+    } else {
+        X.with_alpha(0.17)
+    };
+    d.rounded_rect(clip, 2.0, held);
 }
