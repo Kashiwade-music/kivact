@@ -265,6 +265,7 @@ fn editor_view<K: ItemKey>(
         invalid,
     } = state;
     let shown = list.is_open();
+    let tap = kivact_interaction::use_sheet_tap(move || !disabled.get() && !shown.get());
     let filtering = list.is_filtering();
     let query = list.query();
     let displayed = binding(
@@ -307,7 +308,8 @@ fn editor_view<K: ItemKey>(
                 keys
             })
             .with_node(move |node| node.part(list.input()))
-            .on_pointer(editor_pointer(list, disabled, input_ref, presentation)),
+            .with_node(move |node| node.part(tap.target()))
+            .on_pointer(editor_pointer(list, disabled, tap, presentation)),
         |r: &ComboboxTheme| r.input_recipe(),
         variants,
         PartState::default,
@@ -321,45 +323,19 @@ fn editor_view<K: ItemKey>(
     editor.into_view()
 }
 
-/// Recognize sheet taps and pointer opens through the existing gesture machine.
+/// Open the list from a pointer press, or the sheet from a touch tap.
 fn editor_pointer<K: ItemKey>(
     list: ComboboxApi<K>,
     disabled: Value<bool>,
-    input_ref: kivact_core::view::NodeRef,
+    tap: kivact_interaction::SheetTapApi,
     presentation: crate::SelectPresentation,
 ) -> impl Fn(kivact_core::view::PointerEvent) -> Handled {
     let shown = list.is_open();
-    let bounds = input_ref.rect();
-    let gesture = kivact_core::state::machine(
-        crate::select::machine::SheetGesture::Idle,
-        move || crate::select::machine::Machine {
-            readiness: if !disabled.get() && !shown.get() {
-                crate::select::machine::Readiness::Ready
-            } else {
-                crate::select::machine::Readiness::Unavailable
-            },
-            bounds: bounds.get(),
-            slop: kivact_core::style::use_theme()
-                .get()
-                .ext::<kivact_interaction::InteractionPolicy>()
-                .select
-                .sheet_slop,
-        },
-        |_, effect| match effect {},
-    );
     move |event| {
-        gesture.send(crate::select::machine::Event::Pointer(event));
+        tap.pointer(event);
         if !disabled.get_untracked() {
-            if presentation.uses_sheet()
-                && matches!(
-                    gesture.get(),
-                    crate::select::machine::SheetGesture::Released(
-                        crate::select::machine::Outcome::Tap
-                    )
-                )
-            {
+            if presentation.uses_sheet() && tap.take_tap() {
                 list.show_sheet();
-                gesture.send(crate::select::machine::Event::Reset);
             } else if matches!(event.phase(), PointerPhase::Down(_))
                 && ((event.kind() != PointerKind::Touch && !shown.get_untracked())
                     || (event.kind() == PointerKind::Touch && !presentation.uses_sheet()))

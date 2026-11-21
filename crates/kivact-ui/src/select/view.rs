@@ -237,12 +237,8 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
         let anchor = kivact_core::view::node_ref();
         let shown = behavior.is_open();
         let sheet_open = behavior.is_sheet_open();
-        let (trigger, sheet_factory) = select_trigger(
-            behavior,
-            &mut self.root,
-            anchor,
-            self.settings.touch_sheet.take(),
-        );
+        let (trigger, sheet_factory) =
+            select_trigger(behavior, &mut self.root, self.settings.touch_sheet.take());
 
         let state = trigger.state();
         let (options, selected, size) = (
@@ -371,50 +367,22 @@ fn configure_select<K: kivact_core::state::ItemKey>(
 pub(crate) fn select_trigger<K: kivact_core::state::ItemKey>(
     behavior: kivact_interaction::SelectApi<K>,
     root: &mut Node,
-    anchor: NodeRef,
     touch_sheet: Option<TouchSheet>,
 ) -> (kivact_core::custom::Part<PopupState>, Option<SheetFactory>) {
     let shown = behavior.is_open();
     let sheet_open = behavior.is_sheet_open();
     if let Some((eligible, factory)) = touch_sheet {
         let disabled = root.accessible_disabled();
-        let bounds = anchor.rect();
-        let gesture = kivact_core::state::machine(
-            crate::select::machine::SheetGesture::Idle,
-            move || crate::select::machine::Machine {
-                readiness: if shown.get() || disabled.as_ref().is_some_and(|read| read.get()) {
-                    crate::select::machine::Readiness::Unavailable
-                } else {
-                    crate::select::machine::Readiness::Ready
-                },
-                bounds: bounds.get(),
-                slop: kivact_core::style::use_theme()
-                    .get()
-                    .ext::<kivact_interaction::InteractionPolicy>()
-                    .select
-                    .sheet_slop,
-            },
-            |_, effect| match effect {},
-        );
-        let trigger = behavior.trigger_with_sheet(move || {
-            let tap = matches!(
-                gesture.get(),
-                crate::select::machine::SheetGesture::Released(
-                    crate::select::machine::Outcome::Tap
-                )
-            );
-            gesture.send(crate::select::machine::Event::Reset);
-            tap && eligible()
+        let tap = kivact_interaction::use_sheet_tap(move || {
+            !shown.get() && !disabled.as_ref().is_some_and(|read| read.get())
         });
+        let trigger = behavior.trigger_with_sheet(move || tap.take_tap() && eligible());
         let trigger_state = trigger.state();
         let trigger = kivact_core::custom::Part::new(trigger_state, move |host| {
             host.part(trigger)
+                .part(tap.target())
                 .on_pointer(move |event| {
-                    gesture.send(crate::select::machine::Event::Pointer(event));
-                    Handled::No
-                })
-                .on_key(move |_| {
-                    gesture.send(crate::select::machine::Event::Reset);
+                    tap.pointer(event);
                     Handled::No
                 })
                 .has_popup(move || {

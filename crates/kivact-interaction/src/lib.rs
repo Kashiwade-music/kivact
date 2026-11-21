@@ -67,6 +67,7 @@ mod roving;
 mod scalar;
 mod sealed;
 mod selection;
+mod sheet_tap;
 mod swipe_dismiss;
 mod switch_drag;
 pub use selection::{IntoSelection, Selection};
@@ -122,6 +123,7 @@ pub use range_scalar::{RangeScalarApi, RangeThumb, use_range_scalar};
 pub use reorder::Reorder;
 pub use scalar::{ScalarApi, ScalarState, TouchSliderGesture, use_scalar};
 pub use select::{SelectApi, use_select};
+pub use sheet_tap::{SheetTapApi, use_sheet_tap};
 pub use space_pan::{SpacePanApi, use_space_pan};
 pub use splitter::{SplitterApi, SplitterState, use_splitter};
 pub use swipe_dismiss::{
