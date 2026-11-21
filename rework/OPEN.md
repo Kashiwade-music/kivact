@@ -734,3 +734,33 @@ U23 の報告にある食い違い 1〜15（ComboboxApi::mode が無い、`Stepp
 - **(3) `NavigationMenuLink::on_press`**：固有の method は消す（API-13 のとおり。固有の method を残すと、`Element::on_press` で付けた handler が `into_view` で置き換えられて消える）。core に `#[doc(hidden)] Node::take_press` を足し、link は呼出し側の handler を取り出して自分の押下の中で呼んでから閉じる。付属書 U23 の手順 5 に書き、試験を 1 つ足した。
 - **食い違い 6（押下が root に載る）**：採る。`Element` の modifier は root に付く（`element_data.rs` の doc の決まり）。Card・ChatMessage・Badge・ItemRow の全体が押せる面になり、`use_button()` の part も root に付く。G の移行の文書に 1 行足す（W11b）。
 - **食い違い 7（Stepper の項目が常に押せる）**：採る。値は `current` の signal が持ち、利用者の操作はそれを書く。飛ばせない手順の項目は `StepperItem::disabled(true)` にする。`stepper` の doc に 1 文足す（付属書の手順 1）。G の移行の文書に 1 行足す（W11b）。
+
+## 差戻し（W7a・E25、2026-11-21）
+
+E25（lane E1、作業ツリーの未 commit の 6 file。HEAD は `6b66158b`）は、確認で 1 件が落ちた。lane E1 はここで止める（E26 は E25 の後）。
+
+- **落ちた試験**：`dev/tests/kivact-public-api/tests/e2e_core/custom_text_field.rs:285`（`custom_text_field_accessibility_publishes_text_and_selection`）。`field.reconvert(1..3)` の直後の `assert_eq!(field.text_selection(), Some((1, 3)))` が、`Some((14, 14))` になる。a11y の選択範囲が、操作の直後に publish されない。
+- **原因（見立て）**：付属書 E25 の EN-27（「文字入力の入口は sync せず、続く pump の settle に任せる」）に従い、`model/keys.rs`（`key`・`paste`）と `model/edit/ime.rs`（`preedit`・`commit`・`ime_select`）から `sync()` を外した。`reconvert` の経路がその `sync()` に依っていた。試験は pump を挟まず a11y を読む。
+- **設計者が決める**（0.5 の表に当たらない。a11y の期待値は差戻し対象）：(a) `ime_select`（または `reconvert` の経路）の `sync()` を残す（E25 の手順 3 の一部を取り消す。試験の期待値は変えない）、(b) 試験の前に pump を挟む（試験の期待値を変える。設計者の承認が要る）、(c) EN-27 の文を直す。
+- 作業ツリーの変更は reset せず残してある（lane E1 の `W:/w/kv-wt/rw-W7a-E1`）。E25 の他の確認（engine の試験 13 件、E2E の他の 11 module、fmt、clippy、xtask）は通った（`V:/kv-target/logs-W7a-verify/e1-*.log`）。
+
+## 設計者の回答（W7a・E25 の差戻しと、確認の残り、2026-11-21）
+
+- **E25**：(a)・(b) は採らない。EN-27 と E25 の早い return（`is_clean`）は、「書込み・入力・tick・resize・asset は、すべて一つの `Changes` に記録される」（`sync.rs` の module doc）を前提にしている。試験が落ちたのは、reconvert の経路のどこかが `Changes` に記録せずに状態を変え、前は無条件の `sync` がそれを拾っていたためと見る（隠れた通り道。root で直す）。次の順で調べて直す（subagent に任せてよい）：
+  1. 手順 3 の早い return だけを一時的に外して試験を走らせる。通るなら、早い return が仕事を飛ばしている。reconvert（`ime_select`・`session_select`・`session_event` と、それを受けた App の commit）の後に、`sync` のどの段が a11y の選択範囲を出しているか、その段が読む状態を誰が書いているかを突き止め、その書き手が `Changes` に印を付ける（その段が既に使う `Dirty::` の bit か `Changes` の field。新しい field は作らない）。早い return は戻す。
+  2. 早い return を外しても落ちるなら、手順 7 の `sync()` の削除が原因（試験の host の経路で、入力の後に settle が走っていない）。その場合は、落ちる入口の関数だけ `self.sync();` を残し、付属書 E25 の手順 7 と EN-27 の文をその入口を除く形に Orchestrator が直す（設計者の決まりとして記録する）。
+  どちらでも試験の期待値は変えない。E25 の確認を全部やり直してから commit し、E26 へ進む。
+- **J5（DevTools の override 名）**：採る。DevTools の名前は style の setter の名前（S20 の CSS の名前）に揃える。wire は rework の中で互換を約束しない。表示用の label（`node.rs` の "ring"・"radius"・"weight"）も同じ名前にする：W11c の後片付けの unit に入れる（設計者が付属書に書く）。
+- **S22 の食い違い 6**：数える（ST-31 の「数えて報告する」が正）。span の変換で捨てる text 系の property を `Unsupported` に数える unit を、設計者が W9 の前に付属書 S に足す（S22b）。それまで今の形でよい。
+- **S22 の食い違い 9（paragraph の `tabular_nums`）**：設計者が調べ、要るなら同じ時に unit を足す（S22c）。
+- **U21 (a)〜(d)**：採る。(a) は 4.3 の fallback の規則どおり。G の移行の文書に「combobox の focus ring は theme の `focus_ring()` でなく token の `FOCUS_RING`」を 1 行足す（W11b）。
+- **U22 の `date_range_input`・`date_time_input` の既定の label**：既存のメッセージのままでよい。
+- **push**：W6b までの統合 branch は、利用者の許可を得て設計者が push した（`b1b2c3c2`）。Orchestrator は push しない。
+- **W6b の worktree と branch の後片付け**：権限の判定で拒否された操作なので、利用者の判断を待つ。それまで残す（作業の妨げにならない）。
+
+## Orchestrator の判断（W7a・E25 の直し、W7b・A15、2026-11-21）
+
+- **E25（`f0ed653b`）**：採る（設計者の決め、手順 2）。`ime_select` の末尾の `self.sync();` を戻した。試験の host の経路（`ime_event` → `ime_select`）で settle が走っていなかった。`preedit`・`commit`・`key`・`paste` の sync は外したまま。早い return は手順 1 の結果で戻した（外しても試験は落ちた）。付属書 E25 の手順 7 と EN-27 の文に追補を書いた（`E-engine.md`、本 commit）。確認（engine の試験 216 秒、E2E 12 module、fmt、clippy、xtask）は全部通った。
+- **A15（W7b、`08c1371d`、lane `wt/rw-W7b-A1`、W7a の A13 `3a719498` の上）**：採る。`CpuCompositor` の target の pool（64 MiB）、`filters::apply` の借用（input と output が同じ時だけ clone）、GPU への切替えでの `invalidate`。付属書との食い違い 1〜6（`run` は `size` を取らず `output.size()`、`give_back` は Temp だけ、`render()` は local の pool、試験の pool の非空の assert、E2E は comment 変更の前に走らせた、CRLF の復元後は check・clippy・xtask・compose の試験を再実行）は、配置と同じ形の選択で設計の変更は無い。E2E（ARV 38、DRAW 83、OFFSCREEN 4+8、GPU-DEMAND 6）は通った。
+- **W6b の後片付け**：設計者が利用者の許可を得て実施（worktree と branch の削除）。W6b の target（`V:/kv-target/rw-W6b-*`）は残してある。
+- **U23（`e23f39a8`）**：設計者が Stepper の record の印を入れた（利用者の許可）。U23 の完了 commit は U1 lane で行う。

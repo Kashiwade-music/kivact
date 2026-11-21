@@ -5259,13 +5259,15 @@ cargo test -p kivact-editing
      }
      ```
      `resized` は、`if changed { for id in &images { ... if self.assets.borrow_mut().natural_changed(image, used) { ... } } }` の `if` の中で `resized.push(*id);` で集める（loop の前に `let mut resized = Vec::new();`）。
-  7. `src/model/keys.rs` の `key` と `paste`、`src/model/edit/ime.rs` の `preedit`、`commit`、`ime_select` の最後の `self.sync();` の行を消す（host はこの後に必ず pump し、settle が sync する）。
+  7. `src/model/keys.rs` の `key` と `paste`、`src/model/edit/ime.rs` の `preedit`、`commit` の最後の `self.sync();` の行を消す（host はこの後に必ず pump し、settle が sync する）。`ime_select` は消さない（下の追補）。
   8. `rg -n "forget_missing\(|prune_reports\(" crates/kivact-engine/src/model/interact/sync.rs` が空であることを確かめる。
 - **消すもの**：`sync` の中の report の全走査、文字入力の入口の `sync()`。
 - **状態の閉じ方**：新しい状態は無い。
 - **試験**：足さない・直さない。
 - **確認（tier a）**：`ENGINE-A`、`E2E: assets, image_semantics, images_animated, resource_reclaim, disposal, text_editing, custom_text_field, input_platform, keyboard, launch_real_window, a11y_incremental, diagnostics`
 - **完了条件**：手順 8 の `rg` が空。確認がすべて通る。
+
+- **追補（2026-11-21、設計者の決め：E25 の差戻し）**：`ime_select` は sync を残す。reconvert の Selection が来る入口で、native の経路の最後に sync が無いと、a11y の選択範囲が publish されるまでの間に読まれる（`custom_text_field_accessibility_publishes_text_and_selection`）。EN-27 の「文字入力の入口は sync せず」は、`preedit`・`commit`・`key`・`paste` の入口に限る。`session_select` の経路は sync しない（元の形）。早い return（`is_clean()`）は E25 の手順 3 のとおり残す。
 
 ## E26：`HostNode` の `scroll` と `shift` を疎な表へ
 
