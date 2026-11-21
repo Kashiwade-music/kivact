@@ -1222,3 +1222,26 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
 - 「KPI の未達」（改善の必達の未達。返さない）：K2 per_item text・K2 per_item row（改善必達 ≤ 0.95 に届かず）、K3 3000 rows continuous CPU（CP2b 0.928、r2 は 後退 の 1 回。改善必達 ≤ 0.85 に届かず）、K4 3000 rows work p95（CP2b 0.809、改善必達 ≤ 0.80 に届かず）。
 - 1 回目の `CP2.md`・`CP2-ratio.md` は判定に使わない（注を足して残した）。
 - W9 は、この測り直しの後に始める（設計者の指示）。K5 counter click p95 の後退への答えは待たずに進める。
+
+## 設計者の回答（W9 の判断待ち 8 件、2026-11-22）
+
+- **(1)・(8) name-collision**：検査の規則の誤り。目的は「`use kivact::prelude::*; use kivact::ui::*; use <kit>::*;` と glob で並べても名前が曖昧にならない」ことで、glob が持ち込むのは**直下の名前だけ**。`kivact::ui::toolbar::BACKGROUND` のような入れ子の名前は持ち込まれない。kit の側も、直下の公開名だけが glob で入る。
+  - 直し（Orchestrator が統合 branch で Haiku high の subagent に任せる。所有：`dev/xtask/src/name_collision.rs`）：
+    1. `reserved` には、path が `kivact::prelude::<名前>` か `kivact::ui::<名前>`（prefix の後に `::` が無い）のものだけを入れる。module は今までどおり飛ばす。
+    2. kit の側も、`<kit の identity_root>::<名前>`（prefix の後に `::` が無い）だけを確かめる。
+    3. module の doc に 1 文足す：「Only direct children are compared: a glob import brings in a module's direct names, not the names inside its submodules.」
+    4. `mod tests` に `fn a_nested_core_name_is_not_reserved()`：surface に `kivact::ui::toolbar::BACKGROUND` と `kivact::ui::Button` を入れ、kit の source が `pub const BACKGROUND: u32 = 0; pub struct Button;` のとき、error が 1 件（`Button` だけ）。もう一つ `fn a_kit_nested_name_is_not_checked()`：kit の `pub mod a { pub struct Button; }` だけなら 0 件。
+    5. 確認：xtask の package の `cargo test`、`cargo xtask check --no-write --only local`。
+  - K1・K15 の const（`BACKGROUND`・`BORDER`・`FOREGROUND`・`MUTED` と各 `_VAR`）は付属書のとおり `pub` で crate の root に出す。K5・K28 の `BORDER`・`FOCUS_RING` も `pub(crate)` をやめ、付属書のとおり root に出す。直した規則でも衝突が残ったら（`kivact::ui` か `kivact::prelude` の直下に同じ名前がある）、その名前の一覧を私に返す。
+- **(2) skeleton と spinner の reduced period**：Orchestrator の案を採る。`skeleton::REDUCED_PERIOD_MS_VAR` は作らない（skeleton は period を読まない）。spinner は `SpinnerTheme::reduced_period(Some(<値>))` で置く（U21 の判断のとおり）。kit が今 `indicators.reduced_period_ms` を set していなければ、何も set しない（`None` は reduced motion で止まる）。付属書 U の変数表の行を直した。
+- **(3) basic の `lib.rs` の plot の 3 行**：K10 が消す（file を移す unit が、その file を指す `mod nice`・`mod plot`・`pub use plot::{..}` の 3 行も消す。所有の例外として、この 3 行だけ）。basic は plot を再公開しない（一つの item に公開の path は一つ。利用者は `kivact_plot` を使う）。K15 はこの 3 行を書き戻さない。K11〜K14 は K10 の後に進めてよい。
+- **(4) pop の `AvatarLook::decorations()`**：
+  - pop に部品 `AvatarDecorations` を作る（`crates/kivact-ui-pop/src/avatar_decorations.rs`、3.0.5 の `#[component]`）。props は `size: f64 = 40.0`、`hue: f64 = 205.0`、`halo: bool = false`、`online: bool = false`（反応する値で受ける形は 3.0.5 のとおり）。本体は今の `decorations()` の本体のまま。`size` の下限 16 も部品の中で `max(16.0)` にする。`Tokens` の `mint` は K20 で作った pop の色の変数で読み、`crate::tokens::avatar_halo`・`avatar_glow` は K20 が移した `color.rs` の `pub(crate) fn` を使う。使い方の doc：「Mount it in an avatar's `status_content`: `avatar(..).status_content(AvatarDecorations::new().halo(true))`.」
+  - `AvatarHalo`・`AvatarOnline` の variant は消す（読む所は `decorations()` だけだった。読む所の無い型は残さない）。`AvatarSize`・`AvatarHue` は avatar の recipe が読むので残す。
+  - `Thread` の既定の portrait は `kivact::ui::avatar(initials).fallback_content(..).variant(AvatarSize(32.0))` にし、`status_content` を付けない（既定は halo も online も false で、今も何も描かない）。
+  - 所有：K21（`messaging.rs` の変換と同じ unit）。`avatar_decorations.rs` を足し、`variants.rs` と `lib.rs` から `AvatarHalo`・`AvatarOnline` を消し、`lib.rs` に `AvatarDecorations` の `mod` 行と `pub use` 行を足す。example（`examples/kivact-ui-pop/src/pop/common.rs`・`messaging.rs`）の `decorations()` は、pop の catalog の unit（K37）が `.status_content(AvatarDecorations::new()...)` に変える。付属書 K の 4.4.2 の表を直した。
+- **(5) K22 の完了条件の範囲**：K22 の `rg` は、`lib.rs` に `mod` 行のある module の file（K22 が変換した file）だけに当てる。crate 全体で 0 件になることは K25 の完了条件にした（付属書 K の K22・K25 を直した）。
+- **(6) `icons.rs` の `OnceLock`**：3.0.7 のとおり、W9 では `icons.rs` を変えない（W10 の各 kit の unit が `icons!` と `thread_local!` にする）。K2 の `thread_local` への変更は元に戻し、K4 の形（今のまま）にそろえる。W9 の間に xtask がこの `OnceLock` を報告したら、それは W10 の unit の範囲として、その error の行を私に返す。
+- **(7a) game の `GameCellVariant`**：改名をやめる。この enum は表の cell の**中身**の種類で、kivact の `*Variant`（見た目の variant）ではない。また kit は `impl IntoView for` を持てない（3.0.5）。そこで enum を消し、4 つの部品にする：`IdentifierCell`、`DetailCell`、`UserCell`、`BadgeCell`（3.0.5 の `#[component]`。props は今の enum の各 variant の field のまま。本体は今の `cell_view` の各 arm のまま）。`console_cell` も作らない。所有：K27（`table.rs`）。付属書 K の K26 の手順と 4.4.3 の表を直した。example と catalog の呼び出し（`GameCellVariant::User { .. }` など）は、game の catalog の unit（K40）が部品の呼び出しに変える。
+- **(7b) game の recipe の部品**：落とさない（見た目を変えない）。3.0.3 の R1〜R2 のとおり、今 kit が `UiRecipes` で上書きしていた recipe は、**すべて**中核の `<Name>Theme` の同じ名前の setter に移す。付属書の表は group の行き先を示すだけで、setter の一覧ではない。中核には `BreadcrumbTheme::{root, separator}`、`PaginationTheme::{root, ellipsis}`、`StepperTheme::{indicator, label}`、`NavigationMenuTheme::{root, trigger, action, panel, link, link_title, link_description}` がある（`crates/kivact-ui/src/<name>/look.rs` の `recipe_table!`）。中核に同じ名前の setter が無い part があれば、その part の名前と今の recipe の場所の一覧を私に返す（落とさずに止める）。
+- **(8) の後半**：K28 の step 8 を続きの implementer に渡すのは、Orchestrator の判断どおりでよい。
