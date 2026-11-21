@@ -9,9 +9,10 @@ description = "Neutral contracts and native helpers for GPU texture sharing"
 
 [features]
 default = []
+adapter = ["dep:wgpu"]
 export = []
-import = ["dep:wgpu", "dep:pollster"]
-wgpu = ["export", "dep:wgpu", "dep:pollster"]
+import = ["adapter", "dep:wgpu", "dep:pollster"]
+wgpu = ["adapter", "export", "dep:wgpu", "dep:pollster"]
 
 [dependencies]
 kivact-types = { path = "../kivact-types", version = "0.1.0" }

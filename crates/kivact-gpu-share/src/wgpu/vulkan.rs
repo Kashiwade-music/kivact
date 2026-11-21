@@ -24,7 +24,7 @@ use kivact_types::{GpuAdapter, SharedTextures};
 use std::time::Duration;
 
 /// Whether the Vulkan adapter `found` is `adapter` (its UUIDs).
-pub(super) fn is_adapter(found: &::wgpu::Adapter, adapter: &GpuAdapter) -> Result<bool, Error> {
+pub(crate) fn is_adapter(found: &::wgpu::Adapter, adapter: &GpuAdapter) -> Result<bool, Error> {
     let wanted = backend::uuids(adapter)?;
     // SAFETY: only reads the adapter's handles while the guard lives.
     let Some(hal) = (unsafe { found.as_hal::<Vulkan>() }) else {
@@ -38,11 +38,11 @@ pub(super) fn is_adapter(found: &::wgpu::Adapter, adapter: &GpuAdapter) -> Resul
 
 /// A device of `adapter` with the sharing's extensions and `desc`'s
 /// features and limits.
-pub(super) fn open(
+pub(crate) fn open(
     adapter: ::wgpu::Adapter,
     desc: &::wgpu::DeviceDescriptor<'_>,
 ) -> Result<(::wgpu::Adapter, ::wgpu::Device, ::wgpu::Queue), Error> {
-    let (device, queue) = crate::wgpu_device::open(&adapter, desc)?
+    let (device, queue) = crate::device::open_vulkan(&adapter, desc)?
         .ok_or_else(|| Error::Mismatch("the adapter cannot share Vulkan textures".into()))?;
     Ok((adapter, device, queue))
 }
@@ -94,7 +94,7 @@ impl Raw {
                 .all(|e| hal.enabled_device_extensions().contains(e))
         {
             return Err(Error::Mismatch(
-                "the device cannot share (open it with `wgpu::request_device`)".into(),
+                "the device cannot share (open it with `device::request_device_for`)".into(),
             ));
         }
         let mut commands = Commands {

@@ -26,8 +26,9 @@ use kivact::test::{MirrorMode, RenderOptions, Screen, Screenshot, gpu_unavailabl
 use kivact::view::{
     Drawable, DrawableFrame, DrawableShare, Node, ShareError, ShareUpdate, drawable, viewport,
 };
+use kivact_gpu_share::device::request_device_for;
 use kivact_gpu_share::import::Import;
-use kivact_gpu_share::wgpu::{read_back, request_device};
+use kivact_gpu_share::wgpu::read_back;
 
 use kivact_public_api_tests::paint::{BLUE, RED, distance, pixel};
 use kivact_public_api_tests::support::mount_with;
@@ -201,7 +202,7 @@ impl Consumer {
             ..wgpu::InstanceDescriptor::new_without_display_handle()
         });
         let (_, device, queue) =
-            request_device(&instance, adapter, &wgpu::DeviceDescriptor::default())
+            request_device_for(&instance, adapter, &wgpu::DeviceDescriptor::default())
                 .expect("the consumer's device opens on the window's adapter");
         Consumer {
             device,

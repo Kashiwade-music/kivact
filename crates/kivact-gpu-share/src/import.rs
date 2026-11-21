@@ -43,7 +43,7 @@
 //! - Waits are bounded; failures are `Err`, never panics.
 //!
 //! Platforms: Direct3D 12 (Windows) and Vulkan (Windows, Linux with
-//! `OPAQUE_FD` handles). Elsewhere [`crate::device::identity`] is `None`, devices open as
+//! `OPAQUE_FD` handles). Elsewhere [`crate::adapter::identity`] is `None`, devices open as
 //! wgpu opens them and every import fails.
 
 #![deny(unsafe_code)]

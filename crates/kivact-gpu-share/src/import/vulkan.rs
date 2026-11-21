@@ -32,33 +32,10 @@
 use crate::common::{Error, same_backend};
 use ::wgpu::hal::api::Vulkan;
 use ash::vk;
-use kivact_types::{AdapterIds, GpuBackend, SharedHandle, SharedTextures};
+use kivact_types::{GpuBackend, SharedHandle, SharedTextures};
 use std::time::Duration;
 
-use crate::vulkan_contract::{FORMAT, MEMORY_HANDLE, SEMAPHORE_HANDLE, usage};
-
-/// The identity of a Vulkan adapter (`None`: not Vulkan).
-pub(crate) fn identity(adapter: &::wgpu::Adapter) -> Option<AdapterIds> {
-    // SAFETY: only reads the adapter's handles while the guard lives.
-    let hal = unsafe { adapter.as_hal::<Vulkan>() }?;
-    let instance = hal.shared_instance().raw_instance();
-    // SAFETY: the physical device belongs to the live instance retained by the guard.
-    let ids = unsafe { crate::vulkan_raw::identity(instance, hal.raw_physical_device()) };
-    Some(AdapterIds::Vulkan {
-        device_uuid: ids.device_uuid,
-        driver_uuid: ids.driver_uuid,
-        luid: ids.luid,
-    })
-}
-
-/// An interop device and its queue on `adapter`; `None` when it is not a
-/// Vulkan adapter or cannot import (the caller opens an ordinary device).
-pub(crate) fn request_device(
-    adapter: &::wgpu::Adapter,
-    desc: &::wgpu::DeviceDescriptor<'_>,
-) -> Option<Result<(::wgpu::Device, ::wgpu::Queue), Error>> {
-    crate::wgpu_device::open(adapter, desc).transpose()
-}
+use crate::vulkan::{FORMAT, MEMORY_HANDLE, SEMAPHORE_HANDLE, usage};
 
 /// Whether `device` is a Vulkan device.
 pub(crate) fn is_vulkan(device: &::wgpu::Device) -> bool {
@@ -333,7 +310,7 @@ fn check_format(
 fn device_local(instance: &ash::Instance, physical: vk::PhysicalDevice, bits: u32) -> Option<u32> {
     // SAFETY: a physical device of the live instance, retained by wgpu.
     unsafe {
-        crate::vulkan_raw::memory_type(
+        crate::vulkan::raw::memory_type(
             instance,
             physical,
             bits,
@@ -438,7 +415,7 @@ fn given(handle: SharedHandle) {
 /// A new timeline semaphore at 0.
 fn timeline(device: &ash::Device) -> Result<vk::Semaphore, Error> {
     // SAFETY: the import device was opened with Vulkan 1.2 and sharing extensions.
-    unsafe { crate::vulkan_raw::timeline(device, false) }
+    unsafe { crate::vulkan::raw::timeline(device, false) }
 }
 
 /// Record an ownership barrier of `image` between `families`, keeping
@@ -459,7 +436,7 @@ fn record(
     let read = vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL;
     // SAFETY: the command buffer was begun above for the live imported image.
     unsafe {
-        crate::vulkan_raw::barrier(
+        crate::vulkan::raw::barrier(
             device,
             buffer,
             image,

@@ -1,12 +1,12 @@
 //! Role: The engine's Vulkan export pool: shared images, semaphores, barriers.
 
+use super::FORMAT;
 use super::physical_device::{check_export, identity, uuids};
-use super::raw::FORMAT;
 use super::raw::{barrier, memory_type};
 use super::read_back::{ReadImage, read_back};
+use super::{HAND_OFF_LAYOUT, MEMORY_HANDLE, SEMAPHORE_HANDLE, usage};
 use crate::common::{Error, api};
 use crate::pool::{Acquired, DROP_WAIT, FrameReady, PoolConfig, Slots};
-use crate::vulkan_contract::{HAND_OFF_LAYOUT, MEMORY_HANDLE, SEMAPHORE_HANDLE, usage};
 use ash::vk;
 use kivact_types::{
     AdapterMatch, GpuAdapter, GpuBackend, SharedHandle, SharedTextureFormat, SharedTextures,
@@ -284,7 +284,7 @@ impl Pool {
     /// An exportable timeline semaphore at 0.
     fn semaphore(&self) -> Result<vk::Semaphore, Error> {
         // SAFETY: the pool's device satisfies the Vulkan sharing contract.
-        unsafe { crate::vulkan_raw::timeline(&self.device, true) }
+        unsafe { super::raw::timeline(&self.device, true) }
     }
 
     /// The handles of the images and semaphores, exported once.

@@ -223,7 +223,7 @@ fn adapter(
             .into_iter()
             .filter(|adapter| adapter.get_info().device_type != wgpu::DeviceType::Cpu)
             .find(|adapter| {
-                kivact_gpu_share::device::identity(adapter)
+                kivact_gpu_share::adapter::identity(adapter)
                     .is_some_and(|identity| gpu_adapter(adapter, identity, 0).matches(&wanted))
             });
         if let Some(adapter) = named {
@@ -251,7 +251,7 @@ fn open_device(
             .map_err(|error| error.to_string())?;
         let interop = opened
             .interop
-            .then(|| kivact_gpu_share::device::identity(adapter))
+            .then(|| kivact_gpu_share::adapter::identity(adapter))
             .flatten()
             .map(|ids| gpu_adapter(adapter, ids, next_generation()));
         Ok((opened.device, opened.queue, interop))
