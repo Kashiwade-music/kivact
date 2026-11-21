@@ -12,6 +12,7 @@ use arvane_shell::{
     ShellEvent, ShellWaker, ShellWindow,
 };
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::rc::Rc;
 use std::sync::{Arc, mpsc};
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::ConnectionExt;
@@ -192,6 +193,7 @@ fn run(
         options.visibility,
     )?;
     let keyboard = Keyboard::new(&native.connection)?;
+    let session = Rc::new(Session::new(shared.clone(), waker(&backend), make));
     let mut window = Window::new(
         native,
         shared.clone(),
@@ -201,15 +203,13 @@ fn run(
         options.visibility,
         options.unhandled_keys,
         hooks.on_resize_request,
-        waker(&backend),
+        session.clone(),
     )?;
-    let session = window.session.clone();
     let _watch = crate::port::linux_settings::watch(session.waker());
     // The App's start and event loop run inside this panic boundary. A panic is
     // kept as the child's message and never resumed on this thread.
     let result = match catch_unwind(AssertUnwindSafe(|| {
-        session.start(make, &mut window);
-        session.opened();
+        session.start(&mut window);
         if let Some(ChildStop::Failed(error)) = shared.stop() {
             let _ = ready.send(Err(error.clone()));
             Err(error)
@@ -235,9 +235,10 @@ fn run(
         shared.fail(error.clone());
     }
     shared.request_close();
+    session.stopped_outside_callback();
     // The shutdown runs inside its own boundary too: after a panic, the session
     // forgets the App instead of closing or dropping it.
-    let closed = match catch_unwind(AssertUnwindSafe(|| session.close(&mut window))) {
+    let closed = match catch_unwind(AssertUnwindSafe(|| session.dispose(&mut window))) {
         Ok(closed) => closed,
         Err(payload) => {
             shared.keep_panic(payload);
@@ -324,9 +325,13 @@ fn event_loop(session: &Session, window: &mut Window, mut input: Input) -> Resul
                 return Ok(());
             }
         }
-        window
-            .accessibility
-            .publish(&window.native, window.width, window.height, window.scale)?;
+        let applied = window.shared.applied();
+        window.accessibility.publish(
+            &window.native,
+            applied.width,
+            applied.height,
+            applied.scale,
+        )?;
         if closed(window) {
             return Ok(());
         }
@@ -525,8 +530,11 @@ fn deliver_commands(
             Command::SetScale(scale) => {
                 // `Handle::set_scale` rejects other values before queuing.
                 debug_assert!(scale.is_finite() && scale > 0.0);
-                window.scale = scale;
-                window.resized(window.width, window.height);
+                let applied = window.shared.applied();
+                window
+                    .shared
+                    .update(applied.width, applied.height, scale, applied.visibility);
+                window.resized(applied.width, applied.height);
                 session.deliver(ShellEvent::Resized, window);
             }
             Command::SetVisibility(visibility) => {

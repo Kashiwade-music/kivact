@@ -1,6 +1,6 @@
 //! Role: Embedded ShellWindow services and synchronous CPU/GPU presentation.
 use super::native::Native;
-use super::state::{DrainGuard, ReentryGuard, ScaleSource, StartSlot, State};
+use super::state::{DrainGuard, ReentryGuard, ScaleSource, State};
 use crate::port::embed::child::{ChildPort, Command, Shared};
 use crate::port::embed::session::Session;
 use arvane_shell::{
@@ -434,12 +434,11 @@ impl State {
                 native: native.clone(),
                 shared: shared.clone(),
             }),
-            session: Session::new(shared.clone(), waker),
+            session: Session::new(shared.clone(), waker, make),
             shared,
             native,
             on_resize_request,
             unhandled_keys,
-            start: RefCell::new(StartSlot::Ready(make)),
             events: RefCell::new(VecDeque::new()),
             in_callback: ReentryGuard::default(),
             draining: DrainGuard::default(),
@@ -462,19 +461,16 @@ impl State {
     pub(super) fn waker(&self) -> ShellWaker {
         self.session.waker()
     }
-    /// Run the root handler once, inside the window procedure's panic
-    /// boundary: `open` sends the private `START` message; a second one is an
-    /// invariant violation.
+    /// Run the root handler inside the window procedure's panic boundary:
+    /// `open` sends the private `START` message, and the session starts the App
+    /// only while it is still opening.
     pub(super) fn start_once(self: &Rc<Self>) {
-        let StartSlot::Ready(make) = self.start.replace(StartSlot::Started) else {
-            unreachable!("invariant: START is sent once by open");
-        };
         {
             let _callback = self
                 .in_callback
                 .enter()
                 .expect("invariant: open runs no App callback before start");
-            self.session.start(make, &mut Window(self.clone()));
+            self.session.start(&mut Window(self.clone()));
         }
         if self.shared.stopped() {
             self.stop();
@@ -675,7 +671,7 @@ impl State {
     }
     /// Close the handler and release the child's resources, exactly once.
     pub(super) fn dispose(self: &Rc<Self>) {
-        if !self.session.active() {
+        if !self.session.needs_cleanup() {
             return;
         }
         let closed = {
@@ -683,7 +679,7 @@ impl State {
             let Some(_callback) = self.in_callback.enter() else {
                 return;
             };
-            self.session.close(&mut Window(self.clone()))
+            self.session.dispose(&mut Window(self.clone()))
         };
         if !closed {
             self.leak_resources();
@@ -709,7 +705,8 @@ impl State {
     }
     pub(super) fn stop(self: &Rc<Self>) {
         self.shared.request_close();
-        if self.in_callback.get() || !self.session.active() {
+        self.session.stopped_outside_callback();
+        if self.in_callback.get() || !self.session.needs_cleanup() {
             return;
         }
         self.dispose();
