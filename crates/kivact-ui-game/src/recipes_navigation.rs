@@ -1,10 +1,13 @@
 //! Role: Draw console navigation with numbered chevrons and compact page controls.
 use crate::choice_style;
 use crate::color::{PRIMARY_WEAK, SURFACE_3};
+use crate::fonts::{DISPLAY_FAMILY_VAR, MONO_FAMILY_VAR};
 use crate::variants::TabsVariant;
 use kivact::interaction::{NavOpen, TabListState, TabState};
 use kivact::style::color::{ACCENT, ACCENT_TEXT, BORDER, SURFACE_ALT, TEXT, TEXT_MUTED};
-use kivact::style::{Align, Color, FlexDirection, Justify, Shape, Style, Theme, pct, style};
+use kivact::style::{
+    Align, Color, FlexDirection, FontStyle, Justify, Shape, Style, Theme, pct, style,
+};
 use kivact::ui::theme::{
     BreadcrumbItemState, BreadcrumbTheme, Look, NavigationMenuTheme, PaginationItemState,
     PaginationTheme, StepperItemState, StepperState, StepperTheme, TabsTheme,
@@ -14,12 +17,24 @@ use kivact::ui::theme::{
 pub(crate) fn install(theme: Theme) -> Theme {
     theme
         .with(TabsTheme::default().list(tabs_list).tab(tab))
-        .with(PaginationTheme::default().item(pagination_item))
-        .with(BreadcrumbTheme::default().item(breadcrumb_item))
+        .with(
+            PaginationTheme::default()
+                .root(pagination_root)
+                .item(pagination_item)
+                .ellipsis(pagination_ellipsis),
+        )
+        .with(
+            BreadcrumbTheme::default()
+                .root(breadcrumb_root)
+                .item(breadcrumb_item)
+                .separator(breadcrumb_separator),
+        )
         .with(
             StepperTheme::default()
                 .root(stepper_root)
-                .item(stepper_item),
+                .item(stepper_item)
+                .indicator(stepper_indicator)
+                .label(stepper_label),
         )
         .with(
             NavigationMenuTheme::default()
@@ -65,6 +80,14 @@ pub(crate) fn tab(_: &Theme, state: &Look<TabState>, _base: Style) -> Style {
         .hover(style().background(kivact::style::color::SELECTION))
 }
 
+pub(crate) fn pagination_root(_: &Theme, _: &Look<()>, base: Style) -> Style {
+    base.gap(4).padding(0)
+}
+
+pub(crate) fn pagination_ellipsis(t: &Theme, _: &Look<()>, base: Style) -> Style {
+    base.font_family(t.get(&MONO_FAMILY_VAR).as_str().unwrap_or_default())
+}
+
 pub(crate) fn pagination_item(_: &Theme, s: &Look<PaginationItemState>, _base: Style) -> Style {
     style()
         .size(30, 30)
@@ -79,6 +102,14 @@ pub(crate) fn pagination_item(_: &Theme, s: &Look<PaginationItemState>, _base: S
         })
         .hover(style().background(SURFACE_ALT).color(TEXT))
         .disabled(style().opacity(0.42))
+}
+
+pub(crate) fn breadcrumb_root(_: &Theme, _: &Look<()>, base: Style) -> Style {
+    base.gap(8).padding(0).align_items(Align::Center)
+}
+
+pub(crate) fn breadcrumb_separator(_: &Theme, _: &Look<()>, _base: Style) -> Style {
+    style().font_size(20).font_weight(700).color(ACCENT)
 }
 
 pub(crate) fn breadcrumb_item(_: &Theme, s: &Look<BreadcrumbItemState>, _base: Style) -> Style {
@@ -124,6 +155,17 @@ pub(crate) fn stepper_item(_: &Theme, s: &Look<StepperItemState>, base: Style) -
         )
         .background(fill)
         .color(text)
+}
+
+pub(crate) fn stepper_indicator(t: &Theme, _: &Look<StepperItemState>, base: Style) -> Style {
+    base.font_family(t.get(&DISPLAY_FAMILY_VAR).as_str().unwrap_or_default())
+        .font_size(18)
+        .font_weight(800)
+        .font_style(FontStyle::Italic)
+}
+
+pub(crate) fn stepper_label(_: &Theme, _: &Look<StepperItemState>, base: Style) -> Style {
+    base.font_size(12).font_weight(700)
 }
 
 pub(crate) fn navigation_root(_: &Theme, _: &Look<NavOpen>, base: Style) -> Style {

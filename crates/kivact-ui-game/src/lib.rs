@@ -49,7 +49,10 @@ pub use kpi::{Kpi, kpi};
 pub use overlays::{IconMenu, icon_menu};
 pub use shapes::cut_corner;
 pub use surface::{halo, hud, mono};
-pub use table::{TableCellVariant, console_cell};
+pub use table::{
+    BadgeCell, DetailCell, IdentifierCell, ProgressCell, UserCell, badge_cell, detail_cell,
+    identifier_cell, progress_cell, user_cell,
+};
 pub use theme::{Density, ThemeOptions, theme, theme_with};
 pub use variants::{
     AvatarVariant, BadgeVariant, ChoiceCard, GaugeSegments, HeadingVariant, InputGroupVariant,
