@@ -954,3 +954,10 @@ U47（lane `wt/rw-W8-U2`、commit `13432f34`）は部分完了：`announcer_outl
 - **U40（`aa7c073e`、lane `wt/rw-W8-U1`）**：採る。`button` と `icon_button` を `#[component]` にし、`button/view.rs` を消して `button.rs` に移した（付属書の sketch どおり）。`button_group::member_style` は触っていない（所有の外）。`group_style` は private のまま。busy の試験は `force_click` と期待値 0 と `is_disabled()`（期待値は緩めていない）。
 - **S22b（`a0ca71e0`、lane `wt/rw-W8-S`）**：採る。`span_drops` の 13 variant を `rejected` に数える。試験 1 件を足した。確認は `--no-deps` の clippy、e2e_core 494 件。
 - **A16（`508a49fe`、lane `wt/rw-W8-A2`）**：採る。`Fnv` を `WordHash` に、`adapter.rs` の `#![allow(unsafe_code, ...)]` は、消した identity の既存の allow と同じ（新しい印ではない）。確認は全部通った（GPU の形を含む）。
+
+## 設計者の回答（W8・U47 の差戻し、2026-11-21）
+
+- 付属書 U の「U44〜U54」の節に「U47 の手書きの builder」の段落を足した（「## U47」の節は無く、表の行とこの段落が U47 の手順）。
+- `Dialog`・`HoverCard`・`Disclosure`（`attach(trigger)` で trigger と surface を兄弟で出す）と `DisclosureGroup`（型付きの panel を積む）は、`Tooltip` と同じく手書きの builder のまま残し、`[hand_element] allowed_impls` に足す。`Dialog`・`HoverCard` は root の node を持って `impl Element` にする（呼出し側の modifier は surface に付く）。U24 の残りの固有の `variant` はここで消す。
+- `Disclosure` の `always_open`・`keep_mounted` は `bool` を取る setter にする（C1 の例外、呼出し元は `(true)`）。
+- U2 lane を再開し、U47 の残りを済ませてから U48 へ進む。U48 の `Menu`・`CommandPalette`・`ToastRegion` で同じ理由（trigger と surface を兄弟で出す）に当たるものがあれば、同じ扱いにしてよい（allowed_impls に足し、OPEN に記録する）。それ以外の理由で `#[component]` にできないものは差し戻す。
