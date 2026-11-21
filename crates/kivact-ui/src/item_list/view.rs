@@ -36,11 +36,13 @@ impl ItemList {
         self
     }
     /// Generate decorative markers from each actual row position.
+    #[track_caller]
     pub fn marker(mut self, marker: impl IntoValue<ItemListMarker>) -> Self {
         self.marker = marker.into_value();
         self
     }
     /// First number for decimal markers; position semantics remain one based.
+    #[track_caller]
     pub fn start(mut self, start: impl IntoValue<u32>) -> Self {
         self.start = start.into_value();
         self

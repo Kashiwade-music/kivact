@@ -77,5 +77,5 @@ fn marker(status: RowStatus) -> View {
                 style().size(8, 8).border_radius(4).background(color)
             }
         });
-    tooltip(label).attach(mark)
+    tooltip(label, mark).into_view()
 }

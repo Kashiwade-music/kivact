@@ -28,6 +28,7 @@ pub struct ChatThread {
     variants: Variants,
 }
 /// Place children in a `Role::Log` with shared scroll-follow behavior.
+#[track_caller]
 pub fn chat_thread(children: impl IntoView) -> ChatThread {
     ChatThread {
         root: node().role(Role::Log),
@@ -52,6 +53,7 @@ impl ChatThread {
     }
     /// The history generation; change it in the batch that prepends earlier messages.
     /// Detached readers keep the same visible content when that generation changes.
+    #[track_caller]
     pub fn history_revision(mut self, revision: impl IntoValue<u64>) -> Self {
         self.history_revision = Some(revision.into_value());
         self
@@ -62,31 +64,37 @@ impl ChatThread {
         self
     }
     /// Show empty-log content when the caller's collection is empty.
+    #[track_caller]
     pub fn empty(mut self, when: impl IntoValue<bool>, content: impl IntoView) -> Self {
         self.empty = Some((when.into_value(), content.into_view()));
         self
     }
     /// Show an earlier-history loading status above the messages.
+    #[track_caller]
     pub fn loading_top(mut self, loading: impl IntoValue<bool>) -> Self {
         self.loading_top = loading.into_value();
         self
     }
     /// Show a typing indicator after the messages.
+    #[track_caller]
     pub fn streaming(mut self, streaming: impl IntoValue<bool>) -> Self {
         self.streaming = streaming.into_value();
         self
     }
     /// Set the spacing between children.
+    #[track_caller]
     pub fn gap(mut self, gap: impl IntoValue<f64>) -> Self {
         self.gap = Some(gap.into_value());
         self
     }
     /// Align short history to the start or end of its viewport.
+    #[track_caller]
     pub fn align(mut self, align: impl IntoValue<ChatAlign>) -> Self {
         self.align = align.into_value();
         self
     }
     /// Show the jump-to-end action while the reader is away from the end.
+    #[track_caller]
     pub fn scroll_button(mut self, shown: impl IntoValue<bool>) -> Self {
         self.scroll_button = shown.into_value();
         self

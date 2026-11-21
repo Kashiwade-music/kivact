@@ -60,6 +60,7 @@ impl Sparkline {
     /// (`sparkline.description`, formatted in the app's locale). Without a
     /// label the chart is decorative; a statistic's `chart(..)` slot is one
     /// when the statistic already names it.
+    #[track_caller]
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = Some(label.into_text_value());
         self

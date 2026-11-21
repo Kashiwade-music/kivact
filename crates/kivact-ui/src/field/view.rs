@@ -66,12 +66,14 @@ pub fn field<C: Element + IntoView>(label: impl IntoText, control: C) -> Field<C
 
 impl<C> Field<C> {
     /// Text under the control that describes it (`described_by`).
+    #[track_caller]
     pub fn hint(mut self, hint: impl IntoText) -> Self {
         self.hint = Some(hint.into_text_value());
         self
     }
 
     /// Report that the control requires a value. Validation is owned by the app.
+    #[track_caller]
     pub fn required(mut self, required: impl IntoValue<bool>) -> Self {
         self.required = Some(required.into_value());
         self
@@ -81,6 +83,7 @@ impl<C> Field<C> {
     /// is, the control is invalid (its own `invalid` value is kept: the
     /// control is invalid when either is), the label is drawn as an error
     /// and the message, a `Role::Alert`, describes the control.
+    #[track_caller]
     pub fn error(mut self, error: impl IntoValue<Option<String>>) -> Self {
         self.error = Some(error.into_value());
         self

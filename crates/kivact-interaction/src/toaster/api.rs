@@ -51,7 +51,7 @@ impl Toast {
     /// button a kit draws does when it is pressed. Return it from the press
     /// handler, which reports the action's error. Call it from a handler.
     pub fn activate(&self, id: ToastId) -> Result<(), UiError> {
-        toaster().dismiss(id);
+        use_toaster().dismiss(id);
         match &self.action {
             Some((_, on)) => on.try_call(()),
             None => Ok(()),
@@ -78,13 +78,13 @@ impl Toast {
 /// shown without rendering it.
 ///
 /// ```no_run
-/// use kivact::interaction::{Toast, Tone, toaster};
+/// use kivact::interaction::{Toast, Tone, use_toaster};
 /// use kivact::prelude::*;
 /// use kivact::style::Position;
 /// use kivact::view::LiveRegion;
 ///
 /// fn app() -> impl IntoView {
-///     let toaster = toaster();
+///     let toaster = use_toaster();
 ///     let group = move |assertive: bool, live: LiveRegion| {
 ///         column(for_each(toaster.visible(assertive), |id| *id, move |item| {
 ///             let id = item.get();
@@ -126,7 +126,7 @@ pub struct ToasterApi {
 /// application's own name for the shared queue: call it from a handler
 /// whenever a toast is due.
 #[track_caller]
-pub fn toaster() -> ToasterApi {
+pub fn use_toaster() -> ToasterApi {
     kivact_core::state::use_app_state(|| {
         let column = machine(
             ColumnState::default(),

@@ -2,7 +2,7 @@
 pub(crate) mod look;
 mod view;
 
+pub(crate) use view::GroupPosition;
 pub use view::{
-    ButtonGroup, ButtonGroupCell, ButtonGroupMember, button_group, button_group_separator,
-    button_group_text,
+    ButtonGroup, ButtonGroupCell, button_group, button_group_separator, button_group_text,
 };

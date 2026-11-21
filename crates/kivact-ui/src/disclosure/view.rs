@@ -164,6 +164,7 @@ impl Disclosure {
     /// Open and close by moving the content's height over 200 ms, a
     /// decorative motion that reduced motion skips (default: the content
     /// appears and disappears at once). A constant or reactive value.
+    #[track_caller]
     pub fn animated(mut self, animated: impl kivact_core::state::IntoValue<bool>) -> Self {
         self.animation = Some(animated.into_value());
         self

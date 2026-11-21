@@ -51,6 +51,7 @@ macro_rules! toggle_builder {
 
             /// The size (default [`ControlSize::Medium`]), given to the
             /// recipe in its state; the recipe sizes the control by it.
+            #[track_caller]
             pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
                 self.size = size.into_value();
                 self
@@ -217,6 +218,7 @@ impl Checkbox {
     /// The binding stays binary; pressing a mixed check box writes `true`.
     /// Clearing the mixed value is the caller's (see
     /// [`CheckboxApi::indeterminate`](kivact_interaction::CheckboxApi::indeterminate)).
+    #[track_caller]
     pub fn indeterminate(mut self, mixed: impl IntoValue<bool>) -> Self {
         self.mixed = Some(mixed.into_value());
         self

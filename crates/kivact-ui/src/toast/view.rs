@@ -85,6 +85,7 @@ impl ToastRegion {
     /// the focus, while the pointer is over the region or the focus is in it
     /// ([`ToasterApi::hold_while`]): what a stack of toasts that opens under the
     /// pointer does (sonner). A constant: it is the region's behavior.
+    #[track_caller]
     pub fn hold_all_on_hover(mut self, on: impl IntoValue<bool>) -> Self {
         self.hold_all = on.into_value();
         self

@@ -108,6 +108,7 @@ impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
 
     /// The size (default [`ControlSize::Medium`]), given to the item and
     /// indicator recipes in [`CheckableState::size`].
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self

@@ -65,7 +65,7 @@ fn frame(name: String, enabled: Signal<bool>, access: RowAccess, editor: impl In
     ))
     .style(row_style());
     match access {
-        RowAccess::Unavailable(hint) => kivact::ui::tooltip(hint).attach(row_view),
+        RowAccess::Unavailable(hint) => kivact::ui::tooltip(hint, row_view).into_view(),
         RowAccess::Editable | RowAccess::ReadOnly => row_view.into_view(),
     }
 }

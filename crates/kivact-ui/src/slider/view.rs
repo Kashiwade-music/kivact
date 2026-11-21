@@ -165,6 +165,7 @@ impl Slider {
 
     /// The size (default [`ControlSize::Medium`]), given to the recipes in
     /// [`AxisState::size`].
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self

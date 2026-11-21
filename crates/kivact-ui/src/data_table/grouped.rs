@@ -174,7 +174,7 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
                 .border_radius(0)
                 .cursor(Cursor::Pointer),
         )
-        .child(content);
+        .children((content,));
     let cell_role = if matches!(grid.focus, TableFocus::None) {
         Role::Cell
     } else {

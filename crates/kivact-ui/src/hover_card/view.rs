@@ -46,6 +46,7 @@ pub struct HoverCard {
     on_open_change: Option<kivact_core::state::Callback<bool>>,
 }
 /// Build the preview content in a fresh owner each time it opens.
+#[track_caller]
 pub fn hover_card<V: IntoView>(content: impl Fn() -> V + 'static) -> HoverCard {
     HoverCard {
         content: ViewFn::from(move |()| content()),
@@ -68,11 +69,13 @@ impl HoverCard {
     }
 
     /// Choose a constant or reactive side of the trigger.
+    #[track_caller]
     pub fn placement(mut self, placement: impl IntoValue<Placement>) -> Self {
         self.placement = placement.into_value();
         self
     }
     /// Choose constant or reactive alignment along the trigger.
+    #[track_caller]
     pub fn align(mut self, align: impl IntoValue<OverlayAlign>) -> Self {
         self.align = align.into_value();
         self
@@ -102,6 +105,7 @@ impl HoverCard {
         self
     }
     /// Gate all opening requests with a reactive condition.
+    #[track_caller]
     pub fn enabled(mut self, enabled: impl IntoValue<bool>) -> Self {
         self.enabled = enabled.into_value();
         self
@@ -112,6 +116,7 @@ impl HoverCard {
         self
     }
     /// Give interactive content a dialog role and accessible name.
+    #[track_caller]
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = Some(label.into_text_value());
         self

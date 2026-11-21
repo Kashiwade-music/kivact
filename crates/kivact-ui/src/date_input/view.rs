@@ -1,6 +1,7 @@
 //! Role: Build an editable date and its keyboard-accessible picker.
 use super::machine::{DateField, DateValidation, Event, OpenedBy, Picker, Snapshot, TypedDate};
 use crate::date_input::look::DateInputTheme;
+use crate::dialog::DialogKind;
 use crate::helpers::{is_named, report_unnamed};
 use crate::layer::with_recipe_style;
 use crate::{ButtonVariant, Calendar, button, calendar, dialog, text_input};
@@ -9,7 +10,6 @@ use kivact_core::geometry::Edge;
 use kivact_core::i18n::{CalendarDate, DateStyle, Weekday, message, use_locale};
 use kivact_core::state::{IntoText, IntoValue, Signal, Value, binding, machine};
 use kivact_core::view::{Element, Handled, IntoView, Key, KeyEvent, Node, View, icon, node, row};
-use kivact_interaction::DialogMode;
 use std::panic::Location;
 use std::rc::Rc;
 /// The surface used for date and time picking.
@@ -28,11 +28,11 @@ impl DatePresentation {
             Self::BottomSheet => true,
         }
     }
-    pub(crate) fn mode(self) -> DialogMode {
+    pub(crate) fn mode(self) -> DialogKind {
         if self.sheet() {
-            DialogMode::Drawer(Edge::Bottom)
+            DialogKind::Drawer(Edge::Bottom)
         } else {
-            DialogMode::Popover
+            DialogKind::Popover
         }
     }
 }
@@ -88,6 +88,7 @@ impl DateInput {
     }
 
     /// Name the separate picker button independently of the text editor.
+    #[track_caller]
     pub fn picker_label(mut self, label: impl IntoText) -> Self {
         self.picker_label = Some(label.into_text_value());
         self
@@ -103,6 +104,7 @@ impl DateInput {
         self
     }
     /// Date text format, read reactively.
+    #[track_caller]
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
         self.custom_format = None;
@@ -114,6 +116,7 @@ impl DateInput {
         self
     }
     /// Text displayed while the optional value is empty.
+    #[track_caller]
     pub fn placeholder(mut self, text: impl IntoText) -> Self {
         self.placeholder = text.into_text_value();
         self
@@ -124,16 +127,19 @@ impl DateInput {
         self
     }
     /// Earliest accepted date.
+    #[track_caller]
     pub fn min(mut self, min: impl IntoValue<Option<CalendarDate>>) -> Self {
         self.min = min.into_value();
         self
     }
     /// Latest accepted date.
+    #[track_caller]
     pub fn max(mut self, max: impl IntoValue<Option<CalendarDate>>) -> Self {
         self.max = max.into_value();
         self
     }
     /// First column of the calendar.
+    #[track_caller]
     pub fn week_start(mut self, day: impl IntoValue<Weekday>) -> Self {
         self.week_start = Some(day.into_value());
         self
@@ -478,7 +484,7 @@ fn date_editor(
                 Handled::No
             }
         })
-        .on_draft_commit(move |text| {
+        .on_commit(move |text| {
             if let Some(date) = value.get_untracked().filter(|date| {
                 custom_format
                     .as_ref()

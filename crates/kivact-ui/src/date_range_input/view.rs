@@ -23,6 +23,7 @@ impl PartialEq for DateRangePreset {
 }
 impl DateRangePreset {
     /// Create a preset whose dates may depend on the current day or application state.
+    #[track_caller]
     pub fn new(label: impl IntoText, range: impl Fn() -> DateRange + 'static) -> Self {
         Self {
             label: label.into_text_value(),
@@ -56,6 +57,7 @@ pub struct DateRangeInput {
     max_span: Value<Option<u32>>,
 }
 /// Edit two dates; selecting an earlier end reorders the range in one transition.
+#[track_caller]
 pub fn date_range_input(range: Signal<Option<DateRange>>) -> DateRangeInput {
     DateRangeInput {
         picker_label: None,
@@ -84,23 +86,27 @@ impl DateRangeInput {
     /// The name of the picker dialog (default "Choose date range"). The two
     /// endpoints are named by [`start_label`](Self::start_label) and
     /// [`end_label`](Self::end_label).
+    #[track_caller]
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = label.into_text_value();
         self
     }
 
     /// Name the separate picker button independently of the text editor.
+    #[track_caller]
     pub fn picker_label(mut self, label: impl IntoText) -> Self {
         self.picker_label = Some(label.into_text_value());
         self
     }
 
     /// Set the accessible label of the start-date editor.
+    #[track_caller]
     pub fn start_label(mut self, label: impl IntoText) -> Self {
         self.start_label = label.into_text_value();
         self
     }
     /// Set the accessible label of the end-date editor.
+    #[track_caller]
     pub fn end_label(mut self, label: impl IntoText) -> Self {
         self.end_label = label.into_text_value();
         self
@@ -112,6 +118,7 @@ impl DateRangeInput {
         self
     }
     /// Format both endpoints.
+    #[track_caller]
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
         self.custom_format = None;
@@ -123,6 +130,7 @@ impl DateRangeInput {
         self
     }
     /// Empty endpoint text.
+    #[track_caller]
     pub fn placeholder(mut self, text: impl IntoText) -> Self {
         self.placeholder = Some(text.into_text_value());
         self
@@ -133,16 +141,19 @@ impl DateRangeInput {
         self
     }
     /// Earliest accepted endpoint.
+    #[track_caller]
     pub fn min(mut self, min: impl IntoValue<Option<CalendarDate>>) -> Self {
         self.min = min.into_value();
         self
     }
     /// Latest accepted endpoint.
+    #[track_caller]
     pub fn max(mut self, max: impl IntoValue<Option<CalendarDate>>) -> Self {
         self.max = max.into_value();
         self
     }
     /// First weekday column.
+    #[track_caller]
     pub fn week_start(mut self, day: impl IntoValue<Weekday>) -> Self {
         self.week_start = Some(day.into_value());
         self
@@ -158,6 +169,7 @@ impl DateRangeInput {
         self
     }
     /// Display quick range choices.
+    #[track_caller]
     pub fn presets(mut self, presets: impl IntoValue<Vec<DateRangePreset>>) -> Self {
         self.presets = Some(presets.into_value());
         self
@@ -168,11 +180,13 @@ impl DateRangeInput {
         self
     }
     /// Minimum inclusive span in days.
+    #[track_caller]
     pub fn min_range_span(mut self, span: impl IntoValue<u32>) -> Self {
         self.min_span = span.into_value();
         self
     }
     /// Maximum inclusive span in days.
+    #[track_caller]
     pub fn max_range_span(mut self, span: impl IntoValue<u32>) -> Self {
         let span = span.into_value();
         self.max_span = (move || Some(span.get())).into_value();

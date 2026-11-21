@@ -1,9 +1,10 @@
 //! Role: Hold passive combobox construction inputs shared by configuration and rendering.
+use super::ComboboxMode;
 use crate::SelectPresentation;
 use crate::variants::Variants;
 use kivact_core::state::{ItemKey, Signal, Value};
 use kivact_core::view::Node;
-use kivact_interaction::{ComboboxMode, ListItem, Selection};
+use kivact_interaction::{ListItem, Selection};
 use std::pin::Pin;
 use std::rc::Rc;
 use std::time::Duration;

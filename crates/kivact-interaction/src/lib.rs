@@ -76,12 +76,12 @@ mod tooltip;
 mod tree;
 mod zoom_pan;
 
-pub use announcer::{Announcer, announcer};
+pub use announcer::{Announcer, use_announcer};
 pub use calendar::{
     CalendarDayState, CalendarGridApi, CalendarOptions, CalendarSelection, CalendarSpan,
     DaySelection, use_calendar_grid,
 };
-pub use combobox::{ComboboxApi, ComboboxMode, use_combobox};
+pub use combobox::{ComboboxApi, use_combobox};
 pub use delayed::{DelayedApi, DelayedPhase, Delays, use_delayed};
 pub use dialog::{DialogApi, DialogMode, DismissOn, use_dialog};
 pub use disclosure::{DisclosureApi, DisclosureState, use_disclosure};
@@ -120,7 +120,7 @@ pub use table::{
     TableFocus, TableHeaderState, TableRowState, use_data_table, use_data_table_model,
 };
 pub use tabs::{TabListState, TabState, TabsApi, use_tabs};
-pub use toaster::{Toast, ToastId, ToastOptions, ToastState, ToasterApi, toaster};
+pub use toaster::{Toast, ToastId, ToastOptions, ToastState, ToasterApi, use_toaster};
 pub use toggle::{
     ButtonApi, CheckboxApi, SwitchApi, ToggleButtonApi, ToggleState, use_button, use_checkbox,
     use_switch, use_toggle_button,

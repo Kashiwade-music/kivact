@@ -36,6 +36,7 @@ pub struct ChatComposer {
     variants: Variants,
 }
 /// Edit a draft; Enter submits, Shift+Enter inserts a newline, and IME owns composition keys.
+#[track_caller]
 pub fn chat_composer(value: Signal<String>) -> ChatComposer {
     ChatComposer {
         root: node(),
@@ -71,26 +72,31 @@ impl ChatComposer {
         self
     }
     /// Replace Send with Stop while a response is in progress.
+    #[track_caller]
     pub fn stop_shown(mut self, shown: impl IntoValue<bool>) -> Self {
         self.stop_shown = shown.into_value();
         self
     }
     /// Set a localized draft hint.
+    #[track_caller]
     pub fn placeholder(mut self, hint: impl IntoText) -> Self {
         self.placeholder = hint.into_text_value();
         self
     }
     /// Enable recall of submitted drafts at the editor's Up and Down edges.
+    #[track_caller]
     pub fn history(mut self, enabled: impl IntoValue<bool>) -> Self {
         self.history = enabled.into_value();
         self
     }
     /// Set a validation diagnostic.
+    #[track_caller]
     pub fn status(mut self, status: impl IntoValue<Option<ComposerStatus>>) -> Self {
         self.status = status.into_value();
         self
     }
     /// Place diagnostics above or below the surface.
+    #[track_caller]
     pub fn status_position(mut self, position: impl IntoValue<ComposerStatusPosition>) -> Self {
         self.status_position = position.into_value();
         self
@@ -226,7 +232,7 @@ impl ChatComposer {
                     submit.is_none() || value.with(|v| v.trim().is_empty())
                 }
         })
-        .child((
+        .children((
             node().hidden(stopped).child(send_icon),
             node().hidden(move || !stopped.get()).child(stop_icon),
         ))

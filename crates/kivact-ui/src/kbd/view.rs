@@ -12,6 +12,7 @@ pub struct Kbd {
     keys: Value<String>,
     variants: Variants,
 }
+#[track_caller]
 pub fn kbd(keys: impl IntoText) -> Kbd {
     Kbd {
         root: row(()).role(Role::Image),
@@ -55,6 +56,7 @@ pub struct KbdCombo {
 }
 /// Render typed keys. Use `.modifiers(..)` for a chord's physical modifiers;
 /// `meta` displays the platform command key from its capabilities.
+#[track_caller]
 pub fn kbd_combo(keys: impl IntoValue<Vec<Key>>) -> KbdCombo {
     KbdCombo {
         root: row(()).role(Role::Image),
@@ -64,6 +66,7 @@ pub fn kbd_combo(keys: impl IntoValue<Vec<Key>>) -> KbdCombo {
     }
 }
 impl KbdCombo {
+    #[track_caller]
     pub fn modifiers(mut self, modifiers: impl IntoValue<Modifiers>) -> Self {
         self.modifiers = modifiers.into_value();
         self

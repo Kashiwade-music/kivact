@@ -15,6 +15,16 @@ use kivact_core::view::{Element, Node, column, node, row, scroll, text};
 use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
 use kivact_interaction::{DialogMode, DismissOn, PopupState};
 
+/// What a dialog is: a modal dialog, an alert dialog, a drawer from an edge
+/// or a popover.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DialogKind {
+    Modal,
+    AlertModal,
+    Drawer(Edge),
+    Popover,
+}
+
 pub struct Dialog {
     open: Signal<bool>,
     title: Value<String>,
@@ -43,7 +53,7 @@ pub struct Dialog {
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact::interaction::DialogMode;
+/// use kivact::ui::DialogKind;
 ///
 /// fn rename(open: Signal<bool>) -> impl IntoView {
 ///     dialog("Rename", open)
@@ -54,7 +64,7 @@ pub struct Dialog {
 /// fn help() -> impl IntoView {
 ///     let open = signal(false);
 ///     dialog("Help", open)
-///         .mode(DialogMode::Popover)
+///         .mode(DialogKind::Popover)
 ///         .content(|| text("Press Tab to move between fields."))
 ///         .attach(button("Help"))
 /// }
@@ -151,6 +161,7 @@ impl Dialog {
     ///
     /// The default theme uses 480 logical pixels. The panel keeps its theme's
     /// maximum-width constraint when this value changes.
+    #[track_caller]
     pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
         self.width = Some(width.into_value());
         self
@@ -198,8 +209,14 @@ impl Dialog {
         self
     }
 
-    pub fn mode(mut self, mode: DialogMode) -> Self {
-        self.kind = mode;
+    /// What the dialog is: a modal, an alert, a drawer from an edge or a popover.
+    pub fn mode(mut self, kind: DialogKind) -> Self {
+        self.kind = match kind {
+            DialogKind::Modal => DialogMode::Modal,
+            DialogKind::AlertModal => DialogMode::AlertModal,
+            DialogKind::Drawer(edge) => DialogMode::Drawer(edge),
+            DialogKind::Popover => DialogMode::Popover,
+        };
         self
     }
 
@@ -220,6 +237,7 @@ impl Dialog {
         self
     }
 
+    #[track_caller]
     pub fn description(mut self, text: impl IntoText) -> Self {
         self.description = Some(text.into_text_value());
         self

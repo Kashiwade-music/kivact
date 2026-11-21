@@ -6,8 +6,7 @@ use crate::item_list::look::ItemRowState;
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Part, part};
-use kivact_core::state::IntoHandler;
-use kivact_core::state::{Callback, IntoText, IntoValue, Value};
+use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::style::{Style, TextOverflow, style};
 use kivact_core::view::{
     Element, IntoChildren, IntoView, Node, NodeRef, Role, View, node, node_ref, text,
@@ -21,14 +20,12 @@ pub struct ItemRow {
 struct RowContents {
     title: Value<String>,
     title_content: Option<View>,
-    description: Option<Value<String>>,
     description_content: Option<View>,
     media: Option<View>,
     actions: Option<View>,
     header: Option<View>,
     footer: Option<View>,
     marker: Option<View>,
-    press: Option<Callback<()>>,
     delegate: Option<NodeRef>,
     position: Option<(Value<usize>, Value<usize>)>,
     title_lines: Option<Value<Option<u32>>>,
@@ -43,14 +40,12 @@ pub fn item_row(title: impl IntoText) -> ItemRow {
         contents: RowContents {
             title,
             title_content: None,
-            description: None,
             description_content: None,
             media: None,
             actions: None,
             header: None,
             footer: None,
             marker: None,
-            press: None,
             delegate: None,
             position: None,
             title_lines: None,
@@ -66,10 +61,6 @@ impl ItemRow {
     }
     pub fn actions(mut self, view: impl IntoView) -> Self {
         self.contents.actions = Some(view.into_view());
-        self
-    }
-    pub fn description(mut self, text: impl IntoText) -> Self {
-        self.contents.description = Some(text.into_text_value());
         self
     }
     pub fn title_content(mut self, view: impl IntoView) -> Self {
@@ -93,28 +84,25 @@ impl ItemRow {
         self.contents.marker = Some(view.into_view());
         self
     }
-    pub fn on_press<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
-        self.contents.press = Some(kivact_core::state::Callback::from_handler(
-            kivact_core::state::IntoHandler::into_handler(f),
-        ));
-        self
-    }
     /// Activate and focus the actual eligible target instead of making the row a tab stop.
     pub fn delegate_to(mut self, target: NodeRef) -> Self {
         self.contents.delegate = Some(target);
         self
     }
     /// Actual zero-based index and count for keyed reactive rows; overrides fixed-child context.
+    #[track_caller]
     pub fn position(mut self, index: impl IntoValue<usize>, count: impl IntoValue<usize>) -> Self {
         self.contents.position = Some((index.into_value(), count.into_value()));
         self
     }
     /// Limit actual plain title text; explicit None is unlimited, omission follows theme defaults.
+    #[track_caller]
     pub fn title_lines(mut self, lines: impl IntoValue<Option<u32>>) -> Self {
         self.contents.title_lines = Some(lines.into_value());
         self
     }
     /// Limit actual plain description text; custom content keeps its own layout.
+    #[track_caller]
     pub fn description_lines(mut self, lines: impl IntoValue<Option<u32>>) -> Self {
         self.contents.description_lines = Some(lines.into_value());
         self
@@ -132,8 +120,12 @@ impl Element for ItemRow {
 impl IntoView for ItemRow {
     fn into_view(self) -> View {
         let Self { root, contents } = self;
+        // The press and the description are the outer root's: the part's host
+        // is a node of its own, so they are read before the part is made.
+        let pressable = root.authored().has_press();
+        let description = root.authored().description();
         root.part(Part::new(().into_value(), move |root| {
-            contents.render(root)
+            contents.render(root, pressable, description)
         }))
         .into_view()
     }
@@ -165,7 +157,12 @@ impl RowRender {
     }
 }
 impl RowContents {
-    fn render(mut self, mut root: Node) -> Node {
+    fn render(
+        mut self,
+        mut root: Node,
+        pressable: bool,
+        description: Option<Value<String>>,
+    ) -> Node {
         let context = crate::item_list::context::current();
         let variants = self.variants.clone().with_defaults(&context.variants);
         let position = self.position;
@@ -187,13 +184,14 @@ impl RowContents {
                 })
                 .set_size(move || position().map_or(0, |p| p.count.min(u32::MAX as usize) as u32));
         }
-        let actionable = self.press.is_some() || self.delegate.is_some();
+        // The delegate replaces the press.
+        let actionable = pressable || self.delegate.is_some();
         if let Some(target) = self.delegate {
             root = root.on_press(move || target.activate());
-        } else if let Some(press) = self.press {
-            root = root.focusable(true).on_press(move || press.call(()));
+        } else if pressable {
+            root = root.focusable(true);
         }
-        let has_description = self.description.is_some() || self.description_content.is_some();
+        let has_description = description.is_some() || self.description_content.is_some();
         let (title_lines, description_lines) = (self.title_lines, self.description_lines);
         let part = part(move |input| {
             let tokens = kivact_core::style::use_theme()
@@ -214,7 +212,7 @@ impl RowContents {
             state: part.state(),
             variants,
         };
-        let (content, description_ref) = self.content(&render);
+        let (content, description_ref) = self.content(&render, description);
         if let Some(reference) = description_ref {
             root = root.described_by(reference);
         }
@@ -243,7 +241,11 @@ impl RowContents {
         )
         .child((header, body, footer))
     }
-    fn content(&mut self, render: &RowRender) -> (Node, Option<NodeRef>) {
+    fn content(
+        &mut self,
+        render: &RowRender,
+        description: Option<Value<String>>,
+    ) -> (Node, Option<NodeRef>) {
         let state = render.state;
         let title = self.title;
         let title = render.wrap(
@@ -259,7 +261,7 @@ impl RowContents {
             .description_content
             .take()
             .or_else(|| {
-                self.description.take().map(|value| {
+                description.map(|value| {
                     text(value)
                         .style(move || line_style(state.get().description_lines))
                         .into_view()

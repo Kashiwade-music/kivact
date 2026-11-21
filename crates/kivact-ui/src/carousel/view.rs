@@ -61,11 +61,13 @@ impl Carousel {
         self
     }
     /// Choose scroll settling behavior.
+    #[track_caller]
     pub fn snap(mut self, snap: impl IntoValue<Snap>) -> Self {
         self.snap = snap.into_value();
         self
     }
     /// Choose the slide axis.
+    #[track_caller]
     pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
         self.orientation = orientation.into_value();
         self
@@ -76,6 +78,7 @@ impl Carousel {
         self
     }
     /// Number of slides visible, including fractional peeks.
+    #[track_caller]
     pub fn items_per_view(mut self, count: impl IntoValue<f64>) -> Self {
         let count = count.into_value();
         self.per_view = Some(memo(move || {
@@ -85,21 +88,25 @@ impl Carousel {
         self
     }
     /// Space between slides in logical pixels.
+    #[track_caller]
     pub fn gap(mut self, gap: impl IntoValue<f64>) -> Self {
         self.gap = Some(gap.into_value());
         self
     }
     /// Viewport inset in logical pixels.
+    #[track_caller]
     pub fn padding(mut self, padding: impl IntoValue<f64>) -> Self {
         self.padding = Some(padding.into_value());
         self
     }
     /// Show previous and next controls.
+    #[track_caller]
     pub fn buttons(mut self, buttons: impl IntoValue<bool>) -> Self {
         self.buttons = buttons.into_value();
         self
     }
     /// Fade overflowing viewport edges.
+    #[track_caller]
     pub fn edge_fade(mut self, fade: impl IntoValue<bool>) -> Self {
         self.edge_fade = fade.into_value();
         self

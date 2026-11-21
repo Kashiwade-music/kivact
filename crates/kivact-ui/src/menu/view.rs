@@ -512,12 +512,12 @@ fn menu_item<K: kivact_core::state::ItemKey>(
                 }
             })
         });
-        crate::tooltip(move || reason.get().unwrap_or_default())
+        crate::tooltip(move || reason.get().unwrap_or_default(), row)
             .enabled(move || {
                 reason.with(|reason| reason.as_ref().is_some_and(|reason| !reason.is_empty()))
             })
             .placement(Placement::End)
-            .attach(row)
+            .into_view()
     } else {
         row.into_view()
     };

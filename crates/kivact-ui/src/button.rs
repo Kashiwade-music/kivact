@@ -20,4 +20,4 @@ pub(crate) mod look;
 mod view;
 
 pub use look::ButtonVariant;
-pub use view::{Button, button};
+pub use view::{Button, button, icon_button};

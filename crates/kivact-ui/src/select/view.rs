@@ -47,6 +47,7 @@ struct SelectOptions<K: kivact_core::state::ItemKey> {
     preview: Option<Callback<Option<K>>>,
     icon: Option<View>,
     size: Value<ControlSize>,
+    trigger: Option<View>,
     option: Option<OptionContent<K>>,
     variants: Variants,
     arrow_open: Value<bool>,
@@ -80,6 +81,7 @@ pub fn select<K: kivact_core::state::ItemKey>(
             preview: None,
             icon: None,
             size: crate::control_size::default_control_size().into_value(),
+            trigger: None,
             option: None,
             variants,
             arrow_open: false.into_value(),
@@ -127,12 +129,14 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
 
 impl<K: kivact_core::state::ItemKey> Select<K> {
     /// Open the options on a bare ArrowDown or ArrowUp without selecting.
+    #[track_caller]
     pub fn open_on_arrow(mut self, enabled: impl IntoValue<bool>) -> Self {
         self.settings.arrow_open = enabled.into_value();
         self
     }
 
     /// Keep keyboard focus on the trigger while highlighting options.
+    #[track_caller]
     pub fn keep_trigger_focus(mut self, enabled: impl IntoValue<bool>) -> Self {
         self.settings.keep_trigger_focus = enabled.into_value();
         self
@@ -145,7 +149,7 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
             move || presentation.uses_sheet(),
             |label, open, _anchor, content| {
                 crate::dialog(label, open)
-                    .mode(kivact_interaction::DialogMode::Drawer(
+                    .mode(crate::dialog::DialogKind::Drawer(
                         kivact_core::geometry::Edge::Bottom,
                     ))
                     .content(move || content.call(()))
@@ -170,6 +174,7 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
         self
     }
 
+    #[track_caller]
     pub fn placeholder(mut self, text: impl IntoText) -> Self {
         self.settings.placeholder = Some(text.into_text_value());
         self
@@ -185,9 +190,16 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
         self.settings.icon = Some(icon.into_view());
         self
     }
+    /// Show `trigger` as the select's trigger instead of the selected item's
+    /// label; the select keeps its behavior, popup and semantics.
+    pub fn trigger(mut self, trigger: impl IntoView) -> Self {
+        self.settings.trigger = Some(trigger.into_view());
+        self
+    }
     /// The size (default [`ControlSize::Medium`]), given to the trigger
     /// recipe in [`SelectTriggerState::size`]; the recipe sizes the trigger
     /// by it.
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.settings.size = size.into_value();
         self
@@ -276,7 +288,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
             .node_ref(anchor)
             .part(trigger)
             .child(self.settings.icon)
-            .child(text(behavior.label()).style(style().flex_grow(1).single_line()))
+            .child(trigger_content(self.settings.trigger, behavior.label()))
             .child(indicator);
         let build = option_rows(
             behavior,
@@ -308,6 +320,15 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
         });
         (trigger, surface, sheet).into_view()
     }
+}
+
+/// The trigger's content: the caller's `trigger`, or else the selected label.
+fn trigger_content(trigger: Option<View>, label: Value<String>) -> View {
+    trigger.unwrap_or_else(|| {
+        text(label)
+            .style(style().flex_grow(1).single_line())
+            .into_view()
+    })
 }
 
 /// Apply sheet size variants during styling so live sizes preserve row identity.

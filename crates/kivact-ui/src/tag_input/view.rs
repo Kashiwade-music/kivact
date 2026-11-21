@@ -100,6 +100,7 @@ impl TagInput {
 
     /// The hint shown while the input is empty. The default is the message
     /// `tags.placeholder`, "Add a tag...".
+    #[track_caller]
     pub fn placeholder(mut self, text: impl IntoText) -> Self {
         self.placeholder = text.into_text_value();
         self

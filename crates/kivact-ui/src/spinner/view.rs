@@ -13,6 +13,7 @@ pub struct Spinner {
     variants: Variants,
     label: Option<View>,
 }
+#[track_caller]
 pub fn spinner() -> Spinner {
     Spinner {
         root: node()
@@ -24,6 +25,7 @@ pub fn spinner() -> Spinner {
     }
 }
 impl Spinner {
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self

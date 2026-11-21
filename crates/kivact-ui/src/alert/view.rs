@@ -42,7 +42,6 @@ enum Ownership {
 pub struct Alert {
     root: Node,
     title: Value<String>,
-    description: Option<Value<String>>,
     icon: Option<View>,
     actions: Option<View>,
     content: Option<ViewFn>,
@@ -56,6 +55,7 @@ pub struct Alert {
     variants: Variants,
 }
 /// Display an alert without moving keyboard focus or automatically hiding it.
+#[track_caller]
 pub fn alert(title: impl IntoText) -> Alert {
     let title = title.into_text_value();
     Alert {
@@ -64,7 +64,6 @@ pub fn alert(title: impl IntoText) -> Alert {
             .live_region(LiveRegion::Assertive)
             .name(title),
         title,
-        description: None,
         icon: None,
         actions: None,
         content: None,
@@ -79,12 +78,8 @@ pub fn alert(title: impl IntoText) -> Alert {
     }
 }
 impl Alert {
-    /// Set supporting text.
-    pub fn description(mut self, value: impl IntoText) -> Self {
-        self.description = Some(value.into_text_value());
-        self
-    }
     /// Set the semantic tone.
+    #[track_caller]
     pub fn tone(mut self, tone: impl IntoValue<Tone>) -> Self {
         self.tone = tone.into_value();
         self
@@ -111,11 +106,13 @@ impl Alert {
         self
     }
     /// Show a dismiss control; dismissal lasts until remount.
+    #[track_caller]
     pub fn dismissible(mut self, value: impl IntoValue<bool>) -> Self {
         self.dismissible = value.into_value();
         self
     }
     /// Name the dismiss control.
+    #[track_caller]
     pub fn dismiss_label(mut self, label: impl IntoText) -> Self {
         self.dismiss_label = label.into_text_value();
         self
@@ -126,6 +123,7 @@ impl Alert {
         self
     }
     /// Show a dismiss control and report dismissal after restoring focus.
+    #[track_caller]
     pub fn on_dismiss<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
         self.dismissible = true.into_value();
         self.dismiss = Some(kivact_core::state::Callback::from_handler(
@@ -170,7 +168,7 @@ impl IntoView for Alert {
         let phase = banner_dismissal(reference, self.dismiss.take(), visible);
         let has_icon = self.icon.is_some();
         let has_actions = self.actions.is_some();
-        let has_description = self.description.is_some();
+        let has_description = self.root.authored().description().is_some();
         let state = move || AlertState {
             tone: tone.get(),
             content: has_details.then(|| Expansion::new(collapsible.get(), details.get())),
@@ -216,7 +214,7 @@ impl Alert {
             variants,
             state,
         );
-        let description = self.description.take().map(|value| {
+        let description = self.root.authored().description().map(|value| {
             with_recipe_style(
                 text(value),
                 |r: &AlertTheme| r.description_recipe(),
@@ -252,7 +250,7 @@ impl Alert {
         let dismiss = with_recipe_style(
             crate::button(self.dismiss_label)
                 .hide_label(dismiss_content.is_some())
-                .child(dismiss_content)
+                .children((dismiss_content,))
                 .on_press(move || phase.send(BannerEvent::Dismiss))
                 .hidden(move || !dismissible.get()),
             |r: &AlertTheme| r.dismiss_recipe(),
@@ -320,12 +318,10 @@ fn expansion_toggle(
             .with_node(move |node| node.expanded(move || open.get()))
             .hidden(move || !collapsible.get())
             .on_press(move || open.set(!open.get()));
-        crate::tooltip(label).attach(with_recipe_style(
-            control,
-            |r: &AlertTheme| r.toggle_recipe(),
-            variants,
-            state,
-        ))
+        crate::tooltip(
+            label,
+            with_recipe_style(control, |r: &AlertTheme| r.toggle_recipe(), variants, state),
+        )
     })
 }
 

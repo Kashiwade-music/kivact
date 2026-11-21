@@ -179,7 +179,7 @@ fn motion_switch(session: Session) -> impl IntoView {
 fn locale_input(session: Session, locale: Signal<String>) -> impl IntoView {
     text_input(locale)
         .label("Locale")
-        .on_draft_commit(move |text| {
+        .on_commit(move |text| {
             let locale = text.trim();
             let locale = (!locale.is_empty()).then(|| locale.to_owned());
             update(session, move |emulation| emulation.locale = locale);
@@ -216,7 +216,7 @@ fn pseudo_select(session: Session) -> impl IntoView {
 fn scale_input(session: Session, scale: Signal<String>) -> impl IntoView {
     text_input(scale)
         .label("DPI scale")
-        .on_draft_commit(move |draft| {
+        .on_commit(move |draft| {
             let draft = draft.trim();
             if draft.is_empty() {
                 update(session, |emulation| emulation.scale = None);

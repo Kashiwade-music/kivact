@@ -138,6 +138,7 @@ impl Calendar {
         }
     }
     /// Up to three event dots for each date.
+    #[track_caller]
     pub fn events(mut self, events: impl IntoValue<Vec<crate::calendar::CalendarEvent>>) -> Self {
         self.events = events.into_value();
         self
@@ -151,6 +152,7 @@ impl Calendar {
         self
     }
     /// Show previous-year and next-year buttons.
+    #[track_caller]
     pub fn year_navigation(mut self, on: impl IntoValue<bool>) -> Self {
         self.year_navigation = on.into_value();
         self
@@ -161,6 +163,7 @@ impl Calendar {
         self
     }
     /// Highlight an additional ordered range, without editing it.
+    #[track_caller]
     pub fn range(mut self, range: impl IntoValue<Option<DateRange>>) -> Self {
         self.range = range.into_value();
         self
@@ -180,16 +183,19 @@ impl Calendar {
         self
     }
     /// The day drawn as today, read reactively.
+    #[track_caller]
     pub fn today(mut self, day: impl IntoValue<CalendarDate>) -> Self {
         self.today = day.into_value();
         self
     }
     /// Earliest selectable date, inclusive.
+    #[track_caller]
     pub fn min(mut self, day: impl IntoValue<Option<CalendarDate>>) -> Self {
         self.min = day.into_value();
         self
     }
     /// Latest selectable date, inclusive.
+    #[track_caller]
     pub fn max(mut self, day: impl IntoValue<Option<CalendarDate>>) -> Self {
         self.max = day.into_value();
         self
@@ -203,6 +209,7 @@ impl Calendar {
         self.min(min).max(max)
     }
     /// Limit a completed range's inclusive day count.
+    #[track_caller]
     pub fn range_span(
         mut self,
         min: impl IntoValue<u32>,
@@ -213,6 +220,7 @@ impl Calendar {
         self
     }
     /// Render only the weeks occupied by this month when true.
+    #[track_caller]
     pub fn variable_rows(mut self, value: impl IntoValue<bool>) -> Self {
         self.variable_rows = value.into_value();
         self
@@ -239,12 +247,14 @@ impl Calendar {
     }
 
     /// How many months show side by side (default 1).
+    #[track_caller]
     pub fn number_of_months(mut self, count: impl IntoValue<usize>) -> Self {
         self.count = count.into_value();
         self
     }
 
     /// The month title: a label (default) or month and year selects.
+    #[track_caller]
     pub fn caption(mut self, caption: impl IntoValue<CalendarCaption>) -> Self {
         self.caption = caption.into_value();
         self
@@ -259,12 +269,14 @@ impl Calendar {
     }
 
     /// The first column of the week (default: the locale's first day).
+    #[track_caller]
     pub fn week_start(mut self, day: impl IntoValue<Weekday>) -> Self {
         self.week_start = Some(day.into_value());
         self
     }
 
     /// Move the focus to the day that owns the tab stop once mounted.
+    #[track_caller]
     pub fn autofocus(mut self, on: impl IntoValue<bool>) -> Self {
         self.autofocus = on.into_value();
         self

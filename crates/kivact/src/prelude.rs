@@ -29,8 +29,8 @@ pub use crate::geometry::{Point, Rect, Size};
 pub use crate::task::{Action, AsyncState, Resource, action, resource, sleep, spawn};
 
 pub use crate::ui::{
-    ButtonVariant, ControlSize, async_view, button, checkbox, dialog, field, list, menu,
-    radio_group, select, slider, switch, tabs, text_area, text_input, toast_region, tooltip,
+    ButtonVariant, ControlSize, async_view, button, checkbox, dialog, field, icon_button, list,
+    menu, radio_group, select, slider, switch, tabs, text_area, text_input, toast_region, tooltip,
 };
 
 pub use crate::interaction::{ListItem, MenuEntry, Toast};

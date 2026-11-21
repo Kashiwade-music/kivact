@@ -109,12 +109,14 @@ impl Splitter {
     }
 
     /// Snap on release to the nearest fraction of the current range.
+    #[track_caller]
     pub fn snaps(mut self, stops: impl IntoValue<Vec<f64>>) -> Self {
         self.snaps = Some(stops.into_value());
         self
     }
 
     /// Scale pointer travel into the caller's size units.
+    #[track_caller]
     pub fn pointer_scale(mut self, scale: impl IntoValue<f64>) -> Self {
         self.pointer_scale = scale.into_value();
         self

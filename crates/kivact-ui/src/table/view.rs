@@ -146,15 +146,18 @@ fn cell(content: impl IntoView, header: bool) -> TableCell {
     }
 }
 impl TableCell {
+    #[track_caller]
     pub fn align(mut self, align: impl IntoValue<TextAlign>) -> Self {
         self.align = align.into_value();
         self
     }
+    #[track_caller]
     pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
         self.width = Some(width.into_value());
         self
     }
     /// Allocate the proportional width of this many columns, with a minimum of one.
+    #[track_caller]
     pub fn col_span(mut self, span: impl IntoValue<usize>) -> Self {
         self.span = span.into_value();
         self

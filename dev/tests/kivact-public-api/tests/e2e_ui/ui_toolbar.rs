@@ -1,7 +1,7 @@
 //! Role: Verify the public toolbar, toggle group and joined action group contracts.
 use kivact::prelude::*;
-use kivact::ui::{ButtonGroupMember, button_group_separator, button_group_text};
 use kivact::ui::{button_group, toggle_group, toolbar};
+use kivact::ui::{button_group_separator, button_group_text};
 use kivact::view::A11yAction;
 use kivact::view::Orientation;
 use kivact_public_api_tests::support::mount;
@@ -101,9 +101,7 @@ fn button_group_is_one_tab_stop() {
                 button_group(
                     "Actions",
                     (
-                        ButtonGroupMember::from(button("Archive"))
-                            .solid(|| true)
-                            .keep_size(true),
+                        button("Archive").size(ControlSize::Medium),
                         button_group_separator().test_id("action-divider"),
                         button_group_text("or"),
                         button("Delete"),

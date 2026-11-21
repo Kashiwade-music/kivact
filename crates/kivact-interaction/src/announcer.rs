@@ -22,7 +22,7 @@ pub struct Announcer {
 }
 
 /// Create a scoped announcement handle during component setup.
-pub fn announcer() -> Announcer {
+pub fn use_announcer() -> Announcer {
     Announcer {
         polite: signal(Notice::default()),
         assertive: signal(Notice::default()),

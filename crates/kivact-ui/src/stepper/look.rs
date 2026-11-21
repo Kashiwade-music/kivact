@@ -78,7 +78,6 @@ pub struct StepperItemState {
     pub current: usize,
     pub status: StepStatus,
     pub indicator: StepIndicatorKind,
-    pub interactive: bool,
     pub collapsed: bool,
     pub disabled: bool,
     pub optional: bool,

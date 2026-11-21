@@ -1,10 +1,11 @@
 //! Role: Configure the standard keyed combobox family.
+use super::ComboboxMode;
 use super::data::Combobox;
 use crate::SelectPresentation;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, ItemKey, Signal};
 use kivact_core::view::{Element, IntoView, Node, View, node};
-use kivact_interaction::{ComboboxMode, IntoSelection, ListItem};
+use kivact_interaction::{IntoSelection, ListItem};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -95,16 +96,19 @@ impl<K: ItemKey> Combobox<K> {
         self
     }
     /// Hint shown while the editor is empty.
+    #[track_caller]
     pub fn placeholder(mut self, text: impl IntoText) -> Self {
         self.placeholder = Some(text.into_text_value());
         self
     }
     /// Message shown when no suggestion matches.
+    #[track_caller]
     pub fn empty_text(mut self, text: impl IntoText) -> Self {
         self.empty = Some(text.into_text_value());
         self
     }
     /// Show a clear button for a single choice.
+    #[track_caller]
     pub fn show_clear(mut self, show: impl IntoValue<bool>) -> Self {
         self.clear = show.into_value();
         self
@@ -125,6 +129,7 @@ impl<K: ItemKey> Combobox<K> {
         self
     }
     /// Delay before fetching typed suggestions; opening fetches immediately.
+    #[track_caller]
     pub fn debounce(mut self, delay: impl IntoValue<Duration>) -> Self {
         self.debounce = delay.into_value();
         self

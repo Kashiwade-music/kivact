@@ -68,11 +68,13 @@ impl Toolbar {
         self
     }
     /// Inherited size for controls that do not set their own size.
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
     }
     /// Space in pixels between controls; otherwise the theme supplies it.
+    #[track_caller]
     pub fn gap(mut self, gap: impl IntoValue<f64>) -> Self {
         self.gap = Some(gap.into_value());
         self

@@ -141,6 +141,7 @@ impl ToggleButton {
 
     /// The size (default [`ControlSize::Medium`]), given to the recipe in
     /// its state; the recipe sizes the toggle_button by it.
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self

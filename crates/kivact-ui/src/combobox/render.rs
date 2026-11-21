@@ -1,4 +1,5 @@
 //! Role: Render one combobox query and selection through themed editor and list parts.
+use super::ComboboxMode;
 use super::data::Combobox;
 use super::labels::{KnownLabels, label};
 use super::notices::Notices;
@@ -12,7 +13,7 @@ use kivact_core::view::{
     Element, Handled, IntoView, Key, Placement, PointerKind, PointerPhase, View, column, for_each,
     icon, node, node_ref, overlay, row, scroll, show, text,
 };
-use kivact_interaction::{ComboboxApi, ComboboxMode, ListItem, Selection, use_combobox};
+use kivact_interaction::{ComboboxApi, ListItem, Selection, use_combobox};
 
 /// The combobox frame takes no input while the combobox is disabled.
 fn frame_availability(disabled: bool) -> kivact_core::view::Availability {
@@ -450,7 +451,7 @@ fn sheet_surface<K: ItemKey>(
     let sheet_list = list.with_input_ref(sheet_input);
     let sheet_search = kivact_core::i18n::message("combobox.sheet_search", "Search options");
     crate::dialog(name, sheet_open)
-        .mode(kivact_interaction::DialogMode::Drawer(
+        .mode(crate::dialog::DialogKind::Drawer(
             kivact_core::geometry::Edge::Bottom,
         ))
         .initial_focus(sheet_input)

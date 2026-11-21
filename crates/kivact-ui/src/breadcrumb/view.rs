@@ -46,6 +46,7 @@ pub fn breadcrumb<K: Clone + PartialEq + 'static>(
 impl<K: Clone + PartialEq + 'static> Breadcrumb<K> {
     /// Override the current page by key. `None` marks no item as current.
     /// Without this override, the final item is current.
+    #[track_caller]
     pub fn current(mut self, current: impl IntoValue<Option<K>>) -> Self {
         self.current = CurrentPage::Explicit(current.into_value());
         self

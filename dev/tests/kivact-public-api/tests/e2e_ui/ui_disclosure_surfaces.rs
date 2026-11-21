@@ -1,6 +1,5 @@
 //! Role: Verify the public accordion, hover preview, drawer, and clipboard contracts.
 use kivact::geometry::Edge;
-use kivact::interaction::DialogMode;
 use kivact::interaction::use_copy_feedback;
 use kivact::prelude::*;
 use kivact_public_api_tests::support::mount;
@@ -63,7 +62,7 @@ fn drawer_closes_on_swipe() {
         (
             open,
             dialog("Drawer", open)
-                .mode(DialogMode::Drawer(Edge::Bottom))
+                .mode(kivact::ui::DialogKind::Drawer(Edge::Bottom))
                 .content(|| text("Drawer body")),
         )
     });

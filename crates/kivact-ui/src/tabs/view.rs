@@ -37,6 +37,7 @@ pub struct Tabs<K: kivact_core::state::ItemKey> {
 ///
 /// Each tab shows its item's icon and label; [`item`](Tabs::item) replaces
 /// what a tab shows, keeping its keys, semantics and recipe.
+#[track_caller]
 pub fn tabs<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,

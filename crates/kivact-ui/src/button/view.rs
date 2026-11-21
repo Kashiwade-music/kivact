@@ -2,17 +2,22 @@
 
 use crate::button::look::ButtonState;
 use crate::button::look::ButtonTheme;
+use crate::button::look::ButtonVariant;
 use crate::button::look::{
     BUSY_REDUCED_SPIN_MS_VAR, BUSY_REVEAL_DELAY_MS_VAR, BUSY_REVEAL_FADE_MS_VAR, BUSY_SPIN_MS_VAR,
 };
+use crate::button_group::GroupPosition;
 use crate::control_size::ControlSize;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::PartState;
 use kivact_core::motion::{Animated, Easing, FrameRate, Transition, frame_loop};
+use kivact_core::state::try_use_context;
 use kivact_core::state::{IntoText, IntoValue, Machine, Step, Value, machine, memo, signal};
-use kivact_core::style::{style, use_theme};
-use kivact_core::view::{Element, IntoView, Node, View, node, row, show};
+use kivact_core::style::{Style, style, use_theme};
+use kivact_core::view::{
+    Element, IntoChildren, IntoView, Node, Orientation, View, node, row, show,
+};
 use kivact_interaction::{DisabledButtonFocus, use_button};
 use std::time::Duration;
 
@@ -81,28 +86,14 @@ pub struct Button {
     icon: Option<View>,
     trailing: Option<View>,
     children: Vec<View>,
-    size: ButtonSize,
+    size: Option<Value<ControlSize>>,
     variants: Variants,
     busy: Option<Value<bool>>,
     input: Value<PartState>,
     hide_label: Option<Value<bool>>,
 }
-/// Where the button's size comes from: a default a group may replace, or
-/// the caller's `.size(..)`, which nothing replaces.
-#[derive(Clone, Copy)]
-enum ButtonSize {
-    Default(ControlSize),
-    Explicit(Value<ControlSize>),
-}
-impl ButtonSize {
-    fn value(self) -> Value<ControlSize> {
-        match self {
-            Self::Default(size) => size.into_value(),
-            Self::Explicit(size) => size,
-        }
-    }
-}
 /// A themed button activated through the shared button part ([`use_button`]).
+#[track_caller]
 pub fn button(label: impl IntoText) -> Button {
     let label = label.into_text_value();
     let part = use_button().control();
@@ -128,7 +119,7 @@ pub fn button(label: impl IntoText) -> Button {
         icon: None,
         trailing: None,
         children: Vec::new(),
-        size: ButtonSize::Default(crate::control_size::default_control_size()),
+        size: None,
         variants: Variants::default(),
         busy: None,
         input,
@@ -136,21 +127,16 @@ pub fn button(label: impl IntoText) -> Button {
     }
 }
 impl Button {
-    /// Set the size explicitly, overriding a size provider or group default.
+    /// Set the size explicitly, overriding the inherited control size of a
+    /// size provider or a button group.
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
-        self.size = ButtonSize::Explicit(size.into_value());
-        self
-    }
-
-    /// Set the default for this button when composing it into a group.
-    pub fn default_size(mut self, size: ControlSize) -> Self {
-        if let ButtonSize::Default(_) = self.size {
-            self.size = ButtonSize::Default(size);
-        }
+        self.size = Some(size.into_value());
         self
     }
     /// Show the busy indicator and ignore presses while true (constant or
     /// reactive). Its spin and reveal use the theme's `theme::button::BUSY_*_VAR`.
+    #[track_caller]
     pub fn busy(mut self, busy: impl IntoValue<bool>) -> Self {
         let busy = busy.into_value();
         self.root = self.root.busy(busy);
@@ -180,8 +166,9 @@ impl Button {
         self.hide_label = Some(hide.into_value());
         self
     }
-    pub fn child(mut self, child: impl IntoView) -> Self {
-        self.children.push(child.into_view());
+    /// The content after the label, given once as a tuple or a list of views.
+    pub fn children(mut self, children: impl IntoChildren) -> Self {
+        self.children = children.into_views();
         self
     }
 }
@@ -235,7 +222,7 @@ impl Button {
         } else {
             root
         };
-        let size = size.value();
+        let size = size.unwrap_or_else(|| crate::control_size::default_control_size().into_value());
         let (leading_icon, trailing_icon) = (icon.is_some(), trailing.is_some());
         let state = memo(move || ButtonState {
             input: input.get(),
@@ -246,6 +233,16 @@ impl Button {
             trailing_icon,
             label_hidden: hide_label.is_some_and(|hide| hide.get()),
         });
+        // A button in a button group takes the group's corners and dividers.
+        let solid = matches!(
+            variants
+                .look(())
+                .variant::<ButtonVariant>()
+                .copied()
+                .unwrap_or_default(),
+            ButtonVariant::Primary | ButtonVariant::Danger
+        );
+        let root = root.style(move || group_style(solid));
         // The text style, then the recipe: base layers below every `.style(..)` of the caller.
         let root = with_base_recipe_style(
             root.base_style(crate::helpers::single_line_text()),
@@ -283,6 +280,61 @@ impl Button {
         root.child(content).child(indicator)
     }
 }
+/// The corners and dividers of a button in a button group, read from the
+/// group's position. Outside a group the style is empty.
+fn group_style(solid: bool) -> Style {
+    let Some(position) = try_use_context::<GroupPosition>().map(|position| position.0.get()) else {
+        return style();
+    };
+    let theme = use_theme().get();
+    let divider = if solid {
+        theme.get(&crate::button_group::look::SOLID_DIVIDER_VAR)
+    } else {
+        theme.get(&crate::button_group::look::DIVIDER_VAR)
+    };
+    let radius = theme.get(&crate::button_group::look::RADIUS_VAR);
+    let first = if position.first { radius } else { 0.0 };
+    let last = if position.last { radius } else { 0.0 };
+    let vertical = position.layout.orientation == Orientation::Vertical;
+    let (tl, tr, br, bl) = if vertical {
+        (first, first, last, last)
+    } else if position.layout.rtl {
+        (last, first, first, last)
+    } else {
+        (first, last, last, first)
+    };
+    let base = style()
+        .active(style().scale(1))
+        .border_radius_corners(tl, tr, br, bl);
+    if position.first {
+        base
+    } else if vertical {
+        base.border_top(1, divider)
+    } else if position.layout.rtl {
+        base.border_right(1, divider)
+    } else {
+        base.border_left(1, divider)
+    }
+}
+
+/// A button that shows only `icon` and is named `label`, with the label as
+/// its tooltip. Its variant is `Ghost` unless the caller gives another with
+/// `.variant(..)` on the button before it is wrapped.
+#[track_caller]
+pub fn icon_button(
+    icon: impl IntoValue<kivact_core::style::Icon>,
+    label: impl IntoText,
+) -> crate::Tooltip<Button> {
+    let label = label.into_text_value();
+    crate::tooltip(
+        label,
+        button(label)
+            .icon(kivact_core::view::icon(icon))
+            .hide_label(true)
+            .variant(ButtonVariant::Ghost),
+    )
+}
+
 /// The busy indicator of `state`: its spin and delayed reveal.
 fn busy_indicator(
     state: Value<ButtonState>,

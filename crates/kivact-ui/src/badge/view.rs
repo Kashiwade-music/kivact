@@ -3,8 +3,7 @@
 use crate::badge::look::BadgeTheme;
 use crate::theme::{BadgeState, Variant};
 use crate::variants::Variants;
-use kivact_core::state::IntoHandler;
-use kivact_core::state::{Callback, IntoText, IntoValue, Value};
+use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, View, row, text};
 use kivact_interaction::Tone;
 // xtask-allow(state): legacy: icon, trailing
@@ -15,8 +14,8 @@ pub struct Badge {
     variants: Variants,
     icon: Option<View>,
     trailing: Option<View>,
-    on_press: Option<Callback<()>>,
 }
+#[track_caller]
 pub fn badge(label: impl IntoText) -> Badge {
     let label = label.into_text_value();
     Badge {
@@ -26,10 +25,10 @@ pub fn badge(label: impl IntoText) -> Badge {
         variants: Variants::default(),
         icon: None,
         trailing: None,
-        on_press: None,
     }
 }
 impl Badge {
+    #[track_caller]
     pub fn tone(mut self, tone: impl IntoValue<Tone>) -> Self {
         self.tone = tone.into_value();
         self
@@ -46,12 +45,6 @@ impl Badge {
         self.trailing = Some(icon.into_view());
         self
     }
-    pub fn on_press<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
-        self.on_press = Some(kivact_core::state::Callback::from_handler(
-            kivact_core::state::IntoHandler::into_handler(f),
-        ));
-        self
-    }
 }
 impl Element for Badge {
     fn node_mut(&mut self) -> &mut Node {
@@ -61,7 +54,7 @@ impl Element for Badge {
 impl IntoView for Badge {
     fn into_view(self) -> View {
         let tone = self.tone;
-        let actionable = self.on_press.is_some();
+        let actionable = self.root.authored().has_press();
         let leading_icon = self.icon.is_some();
         let trailing_icon = self.trailing.is_some();
         let part = kivact_core::custom::part(move |input| BadgeState {
@@ -73,10 +66,8 @@ impl IntoView for Badge {
         });
         let state = part.state();
         let mut root = self.root.part(part);
-        if let Some(on_press) = self.on_press {
-            root = root
-                .part(kivact_interaction::use_button().control())
-                .on_press(move || on_press.call(()));
+        if actionable {
+            root = root.part(kivact_interaction::use_button().control());
         }
         crate::layer::with_base_recipe_style(
             root,

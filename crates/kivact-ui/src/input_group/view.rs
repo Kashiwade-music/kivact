@@ -12,16 +12,12 @@ use kivact_core::view::{
 use crate::input_group::look::InputGroupMemberKind;
 use crate::input_group::look::InputGroupMemberState;
 use crate::input_group::look::InputGroupState;
-enum Controls<C> {
-    Built(C),
-    Scoped(Box<dyn FnOnce() -> C>),
-}
 // xtask-allow(state): legacy: start, end, block_start, block_end
 /// A labelled group of adjacent inputs and adornments.
 pub struct InputGroup<C> {
     root: Node,
     label: Value<String>,
-    controls: Controls<C>,
+    controls: C,
     size: Value<ControlSize>,
     start: Option<View>,
     end: Option<View>,
@@ -29,29 +25,14 @@ pub struct InputGroup<C> {
     block_end: Option<View>,
     variants: Variants,
 }
-/// Group eagerly built controls under a visible label.
+/// Group controls under a visible label. The controls are built by the
+/// caller, and the group gives its size to them as the inherited control size.
+#[track_caller]
 pub fn input_group<C: IntoChildren>(label: impl IntoText, children: C) -> InputGroup<C> {
     InputGroup {
         root: node(),
         label: label.into_text_value(),
-        controls: Controls::Built(children),
-        size: ControlSize::Medium.into_value(),
-        start: None,
-        end: None,
-        block_start: None,
-        block_end: None,
-        variants: Variants::default(),
-    }
-}
-/// Construct controls once inside the group's inherited control-size scope.
-pub fn input_group_with<C: IntoChildren>(
-    label: impl IntoText,
-    init: impl FnOnce() -> C + 'static,
-) -> InputGroup<C> {
-    InputGroup {
-        root: node(),
-        label: label.into_text_value(),
-        controls: Controls::Scoped(Box::new(init)),
+        controls: children,
         size: ControlSize::Medium.into_value(),
         start: None,
         end: None,
@@ -61,7 +42,8 @@ pub fn input_group_with<C: IntoChildren>(
     }
 }
 impl<C> InputGroup<C> {
-    /// Set inherited control sizing for scoped initializers.
+    /// Set the inherited control size of the group's controls.
+    #[track_caller]
     pub fn size(mut self, value: impl IntoValue<ControlSize>) -> Self {
         self.size = value.into_value();
         self
@@ -126,15 +108,11 @@ impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
             primary: node_ref(),
         };
         let inline = render.clone();
-        let members = move |controls: C| {
+        let members = provide_control_size(size.get(), move || {
             crate::input_group::context::provide_state(state, move || {
-                inline.members(self.start, controls.into_views(), self.end)
+                inline.members(self.start, self.controls.into_views(), self.end)
             })
-        };
-        let members = match self.controls {
-            Controls::Built(controls) => members(controls),
-            Controls::Scoped(init) => provide_control_size(size.get(), move || members(init())),
-        };
+        });
         let label_ref = node_ref();
         let label = with_recipe_style(
             text(self.label).node_ref(label_ref),

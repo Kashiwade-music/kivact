@@ -50,6 +50,7 @@ impl TimeInput {
     }
 
     /// Name the separate picker button independently of the text editor.
+    #[track_caller]
     pub fn picker_label(mut self, label: impl IntoText) -> Self {
         self.picker_label = Some(label.into_text_value());
         self
@@ -65,17 +66,20 @@ impl TimeInput {
         self
     }
     /// Format the wall-clock time, read reactively.
+    #[track_caller]
     pub fn format(mut self, format: impl IntoValue<TimeStyle>) -> Self {
         let format = format.into_value();
         self.seconds = (move || format.get().seconds).into_value();
         self
     }
     /// Earliest accepted wall-clock time.
+    #[track_caller]
     pub fn min(mut self, min: impl IntoValue<Option<TimeOfDay>>) -> Self {
         self.min = min.into_value();
         self
     }
     /// Latest accepted wall-clock time.
+    #[track_caller]
     pub fn max(mut self, max: impl IntoValue<Option<TimeOfDay>>) -> Self {
         self.max = max.into_value();
         self
@@ -142,7 +146,7 @@ impl IntoView for TimeInput {
                     kivact_core::view::Handled::No
                 }
             })
-            .on_draft_commit(move |text| state.send(Event::Commit(text)));
+            .on_commit(move |text| state.send(Event::Commit(text)));
         let toggle = button(picker_label.unwrap_or_else(|| message("time.open", "Choose time")))
             .node_ref(button_ref);
         let picked = binding(value, move |next| value.set(next));

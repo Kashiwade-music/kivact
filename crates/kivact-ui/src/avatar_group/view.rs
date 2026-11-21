@@ -18,6 +18,7 @@ pub struct AvatarGroup {
     total: Option<Value<usize>>,
     variants: Variants,
 }
+#[track_caller]
 pub fn avatar_group(children: impl IntoChildren) -> AvatarGroup {
     AvatarGroup {
         root: row(())
@@ -33,16 +34,19 @@ pub fn avatar_group(children: impl IntoChildren) -> AvatarGroup {
     }
 }
 impl AvatarGroup {
+    #[track_caller]
     pub fn max(mut self, max: impl IntoValue<usize>) -> Self {
         self.max = max.into_value();
         self
     }
     /// Total participants, including all supplied avatars, for partially loaded groups.
+    #[track_caller]
     pub fn total(mut self, total: impl IntoValue<usize>) -> Self {
         self.total = Some(total.into_value());
         self
     }
     /// Override the theme overlap in logical pixels, clamped to nonnegative values.
+    #[track_caller]
     pub fn overlap(mut self, overlap: impl IntoValue<f64>) -> Self {
         self.overlap = Some(overlap.into_value());
         self

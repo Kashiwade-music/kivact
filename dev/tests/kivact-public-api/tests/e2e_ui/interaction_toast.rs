@@ -5,7 +5,7 @@
 //! visible limit and its waiting line, live regions and roles by tone, Escape,
 //! the action and dismissal by id.
 
-use kivact::interaction::toaster;
+use kivact::interaction::use_toaster;
 use kivact::view::Node;
 use std::cell::Cell;
 use std::rc::Rc;
@@ -33,7 +33,7 @@ fn card(id: ToastId, toast: Toast) -> Node {
             .name(format!("Close {}", toast.title))
             .focusable(true)
             .style(style().size(60, 24))
-            .on_press(move || toaster().dismiss(id))
+            .on_press(move || use_toaster().dismiss(id))
             .child(text("x")),
     ))
     .style(style().width(300).padding(8).gap(4));
@@ -63,7 +63,7 @@ fn other() -> Node {
 
 /// A region and the "Other" button.
 fn region(render: impl Fn(ToastId, Toast) -> Node + Copy + 'static) -> Node {
-    let toaster = toaster();
+    let toaster = use_toaster();
     let group = move |assertive, live| {
         column(for_each(
             toaster.visible(assertive),
@@ -87,7 +87,7 @@ fn app() -> View {
 }
 
 fn mount_app() -> (Screen, ToasterApi) {
-    mount(|| (toaster(), app()))
+    mount(|| (use_toaster(), app()))
 }
 
 fn toast(title: &str, duration: Option<Duration>) -> Toast {
@@ -196,7 +196,7 @@ fn the_action_runs_its_callback_and_dismisses_the_toast() {
         let undo = Toast::new("Deleted")
             .action("Undo", move || count.update(|c| *c += 1))
             .duration(None);
-        ((count, toaster(), undo), app())
+        ((count, use_toaster(), undo), app())
     });
     toaster.push(undo);
     toaster.push(toast("Other toast", None));

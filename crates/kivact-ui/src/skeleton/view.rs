@@ -14,6 +14,7 @@ pub struct Skeleton {
     variants: Variants,
     index: usize,
 }
+#[track_caller]
 pub fn skeleton() -> Skeleton {
     Skeleton {
         root: column(()),
@@ -29,10 +30,12 @@ impl Skeleton {
         self.index = index;
         self
     }
+    #[track_caller]
     pub fn lines(mut self, lines: impl IntoValue<usize>) -> Self {
         self.lines = lines.into_value();
         self
     }
+    #[track_caller]
     pub fn shape(mut self, shape: impl IntoValue<SkeletonShape>) -> Self {
         self.shape = shape.into_value();
         self

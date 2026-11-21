@@ -43,6 +43,7 @@ type Highlight = Box<dyn Fn(TextEditing, Value<Vec<u32>>, Value<bool>) -> TextEd
 /// Display `code` with native selection and a copy button.
 /// `line_numbers(true)` enables a reactive gutter; `.highlight(content, f)` uses
 /// the same content and cross-line state contract as `TextEditing::line_styles`.
+#[track_caller]
 pub fn code_block(code: impl IntoValue<String>) -> CodeBlock {
     let code = code.into_value();
     CodeBlock {
@@ -69,27 +70,32 @@ pub fn code_block(code: impl IntoValue<String>) -> CodeBlock {
 }
 impl CodeBlock {
     /// Show a title in the header and use it as the editor's accessible name.
+    #[track_caller]
     pub fn title(mut self, title: impl IntoText) -> Self {
         self.title = Some(title.into_text_value());
         self
     }
     /// Set a display-only language label; syntax coloring is supplied by `highlight`.
+    #[track_caller]
     pub fn language(mut self, language: impl IntoText) -> Self {
         self.language = Some(language.into_text_value());
         self
     }
     /// Show or hide the language label without changing syntax coloring.
+    #[track_caller]
     pub fn language_label(mut self, on: impl IntoValue<bool>) -> Self {
         self.language_label = on.into_value();
         self
     }
     /// Number the source lines starting at one, constant or reactive.
+    #[track_caller]
     pub fn line_numbers(mut self, on: impl IntoValue<bool>) -> Self {
         self.line_numbers = on.into_value();
         self
     }
     /// Style each line with a content source and cross-line parser state.
     /// The callback is pure and has the `TextEditing::line_styles` contract.
+    #[track_caller]
     pub fn highlight<T, S, F>(mut self, content: impl IntoValue<T>, f: F) -> Self
     where
         T: Clone + PartialEq + 'static,
@@ -118,16 +124,19 @@ impl CodeBlock {
         self
     }
     /// Emphasize these one-based source line numbers.
+    #[track_caller]
     pub fn highlight_lines(mut self, lines: impl IntoValue<Vec<u32>>) -> Self {
         self.highlight_lines = lines.into_value();
         self
     }
     /// Color added and removed diff lines, keeping their original source text.
+    #[track_caller]
     pub fn diff(mut self, on: impl IntoValue<bool>) -> Self {
         self.diff = on.into_value();
         self
     }
     /// Show the whole-source copy action.
+    #[track_caller]
     pub fn copy_button(mut self, on: impl IntoValue<bool>) -> Self {
         self.copy_button = on.into_value();
         self
@@ -150,21 +159,25 @@ impl CodeBlock {
         self
     }
     /// Soft-wrap source at the available editor width.
+    #[track_caller]
     pub fn wrap(mut self, on: impl IntoValue<bool>) -> Self {
         self.wrap = on.into_value();
         self
     }
     /// Scroll source vertically beyond this height.
+    #[track_caller]
     pub fn max_height(mut self, height: impl IntoValue<Length>) -> Self {
         self.max_height = Some(height.into_value());
         self
     }
     /// Allow collapsing source with the header disclosure.
+    #[track_caller]
     pub fn collapsible(mut self, on: impl IntoValue<bool>) -> Self {
         self.collapsible = on.into_value();
         self
     }
     /// Only offer collapse when source has at least this many lines.
+    #[track_caller]
     pub fn collapsible_threshold(mut self, lines: impl IntoValue<usize>) -> Self {
         self.collapsible_threshold = lines.into_value();
         self

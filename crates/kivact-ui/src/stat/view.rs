@@ -39,11 +39,13 @@ pub fn stat(label: impl IntoText, value: impl IntoText) -> Stat {
 }
 impl Stat {
     /// Show application-formatted change text; direction is set separately with [`Self::trend`].
+    #[track_caller]
     pub fn delta(mut self, value: impl IntoText) -> Self {
         self.delta = Some(value.into_text_value());
         self
     }
     /// Set the direction read by every recipe (neutral by default).
+    #[track_caller]
     pub fn trend(mut self, value: impl IntoValue<Trend>) -> Self {
         self.trend = value.into_value();
         self

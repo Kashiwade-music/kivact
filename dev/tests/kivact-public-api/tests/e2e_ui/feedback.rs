@@ -108,16 +108,17 @@ fn selectable_card_writes_the_binding_and_disabled_blocks_edits() {
 }
 
 #[test]
-fn input_group_scopes_control_sizes_and_preserves_adornments() {
+fn input_group_preserves_adornments() {
     let (screen, ()) = render_with_handle(options(), || {
         (
             (),
-            ui::input_group_with("Address", || {
+            ui::input_group(
+                "Address",
                 (
                     ui::input_addon("https://"),
                     ui::text_input(signal(String::new())).label("Host"),
-                )
-            })
+                ),
+            )
             .size(ControlSize::Large)
             .start(text("Start"))
             .end(text("End"))

@@ -9,10 +9,12 @@
 //! |---|---|---|
 //! | [`button`] | the visible text, also the name | `Role::Button`; click, Enter, Space and the accessibility `Activate` action activate it |
 //! | [`checkbox`], [`switch`] | the visible label, also the name | [`CheckboxApi`](kivact_interaction::CheckboxApi) and [`SwitchApi`](kivact_interaction::SwitchApi) |
-//! | [`select`] | the assistive name; not drawn | shared interaction parts |
+//! | [`select`] | the selected value's signal; named with `.label(..)` | shared interaction parts |
 //! | [`menu`] | the visible label of the trigger, also the name | shared interaction parts |
 //! | [`dialog`] | the title, drawn unless hidden, and the dialog's name | shared interaction parts |
-//! | [`tooltip`] | the tip's text, also its name | shared interaction parts |
+//! | [`tooltip`] | the tip's text; the trigger is the second argument | shared interaction parts |
+//! | [`icon_button`] | the icon, then the label, which names the button and is its tooltip | `Role::Button` with a tooltip |
+//! | [`stepper`] | the steps; the current step is a `Signal<usize>` that presses write | `Role::List`, `on_edit` |
 //! | [`tabs`] | the assistive name of the tab list; not drawn | shared interaction parts |
 //! | [`radio_group`] | the assistive name of the group; not drawn (each radio draws its item's label) | [`use_list`](kivact_interaction::use_list) with the radio policy |
 //! | [`slider`], [`range_slider`] | the assistive name; not drawn | [`use_scalar`](kivact_interaction::use_scalar) and [`use_range_scalar`](kivact_interaction::use_range_scalar) |
@@ -28,7 +30,7 @@
 //! | [`number_input`] | the assistive name of the field; not drawn | [`use_scalar`](kivact_interaction::use_scalar) as a spin button |
 //! | [`list`] | the assistive name of the list; not drawn | [`use_list`](kivact_interaction::use_list) with the default policy and typeahead |
 //! | [`data_table`] | the rows; the first argument is not text, the grid's name is the message `data_table.label` | [`use_data_table_model`](kivact_interaction::use_data_table_model) and [`use_data_table`](kivact_interaction::use_data_table) |
-//! | [`text_input`], [`text_area`] | the assistive name; not drawn | [`text_edit`](kivact_interaction::use_text_edit) with native editing and IME |
+//! | [`text_input`], [`text_area`] | the value's signal; named with `.label(..)` | [`text_edit`](kivact_interaction::use_text_edit) with native editing and IME |
 //! | [`field`] | the visible label, which also names the control | a visible label, hint and error wired to any control: `labelled_by`, `described_by` and `invalid` |
 //!
 //! A first argument that is "not drawn" names the control for assistive
@@ -81,29 +83,24 @@
 //! behaviors, through the public API only. [`Button`], [`Checkbox`], [`Switch`],
 //! [`Select`], [`Tabs`] and [`TextInput`] (the native field itself) take
 //! [`Element`](kivact_core::view::Element) modifiers on their roots.
-//! Overlays attach the same way everywhere: [`Menu::attach`],
-//! [`Menu::attach_context`] and [`Tooltip::attach`] take the caller's trigger,
-//! [`Dialog::content`]/[`Dialog::footer`], [`Tabs::content`] and
-//! [`Tooltip::content`] take what is shown, and the builder itself is the view.
+//! Overlays attach the same way everywhere: [`Menu::attach`] and
+//! [`Menu::attach_context`] take the caller's trigger, [`tooltip`] takes its
+//! trigger as the second argument, [`Dialog::content`]/[`Dialog::footer`],
+//! [`Tabs::content`] and [`Tooltip::content`] take what is shown, and the
+//! builder itself is the view.
 //! The method name `show` is kept for branching (`view::show`); a kit's
 //! methods of the same roles take the same names.
 //!
 //! # Kits
 //!
 //! A UI kit does not reimplement or re-export these components: it supplies
-//! a theme and its domain components. A light change of look is variables and
-//! recipes; a kit's own component is built from the interaction parts and
-//! the primitives. Every theme of the official kits carries recipes for
-//! every standard component. A kit's theme is one function of the shape
-//! `theme(mode: ThemeMode, ..)`; its variables are set with `Theme::set`, and its settings are one type implementing
-//! [`ThemeExtension`](kivact_core::style::ThemeExtension) (its `fallback` follows
-//! the theme), installed with `Theme::with` and read only with
-//! its colors are also named by a field-less `Color`
-//! enum implementing `Into<Color>`(kivact_core::style::Into<Color>) (a style
-//! takes `basic::ColorName::Border` and reads the theme it is painted in), and its
-//! icons are added with `Theme::with_icon`. The
-//! variables and the theme constructor that assembles the recipes are kept
-//! apart, so a recipe reading a variable never depends back on the constructor.
+//! a theme and its domain components. A kit's theme is one function of the
+//! shape `theme(mode) -> Theme`. It sets the variables of the standard
+//! components with `Theme::set`, and their recipes with `<Name>Theme`
+//! (`Theme::with`); a kit's own component is built from the interaction
+//! parts and the primitives. Every theme of the official kits carries recipes
+//! for every standard component.
+//!
 //! The types and API reference are here; installing a kit is in the
 //! official UI guide.
 //!
@@ -157,7 +154,7 @@ mod variants;
 
 pub use crate::button::ButtonVariant;
 pub use crate::radio_group::RadioGroupVariant;
-pub use button::{Button, button};
+pub use button::{Button, button, icon_button};
 pub use command_palette::{CommandPalette, command_palette};
 pub use data_table::column::DataColumn;
 pub use data_table::{
@@ -186,7 +183,7 @@ mod splitter;
 mod tabs;
 mod toast;
 mod tooltip;
-pub use dialog::{Dialog, dialog};
+pub use dialog::{Dialog, DialogKind, dialog};
 pub use menu::{Menu, menu};
 pub use radio_group::{RadioGroup, radio_group};
 pub use select::{Select, SelectSheetOption, select};
@@ -219,7 +216,7 @@ mod date_time_input;
 pub use date_time_input::{DateTimeInput, date_time_input};
 
 mod carousel;
-pub use carousel::{Carousel, Snap, carousel};
+pub use carousel::{Carousel, carousel};
 
 mod dropzone;
 pub use disclosure::group::{DisclosureGroup, disclosure_group};
@@ -229,17 +226,13 @@ mod hover_card;
 pub use hover_card::{FocusTrigger, HoverCard, hover_card};
 
 mod combobox;
-mod selection_field;
-pub use combobox::{Combobox, combobox};
-pub use kivact_interaction::ComboboxMode;
+pub use combobox::{Combobox, ComboboxMode, combobox};
 pub use select::presentation::SelectPresentation;
-pub use selection_field::{SelectionField, selection_field};
 mod button_group;
 mod toggle_group;
 mod toolbar;
 pub use button_group::{
-    ButtonGroup, ButtonGroupCell, ButtonGroupMember, button_group, button_group_separator,
-    button_group_text,
+    ButtonGroup, ButtonGroupCell, button_group, button_group_separator, button_group_text,
 };
 pub use toggle_group::{ToggleGroup, toggle_group};
 pub use toolbar::{Toolbar, toolbar};
@@ -252,7 +245,7 @@ pub use alert::{Alert, alert};
 pub use card::{Card, card};
 pub use empty_state::{EmptyState, empty_state};
 pub use input_group::context::use_input_group_state;
-pub use input_group::{InputGroup, input_addon, input_group, input_group_with};
+pub use input_group::{InputGroup, input_addon, input_group};
 mod badge;
 mod skeleton;
 mod spinner;

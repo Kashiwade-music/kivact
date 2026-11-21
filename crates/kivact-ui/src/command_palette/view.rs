@@ -125,6 +125,7 @@ impl<K: kivact_core::state::ItemKey> CommandPalette<K> {
 
     /// The text shown in the empty search field. The default is the message
     /// `palette.placeholder`, "Type a command or search...".
+    #[track_caller]
     pub fn placeholder(mut self, text: impl IntoText) -> Self {
         self.placeholder = Some(text.into_text_value());
         self
@@ -132,6 +133,7 @@ impl<K: kivact_core::state::ItemKey> CommandPalette<K> {
 
     /// The text shown when no command matches. The default is the message
     /// `palette.empty`, "No results found.".
+    #[track_caller]
     pub fn empty_text(mut self, text: impl IntoText) -> Self {
         self.empty = Some(text.into_text_value());
         self

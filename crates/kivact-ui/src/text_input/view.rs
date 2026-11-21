@@ -145,6 +145,7 @@ impl TextInput {
     }
 
     /// The metrics (default [`ControlSize::Medium`]).
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
@@ -211,7 +212,7 @@ impl TextInput {
     ///     let editing = signal(true);
     ///     show(editing, move || {
     ///         text_input(draft).label("Name")
-    ///             .on_draft_commit(move |text| name.set(text))
+    ///             .on_commit(move |text| name.set(text))
     ///             .on_edit(move |phase| {
     ///                 if phase != EditPhase::Begin {
     ///                     editing.set(false);
@@ -221,7 +222,7 @@ impl TextInput {
     /// }
     /// ```
     #[track_caller]
-    pub fn on_draft_commit<R: HandlerResult>(
+    pub fn on_commit<R: HandlerResult>(
         mut self,
         on_commit: impl Fn(String) -> R + 'static,
     ) -> Self {
@@ -229,7 +230,7 @@ impl TextInput {
         self
     }
 
-    /// Report each [`EditPhase`] of the draft ([`draft`](Self::on_draft_commit)):
+    /// Report each [`EditPhase`] of the draft ([`draft`](Self::on_commit)):
     /// `Begin` when it starts, then `Commit` or `Cancel`. Without a draft,
     /// native value changes each report `Begin` and `Commit`.
     #[track_caller]
@@ -239,7 +240,7 @@ impl TextInput {
     }
 
     /// Move the focus to `target` when Enter or Escape ends the draft
-    /// ([`draft`](Self::on_draft_commit)): the control the field was opened from.
+    /// ([`draft`](Self::on_commit)): the control the field was opened from.
     pub fn return_focus(mut self, target: NodeRef) -> Self {
         self.editing = self.editing.return_focus(target);
         self

@@ -4,4 +4,4 @@ pub(crate) mod context;
 pub(crate) mod look;
 mod view;
 
-pub use view::{InputGroup, input_addon, input_group, input_group_with};
+pub use view::{InputGroup, input_addon, input_group};

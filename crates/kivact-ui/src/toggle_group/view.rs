@@ -58,21 +58,25 @@ pub fn toggle_group<K: ItemKey>(
 }
 impl<K: ItemKey> ToggleGroup<K> {
     /// The constant or reactive layout and keyboard navigation axis.
+    #[track_caller]
     pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
         self.orientation = orientation.into_value();
         self
     }
     /// Size of all toggle items.
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
     }
     /// Space in four-pixel units; zero joins the controls.
+    #[track_caller]
     pub fn spacing(mut self, spacing: impl IntoValue<f64>) -> Self {
         self.spacing = Some(spacing.into_value());
         self
     }
     /// Hide visible labels while retaining accessible names.
+    #[track_caller]
     pub fn icon_only(mut self, icon_only: impl IntoValue<bool>) -> Self {
         self.icon_only = icon_only.into_value();
         self

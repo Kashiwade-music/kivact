@@ -7,7 +7,6 @@ use crate::control_size::ControlSize;
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value, provide, try_use_context};
-use kivact_core::style::style;
 use kivact_core::view::{
     Element, IntoChildren, IntoView, Node, Orientation, ReadingDirection, Role, View, node, row,
     text, use_direction,
@@ -17,10 +16,7 @@ use kivact_core::view::{
 struct GroupAxis(Value<Orientation>);
 
 #[derive(Clone, Copy)]
-struct GroupSize(ControlSize);
-
-#[derive(Clone, Copy)]
-struct GroupPosition(Value<ButtonGroupMemberState>);
+pub(crate) struct GroupPosition(pub(crate) Value<ButtonGroupMemberState>);
 
 /// A named set of action controls with one keyboard Tab stop.
 pub struct ButtonGroup<C> {
@@ -45,11 +41,13 @@ pub fn button_group<C: IntoChildren>(label: impl IntoText, children: C) -> Butto
 }
 impl<C> ButtonGroup<C> {
     /// The constant or reactive layout and keyboard axis.
+    #[track_caller]
     pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
         self.orientation = orientation.into_value();
         self
     }
     /// Inherited size for children without an explicit size.
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
@@ -72,33 +70,31 @@ impl<C: IntoChildren> IntoView for ButtonGroup<C> {
         let direction = use_direction();
         let members = self.variants.clone();
         let children = provide(GroupAxis(orientation), move || {
-            provide(GroupSize(size.get()), move || {
-                crate::provide_control_size(size.get(), move || {
-                    let children = self.children.into_views();
-                    let count = children.len();
-                    children
-                        .into_iter()
-                        .enumerate()
-                        .map(move |(index, child)| {
-                            let state = kivact_core::state::memo(move || ButtonGroupMemberState {
-                                layout: ButtonGroupState {
-                                    orientation: orientation.get(),
-                                    size: size.get(),
-                                    rtl: direction == ReadingDirection::Rtl,
-                                },
-                                first: index == 0,
-                                last: index + 1 == count,
-                            });
-                            with_base_recipe_style(
-                                node(),
-                                |r: &ButtonGroupTheme| r.member_recipe(),
-                                &members,
-                                move || state.get(),
-                            )
-                            .child(provide(GroupPosition(state), move || child))
-                        })
-                        .collect::<Vec<_>>()
-                })
+            crate::provide_control_size(size.get(), move || {
+                let children = self.children.into_views();
+                let count = children.len();
+                children
+                    .into_iter()
+                    .enumerate()
+                    .map(move |(index, child)| {
+                        let state = kivact_core::state::memo(move || ButtonGroupMemberState {
+                            layout: ButtonGroupState {
+                                orientation: orientation.get(),
+                                size: size.get(),
+                                rtl: direction == ReadingDirection::Rtl,
+                            },
+                            first: index == 0,
+                            last: index + 1 == count,
+                        });
+                        with_base_recipe_style(
+                            node(),
+                            |r: &ButtonGroupTheme| r.member_recipe(),
+                            &members,
+                            move || state.get(),
+                        )
+                        .child(provide(GroupPosition(state), move || child))
+                    })
+                    .collect::<Vec<_>>()
             })
         });
         with_base_recipe_style(
@@ -173,84 +169,5 @@ pub fn button_group_text(label: impl IntoText) -> ButtonGroupCell {
     ButtonGroupCell {
         root: row(text(label)),
         separator: false,
-    }
-}
-/// An action button with explicit joined-group presentation options.
-/// Ordinary buttons can also be supplied directly to [`button_group`].
-pub struct ButtonGroupMember {
-    button: crate::Button,
-    solid: Value<bool>,
-    keep_size: bool,
-}
-impl From<crate::Button> for ButtonGroupMember {
-    fn from(button: crate::Button) -> Self {
-        Self {
-            button,
-            solid: false.into_value(),
-            keep_size: false,
-        }
-    }
-}
-impl ButtonGroupMember {
-    /// Use the theme's on-accent divider color for a solid button.
-    pub fn solid(mut self, solid: impl IntoValue<bool>) -> Self {
-        self.solid = solid.into_value();
-        self
-    }
-    /// Keep the button's configured geometry instead of inheriting the group size.
-    /// This structural option is fixed before the group is mounted.
-    pub fn keep_size(mut self, keep: bool) -> Self {
-        self.keep_size = keep;
-        self
-    }
-}
-impl IntoView for ButtonGroupMember {
-    fn into_view(self) -> View {
-        let button = if self.keep_size {
-            self.button
-        } else {
-            self.button.default_size(
-                try_use_context::<GroupSize>()
-                    .map_or(crate::control_size::default_control_size(), |size| size.0),
-            )
-        };
-        let solid = self.solid;
-        button
-            .style(move || {
-                let t = kivact_core::style::use_theme().get();
-                let divider = if solid.get() {
-                    t.get(&crate::button_group::look::SOLID_DIVIDER_VAR)
-                } else {
-                    t.get(&crate::button_group::look::DIVIDER_VAR)
-                };
-                let base = style().active(style().scale(1));
-                let Some(position) =
-                    try_use_context::<GroupPosition>().map(|position| position.0.get())
-                else {
-                    return base;
-                };
-                let r = t.get(&crate::button_group::look::RADIUS_VAR);
-                let first = if position.first { r } else { 0.0 };
-                let last = if position.last { r } else { 0.0 };
-                let vertical = position.layout.orientation == Orientation::Vertical;
-                let (tl, tr, br, bl) = if vertical {
-                    (first, first, last, last)
-                } else if position.layout.rtl {
-                    (last, first, first, last)
-                } else {
-                    (first, last, last, first)
-                };
-                let base = base.border_radius_corners(tl, tr, br, bl);
-                if position.first {
-                    base
-                } else if vertical {
-                    base.border_top(1, divider)
-                } else if position.layout.rtl {
-                    base.border_right(1, divider)
-                } else {
-                    base.border_left(1, divider)
-                }
-            })
-            .into_view()
     }
 }

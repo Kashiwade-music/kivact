@@ -252,6 +252,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// Hidden columns stay hidden. Duplicate and unknown indices are ignored,
     /// and omitted columns follow in their original order. Sort and resize
     /// bindings continue to use the original indices.
+    #[track_caller]
     pub fn column_order(mut self, order: impl IntoValue<Vec<usize>>) -> Self {
         self.column_order = Some(order.into_value());
         self
@@ -281,6 +282,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// Show `size` rows (at least 1) on each page, keeping the zero-based
     /// page in `page`, with Previous and Next buttons under the table.
     /// It replaces an earlier [`remote_page`](Self::remote_page).
+    #[track_caller]
     pub fn page(
         mut self,
         page: kivact_core::state::Signal<usize>,
@@ -311,6 +313,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// Show caller-supplied page rows without slicing them again. The caller
     /// loads the page indicated by the binding and supplies whether another
     /// page is available. It replaces an earlier [`page`](Self::page).
+    #[track_caller]
     pub fn remote_page(
         mut self,
         page: kivact_core::state::Signal<usize>,
@@ -327,6 +330,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// Offer a writable page size and sizes to choose from. Applies with
     /// [`page`](Self::page) or [`remote_page`](Self::remote_page). Choosing a size
     /// resets the page to zero. Values of zero are omitted.
+    #[track_caller]
     pub fn page_sizes(
         mut self,
         size: kivact_core::state::Signal<usize>,
@@ -491,6 +495,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
 
     /// Give the main rows `height` logical pixels (at least 18, a constant
     /// or a reactive value); the row recipe reads it.
+    #[track_caller]
     pub fn row_height(mut self, height: impl IntoValue<f64>) -> Self {
         self.row_height = Some(height.into_value());
         self

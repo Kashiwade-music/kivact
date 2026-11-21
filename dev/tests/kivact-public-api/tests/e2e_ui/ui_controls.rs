@@ -5,7 +5,7 @@
 //! they report (`EditPhase`) and the value a canceled drag writes back, and
 //! their layout and keys in a right-to-left subtree.
 
-use kivact::interaction::toaster;
+use kivact::interaction::use_toaster;
 use kivact::view::{EditPhase, Orientation};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -262,7 +262,7 @@ fn a_splitter_sizes_the_leading_pane_by_keys_drag_and_actions_and_cancels_a_drag
 #[test]
 fn a_toast_region_shows_toasts_and_their_close_action_and_escape_dismiss_them() {
     let (screen, ran) = mount_with(options(), || {
-        let toaster = toaster();
+        let toaster = use_toaster();
         let ran = signal(0);
         let view = column((
             button("Save").on_press(move || {

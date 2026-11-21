@@ -91,6 +91,7 @@ pub fn progress(value: impl IntoValue<Option<f64>>) -> Progress {
 impl Progress {
     /// The size (default [`ControlSize::Medium`]), given to the recipes in
     /// their state; the recipes size the bar by it.
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self

@@ -55,6 +55,7 @@ impl NavigationMenu {
         self
     }
     /// Add a panel trigger. Keys belong to the application's navigation data.
+    #[track_caller]
     pub fn link<K: 'static, V: IntoView>(
         mut self,
         _key: K,
@@ -68,6 +69,7 @@ impl NavigationMenu {
         self
     }
     /// Add a direct navigation action without constructing or opening a panel.
+    #[track_caller]
     pub fn action<K: 'static, M>(
         mut self,
         _key: K,

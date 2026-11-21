@@ -1,6 +1,7 @@
 //! Role: Render typed filters in table headers and commit validated drafts.
 use super::filter_value::{FilterField, FilterUi};
 use super::types::TypedFilters;
+use crate::dialog::DialogKind;
 use crate::{ButtonVariant, ControlSize, button, checkbox, dialog, select, tag_input, text_input};
 use kivact_core::i18n::{CalendarDate, message, message_with};
 use kivact_core::state::IntoValue;
@@ -10,8 +11,8 @@ use kivact_core::view::Element;
 use kivact_core::view::IntoView;
 use kivact_core::view::{NodeRef, OverlayAlign, Placement, View, node_ref};
 use kivact_core::view::{column, icon, node, row};
+use kivact_interaction::FilterValue;
 use kivact_interaction::ListItem;
-use kivact_interaction::{DialogMode, FilterValue};
 
 #[derive(Clone, Copy)]
 pub(super) struct Filters {
@@ -112,7 +113,7 @@ fn popover(
         .node_ref(reference)
         .style(style().size(20, 20).min_width(0).min_height(0).padding(0));
     dialog(label, open)
-        .mode(DialogMode::Popover)
+        .mode(DialogKind::Popover)
         .placement(Placement::Below)
         .align(OverlayAlign::Start)
         .width(Length::from(240))

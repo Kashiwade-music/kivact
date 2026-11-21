@@ -26,6 +26,7 @@ pub struct Dropzone {
     on_files: Rc<dyn Fn(Vec<FileInfo>) -> kivact_core::Result<()>>,
 }
 /// Create a file drop target labelled by `label`.
+#[track_caller]
 pub fn dropzone(label: impl IntoText) -> Dropzone {
     Dropzone {
         variants: crate::variants::Variants::default(),
@@ -44,6 +45,7 @@ pub fn dropzone(label: impl IntoText) -> Dropzone {
 impl Dropzone {
     /// Accept drag/drop input independently of the native picker. A policy
     /// change to false ends the active drag-over visit without clearing files.
+    #[track_caller]
     pub fn accept_drop(mut self, enabled: impl IntoValue<bool>) -> Self {
         self.accept_drop = enabled.into_value();
         self
@@ -83,11 +85,13 @@ impl Dropzone {
         self
     }
     /// Show application-provided guidance.
+    #[track_caller]
     pub fn hint(mut self, hint: impl IntoText) -> Self {
         self.hint = hint.into_text_value();
         self
     }
     /// Pass filters to the native picker.
+    #[track_caller]
     pub fn filters(mut self, filters: impl IntoValue<Vec<(String, Vec<String>)>>) -> Self {
         self.filters = filters.into_value();
         self

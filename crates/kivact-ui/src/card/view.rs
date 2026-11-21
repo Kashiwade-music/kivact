@@ -20,7 +20,6 @@ pub struct Card {
     media: Option<View>,
     footer: Option<View>,
     action: CardKind,
-    disabled: Value<bool>,
     variants: Variants,
 }
 enum CardKind {
@@ -37,7 +36,6 @@ pub fn card(children: impl IntoView) -> Card {
         media: None,
         footer: None,
         action: CardKind::Plain,
-        disabled: false.into_value(),
         variants: Variants::default(),
     }
 }
@@ -57,22 +55,9 @@ impl Card {
         self.footer = Some(value.into_view());
         self
     }
-    /// Activate the card with click, Enter, Space or assistive activation.
-    pub fn on_press<M>(mut self, f: impl kivact_core::state::IntoHandler<(), M>) -> Self {
-        self.root = self.root.on_press(f);
-        if matches!(self.action, CardKind::Plain) {
-            self.action = CardKind::Press;
-        }
-        self
-    }
     /// Make the card a checkbox backed by the supplied binding.
     pub fn selected(mut self, selected: Signal<bool>) -> Self {
         self.action = CardKind::Select(selected);
-        self
-    }
-    /// Disable activation.
-    pub fn disabled(mut self, value: impl IntoValue<bool>) -> Self {
-        self.disabled = value.into_value();
         self
     }
     /// Add a theme-defined appearance.
@@ -87,8 +72,16 @@ impl Element for Card {
     }
 }
 impl IntoView for Card {
-    fn into_view(self) -> View {
-        let disabled = self.disabled;
+    fn into_view(mut self) -> View {
+        // The press and the disabled state are the root's (`Element::on_press`
+        // and `Element::disabled`): a card with a press handler is a button.
+        let disabled = self
+            .root
+            .accessible_disabled()
+            .unwrap_or_else(|| false.into_value());
+        if matches!(self.action, CardKind::Plain) && self.root.authored().has_press() {
+            self.action = CardKind::Press;
+        }
         let has_media = self.media.is_some();
         let has_footer = self.footer.is_some();
         let (root, input) = card_target(self.root, self.action, disabled);

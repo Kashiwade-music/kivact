@@ -59,26 +59,31 @@ pub fn pagination(count: impl IntoValue<usize>, page: Signal<usize>) -> Paginati
 }
 impl Pagination {
     /// Neighbours shown on either side of the current page.
+    #[track_caller]
     pub fn siblings(mut self, value: impl IntoValue<usize>) -> Self {
         self.siblings = value.into_value();
         self
     }
     /// Show explicit first and last controls.
+    #[track_caller]
     pub fn first_last(mut self, value: impl IntoValue<bool>) -> Self {
         self.first_last = value.into_value();
         self
     }
     /// Pages moved by previous and next controls.
+    #[track_caller]
     pub fn step(mut self, value: impl IntoValue<usize>) -> Self {
         self.step = value.into_value();
         self
     }
     /// Permit forward navigation when the total is not yet known.
+    #[track_caller]
     pub fn has_more(mut self, value: impl IntoValue<bool>) -> Self {
         self.has_more = value.into_value();
         self
     }
     /// Derive page count from an item total and the configured page size.
+    #[track_caller]
     pub fn total_items(mut self, value: impl IntoValue<u64>) -> Self {
         self.count = PageCount::Items(value.into_value());
         self
@@ -89,11 +94,13 @@ impl Pagination {
         self
     }
     /// Offer these page sizes in a select control.
+    #[track_caller]
     pub fn page_size_options(mut self, values: impl IntoValue<Vec<u32>>) -> Self {
         self.size_options = values.into_value();
         self
     }
     /// Name the editable page field.
+    #[track_caller]
     pub fn page_label(mut self, value: impl IntoText) -> Self {
         self.page_label = value.into_text_value();
         self
@@ -311,7 +318,7 @@ fn page_control(
             mode,
         },
     )
-    .child(body)
+    .children((body,))
     .into_view()
 }
 fn target_page(cell: PageItem, at: usize, last: usize, delta: usize) -> usize {

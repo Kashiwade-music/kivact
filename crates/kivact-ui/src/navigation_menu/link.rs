@@ -6,33 +6,27 @@ use crate::variants::{Variant, Variants};
 use kivact_core::state::IntoHandler;
 use kivact_core::state::{Callback, IntoText, Value};
 use kivact_core::view::{Element, IntoView, Node, Role, View, column, node, node_ref, text};
-// xtask-allow(state): legacy: description, icon
 /// A title, optional icon and description that activates and closes its navigation panel.
 pub struct NavigationMenuLink {
     root: Node,
     title: Value<String>,
-    description: Option<Value<String>>,
     icon: Option<View>,
     press: Option<Callback<()>>,
     variants: Variants,
 }
 /// Construct a navigation link, optionally inside a standard navigation menu panel.
+#[track_caller]
 pub fn navigation_menu_link(title: impl IntoText) -> NavigationMenuLink {
     let title = title.into_text_value();
     NavigationMenuLink {
         root: node().role(Role::Link).name(title),
         title,
-        description: None,
         icon: None,
         press: None,
         variants: Variants::default(),
     }
 }
 impl NavigationMenuLink {
-    pub fn description(mut self, text: impl IntoText) -> Self {
-        self.description = Some(text.into_text_value());
-        self
-    }
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
         self
@@ -60,7 +54,8 @@ impl IntoView for NavigationMenuLink {
             self.variants = self.variants.with_defaults(&context.variants);
         }
         let role = self.root.accessible_role().unwrap_or(Role::Link);
-        let has_description = self.description.is_some();
+        let description = self.root.authored().description();
+        let has_description = description.is_some();
         let behavior = kivact_interaction::use_button()
             .control()
             .map_state(move |input| NavigationLinkState {
@@ -76,7 +71,7 @@ impl IntoView for NavigationMenuLink {
             move || state.get(),
         );
         let reference = node_ref();
-        let description = self.description.map(|description| {
+        let description = description.map(|description| {
             with_recipe_style(
                 text(description).node_ref(reference),
                 |r: &NavigationMenuTheme| r.link_description_recipe(),

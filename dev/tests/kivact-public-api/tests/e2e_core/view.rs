@@ -6,7 +6,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use kivact::ErrorKind;
-use kivact::interaction::announcer;
+use kivact::interaction::use_announcer;
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
 use kivact::view::{LiveRegion, rich_text, span};
@@ -17,7 +17,7 @@ type Log = Rc<RefCell<Vec<String>>>;
 #[test]
 fn announcements_publish_in_separate_persistent_live_regions() {
     let screen = render(|| {
-        let notices = announcer();
+        let notices = use_announcer();
         column((
             button("Save").on_press(move || notices.announce("Saved", LiveRegion::Polite)),
             button("Retry").on_press(move || notices.announce("Failed", LiveRegion::Assertive)),

@@ -7,8 +7,7 @@ use crate::chat_message::look::{
 };
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
-use kivact_core::state::IntoHandler;
-use kivact_core::state::{Callback, IntoText, IntoValue, Value};
+use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, View, node, text};
 
 // xtask-allow(state): legacy: status, time, content, avatar, header, footer, metadata, media, icon, actions, reactions, align, bubble_width
@@ -32,10 +31,10 @@ pub struct ChatMessage {
     group: ChatBubbleGroup,
     reactions_side: Value<ChatReactionsSide>,
     bubble_width: Option<Value<kivact_core::style::Length>>,
-    on_press: Option<Callback<()>>,
     variants: Variants,
 }
 /// A message attributed to `author`; put its body in `.content(..)`.
+#[track_caller]
 pub fn chat_message(author: impl IntoText) -> ChatMessage {
     ChatMessage {
         root: node(),
@@ -56,12 +55,12 @@ pub fn chat_message(author: impl IntoText) -> ChatMessage {
         group: ChatBubbleGroup::Single,
         reactions_side: ChatReactionsSide::Bottom.into_value(),
         bubble_width: None,
-        on_press: None,
         variants: Variants::default(),
     }
 }
 impl ChatMessage {
     /// Align the message independently of participant role.
+    #[track_caller]
     pub fn align(mut self, align: impl IntoValue<ChatAlign>) -> Self {
         self.align = Some(align.into_value());
         self
@@ -72,33 +71,31 @@ impl ChatMessage {
         self
     }
     /// Place the reaction slot above or below the body.
+    #[track_caller]
     pub fn reactions_side(mut self, side: impl IntoValue<ChatReactionsSide>) -> Self {
         self.reactions_side = side.into_value();
         self
     }
     /// Set the width of the inner bubble while preserving the message row's width.
+    #[track_caller]
     pub fn bubble_width(mut self, width: impl IntoValue<kivact_core::style::Length>) -> Self {
         self.bubble_width = Some(width.into_value());
         self
     }
-    /// Make the body actionable using shared button keyboard and accessibility semantics.
-    pub fn on_press<M>(mut self, press: impl IntoHandler<(), M>) -> Self {
-        self.on_press = Some(kivact_core::state::Callback::from_handler(
-            kivact_core::state::IntoHandler::into_handler(press),
-        ));
-        self
-    }
     /// Set the participant role independently of their displayed name.
+    #[track_caller]
     pub fn sender(mut self, sender: impl IntoValue<ChatSender>) -> Self {
         self.sender = sender.into_value();
         self
     }
     /// Set the displayed timestamp.
+    #[track_caller]
     pub fn time(mut self, time: impl IntoText) -> Self {
         self.time = Some(time.into_text_value());
         self
     }
     /// Set delivery information.
+    #[track_caller]
     pub fn status(mut self, status: impl IntoValue<ChatMessageStatus>) -> Self {
         self.status = Some(status.into_value());
         self
@@ -167,7 +164,7 @@ impl ChatMessage {
         let group = self.group;
         let side = self.reactions_side;
         let has_reactions = self.reactions.is_some();
-        let actionable = self.on_press.is_some();
+        let actionable = self.root.authored().has_press();
         let has_header = self.header.is_some();
         let has_footer = self.footer.is_some();
         let has_avatar = self.avatar.is_some();
@@ -291,11 +288,6 @@ impl ChatMessage {
         self.configure_body(body)
     }
     fn configure_body(&self, mut body: Node) -> Node {
-        if let Some(press) = self.on_press {
-            body = body
-                .part(kivact_interaction::use_button().control())
-                .on_press(move || press.call(()));
-        }
         if let Some(width) = self.bubble_width {
             body = body.style(move || kivact_core::style::style().width(width.get()));
         }
@@ -320,8 +312,12 @@ impl IntoView for ChatMessage {
             &self.variants,
             state,
         );
+        let mut root = self.root;
+        if root.authored().has_press() {
+            root = root.part(kivact_interaction::use_button().control());
+        }
         with_base_recipe_style(
-            self.root,
+            root,
             |r: &ChatMessageTheme| r.root_recipe(),
             &self.variants,
             state,

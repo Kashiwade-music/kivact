@@ -24,6 +24,7 @@ pub struct DateTimeInput {
     seconds: Value<bool>,
 }
 /// Edit an optional local date and time.
+#[track_caller]
 pub fn date_time_input(value: Signal<Option<DateTime>>) -> DateTimeInput {
     DateTimeInput {
         root: node(),
@@ -43,12 +44,14 @@ impl DateTimeInput {
     /// The name of the date and time group and of its picker (default
     /// "Choose date and time"). The date and the time fields are named by
     /// their own messages.
+    #[track_caller]
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = label.into_text_value();
         self
     }
 
     /// Name the separate picker button independently of the text editor.
+    #[track_caller]
     pub fn picker_label(mut self, label: impl IntoText) -> Self {
         self.picker_label = Some(label.into_text_value());
         self
@@ -60,21 +63,25 @@ impl DateTimeInput {
         self
     }
     /// Date text format.
+    #[track_caller]
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
         self
     }
     /// Earliest accepted date and time.
+    #[track_caller]
     pub fn min(mut self, min: impl IntoValue<Option<DateTime>>) -> Self {
         self.min = min.into_value();
         self
     }
     /// Latest accepted date and time.
+    #[track_caller]
     pub fn max(mut self, max: impl IntoValue<Option<DateTime>>) -> Self {
         self.max = max.into_value();
         self
     }
     /// First weekday column.
+    #[track_caller]
     pub fn week_start(mut self, day: impl IntoValue<Weekday>) -> Self {
         self.week_start = Some(day.into_value());
         self
@@ -85,6 +92,7 @@ impl DateTimeInput {
         self
     }
     /// Format wall-clock precision independently of the date format.
+    #[track_caller]
     pub fn time_format(mut self, format: impl IntoValue<TimeStyle>) -> Self {
         let format = format.into_value();
         self.seconds = (move || format.get().seconds).into_value();
