@@ -42,7 +42,8 @@ pub(super) fn pressable(
 ///
 /// The label, the description and the action are hidden while the sidebar is
 /// an icon column. With `label_hidden` the label is transparent but keeps
-/// the group's name, so assistive technology still reads it.
+/// the group's name, so assistive technology still reads it. The description
+/// goes on its own text part under the label.
 #[component]
 pub fn sidebar_group(
     label: Value<String>,
@@ -113,7 +114,8 @@ pub fn sidebar_menu(children: Vec<View>) -> impl Element {
 /// `icon` while the row is active. `end` sits after the label, before the
 /// badge. `sub_open` makes the row a toggle: a press flips it, and it shows
 /// the sub list and a chevron while it is open. Without it the sub list is
-/// always shown.
+/// always shown. The press goes on the row's button part, not on the list
+/// item around it.
 #[component]
 pub fn sidebar_menu_button(
     label: Value<String>,
@@ -195,7 +197,6 @@ pub fn sidebar_menu_button(
 pub fn sidebar_menu_sub_button(
     label: Value<String>,
     #[prop(default = false)] active: Value<bool>,
-    on_press: Option<Callback<()>>,
 ) -> impl Element {
     let item = memo(move || SidebarItemState {
         active: active.get(),
@@ -205,8 +206,10 @@ pub fn sidebar_menu_sub_button(
         size: SidebarMenuButtonSize::Default,
         expanded: None,
     });
-    let press = on_press.unwrap_or_else(|| callback(|()| {}));
-    let (link, _) = pressable(node().name(label).selected(active), Role::Link, Some(press));
+    // The link is always a focusable link; the caller's `.on_press(..)` sets
+    // its action.
+    let (link, _) = pressable(node().name(label).selected(active), Role::Link, None);
+    let link = link.with_node(|root| root.role(Role::Link)).focusable(true);
     themed(link, |r: &SidebarTheme| r.sub_button_recipe(), item)
         .child(text(label).style(style().single_line()))
 }
