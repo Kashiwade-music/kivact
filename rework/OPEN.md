@@ -1509,3 +1509,50 @@ lane K5 の K33e（commit `94d1ed25`）の報告による。設計者の答え�
     - `pub mod color`：その item が crate の root にも再公開されていなければ採る（一つの item に公開の path は一つ）。root にもあるなら、module は非公開に戻し、catalog は root の path を使う。
     - range の label を caller の `.name` にした：採る（C6 と同じ）。
     - picker の search の名前を placeholder にした：旧と同じなら採る。
+
+## 設計者の回答（W10 の K42・K37・K40・K38 と P の fix、2026-11-22）
+
+### (A) soft の K42（side navigation → 中核の sidebar）
+1. **app_shell の `sidebar_provider` の `open` と `page`**：
+   - `AppShell` に任意の setter `sidebar_open(open: Signal<bool>)` を足す。無ければ `AppShell` の中で `signal(true)` を一つ作る。signal は一つだけで、同期させない。
+   - `page`（main の領域）は `sidebar_provider` の 3 つ目の引数に渡す。`row((sidebar, main))` は `sidebar_provider(open, sidebar().content(factory()), main)` に置き換える。
+   - doc：「Give `sidebar_open` to read or set whether the sidebar is open; without it the shell keeps its own, open at first.」
+2. **nav_heading の rail の判定**：中核に、sidebar の状態を読む公開の道を足す（lane P の commit）。shadcn の `useSidebar` と同じ役目。
+   - `pub fn use_sidebar() -> Option<SidebarHandle>`（provider の外では `None`）。`#[derive(Clone, Copy)] pub struct SidebarHandle`。
+   - method：`pub fn icon_only(self) -> bool`（今の `SidebarCx::icon_only`。反応する文脈で読めば追跡される）、`pub fn state(self) -> SidebarState`、`pub fn toggle(self)`。中身は今の `SidebarCx` を包む。
+   - `kivact::ui` から公開する。doc は 1 行ずつ。試験は中核の sidebar の試験の file に 1 件：`fn use_sidebar_reads_the_providers_icon_only_state()`。
+   - nav_heading は `use_sidebar().is_some_and(|s| s.icon_only())` で判定する。
+3. **top_nav の drawer の行（`side_row_style`、`items::logical_row`）**：top_nav の private の関数として `top_nav.rs` に移す（使うのは top_nav だけになる）。中身と見た目は今のまま。
+4. **`SidebarTheme::menu_button_icon`**：付属書 K の SidebarTheme の part の表（4.4）には `menu_button_icon` がある。中核の K11 での漏れなので、中核に足す（lane P の commit）。
+   - `/// The icon of a menu row.` と `menu_button_icon(menu_button_icon_recipe): SidebarItemState = crate::look_common::part,`
+   - 中核の menu button の icon の箱に、この part を付ける。
+   - soft の recipe は、そこに旧の色（選択 `TEXT_PRIMARY`、非選択 `ICON_SECONDARY`、disabled `ICON_DISABLED`）を書く。
+- **K42 の完了条件の `rg`**：`allowed_impls` にある手書きの builder の file（`alert_dialog.rs`、`top_nav.rs` の `TopNavMegaMenu`）は除いて読む（`--glob '!alert_dialog.rs' --glob '!top_nav.rs'`）。`SideNavHeading` は残す部品なので `#[component]` にする。できない理由があれば返す。
+
+### (B) pop の K37（catalog）
+1. **`ProgressHue`**：K20 で消した型。catalog の `progress_ring` は、recipe の `progress_fill` が読む hue の variant（K20 が作った形）を `.variant(..)` で渡す。
+2. **`DialogMode::Popover`**：`kivact::ui::dialog(title, open).mode(DialogKind::Popover).content(..).attach(trigger)` にする（中核の `Dialog` の doc の例と同じ形）。
+3. **`IconInput`**：手書きの builder の例外にする（more_menu の trigger と同じ形）。`node_mut()` は中の `TextInput` の node を返すので、`field(..)` が付ける label・invalid・described_by と caller の modifier は、中の入力に付く。`allowed_impls` に `kivact_ui_pop::...::IconInput <file>`（実際の path）を足す。
+4. **overlays_demo の印 5 件**（`independent:`、confirm・form・sheet・command・popover_open）：採る。demo の別々の開閉で、互いに読まない。
+
+### (C) game の K40（catalog の layout 検査）
+- **11px の label・heading が 1〜2px はみ出す**：line-height 1 の文字の箱は、CSS でも字形がはみ出すことがある正しい形（clip はしない）。
+  - 検査（walker）が font の自然な高さを箱と比べているなら、それは誤り。layout が決めた行の箱（line-height × 行の数）と比べる形に、walker を直す（catalog-shell か kivact-test の、walker の所有の unit の fix）。
+  - layout の行の箱そのものが親の箱を越えているなら、それは kit の recipe の誤り。基点の見た目どおりになるよう recipe を直す。
+  - どちらかを確かめてから直す。期待値は変えない。
+- **native-layout**：demo の幅を変える（example の中だけ）。768px の page で、document の欄が 200px 以上になる初期幅にする（例：explorer 160、inspector 220）。
+- **data-display の 0px の箱**：原因を確かめる。
+  - demo の幅の不足なら、demo を直す。
+  - kit の recipe の flex の縮み（基点では縮まなかった）なら、recipe を基点の形に戻す。
+  - 中核の layout の挙動の違いなら返す。
+
+### (D) creative の K38
+- **(i) tool window の初期位置**：popup の anchor を trigger ではなく、viewport の大きさの `window_layer` の node にする。Center の配置が viewport の中央になり、feedback.rs の translate の前提と合う（clamp も中核の規則のまま）。creative で中核の clamp の規則を複製しない。viewport の大きさの node が無ければ返す。
+- **(ii-1) operator_search の SECTIONS**：catalog-shell（K14、dev の crate）に `pub fn open_page(slug: &str)` を足し、各 entry の押下でその page を開く。参照先は page の slug。catalog-shell の所有の fix。
+- **(ii-2) `Accent::colors`**：公開にする（`pub fn colors(self) -> ..`、doc 1 行）。theme の色を読む kit の API として自然。
+- **(ii-3) property_editor と viewport_3d の state**：0.2 の規則どおり、組み合わさる state の局所変数を一つの enum（取りうる組合せだけを variant にする）と一つの signal にする。
+  - variant は今の code の到達できる組合せから決める（どの event がどの組合せに移すかを表にして、commit message に書く）。
+  - 組合せが曖昧（code からは決まらない）なら、その表を返す。印は足さない。
+
+### (E) P の fix（`72a4c138`）の逸脱
+- `kivact::ui::rust_tokens` の path、`rust.rs` の中の `#[cfg(test)]` の試験、行の数が `split('\n')` と同じ、`Plain` を返さない：すべて採る。doc に 1 文足す：「It returns one entry per `\n`-separated line, so a trailing newline gives a last empty line.」
