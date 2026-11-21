@@ -53,7 +53,7 @@
 
 use std::rc::Rc;
 
-use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
+use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{ClientToScreen, ScreenToClient};
 use windows_sys::Win32::UI::Input::Ime::{
     IMECHARPOSITION, IMR_CONFIRMRECONVERTSTRING, IMR_DOCUMENTFEED, IMR_QUERYCHARPOSITION,
@@ -65,18 +65,25 @@ use windows_sys::Win32::UI::Input::Pointer::{
 };
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetCursorPos, GetMessageExtraInfo, GetSystemMetrics, GetWindowRect, KillTimer, PEN_MASK_TILT_X,
-    PEN_MASK_TILT_Y, POINTER_MESSAGE_FLAG_CANCELED, PT_PEN, PT_TOUCH, RegisterWindowMessageW,
-    SM_CXDOUBLECLK, SM_CYDOUBLECLK, SPI_GETCLIENTAREAANIMATION, SPI_GETWHEELSCROLLCHARS,
-    SPI_GETWHEELSCROLLLINES, SendMessageW, SetTimer, SystemParametersInfoW, WM_DPICHANGED,
-    WM_IME_REQUEST, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEHWHEEL,
-    WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_POINTERDOWN, WM_POINTERUP, WM_POINTERUPDATE,
-    WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER, WM_XBUTTONDOWN, WM_XBUTTONUP,
+    GetCursorPos, GetMessageExtraInfo, GetSystemMetrics, KillTimer, PEN_MASK_TILT_X,
+    PEN_MASK_TILT_Y, POINTER_MESSAGE_FLAG_CANCELED, PT_PEN, PT_TOUCH, SM_CXDOUBLECLK,
+    SM_CYDOUBLECLK, SPI_GETCLIENTAREAANIMATION, SPI_GETWHEELSCROLLCHARS, SPI_GETWHEELSCROLLLINES,
+    SetTimer, SystemParametersInfoW, WM_IME_REQUEST, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN,
+    WM_MBUTTONUP, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_POINTERDOWN,
+    WM_POINTERUP, WM_POINTERUPDATE, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER,
+    WM_XBUTTONDOWN, WM_XBUTTONUP,
 };
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
+
+#[cfg(feature = "test")]
+use windows_sys::Win32::Foundation::RECT;
+#[cfg(feature = "test")]
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    GetWindowRect, RegisterWindowMessageW, SendMessageW, WM_DPICHANGED,
+};
 
 use super::state::{ContactNote, NativeInput, Subclass as SubclassState};
 use arvane_shell::ShellImeText;
