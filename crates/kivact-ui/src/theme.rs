@@ -92,6 +92,7 @@ pub use crate::progress::look::ProgressTheme;
 pub use crate::radio_group::look::RadioGroupTheme;
 pub use crate::select::look::SelectTheme;
 pub use crate::select::look::SelectTriggerState;
+pub use crate::sidebar::look::{SidebarItemState, SidebarState, SidebarTheme};
 pub use crate::skeleton::look::SkeletonState;
 pub use crate::skeleton::look::SkeletonTheme;
 pub use crate::slider::look::AxisState;
@@ -331,3 +332,6 @@ pub mod tree {
 pub mod typing_indicator {
     pub use crate::typing_indicator::look::{PERIOD_MS, PERIOD_MS_VAR};
 }
+
+/// The theme variables of the `sidebar` component.
+pub use crate::sidebar::vars as sidebar;

@@ -93,7 +93,6 @@ mod recipes_menu;
 mod recipes_metrics;
 mod recipes_popup;
 mod scroll_area;
-mod sidebar;
 mod table;
 mod theme;
 mod theme_access;
@@ -119,12 +118,6 @@ pub use marker::{Marker, MarkerVariant, marker};
 pub use menubar::{Menubar, menubar};
 pub use recipes_menu::MenuVariant;
 pub use scroll_area::{ScrollArea, scroll_area};
-pub use sidebar::{
-    Sidebar, SidebarCollapsible, SidebarGroup, SidebarMenuButton, SidebarMenuButtonSize,
-    SidebarMenuSubButton, SidebarSide, SidebarTrigger, SidebarVariant, sidebar, sidebar_group,
-    sidebar_input, sidebar_menu, sidebar_menu_button, sidebar_menu_skeleton,
-    sidebar_menu_sub_button, sidebar_provider, sidebar_separator, sidebar_trigger,
-};
 
 pub use alert_dialog::AlertDialogSize;
 pub use choice::ToggleVariant;
