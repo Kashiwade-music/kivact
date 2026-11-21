@@ -694,3 +694,66 @@ S20（commit `c0904ec4`、subagent の報告の J1〜J5）。
 - **S22 の食い違い 6（確認事項・設計者へ）**：span の変換で捨てる Style の text 系 property（`line_height`・`text_align`・`text_shadow`・`overflow`・`transform`・caret・selection・placeholder の色など）は、`Unsupported` に数えていない。付属書どおりだが、黙って捨てる。数えるかは設計者が決める（ST-31 の「数えて報告する」との関係）。
 - **S22 の食い違い 8（kit の旧い field）**：kivact-ui-basic（`code_block/highlight.rs`）と kivact-ui-soft（`rich_blocks.rs`、`code_syntax.rs`）は旧い `StyledRange` の field を使う。DEC-14 の compile の対象外なので直していない。W9 の kit の unit で直す。記録する。
 - **S22 の食い違い 9（既存の別件・確認事項）**：`resolve_extras` は paragraph の features に `tabular_nums` を足しておらず、engine に `tabular_nums` の参照も無いので、paragraph の `tabular_nums()` が効いていないように見える。S22 の範囲外。未確認。設計者が見る（後で W11 の G の確認か、別の unit）。
+
+## 設計者の回答（W7a・A13 の差戻し、2026-11-21）
+
+- **(1) 通知の数**：付属書の手順 4 が誤っていた。`RendererChange` は「その window の frame を何で描くか」の通知なので、window ごとに出す（Orchestrator の直しの形を採る）。device が Driver に一つであることは、通知の数ではなく、各 window の `Window::gpu_adapter()` の `generation` が同じことで確かめる。付属書 A13 の手順 4 と、試験 `two_windows_of_one_driver_share_one_gpu_device`（`Gpu` は window ごとに 1 回・計 2 回、generation が同じ）、`two_drivers_have_a_device_each_and_closing_one_leaves_the_other_drawing`（generation が違う）を直した。
+- **(2) 開き直した window の device**：DEC-08 が正で、試験の期待を直す。`each_window_opened_again_starts_its_own_device_on_demand` を `each_window_opened_again_draws_on_the_drivers_one_device` に改名し、generation が round ごとに同じことを期待する。main の window が CPU のままである期待は残す。そのため、付属書に手順 4b を足した：`WindowGpu` に `Waiting` を足し（4 variant）、`OnDemand` では adapter を読んだ window だけが GPU で描く（device ができても、読まない window は CPU のまま）。
+- lane A1 は `8fed6148` の上で、直した付属書 A13 の 4・4b と試験に合わせ、A13 の確認をやり直してから進む。
+
+## Orchestrator の判断（W7a・U20・U21・U25・A14・E22、2026-11-21）
+
+- **U20（`8a96e844`）**：採る。`clippy -p kivact-ui` は arvane-native の既存の unused import（Windows の `RECT`・`GetWindowRect`）で落ちる。クリッピーは path の依存も lint するため。tier b（workspace）では通っている。`--no-deps` で対象 crate だけ見る。
+- **U21（`6abda8f2`）の STOP（spinner の `reduced_period`）**：採る。4.3 の fallback 1000 にすると、reduced motion で装飾の動きが止まる挙動（None）が変わる。`reduced_period(Option<f64>) = None` の setting にして、挙動を保つ。設計者に確認：付属書 4.3 の spinner の行。
+- **U21 の食い違い（設計者に確認）**：(a) combobox の `FOCUS_RING` は 4.3 の fallback 2 に従った。旧は theme の `focus_ring()` を読んでいた。テーマで focus ring を変えた利用者は、combobox の見た目が変わる。(b) tree の `RADIUS` は SM のまま（見た目を変えない。4.3 は MD）。(c) tree の試験は `INDENT` でなく `PADDING` を確かめる（付属書の INDENT は 16 固定）。(d) spinner に `GAP`（6）を足した（`indicators.gap` も読むため）。採る。
+- **U25（`e2e0b710`）**：採る。`#[caller]` の binding は、書かれた型（`Caller`）を使う（試験の `use` に合わせる）。`Children` の試験は付属書の形（`shelf((depth_text(),))`）。`absorb` の disabled の OR は設計書 5.1 の規則 2 どおり。挙動が変わる（本体と呼出し側の両方が disabled を書く部品）ので、E2E は component_macro だけを走らせた。他の試験は tier b で確かめる。
+- **A14（`f5382490`）**：採る（付属書との食い違い 1〜8）。`Lent::drop` は常に `give_back`、`forget` は `Session::dispose` の panic 分岐。`State::stop` は `needs_cleanup()` を使う（`accepts_callbacks()` では片付かない）。`stopped_outside_callback` は win32 と x11 で呼ぶ。`Child::stop_idle` の `Calling` の扱いは付属書の表に無い（記録）。Linux の check は成功（x11 の E2E は未実行。WSLg で確認が要る）。
+- **E22（`750ad059`）**：採る。`Writes` の印は xtask が未使用と判定したので外した（0.5 の行）。`kivact-engine --features testing` の DLL 初期化の失敗（0xc0000142）は、再実行では出なかった（環境の一時的な失敗として記録）。`e2e_native --all-features -- devtools::` は 1 件成功。
+
+## Orchestrator の判断（W7a・A13・U22・E23、2026-11-21）
+
+- **A13（`3a719498`、設計者の答えに従う続き）**：採る。`Start{gpu}` は window を開いたとき `device_started()` で決める（OnDemand で device が既にある時に、開いた window の試験の round 2 が GpuStarting を見られるように）。shader fallback と slow frame の開始も、その window を Waiting にする（起動した device を使えるように）。他の window の device 喪失の `Cpu` は、event の終わりに `sync_gpu` で気づいた時に汎用の理由で出す。`Gpu{..}` は window の context が ready になるたびに出す（restart の後も）。`ReadyDevice` に `init` を足し、`WindowGpu::advance` は `Option<&ReadyDevice>` を受ける（付属書の sketch では configure の wake と init が取れないため）。すべて付属書の意図どおり。採る。ARV・GPU-DEMAND・GPU-SHARE・EMBED・LIFE は、CPU の形と GPU の形の両方が通った（報告）。
+- **U22（`485acfee`）**：採る。入力部品の constructor は名前を取らず、`label(..)` が builder のメソッドになった（DEC-05・API-17・UI-13 (a)）。`TagInput::on_add`・`on_remove` は U22 で消した（dead_code のため）。`NumberInput`・`TagInput` の名前は root node に持つ（xtask の state 規則のため）。`date_range_input`・`date_time_input` の `label()` の既定は既存のメッセージ（U22 の判断。設計者に確認：既定の文言）。`Look3::Plain` は component_macro.rs から消した（HEAD で既に warning）。clippy は `--no-deps`（arvane-native の既存の warning を避けるため）。
+- **E23（`6b66158b`）**：採る。付属書の手順 6 の Clone の cfg_attr に加え、`ChildCursor::forget`・`LayoutState::clear_relayout` に cfg を付けた（dead_code を避けるため。どちらも `rebuild_all` からだけ使う）。`Calcs` の Clone は手順に無いので残した。engine の testing（全件）・E2E（foreign_window 11・layout 8・layout_check 5・text_editing 19）は通った。
+- **E22 の完了後の確認**：`rg dead_code` の 2 file は、E23 の確認で空。
+
+## 差戻し（W7a・U23、2026-11-21）
+
+U23（lane U1、commit `571ec07a`）は未完。次の 3 件は設計の判断が要る（0.5 の表に当たらない）。U1 lane はここで止める（U24 は U23 の後）。
+
+- **(1) `ColumnDef::with_width` の改名**（`crates/kivact-interaction/src/table/model.rs:132`）：付属書 U23 の手順 4 は `with_width` を `width` に改名すると書くが、同じ型に既存の getter `pub fn width(&self) -> Option<f64>`（model.rs:187）がある。衝突する。呼出し元は `crates/kivact-ui/src/data_table/column.rs:168,177`。設計者が決める：getter の扱い（改名の名前を変える、または getter を別の名前にする）。
+- **(2) Stepper の state 印（`crates/kivact-ui/src/stepper/view.rs:112`）**：付属書 U23 の手順 5 で `stepper(items, current: Signal<usize>)` にしたため、`Stepper` の field（`current`・`min_step_width`）が mutate される型として xtask の state 検査が error を出す。`cargo xtask check --no-write --crate kivact-ui` が 1 error で落ちる。0.5 の表の行（印の文を付ける条件 3 つ）は満たすと見えるが、印を入れる編集が権限の自動判定で拒否された。回避はしていない。Orchestrator が印を入れる許可か、差戻しのままにするかを設計者が決めてください。
+- **(3) `NavigationMenuLink::on_press`**（`crates/kivact-ui/src/navigation_menu/link.rs`）：付属書 U23 の手順 5 は固有の method を消すと書く。だが `into_view` が同じ node の `on_press` で閉じる処理（`context.close`）を足し、`Node::on_press` は既存の handler を置き換える（`node_modifiers.rs` の doc）。利用者の押下と閉じる処理を両方載せられない。固有の method を残した。設計者が決める：閉じる処理を別の経路（`Node` の追加の handler、または `Callback` の合成）へ移すか、付属書の形を変えるか。
+
+U23 の報告にある食い違い 1〜15（ComboboxApi::mode が無い、`Stepper::disabled` が無い、TextEditApi の `on_draft_commit` は改名の対象外、`lib.rs` の表は一部だけ更新、Avatar の press、ChatMessage・Card・Badge・ItemRow の押下が root に載る、Stepper の項目は常に押下可能、icon_button の Ghost、button の group の角、input_group、試験の改名と追加、`#[track_caller]` の 53 file、未使用の印の削除）は、Orchestrator が読んだ。判断は U23 の後の確認で見る。ただし、食い違い 6（押下が body でなく root に載る）と 7（Stepper の項目が常に押下可能）は、利用者の挙動が変わるので、設計者の確認が要る。
+
+## 設計者の回答（W7a・U23 の差戻し、2026-11-21）
+
+- **(1) `ColumnDef::with_width`**：付属書どおり builder を `width` にし、getter を `preferred_width` に改名する（使うのは `data_table/column.rs` の 1 箇所）。付属書 U23 の手順 4 に足した。
+- **(2) Stepper の state 印**：印の行は 0.5 の表どおりでよい。ただし Orchestrator の権限の判定で拒否された編集なので、設計者が代わりに入れることはしない。利用者に判断を求めた（利用者の許可が出たら設計者が入れる）。それまで U23 の xtask の 1 件は未解決のまま残し、ほかの直しを先に進める。
+- **(3) `NavigationMenuLink::on_press`**：固有の method は消す（API-13 のとおり。固有の method を残すと、`Element::on_press` で付けた handler が `into_view` で置き換えられて消える）。core に `#[doc(hidden)] Node::take_press` を足し、link は呼出し側の handler を取り出して自分の押下の中で呼んでから閉じる。付属書 U23 の手順 5 に書き、試験を 1 つ足した。
+- **食い違い 6（押下が root に載る）**：採る。`Element` の modifier は root に付く（`element_data.rs` の doc の決まり）。Card・ChatMessage・Badge・ItemRow の全体が押せる面になり、`use_button()` の part も root に付く。G の移行の文書に 1 行足す（W11b）。
+- **食い違い 7（Stepper の項目が常に押せる）**：採る。値は `current` の signal が持ち、利用者の操作はそれを書く。飛ばせない手順の項目は `StepperItem::disabled(true)` にする。`stepper` の doc に 1 文足す（付属書の手順 1）。G の移行の文書に 1 行足す（W11b）。
+
+## 差戻し（W7a・E25、2026-11-21）
+
+E25（lane E1、作業ツリーの未 commit の 6 file。HEAD は `6b66158b`）は、確認で 1 件が落ちた。lane E1 はここで止める（E26 は E25 の後）。
+
+- **落ちた試験**：`dev/tests/kivact-public-api/tests/e2e_core/custom_text_field.rs:285`（`custom_text_field_accessibility_publishes_text_and_selection`）。`field.reconvert(1..3)` の直後の `assert_eq!(field.text_selection(), Some((1, 3)))` が、`Some((14, 14))` になる。a11y の選択範囲が、操作の直後に publish されない。
+- **原因（見立て）**：付属書 E25 の EN-27（「文字入力の入口は sync せず、続く pump の settle に任せる」）に従い、`model/keys.rs`（`key`・`paste`）と `model/edit/ime.rs`（`preedit`・`commit`・`ime_select`）から `sync()` を外した。`reconvert` の経路がその `sync()` に依っていた。試験は pump を挟まず a11y を読む。
+- **設計者が決める**（0.5 の表に当たらない。a11y の期待値は差戻し対象）：(a) `ime_select`（または `reconvert` の経路）の `sync()` を残す（E25 の手順 3 の一部を取り消す。試験の期待値は変えない）、(b) 試験の前に pump を挟む（試験の期待値を変える。設計者の承認が要る）、(c) EN-27 の文を直す。
+- 作業ツリーの変更は reset せず残してある（lane E1 の `W:/w/kv-wt/rw-W7a-E1`）。E25 の他の確認（engine の試験 13 件、E2E の他の 11 module、fmt、clippy、xtask）は通った（`V:/kv-target/logs-W7a-verify/e1-*.log`）。
+
+## 設計者の回答（W7a・E25 の差戻しと、確認の残り、2026-11-21）
+
+- **E25**：(a)・(b) は採らない。EN-27 と E25 の早い return（`is_clean`）は、「書込み・入力・tick・resize・asset は、すべて一つの `Changes` に記録される」（`sync.rs` の module doc）を前提にしている。試験が落ちたのは、reconvert の経路のどこかが `Changes` に記録せずに状態を変え、前は無条件の `sync` がそれを拾っていたためと見る（隠れた通り道。root で直す）。次の順で調べて直す（subagent に任せてよい）：
+  1. 手順 3 の早い return だけを一時的に外して試験を走らせる。通るなら、早い return が仕事を飛ばしている。reconvert（`ime_select`・`session_select`・`session_event` と、それを受けた App の commit）の後に、`sync` のどの段が a11y の選択範囲を出しているか、その段が読む状態を誰が書いているかを突き止め、その書き手が `Changes` に印を付ける（その段が既に使う `Dirty::` の bit か `Changes` の field。新しい field は作らない）。早い return は戻す。
+  2. 早い return を外しても落ちるなら、手順 7 の `sync()` の削除が原因（試験の host の経路で、入力の後に settle が走っていない）。その場合は、落ちる入口の関数だけ `self.sync();` を残し、付属書 E25 の手順 7 と EN-27 の文をその入口を除く形に Orchestrator が直す（設計者の決まりとして記録する）。
+  どちらでも試験の期待値は変えない。E25 の確認を全部やり直してから commit し、E26 へ進む。
+- **J5（DevTools の override 名）**：採る。DevTools の名前は style の setter の名前（S20 の CSS の名前）に揃える。wire は rework の中で互換を約束しない。表示用の label（`node.rs` の "ring"・"radius"・"weight"）も同じ名前にする：W11c の後片付けの unit に入れる（設計者が付属書に書く）。
+- **S22 の食い違い 6**：数える（ST-31 の「数えて報告する」が正）。span の変換で捨てる text 系の property を `Unsupported` に数える unit を、設計者が W9 の前に付属書 S に足す（S22b）。それまで今の形でよい。
+- **S22 の食い違い 9（paragraph の `tabular_nums`）**：設計者が調べ、要るなら同じ時に unit を足す（S22c）。
+- **U21 (a)〜(d)**：採る。(a) は 4.3 の fallback の規則どおり。G の移行の文書に「combobox の focus ring は theme の `focus_ring()` でなく token の `FOCUS_RING`」を 1 行足す（W11b）。
+- **U22 の `date_range_input`・`date_time_input` の既定の label**：既存のメッセージのままでよい。
+- **push**：W6b までの統合 branch は、利用者の許可を得て設計者が push した（`b1b2c3c2`）。Orchestrator は push しない。
+- **W6b の worktree と branch の後片付け**：権限の判定で拒否された操作なので、利用者の判断を待つ。それまで残す（作業の妨げにならない）。
