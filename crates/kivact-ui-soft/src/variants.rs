@@ -1,4 +1,5 @@
 //! Role: Soft's variant values for the standard components: each look is one type that a caller gives with `.variant(..)`.
+use crate::space::Space;
 use kivact::Prop;
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Color};
@@ -20,34 +21,6 @@ pub enum Elevation {
 }
 
 impl Variant for Elevation {}
-
-/// Theme spacing steps, resolved through the current theme variables.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
-pub enum Space {
-    #[default]
-    /// Resolve the theme’s `s0` spacing token.
-    S0,
-    /// Resolve the theme’s `s0_5` spacing token.
-    S0_5,
-    /// Resolve the theme’s `s1` spacing token.
-    S1,
-    /// Resolve the theme’s `s1_5` spacing token.
-    S1_5,
-    /// Resolve the theme’s `s2` spacing token.
-    S2,
-    /// Resolve the theme’s `s3` spacing token.
-    S3,
-    /// Resolve the theme’s `s4` spacing token.
-    S4,
-    /// Resolve the theme’s `s5` spacing token.
-    S5,
-    /// Resolve the theme’s `s6` spacing token.
-    S6,
-    /// Resolve the theme’s `s8` spacing token.
-    S8,
-    /// Resolve the theme’s `s10` spacing token.
-    S10,
-}
 
 /// Background treatment of a Soft section, shared by sections and toolbars.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

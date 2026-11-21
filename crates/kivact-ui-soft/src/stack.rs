@@ -8,7 +8,7 @@ use kivact::view::ScrollAxes;
 use kivact::view::node;
 use kivact::view::scroll;
 
-use kivact::Prop;
+use crate::space::Space;
 use kivact::style::Align;
 use kivact::style::Direction;
 use kivact::style::Justify;
@@ -19,54 +19,6 @@ use kivact::view::IntoView;
 use kivact::view::ReadingDirection;
 use kivact::view::View;
 use kivact::view::use_direction;
-
-/// Theme spacing steps, resolved through the current Soft tokens.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
-pub enum Space {
-    #[default]
-    /// Resolve the theme’s `s0` spacing token.
-    S0,
-    /// Resolve the theme’s `s0_5` spacing token.
-    S0_5,
-    /// Resolve the theme’s `s1` spacing token.
-    S1,
-    /// Resolve the theme’s `s1_5` spacing token.
-    S1_5,
-    /// Resolve the theme’s `s2` spacing token.
-    S2,
-    /// Resolve the theme’s `s3` spacing token.
-    S3,
-    /// Resolve the theme’s `s4` spacing token.
-    S4,
-    /// Resolve the theme’s `s5` spacing token.
-    S5,
-    /// Resolve the theme’s `s6` spacing token.
-    S6,
-    /// Resolve the theme’s `s8` spacing token.
-    S8,
-    /// Resolve the theme’s `s10` spacing token.
-    S10,
-}
-
-impl Space {
-    /// Resolve this step in logical pixels from the current reactive theme scope.
-    pub fn px(self) -> f64 {
-        let s = kivact::style::use_tokens::<crate::Tokens>().spacing;
-        match self {
-            Self::S0 => s.s0,
-            Self::S0_5 => s.s0_5,
-            Self::S1 => s.s1,
-            Self::S1_5 => s.s1_5,
-            Self::S2 => s.s2,
-            Self::S3 => s.s3,
-            Self::S4 => s.s4,
-            Self::S5 => s.s5,
-            Self::S6 => s.s6,
-            Self::S8 => s.s8,
-            Self::S10 => s.s10,
-        }
-    }
-}
 
 pub(crate) fn rtl() -> bool {
     use_direction() == ReadingDirection::Rtl

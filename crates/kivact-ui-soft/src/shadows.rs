@@ -3,8 +3,10 @@ use crate::color::{
     input_focus_color, input_hover_color, shadow_black, shadow_error, shadow_info, shadow_success,
     shadow_warning, shadow_white,
 };
+use crate::variants::Elevation;
 use kivact::style::Color;
 use kivact::style::Shadow;
+use kivact::style::Style;
 
 fn outside(y: i32, blur: i32, alpha: f64) -> Shadow {
     Shadow::new(0, y, blur, shadow_black(alpha))
@@ -86,4 +88,15 @@ pub(crate) fn input_hover_ring(dark: bool) -> Shadow {
 /// Additional input outline drawn while focused.
 pub(crate) fn input_focus_ring(dark: bool) -> Shadow {
     inset(2, input_focus_color(dark))
+}
+
+/// Apply a surface elevation's outer shadow layers to a style; `None` returns the style unchanged.
+pub(crate) fn elevate(base: Style, elevation: Elevation, dark: bool) -> Style {
+    let shadows = match elevation {
+        Elevation::None => return base,
+        Elevation::Low => low(dark),
+        Elevation::Med => med(dark),
+        Elevation::High => high(dark),
+    };
+    shadows.into_iter().fold(base, Style::shadow)
 }

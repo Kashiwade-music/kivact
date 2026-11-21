@@ -58,7 +58,7 @@ pub use radius::{
 pub use space::{
     SPACE_CARD_PADDING, SPACE_DIALOG_PADDING, SPACE_LAYER_VIEWPORT_GUTTER, SPACE_S0, SPACE_S0_5,
     SPACE_S1, SPACE_S1_5, SPACE_S2, SPACE_S3, SPACE_S4, SPACE_S5, SPACE_S6, SPACE_S7, SPACE_S8,
-    SPACE_S9, SPACE_S10, SPACE_S11, SPACE_S12, SPACE_SECTION_PADDING,
+    SPACE_S9, SPACE_S10, SPACE_S11, SPACE_S12, SPACE_SECTION_PADDING, Space,
 };
 pub use theme::theme;
 pub use variants::{
@@ -68,7 +68,7 @@ pub use variants::{
     DisclosureVariant, DropzoneVariant, Elevation, EmptyStateVariant, HeadingDisplay, ItemAlign,
     ItemDensity, ItemHighlighted, ItemLayout, LabelPosition, ListDividers, ListEdge,
     MetadataColumns, MetadataLabelWidth, MetadataOrientation, PaginationSize, RowStatusDot,
-    SegmentedIconOnly, SegmentedLayout, SkeletonRadius, Space, SpinnerShade, SpinnerVariant,
+    SegmentedIconOnly, SegmentedLayout, SkeletonRadius, SpinnerShade, SpinnerVariant,
     StepCollapsedVariant, StepDensity, StepIndicatorPosition, SystemMessageVariant, TableCellAlign,
     TableCellDivider, TableRowDividers, TableRowHover, TableRowStriped, ToolbarVariant, TreeGuides,
 };

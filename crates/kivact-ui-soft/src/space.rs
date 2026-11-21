@@ -1,5 +1,6 @@
 //! Role: The spacing scale of Astryx Neutral as theme variables, in logical px.
-use kivact::style::{Length, Theme, ThemeVar};
+use kivact::Prop;
+use kivact::style::{Length, Theme, ThemeVar, use_theme};
 
 /// The space `s0`: 0 px.
 pub(crate) static SPACE_S0_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s0", 0.0);
@@ -82,6 +83,53 @@ pub const SPACE_SECTION_PADDING: Length = Length::var(&SPACE_SECTION_PADDING_VAR
 pub const SPACE_DIALOG_PADDING: Length = Length::var(&SPACE_DIALOG_PADDING_VAR);
 /// The gutter between an overlay and the edge of the viewport.
 pub const SPACE_LAYER_VIEWPORT_GUTTER: Length = Length::var(&SPACE_LAYER_VIEWPORT_GUTTER_VAR);
+
+/// Theme spacing steps, resolved through the current theme variables.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
+pub enum Space {
+    #[default]
+    /// Resolve the theme’s `s0` spacing token.
+    S0,
+    /// Resolve the theme’s `s0_5` spacing token.
+    S0_5,
+    /// Resolve the theme’s `s1` spacing token.
+    S1,
+    /// Resolve the theme’s `s1_5` spacing token.
+    S1_5,
+    /// Resolve the theme’s `s2` spacing token.
+    S2,
+    /// Resolve the theme’s `s3` spacing token.
+    S3,
+    /// Resolve the theme’s `s4` spacing token.
+    S4,
+    /// Resolve the theme’s `s5` spacing token.
+    S5,
+    /// Resolve the theme’s `s6` spacing token.
+    S6,
+    /// Resolve the theme’s `s8` spacing token.
+    S8,
+    /// Resolve the theme’s `s10` spacing token.
+    S10,
+}
+
+impl Space {
+    /// Resolve this step in logical pixels from the current reactive theme scope.
+    pub fn px(self) -> f64 {
+        match self {
+            Self::S0 => use_theme().get().get(&SPACE_S0_VAR),
+            Self::S0_5 => use_theme().get().get(&SPACE_S0_5_VAR),
+            Self::S1 => use_theme().get().get(&SPACE_S1_VAR),
+            Self::S1_5 => use_theme().get().get(&SPACE_S1_5_VAR),
+            Self::S2 => use_theme().get().get(&SPACE_S2_VAR),
+            Self::S3 => use_theme().get().get(&SPACE_S3_VAR),
+            Self::S4 => use_theme().get().get(&SPACE_S4_VAR),
+            Self::S5 => use_theme().get().get(&SPACE_S5_VAR),
+            Self::S6 => use_theme().get().get(&SPACE_S6_VAR),
+            Self::S8 => use_theme().get().get(&SPACE_S8_VAR),
+            Self::S10 => use_theme().get().get(&SPACE_S10_VAR),
+        }
+    }
+}
 
 /// Set every space variable of the kit. The scale does not depend on the appearance.
 pub(crate) fn set_space(theme: Theme) -> Theme {
