@@ -1,7 +1,10 @@
 //! Role: Verify accessible metrics, headings and term-detail associations.
 use kivact::Prop;
 use kivact::prelude::*;
+use kivact::style::{Theme, rgb};
+use kivact::ui::theme::{HeadingState, HeadingTheme, Look};
 use kivact::ui::{self, ProgressVariant, Trend};
+use kivact_public_api_tests::paint::{distance, pixel};
 use kivact_public_api_tests::support::mount;
 
 #[derive(Clone, Debug, PartialEq, Prop)]
@@ -127,6 +130,41 @@ fn heading_has_its_level() {
     );
     screen.assert_layout_clean();
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_heading_variant_reaches_its_recipe() {
+    let theme = Theme::light().with(HeadingTheme::default().root(
+        |_, look: &Look<HeadingState>, base| {
+            if look.variant::<CustomLook>() == Some(CustomLook) {
+                base.background(rgb(0xff0000))
+            } else {
+                base.background(rgb(0x0000ff))
+            }
+        },
+    ));
+    let (screen, ()) = mount(move || {
+        (
+            (),
+            provide_theme(theme, || {
+                column((
+                    ui::heading("Plain", 2).test_id("plain"),
+                    ui::heading("Tinted", 2)
+                        .variant(CustomLook)
+                        .test_id("tinted"),
+                ))
+            }),
+        )
+    });
+    assert!(distance(at(&screen, "tinted"), 0xff0000) <= 8);
+    assert!(distance(at(&screen, "plain"), 0x0000ff) <= 8);
+    screen.assert_layout_clean();
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn at(screen: &kivact::test::Screen, id: &str) -> u32 {
+    let r = screen.get_by_test_id(id).rect().expect("laid out");
+    pixel(&screen.screenshot(), (r.x + 1.0) as u32, (r.y + 1.0) as u32)
 }
 
 #[test]
