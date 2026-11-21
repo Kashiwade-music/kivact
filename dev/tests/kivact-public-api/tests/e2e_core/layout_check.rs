@@ -83,6 +83,50 @@ fn a_nowrap_text_wider_than_its_row_overflows_it() {
 }
 
 #[test]
+fn glyphs_beyond_a_tight_line_box_are_not_reported() {
+    // A line-height of 1 makes the line box shorter than the accents' ink.
+    // The check compares the line box, which fits its column, so the ink
+    // reaching past it is not a violation.
+    let screen = render(|| {
+        column((text("ÅÉÖ")
+            .style(style().font_size(40).line_height(1.0))
+            .test_id("accents"),))
+        .style(
+            style()
+                .width(200)
+                .height(60)
+                .align_items(Align::Start)
+                .background(rgb(GRAY)),
+        )
+    });
+    assert_eq!(screen.check_layout(), []);
+}
+
+#[test]
+fn a_line_box_beyond_its_parent_is_reported() {
+    // The line box is 40 tall in a column 20 tall: 20 px beyond its bottom.
+    let screen = render(|| {
+        column((text("Hello")
+            .style(style().font_size(40).line_height(1.0))
+            .test_id("tall"),))
+        .style(
+            style()
+                .width(200)
+                .height(20)
+                .align_items(Align::Start)
+                .background(rgb(GRAY)),
+        )
+    });
+    let found = screen.check_layout();
+    assert_eq!(found.len(), 1, "{found:#?}");
+    let v = &found[0];
+    assert_eq!(v.test_id.as_deref(), Some("tall"));
+    assert!(overflows_parent(&v.rule()), "{v}");
+    assert!((19.0..=21.0).contains(&v.amount()), "{v}");
+    assert_eq!(v.limit().height, 20.0);
+}
+
+#[test]
 fn an_ellipsis_a_scrolling_axis_and_a_text_that_fits_are_not_violations() {
     let screen = render(|| {
         column((

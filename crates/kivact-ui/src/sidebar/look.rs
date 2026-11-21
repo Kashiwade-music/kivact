@@ -30,6 +30,8 @@ pub struct SidebarItemState {
     pub has_action: bool,
     /// Whether the reading direction is right to left.
     pub rtl: bool,
+    /// Whether the row is disabled: it takes no press.
+    pub disabled: bool,
     /// The row's height.
     pub size: SidebarMenuButtonSize,
     /// Whether the row's sub list is open, or `None` when the row has no toggle.

@@ -1556,3 +1556,23 @@ lane K5 の K33e（commit `94d1ed25`）の報告による。設計者の答え�
 
 ### (E) P の fix（`72a4c138`）の逸脱
 - `kivact::ui::rust_tokens` の path、`rust.rs` の中の `#[cfg(test)]` の試験、行の数が `split('\n')` と同じ、`Plain` を返さない：すべて採る。doc に 1 文足す：「It returns one entry per `\n`-separated line, so a trailing newline gives a last empty line.」
+
+## 設計者の回答（W10 の K42・K37・K40・K38 の続きと記録、2026-11-22）
+
+- **(1) soft の drawer の `disabled`**：中核の `sidebar_menu_button` を直す（lane P の commit）。`disabled` は C4a のとおり props にしない。部品の本体が `#[caller] caller: Caller` から caller の disabled を読み、中の button と `SidebarItemState::disabled` に渡す（root の list item の wrapper だけに付けない）。試験 1 件（中核の sidebar の試験の file）：`fn a_disabled_menu_button_takes_no_press()`。soft の drawer は `sidebar_menu_button(..).disabled(item.disabled)` と書く。
+  - app_shell の `side_nav` → `sidebar` の改名：採る（中核の名前とそろう）。W11b の移行の文書に 1 行足す。
+  - `SidebarState` が `kivact::ui::theme::SidebarState` の path にあるのは、他の recipe の状態の型（`ButtonState` など、`kivact::ui::theme`）と同じ置き場なので採る。
+- **(2) pop の tokens_demo の 12 列の grid**：demo の中だけを直す。二つの card を `span 12` ずつにして縦に積む（catalog の preview の幅に収める）。kit の recipe は変えない。他の確認（drawer・dialog の呼出しを戻した、palette は overlay の 4 件、tests の locator を英語の a11y の名前に、forms に scroll を 1 つ）は採る。
+- **(3a) layout の検査が字形の ink を箱と比べる**：中核の検査の誤り。`crates/kivact-engine/src/check/findings.rs` の判定を直す（lane P の commit）。文字の行は、layout が決めた行の箱（line-height × 行の数）で比べ、字形の ink は比べない。
+  - CSS でも、line-height 1 の字形が行の箱からはみ出すのは正しい形（clip しない）。
+  - 試験 2 件（engine の check の試験の file）：`fn glyphs_beyond_a_tight_line_box_are_not_reported()`、`fn a_line_box_beyond_its_parent_is_reported()`。
+  - catalog-shell の側は変えない。
+- **(3b) game の progress の SLA の文字**：demo の中だけを直す。`#[component]` の root に子を足さない。progress の ring と SLA の文字を一つの container（ring の上に文字を重ねる。`position(Relative)` の箱と、絶対位置で中央に置いた文字）に入れる。
+- **(4a) creative の property_editor**：subagent の案を採る。viewport の表示の flag（name・axes・wireframe）は、それを使う viewport の表示の部品（別の関数）が持つ。demo は tab の signal だけを持つ。互いに依らない値を一つの enum にしない。
+- **(4b) operator_search の mount**：catalog-shell に overlay の hook を足さない。creative の catalog の page のうち、operator search を見せる page の demo に、開く button と一緒に置く（demo として見せる）。`open_section`・`SECTIONS` は、その demo の中で `open_page` を使う。使わない `glass` などは消す。
+- **(4c) areas-docking の clip**：
+  - dock の tab の label は、kit の側で溢れない形にする。tab の label の箱に `min_width(0)` と、溢れた文字の省略（`text_overflow` の ellipsis。中核にある CSS の値）を付ける。基点で溢れていた分は、省略で見せる。
+  - walker は、省略の付いた文字と scroll の container の中身を「切れた」と報告しないこと。今それを報告するなら、(3a) と同じ lane P の commit で検査を直す。
+  - console は scroll の container（`overflow` を scroll）にする。console の中身は流れて見えなくなるのが正しい形。
+  - catalog-shell の moon.svg・sun.svg（Lucide、ISC）：採る。ただし catalog-shell の assets に Lucide の license の文書（basic の `assets/LICENSE-lucide.txt` と同じもの）を置く。
+- **(5) legacy の印の 180 文字**：その規則は作業書に無く、xtask も通るので、今の付属書の文字どおりでよい。
