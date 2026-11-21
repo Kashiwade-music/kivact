@@ -42,6 +42,7 @@ mod metrics;
 mod mobile_nav;
 mod more_menu;
 mod motion;
+mod nav_heading;
 mod navigation_session;
 mod outline;
 mod power_search;
@@ -77,6 +78,7 @@ mod recipes_overlays_select;
 mod scrollable_area;
 mod section;
 mod shadows;
+mod side_navigation;
 mod soft_overflow;
 mod soft_table;
 mod space;
@@ -166,6 +168,10 @@ pub use mobile_nav::{
     use_app_shell_mobile,
 };
 pub use more_menu::{MoreMenu, more_menu};
+pub use nav_heading::{
+    NavHeadingMenu, NavHeadingMenuItem, SideNavHeading, nav_heading_menu, nav_heading_menu_item,
+    side_nav_heading, top_nav_heading,
+};
 pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
 pub use radius::{
@@ -174,6 +180,10 @@ pub use radius::{
 };
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Section, SectionEdges, section};
+pub use side_navigation::{
+    ItemCollapse, SideNav, SideNavCollapse, SideNavCollapseButton, SideNavItem, SideNavResize,
+    SideNavSection, side_nav, side_nav_collapse_button, side_nav_item, side_nav_section,
+};
 pub use soft_overflow::{CollapseFrom, OverflowList, OverflowMeasure, overflow_list};
 pub use soft_table::{
     RowStatusTone, TableSelectionToolbar, table_row_index, table_row_status,

@@ -3,45 +3,51 @@
 use super::context::{NavSurface, SideNavCx, nav_cx};
 
 use crate::app_shell::{ShellNavMode, shell_nav_mode};
-use crate::mobile_nav::use_app_shell_mobile;
+use crate::color as c;
+use crate::metrics as m;
+use crate::motion::{EASE_STANDARD, FAST, MEDIUM};
+use crate::radius::{RADIUS_CONTAINER, RADIUS_ELEMENT};
+use crate::recipe_parts::{ring, shadowed};
+use crate::shadows;
+use crate::space::{self as s, Space};
 use crate::stack::rtl;
+use crate::type_scale as t;
 
 use kivact::Prop;
+use kivact::component;
+use kivact::custom::Caller;
 use kivact::i18n::message_with;
 use kivact::interaction::Delays;
-use kivact::interaction::DialogMode;
-use kivact::interaction::use_dialog;
 use kivact::interaction::use_disclosure;
+use kivact::interaction::use_popup;
 use kivact::motion::Transition;
 use kivact::state::Callback;
-use kivact::state::IntoText;
 use kivact::state::IntoValue;
+use kivact::state::Signal;
 use kivact::state::Value;
 use kivact::state::binding;
-use kivact::state::callback;
 use kivact::state::provide;
 use kivact::state::signal;
-use kivact::state::{IntoHandler, Signal};
 use kivact::style::Align;
-use kivact::style::Direction;
+use kivact::style::FlexDirection;
 use kivact::style::Justify;
+use kivact::style::ThemeMode;
 use kivact::style::TransitionProp;
 use kivact::style::pct;
 use kivact::style::style;
+use kivact::style::use_theme;
 use kivact::ui::ButtonVariant;
 use kivact::ui::ControlSize;
 use kivact::ui::button;
 use kivact::ui::tooltip;
 use kivact::view::Element;
 use kivact::view::IntoView;
-use kivact::view::IntoViewFn;
 use kivact::view::Node;
 use kivact::view::Placement;
 use kivact::view::Role;
 use kivact::view::View;
 use kivact::view::ViewFn;
 use kivact::view::column;
-use kivact::view::icon;
 use kivact::view::node;
 use kivact::view::node_ref;
 use kivact::view::overlay;
@@ -64,141 +70,47 @@ pub enum ItemCollapse {
     Controlled(Signal<bool>),
 }
 
-// xtask-allow(state): legacy: icon, selected_icon, end, actions
 /// A sidebar entry with optional nested navigation and row actions.
-pub struct SideNavItem {
-    root: Node,
+///
+/// The label is the entry's accessible name. `on_press` is put on the entry's own row, not on
+/// its nested children. The caller's `disabled` is read from `caller` and stops the entry.
+#[component]
+pub fn side_nav_item(
     label: Value<String>,
     icon: Option<View>,
     selected_icon: Option<View>,
-    selected: Value<bool>,
-    end: Option<View>,
+    #[prop(default = false)] selected: Value<bool>,
+    end_content: Option<View>,
     actions: Option<View>,
     children: Option<ViewFn>,
-    collapse: Value<ItemCollapse>,
-    size: Value<ControlSize>,
-    action: Option<Callback<()>>,
-}
-
-/// Create a sidebar entry whose label also supplies its accessible name.
-pub fn side_nav_item(label: impl IntoText) -> SideNavItem {
-    let label = label.into_text_value();
-    SideNavItem {
-        root: node(),
+    #[prop(default = ItemCollapse::Uncontrolled { default_collapsed: false })] collapsible: Value<
+        ItemCollapse,
+    >,
+    #[prop(default = ControlSize::Medium)] size: Value<ControlSize>,
+    on_press: Option<Callback<()>>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let disabled = caller.disabled().unwrap_or_else(|| false.into_value());
+    let has_children = children.is_some();
+    let context = ItemContext::new(
         label,
-        icon: None,
-        selected_icon: None,
-        selected: false.into_value(),
-        end: None,
-        actions: None,
-        children: None,
-        collapse: (ItemCollapse::Uncontrolled {
-            default_collapsed: false,
-        })
-        .into_value(),
-        size: (ControlSize::Medium).into_value(),
-        action: None,
-    }
-}
-
-impl SideNavItem {
-    /// Mount the leading icon once.
-    pub fn icon(mut self, icon: impl IntoView) -> Self {
-        self.icon = Some(icon.into_view());
-        self
-    }
-    /// Mount an alternative icon once for the selected state.
-    pub fn selected_icon(mut self, icon: impl IntoView) -> Self {
-        self.selected_icon = Some(icon.into_view());
-        self
-    }
-    /// Set whether this entry represents the current destination.
-    pub fn selected(mut self, selected: impl IntoValue<bool>) -> Self {
-        self.selected = selected.into_value();
-        self
-    }
-    /// Set the entry's control size.
-    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
-        self.size = size.into_value();
-        self
-    }
-    /// Mount trailing row content once; hide it in the collapsed rail.
-    pub fn end_content(mut self, content: impl IntoView) -> Self {
-        self.end = Some(kivact::custom::scope(move || content.into_view()));
-        self
-    }
-    /// Mount additional row action controls once; hide them in the collapsed rail.
-    pub fn actions(mut self, actions: impl IntoView) -> Self {
-        self.actions = Some(kivact::custom::scope(move || actions.into_view()));
-        self
-    }
-    /// Build nested entries on expansion or when the collapsed-rail flyout opens.
-    pub fn children<V: IntoView>(mut self, children: impl IntoViewFn<V>) -> Self {
-        self.children = Some(children.into_view_fn());
-        self
-    }
-    /// Choose local, controlled or permanently expanded nested-entry state.
-    pub fn collapsible(mut self, collapse: impl IntoValue<ItemCollapse>) -> Self {
-        self.collapse = collapse.into_value();
-        self
-    }
-    /// Handle activation of this navigation entry.
-    pub fn on_press<M>(mut self, action: impl IntoHandler<(), M>) -> Self {
-        let action: Callback<()> =
-            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
-        self.action = Some(callback(move |_| action.call(())));
-        self
-    }
-}
-
-impl Element for SideNavItem {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for SideNavItem {
-    fn into_view(mut self) -> View {
-        let disabled = self
-            .root
-            .accessible_disabled()
-            .unwrap_or_else(|| false.into_value());
-        let Self {
-            root,
-            label,
-            icon: leading,
+        selected,
+        disabled,
+        collapsible,
+        has_children,
+        on_press,
+        size,
+    );
+    context.render(
+        node(),
+        ItemSlots {
+            leading: icon,
             selected_icon,
-            selected,
-            end,
+            end: end_content,
             actions,
             children,
-            collapse,
-            size,
-            action,
-        } = self;
-        kivact::custom::scope(move || {
-            let context = ItemContext::new(
-                label,
-                selected,
-                disabled,
-                collapse,
-                children.is_some(),
-                action,
-                size,
-            );
-            context.render(
-                root,
-                ItemSlots {
-                    leading,
-                    selected_icon,
-                    end,
-                    actions,
-                    children,
-                },
-            )
-        })
-    }
+        },
+    )
 }
 
 fn icon_box(
@@ -210,28 +122,27 @@ fn icon_box(
     node()
         .hidden(hidden)
         .style(move || {
-            let t = kivact::style::use_tokens::<crate::Tokens>();
             style()
-                .size(t.sizes.icon_sm, t.sizes.icon_sm)
-                .shrink(0)
+                .size(m::ICON_SM, m::ICON_SM)
+                .flex_shrink(0)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
                 .color(if disabled.get() {
-                    t.colors.icon_disabled
+                    c::ICON_DISABLED
                 } else if selected.get() {
-                    t.colors.text_primary
+                    c::TEXT_PRIMARY
                 } else {
-                    t.colors.icon_secondary
+                    c::ICON_SECONDARY
                 })
         })
         .child(glyph)
 }
 
-pub(crate) fn logical_row() -> Direction {
+pub(crate) fn logical_row() -> FlexDirection {
     if rtl() {
-        Direction::RowReverse
+        FlexDirection::RowReverse
     } else {
-        Direction::Row
+        FlexDirection::Row
     }
 }
 
@@ -242,161 +153,97 @@ pub(crate) fn side_row_style(
     selected: bool,
     disabled: bool,
 ) -> kivact::style::Style {
-    let t = kivact::style::use_tokens::<crate::Tokens>();
     let height = match size {
-        ControlSize::Small => t.sizes.control_sm,
-        ControlSize::Large => t.sizes.control_lg,
-        _ => t.sizes.control_md,
+        ControlSize::Small => m::CONTROL_SM,
+        ControlSize::Large => m::CONTROL_LG,
+        _ => m::CONTROL_MD,
     };
     let pad = if size == ControlSize::Small {
-        t.spacing.s1
+        Space::S1.px()
     } else {
-        t.spacing.s2
+        Space::S2.px()
     };
     let base = style()
-        .direction(logical_row())
+        .flex_direction(logical_row())
         .align_items(Align::Center)
-        .gap(t.spacing.s2)
+        .gap(s::SPACE_S2)
         .height(height)
-        .radius(t.radius.element)
-        .font_size(t.typography.label.size_px)
-        .line_height(t.typography.label.line_height_px / t.typography.label.size_px)
-        .weight(if selected {
-            t.typography.weight_medium
+        .border_radius(RADIUS_ELEMENT)
+        .font_size(t::LABEL.size_px)
+        .line_height(t::LABEL.line_height_px / t::LABEL.size_px)
+        .font_weight(if selected {
+            t::WEIGHT_MEDIUM
         } else {
-            t.typography.weight_normal
+            t::WEIGHT_NORMAL
         })
         .color(if disabled {
-            t.colors.text_disabled
+            c::TEXT_DISABLED
         } else {
-            t.colors.text_primary
+            c::TEXT_PRIMARY
         })
-        .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
+        .focus_visible(ring(c::ACCENT));
     let base = if rail {
         base.width(height).justify_content(Justify::Center)
     } else {
-        let start = pad + depth as f64 * t.spacing.s6;
+        let start = pad + depth as f64 * Space::S6.px();
         let (left, right) = if rtl() { (pad, start) } else { (start, pad) };
         base.width(pct(100)).padding_left(left).padding_right(right)
     };
     if selected {
-        base.background(t.colors.neutral)
+        base.background(c::NEUTRAL)
     } else if disabled {
         base
     } else {
-        base.hover(style().background(t.colors.overlay_hover))
-            .pressed(style().background(t.colors.overlay_pressed))
+        base.hover(style().background(c::OVERLAY_HOVER))
+            .active(style().background(c::OVERLAY_PRESSED))
     }
 }
 
-// xtask-allow(state): legacy: subtitle, end
-/// A titled group of sidebar entries with optional supporting header content.
-pub struct SideNavSection {
-    root: Node,
+/// A titled group of sidebar entries. `title` is the group's accessible name. `subtitle` and
+/// `end_content` sit in its header, which `header_hidden` hides while keeping the entries.
+#[component]
+pub fn side_nav_section(
     title: Value<String>,
-    subtitle: Option<Value<String>>,
-    end: Option<View>,
     children: View,
-    header_hidden: Value<bool>,
-}
-
-/// Mount a titled sidebar section and its child content once.
-pub fn side_nav_section(title: impl IntoText, children: impl IntoView) -> SideNavSection {
-    let title = title.into_text_value();
-    SideNavSection {
-        root: node()
-            .with_node(move |node| node.role(Role::Group))
-            .name(title),
-        title,
-        subtitle: None,
-        end: None,
-        children: children.into_view(),
-        header_hidden: (false).into_value(),
-    }
-}
-
-impl SideNavSection {
-    /// Set supporting text below the section title.
-    pub fn subtitle(mut self, subtitle: impl IntoText) -> Self {
-        self.subtitle = Some(subtitle.into_text_value());
-        self
-    }
-    /// Mount content once at the logical end of the section header.
-    pub fn end_content(mut self, content: impl IntoView) -> Self {
-        self.end = Some(kivact::custom::scope(move || content.into_view()));
-        self
-    }
-    /// Hide the section header while keeping its entries available.
-    pub fn header_hidden(mut self, hidden: impl IntoValue<bool>) -> Self {
-        self.header_hidden = hidden.into_value();
-        self
-    }
-}
-
-impl Element for SideNavSection {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for SideNavSection {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            title,
-            subtitle,
-            end,
-            children,
-            header_hidden,
-        } = self;
-        kivact::custom::scope(move || {
-            let cx = nav_cx();
-            let title = text(title).style(|| {
-                style()
-                    .weight(
-                        kivact::style::use_tokens::<crate::Tokens>()
-                            .typography
-                            .weight_semibold,
-                    )
-                    .single_line()
-            });
-            let header = row((
-                column((title, subtitle.map(text))).style(style().grow(1).min_width(0)),
-                end,
-            ))
-            .hidden(move || header_hidden.get() || cx.rail())
-            .style(|| {
-                let t = kivact::style::use_tokens::<crate::Tokens>();
-                style()
-                    .direction(logical_row())
-                    .padding_y(t.spacing.s1)
-                    .padding_x(t.spacing.s2)
-                    .gap(t.spacing.s2)
-                    .align_items(Align::Center)
-                    .font_size(t.typography.supporting.size_px)
-                    .line_height(
-                        t.typography.supporting.line_height_px / t.typography.supporting.size_px,
-                    )
-                    .color(t.colors.text_secondary)
-            });
-            root.with_node(move |node| {
-                node.base_style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let base = style()
-                        .direction(Direction::Column)
-                        .padding_y(t.spacing.s1)
-                        .gap(t.spacing.s0_5);
-                    if cx.rail() {
-                        base.align_items(Align::Center)
-                    } else {
-                        base
-                    }
-                })
+    subtitle: Option<Value<String>>,
+    end_content: Option<View>,
+    #[prop(default = false)] header_hidden: Value<bool>,
+) -> impl Element {
+    let cx = nav_cx();
+    let title_view = text(title).style(|| style().font_weight(t::WEIGHT_SEMIBOLD).single_line());
+    let header = row((
+        column((title_view, subtitle.map(text))).style(style().flex_grow(1).min_width(0)),
+        end_content,
+    ))
+    .hidden(move || header_hidden.get() || cx.rail())
+    .style(|| {
+        style()
+            .flex_direction(logical_row())
+            .padding_y(s::SPACE_S1)
+            .padding_x(s::SPACE_S2)
+            .gap(s::SPACE_S2)
+            .align_items(Align::Center)
+            .font_size(t::SUPPORTING.size_px)
+            .line_height(t::SUPPORTING.line_height_px / t::SUPPORTING.size_px)
+            .color(c::TEXT_SECONDARY)
+    });
+    node()
+        .with_node(move |node| node.role(Role::Group))
+        .name(title)
+        .with_node(move |node| {
+            node.base_style(move || {
+                let base = style()
+                    .flex_direction(FlexDirection::Column)
+                    .padding_y(s::SPACE_S1)
+                    .gap(s::SPACE_S0_5);
+                if cx.rail() {
+                    base.align_items(Align::Center)
+                } else {
+                    base
+                }
             })
-            .child((header, children))
         })
-    }
+        .child((header, children))
 }
 
 struct ItemSlots {
@@ -494,7 +341,7 @@ impl ItemContext {
     ) -> Self {
         let cx = nav_cx();
         let mode = shell_nav_mode();
-        let mobile = use_app_shell_mobile();
+        let mobile = crate::mobile_nav::use_app_shell_mobile();
         let branch = if has_children {
             let collapse = match collapse.get() {
                 ItemCollapse::AlwaysOpen => None,
@@ -505,7 +352,7 @@ impl ItemContext {
                 let open = binding(move || !collapse.get(), move |open| collapse.set(!open));
                 ItemExpansion {
                     open,
-                    disclosure: use_disclosure(open).disabled(disabled),
+                    disclosure: use_disclosure(open),
                 }
             });
             let flyout = cx.collapsed().is_some().then(|| {
@@ -568,7 +415,7 @@ impl ItemContext {
             selected_icon.map(|icon| icon_box(icon, move || !selected.get(), selected, disabled));
         let label_view = text(label)
             .hidden(move || cx.rail())
-            .style(style().grow(1).min_width(0).single_line());
+            .style(style().flex_grow(1).min_width(0).single_line());
         let chevron = self.chevron();
         let (inline_chevron, separate_chevron) = if independent {
             (None, chevron)
@@ -580,7 +427,7 @@ impl ItemContext {
         let actions = actions.map(|actions| {
             row(actions)
                 .hidden(move || cx.rail())
-                .style(|| style().gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s1))
+                .style(|| style().gap(s::SPACE_S1))
         });
         let bar = row((primary, separate_chevron, actions)).style(move || {
             side_row_style(
@@ -594,7 +441,7 @@ impl ItemContext {
         let nested = self.nested(children.clone());
         let flyout = self.flyout(children);
         root.hidden(move || cx.rail() && !has_icon)
-            .with_node(move |node| node.base_style(style().direction(Direction::Column)))
+            .with_node(move |node| node.base_style(style().flex_direction(FlexDirection::Column)))
             .child((bar, nested, flyout))
     }
     fn chevron(self) -> Option<View> {
@@ -603,14 +450,13 @@ impl ItemContext {
         let independent = self.independent();
         let label = self.label;
         disclosure.map(|disclosure| {
-            let glyph = icon("chevron-down").style(move || {
-                let t = kivact::style::use_tokens::<crate::Tokens>();
+            let glyph = kivact::view::icon("chevron-down").style(move || {
                 style()
-                    .size(t.spacing.s6, t.spacing.s6)
+                    .size(s::SPACE_S6, s::SPACE_S6)
                     .rotate(if disclosure.is_open().get() { 180 } else { 0 })
                     .transition(
                         TransitionProp::All,
-                        Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
+                        Transition::tween(FAST as f64, EASE_STANDARD),
                     )
             });
             if independent {
@@ -633,6 +479,7 @@ impl ItemContext {
                 .variant(ButtonVariant::Ghost)
                 .size(ControlSize::Small)
                 .hide_label(true)
+                .disabled(self.disabled)
                 .icon(glyph)
                 .with_node(move |node| node.part(disclosure.trigger()))
                 .hidden(move || cx.rail())
@@ -674,16 +521,13 @@ impl ItemContext {
             })
             .style(move || {
                 style()
-                    .direction(logical_row())
-                    .grow(1)
+                    .flex_direction(logical_row())
+                    .flex_grow(1)
                     .min_width(0)
                     .align_self(Align::Stretch)
                     .align_items(Align::Center)
-                    .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
-                    .focus_visible(crate::recipe_style::ring(
-                        &kivact::style::use_tokens::<crate::Tokens>(),
-                        kivact::style::use_tokens::<crate::Tokens>().colors.accent,
-                    ))
+                    .gap(s::SPACE_S2)
+                    .focus_visible(ring(c::ACCENT))
                     .justify_content(if cx.rail() {
                         Justify::Center
                     } else {
@@ -707,7 +551,9 @@ impl ItemContext {
             primary
         };
         if !has_children && cx.collapsed().is_some() {
-            tooltip(label).placement(Placement::End).attach(primary)
+            tooltip(label, primary)
+                .placement(Placement::End)
+                .into_view()
         } else {
             primary.into_view()
         }
@@ -758,25 +604,20 @@ impl ItemContext {
                     ..cx
                 };
                 provide(cx, move || {
-                    let group = column(child.map(|slot| slot.call(()))).style(|| {
-                        style().gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s0_5)
-                    });
+                    let group = column(child.map(|slot| slot.call(())))
+                        .style(|| style().gap(s::SPACE_S0_5));
                     if let Some(disclosure) = disclosure {
-                        let motion = kivact::style::use_tokens::<crate::Tokens>().motion.clone();
                         group
                             .with_node(move |node| node.role(Role::Group))
                             .with_node(move |node| node.part(disclosure.content()))
                             .style(
                                 style()
-                                    .shrink(0)
+                                    .flex_shrink(0)
                                     .enter_size(kivact::view::Orientation::Vertical)
                                     .exit_size(kivact::view::Orientation::Vertical)
                                     .transition(
                                         TransitionProp::Size,
-                                        Transition::tween(
-                                            motion.medium as f64,
-                                            motion.ease_standard.clone(),
-                                        ),
+                                        Transition::tween(MEDIUM as f64, EASE_STANDARD),
                                     ),
                             )
                     } else {
@@ -793,7 +634,7 @@ impl ItemContext {
         let label = self.label;
         popup_panel.zip(children).map(|(nav_panel, children)| {
             let open = nav_panel.open();
-            let behavior = use_dialog(open, DialogMode::Popover).anchor(anchor);
+            let behavior = use_popup(open).anchor(anchor);
             let title = message_with("soft.side_nav.item_submenu", "{label} submenu", move || {
                 [("label", label.get())]
             });
@@ -806,29 +647,25 @@ impl ItemContext {
                 let surface = nav_panel
                     .surface(column((
                         text(label).style(|| {
-                            let t = kivact::style::use_tokens::<crate::Tokens>();
                             style()
-                                .padding_y(t.spacing.s1)
-                                .padding_x(t.spacing.s2)
-                                .font_size(t.typography.supporting.size_px)
-                                .weight(t.typography.weight_semibold)
-                                .color(t.colors.text_secondary)
+                                .padding_y(s::SPACE_S1)
+                                .padding_x(s::SPACE_S2)
+                                .font_size(t::SUPPORTING.size_px)
+                                .font_weight(t::WEIGHT_SEMIBOLD)
+                                .color(c::TEXT_SECONDARY)
                         }),
                         provide(cx, move || children.call(())),
                     )))
                     .node_ref(popup_ref)
                     .style(|| {
-                        let t = kivact::style::use_tokens::<crate::Tokens>();
-                        let mut base = style()
-                            .background(t.colors.bg_popover)
+                        let dark = use_theme().get().mode() == ThemeMode::Dark;
+                        let base = style()
+                            .background(c::BG_POPOVER)
                             .min_width(180)
-                            .padding(t.spacing.s1)
-                            .radius(t.radius.container)
-                            .gap(t.spacing.s0_5);
-                        for shadow in &t.shadows.low {
-                            base = base.shadow(*shadow);
-                        }
-                        base
+                            .padding(s::SPACE_S1)
+                            .border_radius(RADIUS_CONTAINER)
+                            .gap(s::SPACE_S0_5);
+                        shadowed(base, shadows::low(dark))
                     });
                 overlay(anchor, Placement::End, surface)
                     .offset(4)
