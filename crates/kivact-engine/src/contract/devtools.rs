@@ -138,6 +138,7 @@ pub enum ImeStateInfo {
 }
 
 /// A change the host applies to `DevtoolsHost` after the turn.
+#[cfg(feature = "devtools")]
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum DevtoolsChange {
     Overlay(WindowId, DevtoolsOverlay),

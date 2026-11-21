@@ -4,7 +4,9 @@
 //! one motion clock; each window owns its own `Model`. A node's window is
 //! derived from the model whose tree holds it (no second table).
 
-use crate::contract::{DevtoolsChange, HostEvent, HostRequest, NodeFlags};
+#[cfg(feature = "devtools")]
+use crate::contract::DevtoolsChange;
+use crate::contract::{HostEvent, HostRequest, NodeFlags};
 use crate::lower::assets::ArvaneAssets;
 use crate::model::Model;
 use crate::model::events::{EngineLog, EventSink, Shared};
@@ -52,6 +54,7 @@ pub(crate) struct AppModel {
     /// The window each imported external image was imported into, until it is dropped.
     pub(crate) external_windows: BTreeMap<ExternalImageId, WindowId>,
     /// The DevTools changes the host applies after the turn, in write order.
+    #[cfg(feature = "devtools")]
     pub(crate) devtools_changes: Vec<DevtoolsChange>,
     /// What the DevTools records, shared by every model and the host.
     pub(crate) log: EngineLog,
@@ -91,6 +94,7 @@ impl AppModel {
             client_frames: FrameRequests::default(),
             focused_window: None,
             external_windows: BTreeMap::new(),
+            #[cfg(feature = "devtools")]
             devtools_changes: Vec::new(),
             log: shared.log,
             injecting: BTreeMap::new(),
@@ -174,11 +178,13 @@ impl AppModel {
     }
 
     /// The DevTools changes since the last call, in write order.
+    #[cfg(feature = "devtools")]
     pub(crate) fn take_devtools_changes(&mut self) -> Vec<DevtoolsChange> {
         std::mem::take(&mut self.devtools_changes)
     }
 
     /// Queue a DevTools change the host applies after the turn.
+    #[cfg(feature = "devtools")]
     pub(crate) fn push_devtools_change(&mut self, change: DevtoolsChange) {
         self.devtools_changes.push(change);
     }

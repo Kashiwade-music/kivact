@@ -64,9 +64,12 @@ impl Host {
                         windows.close(id);
                         self.app.borrow_mut().remove_window(id);
                     }
-                    self.devtools.overlays.remove(&id);
-                    if self.devtools.pick == Some(id) {
-                        self.devtools.pick = None;
+                    #[cfg(feature = "devtools")]
+                    {
+                        self.devtools.overlays.remove(&id);
+                        if self.devtools.pick == Some(id) {
+                            self.devtools.pick = None;
+                        }
                     }
                 }
             }

@@ -205,6 +205,7 @@ impl Host {
             self.settle_window(id);
         }
         // The DevTools start keys and pick mode take input before the modal.
+        #[cfg(feature = "devtools")]
         if self.intercept_devtools(id, &event) {
             return Ok(self.defer(id, windows));
         }

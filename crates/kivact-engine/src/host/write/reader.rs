@@ -5,9 +5,11 @@ use crate::contract::{
 };
 use crate::model::AppModel;
 use kivact_types::{
-    ComputedTextStyle, DrawList, FocusTarget, LayoutCheck, LayoutFinding, LayoutProps, NodeId,
-    PaintProps, Point, Rect, WindowId,
+    ComputedTextStyle, DrawList, FocusTarget, LayoutProps, NodeId, PaintProps, Point, Rect,
+    WindowId,
 };
+#[cfg(feature = "devtools")]
+use kivact_types::{LayoutCheck, LayoutFinding};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -397,6 +399,7 @@ impl Reader {
     }
 
     #[doc(hidden)]
+    #[cfg(feature = "devtools")]
     /// The layout defects of the texts of `window`.
     pub fn layout_findings(&self, window: WindowId, check: &LayoutCheck) -> Vec<LayoutFinding> {
         let app = self.app.borrow();
