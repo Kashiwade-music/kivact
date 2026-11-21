@@ -16,6 +16,7 @@ mod color;
 mod hover_card;
 mod icon;
 mod icons;
+mod layout;
 mod metrics;
 mod motion;
 mod radius;
@@ -49,6 +50,7 @@ mod recipes_overlays_menu;
 mod recipes_overlays_select;
 mod shadows;
 mod space;
+mod stack;
 mod text;
 mod theme;
 mod theme_policy;
@@ -93,6 +95,10 @@ pub use color::{
 pub use hover_card::{HoverCardText, hover_card_text};
 pub use icon::{IconColor, IconSize, IconView, icon_view};
 pub use icons::ICON_NAMES;
+pub use layout::{
+    Layout, LayoutHeight, LayoutInset, LayoutRegion, layout, layout_content, layout_header,
+    layout_panel,
+};
 pub use radius::{
     RADIUS_CHAT, RADIUS_CONTAINER, RADIUS_ELEMENT, RADIUS_FULL, RADIUS_INNER, RADIUS_NONE,
     RADIUS_PAGE,
@@ -101,6 +107,10 @@ pub use space::{
     SPACE_CARD_PADDING, SPACE_DIALOG_PADDING, SPACE_LAYER_VIEWPORT_GUTTER, SPACE_S0, SPACE_S0_5,
     SPACE_S1, SPACE_S1_5, SPACE_S2, SPACE_S3, SPACE_S4, SPACE_S5, SPACE_S6, SPACE_S7, SPACE_S8,
     SPACE_S9, SPACE_S10, SPACE_S11, SPACE_S12, SPACE_SECTION_PADDING, Space,
+};
+pub use stack::{
+    Center, CenterAxis, ContainerInset, Hstack, StackAlign, StackItem, StackItemSize, StackWrap,
+    Vstack, center, hstack, stack_item, vstack,
 };
 pub use text::{
     StyledText, TextColor, TextJustify, TextKind, TextSize, TextWeight, TextWrap, TruncateTooltip,
