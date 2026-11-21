@@ -1,24 +1,11 @@
 //! Role: The page of the Creative catalog.
 
-use super::common::*;
-use super::common::{col, keyed_options, line, note, spec, specs};
-use super::controls::num;
-use super::controls::slide;
+use super::common::specs;
 use super::feedback::*;
 use catalog_shell::{Example, Page};
-use kivact::geometry::Point;
-use kivact::interaction::MenuEntry;
-use kivact::prelude::{
-    Element, IntoView, Key, NodeRef, Role, Signal, Theme, column, for_each, memo, node, on_mount,
-    row, scroll, show, signal, text,
-};
-use kivact::state::callback;
+use kivact::prelude::{IntoView, signal};
 use kivact::style::GridPlacement;
-use kivact::style::use_theme;
-use kivact::style::{Align, Justify, Style, pct, rgba, style};
-use kivact::view::Node;
-use kivact::view::{Handled, Placement, node_ref, overlay};
-use kivact_ui_creative as ui;
+use kivact::style::style;
 
 pub(crate) fn page() -> Page {
     Page::new(

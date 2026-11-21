@@ -1,10 +1,9 @@
 //! Arrangement and timeline UI for the creative application.
-use super::audio_values::TransportState;
 use kivact::state::Signal;
 
-use super::common::{bind, col, keyed_options, line, note, separator};
+use super::common::{keyed_options, line, note, separator};
 
-use kivact::prelude::{Element, IntoView, rgb, row, signal, spacer};
+use kivact::prelude::{Element, rgb, row, spacer};
 use kivact::style::style;
 use kivact::view::Node;
 use kivact_ui_creative as ui;

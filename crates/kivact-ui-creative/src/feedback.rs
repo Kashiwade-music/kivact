@@ -302,6 +302,7 @@ fn window_layer(
     close_removed_window(open);
     let reference = node_ref();
     let bounds = reference.rect();
+    let viewport = node_ref();
     let close = ToolWindowApi { open };
     // The state of the window that is open now; a closed window keeps none.
     let state = signal(ToolWindowState::Closed);
@@ -338,11 +339,12 @@ fn window_layer(
         })
         .into_view()
     } else {
-        // The window closes by writing `open` (its close button, `hide`), which
+        // The window is placed on the viewport, so it opens at its centre. The
+        // window closes by writing `open` (its close button, `hide`), which
         // the popup accepts as an unmount, so the focus returns to the opener
         // on Unmount as well as on Escape and the other dismissals.
         use_popup(open)
-            .anchor(anchor)
+            .anchor(viewport)
             .focus_return(FocusReturn {
                 target: FocusReturnTarget::Anchor(anchor),
                 on: ReasonSet::DISMISS
@@ -351,7 +353,24 @@ fn window_layer(
             })
             .surface(Placement::Center, window)
     };
-    column((layer,)).style(style().gap(0)).into_view()
+    column((window_viewport(viewport), layer))
+        .style(style().gap(0))
+        .into_view()
+}
+
+/// The box of the whole viewport, fixed at its corner: the anchor of a
+/// nonmodal window, so that `Placement::Center` centres the window in the
+/// viewport. It takes no pointer, which reaches the controls under it.
+fn window_viewport(anchor: NodeRef) -> Node {
+    node().node_ref(anchor).hit_testable(false).style(move || {
+        let size = platform::window_size().get();
+        style()
+            .position(Position::Fixed)
+            .top(0)
+            .left(0)
+            .width(size.width)
+            .height(size.height)
+    })
 }
 
 /// The frame of one opened window: its title bar and body, placed by its

@@ -144,7 +144,7 @@ pub(crate) fn set_colors(theme: Theme, mode: ThemeMode, accent: Accent) -> Theme
 
 impl Accent {
     /// Primary, highlight and readable foreground colors.
-    pub(crate) fn colors(self) -> (Color, Color, Color) {
+    pub fn colors(self) -> (Color, Color, Color) {
         let (a, h, i) = match self {
             Self::Iris => (0x8b7cff, 0xa397ff, 0x0c0a1f),
             Self::Lime => (0xb8f04a, 0xccf779, 0x11180a),

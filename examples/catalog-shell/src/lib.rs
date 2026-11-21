@@ -14,4 +14,4 @@ mod shell;
 
 pub use fonts::FONTS;
 pub use model::{Example, Page, PreviewAlign};
-pub use shell::{CatalogTheme, catalog};
+pub use shell::{CatalogTheme, catalog, open_page};

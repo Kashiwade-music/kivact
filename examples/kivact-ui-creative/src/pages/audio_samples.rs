@@ -2,18 +2,18 @@
 use super::audio_values::TransportState;
 
 use super::audio_values::{level, smpte};
-use super::common::{bind, col, line, note, spec, specs};
+use super::common::{bind, col, line, note, spec};
 use super::controls::chip;
 use kivact::geometry::Point;
 use kivact::geometry::Rect;
 use kivact::interaction::ScalarMapping;
 use kivact::prelude::{
-    Element, IntoView, Signal, column, effect, grid, node, rgb, row, signal, spacer, text,
+    Element, IntoView, Signal, column, grid, node, rgb, row, signal, spacer, text,
 };
 use kivact::state::IntoText;
-use kivact::state::{Machine, Step, machine};
+use kivact::state::{Machine, Step};
+use kivact::style::Track;
 use kivact::style::{Align, Color, Justify, pct, style};
-use kivact::style::{GridPlacement, Track};
 use kivact::view::{Node, Orientation};
 use kivact_ui_creative as ui;
 
@@ -213,33 +213,38 @@ pub(super) fn transport_section_lcd_time_display(
                         .border(1, ui::color::HAIR),
                 )
                 .on_press(move || format.update(|v| *v = (*v + 1) % 4)),
-            col((
-                row((lcd_note("TEMPO"), spacer(), lcd_note("SIGNATURE"))),
-                row((
-                    text("120.000").style(
-                        style()
-                            .font_family("Geist Mono")
-                            .font_size(22)
-                            .font_weight(600),
-                    ),
-                    spacer(),
-                    text("4/4").style(
-                        style()
-                            .font_family("Geist Mono")
-                            .font_size(22)
-                            .font_weight(600),
-                    ),
-                )),
-                row((lcd_note("TRACK TEMPO"), spacer(), lcd_note("SYNC INT"))),
-            ))
-            .style(style().height(82).padding(12).gap(3).border_radius(12))
-            .style(
-                style()
-                    .background(ui::color::CANVAS)
-                    .border(1, ui::color::HAIR),
-            ),
+            lcd_tempo(),
         ))
         .style(style().gap(10)),
+    )
+}
+
+/// The tempo and time-signature readout under the primary time display.
+fn lcd_tempo() -> Node {
+    col((
+        row((lcd_note("TEMPO"), spacer(), lcd_note("SIGNATURE"))),
+        row((
+            text("120.000").style(
+                style()
+                    .font_family("Geist Mono")
+                    .font_size(22)
+                    .font_weight(600),
+            ),
+            spacer(),
+            text("4/4").style(
+                style()
+                    .font_family("Geist Mono")
+                    .font_size(22)
+                    .font_weight(600),
+            ),
+        )),
+        row((lcd_note("TRACK TEMPO"), spacer(), lcd_note("SYNC INT"))),
+    ))
+    .style(style().height(82).padding(12).gap(3).border_radius(12))
+    .style(
+        style()
+            .background(ui::color::CANVAS)
+            .border(1, ui::color::HAIR),
     )
 }
 

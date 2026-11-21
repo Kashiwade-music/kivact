@@ -2,16 +2,16 @@
 use super::audio_values::TransportState;
 use kivact::state::Signal;
 
-use super::common::{bind, col, keyed_options, line, note, spec, specs};
+use super::common::{bind, col, keyed_options, line, note, spec};
 use super::controls::chip;
 use super::controls::num;
 use super::controls::slide;
 use kivact::geometry::Point;
 use kivact::prelude::{
-    Element, IntoView, Key, column, dynamic, grid, node, rgb, row, scroll, signal, spacer, text,
+    Element, IntoView, Key, column, grid, node, rgb, row, scroll, signal, spacer, text,
 };
+use kivact::style::Track;
 use kivact::style::{Align, Color, pct, style};
-use kivact::style::{GridPlacement, Track};
 use kivact::view::Handled;
 use kivact::view::{Node, Orientation};
 use kivact_ui_creative as ui;

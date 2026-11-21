@@ -5,15 +5,20 @@ use crate::model::Page;
 use crate::page::page_view;
 use kivact::interaction::{ListOptions, Selection, use_list};
 use kivact::prelude::*;
-use kivact::state::IntoValue;
+use kivact::state::{IntoValue, try_use_context};
 use kivact::view::Node;
 use std::rc::Rc;
 
 const TOP_BAR_HEIGHT: f64 = 56.0;
 const LIST_WIDTH: f64 = 256.0;
 
+/// The icons of the shell's theme toggle, which every kit's catalog draws
+/// (Lucide, ISC; the license is in each file).
+const MOON: &[u8] = include_bytes!("../assets/icons/moon.svg");
+const SUN: &[u8] = include_bytes!("../assets/icons/sun.svg");
+
 /// A catalog's theme: the theme function of its kit (the colors and the font
-/// family of the catalog), with the catalog's fonts registered.
+/// family of the catalog), with the catalog's fonts and the shell's icons.
 #[derive(Clone, Copy)]
 pub struct CatalogTheme(fn(ThemeMode) -> Theme);
 
@@ -23,9 +28,12 @@ impl CatalogTheme {
         CatalogTheme(theme)
     }
 
-    /// The catalog's theme in `mode`, with the catalog fonts.
+    /// The catalog's theme in `mode`, with the catalog fonts and the shell's icons.
     pub fn get(&self, mode: ThemeMode) -> Theme {
-        (self.0)(mode).with_fonts(FONTS.iter().copied())
+        (self.0)(mode)
+            .with_fonts(FONTS.iter().copied())
+            .with_icon("moon", MOON)
+            .with_icon("sun", SUN)
     }
 }
 
@@ -54,22 +62,48 @@ pub fn catalog(
     };
     provide_theme(themed, move || {
         let selected = signal(Some(start));
-        column((
-            top_bar(title, dark),
-            row((
-                component_list(pages.clone(), selected),
-                page_area(pages, selected, start),
+        let nav = PageNav {
+            selected,
+            pages: pages.clone(),
+        };
+        provide(nav, move || {
+            column((
+                top_bar(title, dark),
+                row((
+                    component_list(pages.clone(), selected),
+                    page_area(pages, selected, start),
+                ))
+                .style(style().flex_grow(1).min_height(0)),
+                kivact::ui::toast_region(kivact::interaction::use_toaster())
+                    .hold_all_on_hover(true),
             ))
-            .style(style().flex_grow(1).min_height(0)),
-            kivact::ui::toast_region(kivact::interaction::use_toaster()).hold_all_on_hover(true),
-        ))
-        .style(
-            style()
-                .size(pct(100), pct(100))
-                .background(color::SURFACE)
-                .color(color::TEXT),
-        )
+            .style(
+                style()
+                    .size(pct(100), pct(100))
+                    .background(color::SURFACE)
+                    .color(color::TEXT),
+            )
+        })
     })
+}
+
+/// The page selection of the catalog on screen, which [`open_page`] reads.
+#[derive(Clone)]
+struct PageNav {
+    selected: Signal<Option<usize>>,
+    pages: Rc<Vec<Page>>,
+}
+
+/// Open the page `slug` of the catalog on screen, as its list entry does, from
+/// a control inside a page. It does nothing when no catalog is shown or when no
+/// page has `slug`.
+pub fn open_page(slug: &str) {
+    let Some(nav) = try_use_context::<PageNav>() else {
+        return;
+    };
+    if let Some(index) = nav.pages.iter().position(|page| page.slug == slug) {
+        nav.selected.set(Some(index));
+    }
 }
 
 /// The scrolling page of the selected entry.

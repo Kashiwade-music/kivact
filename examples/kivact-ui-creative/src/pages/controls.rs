@@ -1,9 +1,8 @@
 //! Control buttons and widgets for creative application.
 
-use super::common::{col, keyed_options, line, note, spec, specs};
+use super::common::{col, keyed_options, line, note, spec};
 use kivact::interaction::MenuEntry;
 use kivact::prelude::{Element, IntoView, Signal, node, rgb, row, signal, text};
-use kivact::style::GridPlacement;
 use kivact::style::{Align, Color, pct, style};
 use kivact::view::Node;
 use kivact_ui_creative as ui;

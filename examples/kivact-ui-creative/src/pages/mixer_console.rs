@@ -1,15 +1,12 @@
 //! Role: The page of the Creative catalog.
 
-use super::audio::*;
-use super::audio_values::TransportState;
 use super::audio_values::level;
 use super::common::*;
-use super::common::{col, note};
 use catalog_shell::{Example, Page};
 use kivact::prelude::{Element, IntoView, rgb, row, scroll, signal};
 use kivact::state::IntoValue;
-use kivact::state::Signal;
 use kivact::state::binding;
+use kivact::style::pct;
 use kivact::style::style;
 use kivact::view::ScrollAxes;
 use kivact_ui_creative as ui;
@@ -100,6 +97,6 @@ fn demo() -> impl IntoView {
         scroll(row(strips).style(style().gap(4).padding(8))).axes(ScrollAxes::Horizontal),
         note("Shows insert names. M / S mute and solo. Meters run during playback."),
     ))
-    .style(style().padding_bottom(16))
+    .style(style().padding_bottom(16).width(pct(100)))
 }
 // end example

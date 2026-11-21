@@ -1,22 +1,10 @@
 //! Role: The page of the Creative catalog.
 
-use super::audio_values::TransportState;
-use super::common::*;
-use super::common::{bind, col, keyed_options, line, note, spec, specs};
-use super::controls::chip;
-use super::controls::num;
-use super::controls::slide;
+use super::common::{col, keyed_options, note, spec};
 use super::layout::*;
 use catalog_shell::{Example, Page};
-use kivact::geometry::Point;
-use kivact::prelude::{
-    Element, IntoView, Key, column, dynamic, grid, node, rgb, row, scroll, signal, spacer, text,
-};
-use kivact::state::Signal;
-use kivact::style::{Align, Color, pct, style};
-use kivact::style::{GridPlacement, Track};
-use kivact::view::Handled;
-use kivact::view::{Node, Orientation};
+use kivact::prelude::{Element, IntoView, rgb, row, scroll, signal, text};
+use kivact::style::{Align, style};
 use kivact_ui_creative as ui;
 
 pub(crate) fn page() -> Page {

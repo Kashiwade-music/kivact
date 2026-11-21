@@ -1,8 +1,8 @@
 //! Visual indicators and status displays.
 
-use super::common::{col, line, note, spec, specs};
+use super::common::{col, line, note, spec};
 use super::controls::chip;
-use kivact::prelude::{Element, IntoView, node, rgb, row, show, signal, spacer, text};
+use kivact::prelude::{Element, node, rgb, row, show, signal, spacer, text};
 use kivact::style::{Align, style};
 use kivact::style::{Overflow, TextAlign};
 use kivact::view::Node;

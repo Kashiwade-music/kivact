@@ -1,6 +1,6 @@
 //! Feedback UI including menus and toasts.
 
-use super::common::{col, keyed_options, line, note, spec, specs};
+use super::common::{col, keyed_options, line, note, spec};
 use super::controls::num;
 use super::controls::slide;
 use kivact::geometry::Point;
@@ -10,14 +10,13 @@ use kivact::prelude::{
     row, scroll, show, signal, text,
 };
 use kivact::state::callback;
-use kivact::style::GridPlacement;
 use kivact::style::use_theme;
 use kivact::style::{Align, Justify, Style, pct, rgba, style};
 use kivact::view::Node;
 use kivact::view::{Handled, Placement, node_ref, overlay};
 use kivact_ui_creative as ui;
 
-pub(super) fn glass(t: &Theme) -> Style {
+pub(super) fn glass(_t: &Theme) -> Style {
     style()
         .background(rgba(0x1e1f26, 0.94))
         .backdrop_blur(22)
@@ -135,7 +134,7 @@ pub(super) fn close_project(status: Signal<String>) -> impl kivact::view::Elemen
             column((
                 row((
                     node().style(style().size(40, 40).padding(8).border_radius(12).flex_shrink(0))
-                        .style(move || { let t = &use_theme().get(); style().background(ui::color::WARNING.with_alpha(0.12)) })
+                        .style(move || { let _t = &use_theme().get(); style().background(ui::color::WARNING.with_alpha(0.12)) })
                         .child(kivact::view::icon("warning").style(style().size(24, 24))
                             .style( style().color(ui::color::WARNING))),
                     column((
@@ -172,11 +171,41 @@ pub(super) fn close_project(status: Signal<String>) -> impl kivact::view::Elemen
     ).test_id("creative-close-project-dialog")
 }
 
-pub(super) fn operator_search(
-    open: Signal<bool>,
-    status: Signal<String>,
-    refs: std::rc::Rc<Vec<NodeRef>>,
-) -> impl IntoView {
+/// The pages the operator search lists, by name and slug, in list order.
+const SECTIONS: [(&str, &str); 23] = [
+    ("Overview", "overview"),
+    ("Buttons", "buttons"),
+    ("Numeric Fields", "numeric-fields"),
+    ("Selection & Input", "selection-input"),
+    ("Indicators & Labels", "indicators-labels"),
+    ("Transport", "transport"),
+    ("Knobs & Faders", "knobs-faders"),
+    ("Meters", "meters"),
+    ("Mixer Console", "mixer-console"),
+    ("Property Editor", "property-editor"),
+    ("Areas & Docking", "areas-docking"),
+    ("Outliner", "outliner"),
+    ("Media Pool & Data Table", "media-pool-data-table"),
+    ("Layer Stack", "layer-stack"),
+    ("Arrange Timeline", "arrange-timeline"),
+    ("Dope Sheet & Graph", "dope-sheet-graph"),
+    ("Node Editor", "node-editor"),
+    ("Color Grading & Scopes", "color-grading-scopes"),
+    ("Color Picker", "color-picker"),
+    ("3D Viewport", "3d-viewport"),
+    ("Menus", "menus"),
+    ("Dialogs & Popovers", "dialogs-popovers"),
+    ("Jobs & Log", "jobs-log"),
+];
+
+/// Open the page of section `i` in the catalog and close the search.
+fn open_section(i: usize, open: Signal<bool>, status: Signal<String>) {
+    catalog_shell::open_page(SECTIONS[i].1);
+    open.set(false);
+    status.set(format!("Operator · {}", SECTIONS[i].0));
+}
+
+pub(super) fn operator_search(open: Signal<bool>, status: Signal<String>) -> impl IntoView {
     show(open, move || {
         let query = signal(String::new());
         let hot = signal(0_usize);
@@ -191,14 +220,11 @@ pub(super) fn operator_search(
                 .map(|(i, _)| i)
                 .collect::<Vec<_>>()
         });
-        let choices = refs.clone();
-        let keys = refs.clone();
         let rows = for_each(
             matches,
             |i| *i,
             move |item| {
                 let i = item.get();
-                let anchor = choices[i];
                 kivact::ui::button(SECTIONS[i].0)
                     .variant(kivact::ui::ButtonVariant::Ghost)
                     .style(style().justify_content(Justify::Start).height(30))
@@ -207,11 +233,7 @@ pub(super) fn operator_search(
                             matches.with(|m| m.get(hot.get()).copied()) == Some(i)
                         })
                     })
-                    .on_press(move || {
-                        anchor.scroll_into_view();
-                        open.set(false);
-                        status.set(format!("Operator · {}", SECTIONS[i].0));
-                    })
+                    .on_press(move || open_section(i, open, status))
             },
         );
         overlay(
@@ -245,9 +267,7 @@ pub(super) fn operator_search(
                 Key::ArrowUp => hot.update(|i| *i = i.saturating_sub(1)),
                 Key::Enter => {
                     if let Some(i) = matches.with(|m| m.get(hot.get()).copied()) {
-                        keys[i].scroll_into_view();
-                        open.set(false);
-                        status.set(format!("Operator · {}", SECTIONS[i].0));
+                        open_section(i, open, status);
                     }
                 }
                 _ => return Handled::No,
@@ -441,7 +461,7 @@ pub(super) fn dialogs_tooltip() -> kivact::view::Node {
                         text("Camera View").style(style().font_weight(600)),
                         text("Align viewport to the active camera").style(style().font_size(11)),
                         text("Numpad 0").style(move || {
-                            let theme = kivact::style::use_theme().get();
+                            let _theme = kivact::style::use_theme().get();
                             style()
                                 .font_family("Geist Mono")
                                 .font_size(10)
@@ -461,7 +481,7 @@ pub(super) fn dialogs_tooltip() -> kivact::view::Node {
                         text("Scale").style(style().font_weight(600)),
                         text("Scale the selection").style(style().font_size(11)),
                         text("S").style(move || {
-                            let theme = kivact::style::use_theme().get();
+                            let _theme = kivact::style::use_theme().get();
                             style()
                                 .font_family("Geist Mono")
                                 .font_size(10)

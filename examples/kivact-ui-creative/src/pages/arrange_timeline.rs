@@ -1,14 +1,10 @@
 //! Role: The page of the Creative catalog.
 
 use super::arrange::*;
-use super::audio_values::TransportState;
 use super::common::*;
-use super::common::{bind, col, keyed_options, line, note, separator};
 use catalog_shell::{Example, Page};
-use kivact::prelude::{Element, IntoView, rgb, row, signal, spacer};
-use kivact::state::Signal;
+use kivact::prelude::{Element, IntoView, rgb, signal};
 use kivact::style::style;
-use kivact::view::Node;
 use kivact_ui_creative as ui;
 
 pub(crate) fn page() -> Page {
@@ -37,7 +33,7 @@ fn demo() -> impl IntoView {
     let selected = signal(vec![10u64]);
     let snap = signal(true);
     let transform = signal(kivact::interaction::ViewTransform {
-        scale: 26.0,
+        scale: 10.0,
         ..Default::default()
     });
     let zoom = transform.project(|pose| &pose.scale, |pose| &mut pose.scale);

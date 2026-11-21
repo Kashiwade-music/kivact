@@ -1,26 +1,15 @@
 //! Role: The page of the Creative catalog.
 
-use super::audio_values::TransportState;
-use super::common::*;
-use super::common::{bind, col, keyed_options, line, note, spec, specs};
-use super::controls::num;
+use super::common::{col, note};
 use super::controls::tool_palette;
 use super::editor_images as images;
 use super::editors::*;
 use catalog_shell::{Example, Page};
-use kivact::draw::Path;
+use kivact::geometry::Point;
 use kivact::geometry::Rect;
-use kivact::geometry::{Point, Size};
-use kivact::interaction::MenuEntry;
-use kivact::prelude::{
-    Element, IntoView, NodeRef, Role, dynamic, memo, node, rgb, row, signal, spacer, text,
-};
-use kivact::state::Signal;
-use kivact::style::Position;
-use kivact::style::{Align, Color, Justify, pct, style};
-use kivact::view::Node;
+use kivact::prelude::{Element, IntoView, Role, memo, rgb, row, signal, spacer};
+use kivact::style::style;
 use kivact::view::node_ref;
-use kivact_ui_creative as ui;
 
 pub(crate) fn page() -> Page {
     Page::new(
@@ -35,16 +24,17 @@ pub(crate) fn page() -> Page {
 
 // example: 3d-viewport
 fn demo() -> impl IntoView {
-    let shading = signal(1_usize);
-    let grid = signal(true);
+    let look = signal(Look::SolidGrid);
     let reference = node_ref();
     let pointer = signal(Point::new(0.0, 0.0));
     let transform = signal(kivact::interaction::ViewTransform::default());
     let zoom = kivact::interaction::use_zoom_pan(transform);
-    let frame = memo(move || images::gradient(640, 360, shading.get(), grid.get()));
+    let frame = memo(move || {
+        let current = look.get();
+        images::gradient(640, 360, current.shading(), current.grid())
+    });
     col((
-        viewport_toolbar(shading, grid, reference, transform)
-            .style(style().height(38).padding_x(10)),
+        viewport_toolbar(look, reference, transform).style(style().height(38).padding_x(10)),
         row((
             tool_palette(true).style(style().width(42).padding(6)),
             kivact::view::viewport(frame)

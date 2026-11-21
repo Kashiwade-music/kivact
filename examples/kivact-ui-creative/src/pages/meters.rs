@@ -1,24 +1,11 @@
 //! Role: The page of the Creative catalog.
 
 use super::audio_samples::*;
-use super::audio_values::TransportState;
-use super::audio_values::{level, smpte};
 use super::common::*;
-use super::common::{bind, col, line, note, spec, specs};
-use super::controls::chip;
 use catalog_shell::{Example, Page};
-use kivact::geometry::Point;
-use kivact::geometry::Rect;
-use kivact::interaction::ScalarMapping;
-use kivact::prelude::{
-    Element, IntoView, Signal, column, effect, grid, node, rgb, row, signal, spacer, text,
-};
-use kivact::state::IntoText;
-use kivact::state::{Machine, Step, machine};
-use kivact::style::{Align, Color, Justify, pct, style};
-use kivact::style::{GridPlacement, Track};
-use kivact::view::{Node, Orientation};
-use kivact_ui_creative as ui;
+use kivact::prelude::{IntoView, effect};
+use kivact::state::machine;
+use kivact::style::style;
 
 pub(crate) fn page() -> Page {
     Page::new("meters", "Meters", "Audio", include_str!("meters.rs"))

@@ -1,13 +1,10 @@
 //! Role: The page of the Creative catalog.
 
-use super::audio_values::TransportState;
 use super::common::*;
-use super::common::{bind, col, note, spec, specs};
 use super::controls::{num, slide};
 use super::numeric_samples::*;
 use catalog_shell::{Example, Page};
-use kivact::prelude::{Element, IntoView, column, rgb, row, signal};
-use kivact::state::Signal;
+use kivact::prelude::{Element, IntoView, column, row, signal};
 use kivact::style::{pct, style};
 use kivact_ui_creative as ui;
 

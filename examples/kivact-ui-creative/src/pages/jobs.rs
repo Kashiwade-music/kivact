@@ -1,13 +1,11 @@
 //! Job and task management for creative application.
 
-use super::common::{TextRow, bind, col, line, note, spec, specs, text_table};
+use super::common::{TextRow, bind, col, line, note, spec, text_table};
 use kivact::draw::{LineCap, LineJoin, Stroke};
 use kivact::geometry::Point;
 use kivact::geometry::Rect;
 use kivact::interaction::use_toaster;
-use kivact::motion::FrameRate;
-use kivact::motion::frame_loop;
-use kivact::prelude::{Element, IntoView, Signal, effect, node, row, signal, spacer, text};
+use kivact::prelude::{Element, IntoView, Signal, node, row, signal, spacer, text};
 use kivact::state::IntoValue;
 use kivact::style::GridPlacement;
 use kivact::style::style;
@@ -16,8 +14,8 @@ use kivact_ui_creative as ui;
 
 #[derive(Clone, PartialEq)]
 pub(super) struct LogLine {
-    level: usize,
-    text: String,
+    pub(super) level: usize,
+    pub(super) text: String,
 }
 
 /// Whether the catalog's job queue is rendering.

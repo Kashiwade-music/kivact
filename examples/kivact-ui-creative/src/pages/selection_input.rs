@@ -1,15 +1,10 @@
 //! Role: The page of the Creative catalog.
 
-use super::common::*;
-use super::common::{col, keyed_options, line, note, spec, specs};
+use super::common::specs;
 use super::controls::*;
 use catalog_shell::{Example, Page};
-use kivact::interaction::MenuEntry;
-use kivact::prelude::{Element, IntoView, Signal, node, rgb, row, signal, text};
-use kivact::style::GridPlacement;
-use kivact::style::{Align, Color, pct, style};
-use kivact::view::Node;
-use kivact_ui_creative as ui;
+use kivact::prelude::{IntoView, signal};
+use kivact::style::style;
 
 pub(crate) fn page() -> Page {
     Page::new(

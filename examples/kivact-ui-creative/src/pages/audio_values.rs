@@ -1,11 +1,8 @@
 //! Audio time formatting and level calculations for catalog views.
 
 use kivact::motion::{FrameRate, frame_loop};
-use kivact::state::IntoValue;
 use kivact::state::Signal;
-use kivact::state::binding;
 use kivact::state::effect;
-use kivact_ui_creative as ui;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct TransportState {
@@ -29,26 +26,6 @@ impl Default for TransportState {
             loop_end: 192.0,
         }
     }
-}
-pub(super) fn controls(state: Signal<TransportState>) -> Signal<ui::TransportState> {
-    binding(
-        (move || {
-            let s = state.get();
-            ui::TransportState {
-                playing: s.playing,
-                recording: s.recording,
-                cycling: s.cycling,
-            }
-        })
-        .into_value(),
-        move |s: ui::TransportState| {
-            state.update(|v| {
-                v.playing = s.playing;
-                v.recording = s.recording;
-                v.cycling = s.cycling;
-            })
-        },
-    )
 }
 pub(super) fn playback(state: Signal<TransportState>) {
     let clock = frame_loop(move |frame| {

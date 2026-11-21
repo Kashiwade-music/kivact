@@ -1,16 +1,11 @@
 //! Media pool and asset browser for creative application.
 
-use super::common::{col, keyed_options, line, note};
+use super::common::{keyed_options, line, note};
 use kivact::geometry::Point;
 use kivact::geometry::Rect;
-use kivact::interaction::ListItem;
-use kivact::interaction::{
-    ListGesture, ListOptions, ListRangeMode, ListRangeOptions, Selection, use_list,
-};
 use kivact::prelude::{
     Element, IntoView, for_each, grid, node, rgb, row, scroll, show, signal, spacer, text,
 };
-use kivact::state::IntoValue;
 use kivact::style::hsl;
 use kivact::style::use_theme;
 use kivact::style::{Align, style};
@@ -161,7 +156,7 @@ pub(super) fn media_table(
                     text(move || item.get().cells.get(c).cloned().unwrap_or_default())
                         .style(style().font_family("Geist Mono").font_size(11))
                         .style(move || {
-                            let t = &use_theme().get();
+                            let _t = &use_theme().get();
                             style().color(if c == 8 {
                                 ui::color::ACCENT
                             } else {

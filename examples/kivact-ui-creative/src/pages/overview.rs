@@ -6,7 +6,6 @@ use super::chrome::{
 use super::common::transport;
 use catalog_shell::{Example, Page};
 use kivact::prelude::*;
-use kivact::style::use_theme;
 use kivact_ui_creative as ui;
 
 pub(crate) fn page() -> Page {
@@ -47,7 +46,7 @@ fn demo() -> impl IntoView {
                 performance_meters(),
                 catalog_status(status, state),
             ))
-            .style(style().gap(12))
+            .style(style().gap(12).width(pct(100)))
         },
     )
 }

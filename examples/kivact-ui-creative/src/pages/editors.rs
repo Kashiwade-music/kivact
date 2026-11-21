@@ -2,18 +2,14 @@
 use super::audio_values::TransportState;
 use kivact::state::Signal;
 
-use super::common::{bind, col, keyed_options, line, note, spec, specs};
-use super::controls::num;
-use super::controls::tool_palette;
+use super::common::{bind, col, keyed_options, line, note, spec};
 use super::editor_images as images;
 use kivact::draw::Path;
 use kivact::geometry::Rect;
 use kivact::geometry::{Point, Size};
-use kivact::interaction::MenuEntry;
 use kivact::prelude::{
-    Element, IntoView, NodeRef, Role, dynamic, memo, node, rgb, row, signal, spacer, text,
+    Element, IntoView, NodeRef, Role, dynamic, node, rgb, row, signal, spacer, text,
 };
-use kivact::style::Position;
 use kivact::style::{Align, Color, Justify, pct, style};
 use kivact::view::Node;
 use kivact_ui_creative as ui;
@@ -564,16 +560,78 @@ pub(super) fn picker_inline(
     .style(style().min_height(516))
 }
 
+/// The look of the viewport demo: its shading (0 wire, 1 solid, 2 material,
+/// 3 rendered) and whether the grid shows. The toolbar reaches all eight pairs.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Look {
+    Wire,
+    WireGrid,
+    Solid,
+    SolidGrid,
+    Material,
+    MaterialGrid,
+    Rendered,
+    RenderedGrid,
+}
+
+impl Look {
+    /// The shading index of the look, 0 to 3.
+    pub(super) fn shading(self) -> usize {
+        match self {
+            Self::Wire | Self::WireGrid => 0,
+            Self::Solid | Self::SolidGrid => 1,
+            Self::Material | Self::MaterialGrid => 2,
+            Self::Rendered | Self::RenderedGrid => 3,
+        }
+    }
+
+    /// Whether the grid shows.
+    pub(super) fn grid(self) -> bool {
+        matches!(
+            self,
+            Self::WireGrid | Self::SolidGrid | Self::MaterialGrid | Self::RenderedGrid
+        )
+    }
+
+    /// The look with `shading` (0 to 3) and the grid of `self`.
+    pub(super) fn with_shading(self, shading: usize) -> Look {
+        Look::new(shading, self.grid())
+    }
+
+    /// The look with `grid` and the shading of `self`.
+    pub(super) fn with_grid(self, grid: bool) -> Look {
+        Look::new(self.shading(), grid)
+    }
+
+    fn new(shading: usize, grid: bool) -> Look {
+        match (shading, grid) {
+            (0, false) => Look::Wire,
+            (0, true) => Look::WireGrid,
+            (1, false) => Look::Solid,
+            (1, true) => Look::SolidGrid,
+            (2, false) => Look::Material,
+            (2, true) => Look::MaterialGrid,
+            (_, false) => Look::Rendered,
+            (_, true) => Look::RenderedGrid,
+        }
+    }
+}
+
 pub(super) fn viewport_toolbar(
-    shading: Signal<usize>,
-    grid: Signal<bool>,
+    look: Signal<Look>,
     reference: NodeRef,
     transform: Signal<kivact::interaction::ViewTransform>,
 ) -> Node {
     line((
         text("Application image"),
         spacer(),
-        kivact::ui::toggle_button("Grid", grid),
+        kivact::ui::toggle_button(
+            "Grid",
+            bind(
+                move || look.get().grid(),
+                move |grid: bool| look.update(|current| *current = current.with_grid(grid)),
+            ),
+        ),
         kivact::ui::radio_group(
             "Shading",
             keyed_options([
@@ -585,7 +643,7 @@ pub(super) fn viewport_toolbar(
             bind(
                 move || {
                     Some(
-                        match shading.get() {
+                        match look.get().shading() {
                             0 => "wire",
                             1 => "solid",
                             2 => "material",
@@ -595,12 +653,13 @@ pub(super) fn viewport_toolbar(
                     )
                 },
                 move |key: Option<String>| {
-                    shading.set(match key.as_deref() {
+                    let shading = match key.as_deref() {
                         Some("wire") => 0,
                         Some("solid") => 1,
                         Some("material") => 2,
                         _ => 3,
-                    })
+                    };
+                    look.update(|current| *current = current.with_shading(shading));
                 },
             ),
         )

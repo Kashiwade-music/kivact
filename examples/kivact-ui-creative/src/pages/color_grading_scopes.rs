@@ -1,24 +1,13 @@
 //! Role: The page of the Creative catalog.
 
-use super::audio_values::TransportState;
-use super::common::*;
-use super::common::{bind, col, keyed_options, line, note, spec, specs};
+use super::common::{col, line};
 use super::controls::num;
-use super::controls::tool_palette;
 use super::editor_images as images;
 use super::editors::*;
 use catalog_shell::{Example, Page};
-use kivact::draw::Path;
-use kivact::geometry::Rect;
-use kivact::geometry::{Point, Size};
-use kivact::interaction::MenuEntry;
-use kivact::prelude::{
-    Element, IntoView, NodeRef, Role, dynamic, memo, node, rgb, row, signal, spacer, text,
-};
+use kivact::prelude::{Element, IntoView, memo, rgb, row, signal, text};
 use kivact::state::Signal;
-use kivact::style::Position;
-use kivact::style::{Align, Color, Justify, pct, style};
-use kivact::view::Node;
+use kivact::style::{Color, pct, style};
 use kivact_ui_creative as ui;
 
 pub(crate) fn page() -> Page {
@@ -90,32 +79,7 @@ fn demo() -> impl IntoView {
             grading_scopes(samples, upper, lower),
         ))
         .style(style().gap(1).height(772)),
-        row(["Lift", "Gamma", "Gain", "Offset"]
-            .into_iter()
-            .enumerate()
-            .map(|(i, label)| {
-                col((
-                    line((
-                        text(label).style(style().font_weight(600).flex_grow(1)),
-                        kivact::ui::button("Reset")
-                            .variant(kivact::ui::ButtonVariant::Secondary)
-                            .on_press(move || wheels[i].set(rgb(0x808080))),
-                    )),
-                    ui::color_wheel(wheels[i], signal(ui::ColorModel::Rgb)).wheel_size(150.0),
-                    line((
-                        channel(wheels[i], 0, "Grade R"),
-                        channel(wheels[i], 1, "Grade G"),
-                        channel(wheels[i], 2, "Grade B"),
-                    )),
-                ))
-                .style(style().width(pct(25)).padding(12))
-                .style(
-                    style()
-                        .border_top(1, ui::color::HAIR)
-                        .border_right(1, ui::color::HAIR),
-                )
-            })
-            .collect::<Vec<_>>()),
+        grade_wheels(wheels),
         line((
             num("Contrast", 1.0, 0.0, 4.0, 3, ""),
             num("Pivot", 0.435, 0.0, 1.0, 3, ""),
@@ -127,3 +91,33 @@ fn demo() -> impl IntoView {
     ))
 }
 // end example
+
+/// The four grading wheels (lift, gamma, gain, offset), each with its reset and channels.
+fn grade_wheels(wheels: [Signal<Color>; 4]) -> impl IntoView {
+    row(["Lift", "Gamma", "Gain", "Offset"]
+        .into_iter()
+        .enumerate()
+        .map(|(i, label)| {
+            col((
+                line((
+                    text(label).style(style().font_weight(600).flex_grow(1)),
+                    kivact::ui::button("Reset")
+                        .variant(kivact::ui::ButtonVariant::Secondary)
+                        .on_press(move || wheels[i].set(rgb(0x808080))),
+                )),
+                ui::color_wheel(wheels[i], signal(ui::ColorModel::Rgb)).wheel_size(150.0),
+                line((
+                    channel(wheels[i], 0, "Grade R"),
+                    channel(wheels[i], 1, "Grade G"),
+                    channel(wheels[i], 2, "Grade B"),
+                )),
+            ))
+            .style(style().width(pct(25)).padding(12))
+            .style(
+                style()
+                    .border_top(1, ui::color::HAIR)
+                    .border_right(1, ui::color::HAIR),
+            )
+        })
+        .collect::<Vec<_>>())
+}
