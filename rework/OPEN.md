@@ -681,3 +681,16 @@ S20（commit `c0904ec4`、subagent の報告の J1〜J5）。
 - **J4（行末）**：採る。変更した 189 file を CRLF にそろえた（前の unit の編集で LF になった file があった）。`git diff --stat` と `--ignore-cr-at-eol` が一致する。
 - **J5（DevTools の override 名の改名：`grow`→`flex_grow`、`shrink`→`flex_shrink`、`weight`→`font_weight`、`radius`→`border_radius` と四隅）**：設計者に確認する。採るが、DevTools の wire に見える名前なので、統一するかは設計者が決める。表示用の label（`kivact-core/src/devtools/node.rs` の "ring"・"radius"・"weight"）は変えていない。
 - S20 の試験の名前：S17 の試験が `radius_top_left` を探していたので `border_top_left_radius` に直した（付属書の試験の文の名前の追従。期待値は変えていない）。採る。
+
+## Orchestrator の判断（W6b・S21・S22、2026-11-21）
+
+- **S21（`27549ceb`）**：採る。`Layer::blend`・`Layer::composite` を消し、`Layer::mix(Mix)` にした。付属書の `crates/kivact-test/src/screen/gpu_tests.rs` は無く、実際の call site は `crates/kivact-test/tests/screen/gpu.rs`（同じ意味の一つだけ）。`Composite` の path は S20 の時点で既に `kivact::draw` から公開されていた。採る。
+- **S22（`b1838af2`）**：食い違い 1〜5 は採る。
+  - 1（`engine/src/paint/text.rs` の 1 行）：付属書の所有に無いが、同じ crate の機械的な追従（0.2 の 11）。E2 の lane は完了しているので、統合時の衝突は W6b の merge で見る。
+  - 2（`compile_span`）：付属書の `resolve::text_of`・`fill_of` が無いので、`compile_style` の結果を使った。`resolve/` は触っていない。採る。
+  - 3（tnum）：`span_features()` と `TextStyle::span_decoration()` で、同じ規則を engine と core の編集で共有する。採る。
+  - 4（ui の path）：`code_block/editing.rs` のみ（付属書の path は無い）。採る。
+  - 5（`line_background`）：「背景を先に置き、range の style を後から merge」。range 自身の background が勝つ（元と同じ結果）。採る。
+- **S22 の食い違い 6（確認事項・設計者へ）**：span の変換で捨てる Style の text 系 property（`line_height`・`text_align`・`text_shadow`・`overflow`・`transform`・caret・selection・placeholder の色など）は、`Unsupported` に数えていない。付属書どおりだが、黙って捨てる。数えるかは設計者が決める（ST-31 の「数えて報告する」との関係）。
+- **S22 の食い違い 8（kit の旧い field）**：kivact-ui-basic（`code_block/highlight.rs`）と kivact-ui-soft（`rich_blocks.rs`、`code_syntax.rs`）は旧い `StyledRange` の field を使う。DEC-14 の compile の対象外なので直していない。W9 の kit の unit で直す。記録する。
+- **S22 の食い違い 9（既存の別件・確認事項）**：`resolve_extras` は paragraph の features に `tabular_nums` を足しておらず、engine に `tabular_nums` の参照も無いので、paragraph の `tabular_nums()` が効いていないように見える。S22 の範囲外。未確認。設計者が見る（後で W11 の G の確認か、別の unit）。
