@@ -104,7 +104,7 @@ pub struct SwitchDragApi {
 pub fn use_switch_drag(value: Signal<bool>, track: impl IntoValue<SwitchTrack>) -> SwitchDragApi {
     let track = track.into_value();
     let edit = EditSession::new(move |initial| value.set(initial));
-    let enabled = use_theme().get().ext::<InteractionPolicy>().switch.drag.0;
+    let enabled = use_theme().get().ext::<InteractionPolicy>().switch.drag;
     if !enabled {
         return SwitchDragApi {
             session: None,

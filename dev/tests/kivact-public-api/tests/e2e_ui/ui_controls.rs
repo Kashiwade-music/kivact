@@ -10,7 +10,7 @@ use kivact::view::{EditPhase, Orientation};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::interaction::{InteractionPolicy, ScalarRange, SwitchDrag, SwitchPolicy};
+use kivact::interaction::{InteractionPolicy, ScalarRange, SwitchPolicy};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
 use kivact::ui::theme::ButtonTheme;
@@ -306,9 +306,7 @@ fn a_toast_region_shows_toasts_and_their_close_action_and_escape_dismiss_them() 
 #[test]
 fn a_switch_drag_commits_once_and_vertical_or_cancelled_contacts_do_not_toggle() {
     let options = RenderOptions::with_theme(Theme::light().with(InteractionPolicy {
-        switch: SwitchPolicy {
-            drag: SwitchDrag(true),
-        },
+        switch: SwitchPolicy { drag: true },
         ..InteractionPolicy::default()
     }));
     let (screen, (on, writes)) = mount_with(options, || {

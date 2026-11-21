@@ -5,19 +5,20 @@ use crate::layer::with_recipe_style;
 use crate::toast::look::ToastGroupState;
 use crate::toast::look::ToastTheme;
 use crate::toast::swipe;
-use kivact_core::custom::part;
+use kivact_core::custom::{Caller, part};
 use kivact_core::geometry::Edge;
 use kivact_core::motion::Transition;
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::use_theme;
 use kivact_core::task::spawn;
 use kivact_core::view::Element;
+use kivact_core::view::Variants;
 use kivact_core::view::{IntoView, LiveRegion, View, for_each};
-use kivact_core::view::{Variant, Variants};
 use kivact_core::view::{column, node, text};
 use kivact_interaction::ToastSwipe;
 use kivact_interaction::{SwipeDismissApi, SwipeDismissPolicy, use_swipe_dismiss};
 use kivact_interaction::{ToastId, ToasterApi, Tone};
+use kivact_macros::component;
 
 /// Where the toasts of `toaster` show: two live regions (polite and
 /// assertive) that the region recipe places, by default at the window's
@@ -27,7 +28,7 @@ use kivact_interaction::{ToastId, ToasterApi, Tone};
 /// dismisses the toast and runs the action) and a close button named by the
 /// message `toast.close` ("Close"). Its time, Escape, and pausing under the
 /// pointer and the focus are [`ToasterApi::item`]'s, and
-/// [`hold_all_on_hover`](ToastRegion::hold_all_on_hover) stops every
+/// `hold_all_on_hover` stops every
 /// toast's time while the region is hovered or focused, so a look that
 /// stacks the toasts opens the stack then (each toast's
 /// [`ToastState`](kivact_interaction::ToastState) says how deep it is and
@@ -50,121 +51,75 @@ use kivact_interaction::{ToastId, ToasterApi, Tone};
 ///     ))
 /// }
 /// ```
-#[track_caller]
-pub fn toast_region(toaster: ToasterApi) -> ToastRegion {
-    ToastRegion {
-        toaster,
-        variants: Variants::default(),
-        hold_all: false.into_value(),
-    }
-}
-
-/// The live regions of a [`ToasterApi`], created by [`toast_region`].
-pub struct ToastRegion {
+#[component]
+pub fn toast_region(
     toaster: ToasterApi,
-    variants: Variants,
-    hold_all: Value<bool>,
-}
-
-impl ToastRegion {
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants = std::mem::take(&mut self.variants).with(v);
-        self
-    }
-}
-
-impl ToastRegion {
-    /// Stop the time of every toast, not only the one under the pointer or
-    /// the focus, while the pointer is over the region or the focus is in it
-    /// ([`ToasterApi::hold_while`]): what a stack of toasts that opens under the
-    /// pointer does (sonner). A constant: it is the region's behavior.
-    #[track_caller]
-    pub fn hold_all_on_hover(mut self, on: impl IntoValue<bool>) -> Self {
-        self.hold_all = on.into_value();
-        self
-    }
-}
-
-impl IntoView for ToastRegion {
-    fn into_view(self) -> View {
-        let ToastRegion {
-            toaster,
-            variants,
-            hold_all,
-        } = self;
-        let polite = toaster.visible(false);
-        let (rows, groups) = (variants.clone(), variants.clone());
-        let group = move |assertive: bool, live: LiveRegion| {
-            let rows = rows.clone();
-            let shown = toaster.visible(assertive);
-            let row_variants = rows.clone();
-            let build = move |id| toast(toaster, id, &rows);
-            let items = for_each(
-                shown,
-                |id| *id,
-                move |id| {
-                    let (card, swiping) = build(id.get_untracked());
-                    let row = with_recipe_style(
-                        column(card),
-                        |r: &ToastTheme| r.row_recipe(),
-                        &row_variants,
-                        kivact_core::custom::PartState::default,
-                    );
-                    match swiping {
-                        Some((gesture, _, exit)) => {
-                            row.style(move || swipe::row_style(gesture.phase().get(), &exit))
-                        }
-                        None => row,
+    hold_all_on_hover: Option<Value<bool>>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let variants = caller.variants();
+    let hold_all = hold_all_on_hover.unwrap_or_else(|| false.into_value());
+    let polite = toaster.visible(false);
+    let (rows, groups) = (variants.clone(), variants.clone());
+    let group = move |assertive: bool, live: LiveRegion| {
+        let rows = rows.clone();
+        let shown = toaster.visible(assertive);
+        let row_variants = rows.clone();
+        let build = move |id| toast(toaster, id, &rows);
+        let items = for_each(
+            shown,
+            |id| *id,
+            move |id| {
+                let (card, swiping) = build(id.get_untracked());
+                let row = with_recipe_style(
+                    column(card),
+                    |r: &ToastTheme| r.row_recipe(),
+                    &row_variants,
+                    kivact_core::custom::PartState::default,
+                );
+                match swiping {
+                    Some((gesture, _, exit)) => {
+                        row.style(move || swipe::row_style(gesture.phase().get(), &exit))
                     }
-                },
-            );
-            let part = toaster.region(live);
-            let input = part.state();
-            with_recipe_style(
-                column(items).part(part),
-                |r: &ToastTheme| r.group_recipe(),
-                &groups,
-                move || ToastGroupState {
-                    input: input.get(),
-                    assertive,
-                    count: shown.with(Vec::len),
-                    above: if assertive { polite.with(Vec::len) } else { 0 },
-                },
-            )
-        };
-        let region = part(|input| input);
-        let anchor = kivact_core::view::node_ref();
-        let state = region.state();
-        {
-            let hovered = anchor.hovered();
-            let focused = anchor.focus_within();
-            toaster.hold_while(kivact_core::state::memo(move || {
-                hold_all.get() && (hovered.get() || focused.get())
-            }));
-        }
+                    None => row,
+                }
+            },
+        );
+        let part = toaster.region(live);
+        let input = part.state();
         with_recipe_style(
-            column((
-                group(false, LiveRegion::Polite),
-                group(true, LiveRegion::Assertive),
-            ))
-            .node_ref(anchor)
-            .part(region),
-            |r: &ToastTheme| r.region_recipe(),
-            &variants,
-            move || state.get(),
+            column(items).part(part),
+            |r: &ToastTheme| r.group_recipe(),
+            &groups,
+            move || ToastGroupState {
+                input: input.get(),
+                assertive,
+                count: shown.with(Vec::len),
+                above: if assertive { polite.with(Vec::len) } else { 0 },
+            },
         )
-        .into_view()
+    };
+    let region = part(|input| input);
+    let anchor = kivact_core::view::node_ref();
+    let state = region.state();
+    {
+        let hovered = anchor.hovered();
+        let focused = anchor.focus_within();
+        toaster.hold_while(kivact_core::state::memo(move || {
+            hold_all.get() && (hovered.get() || focused.get())
+        }));
     }
+    with_recipe_style(
+        column((
+            group(false, LiveRegion::Polite),
+            group(true, LiveRegion::Assertive),
+        ))
+        .node_ref(anchor)
+        .part(region),
+        |r: &ToastTheme| r.region_recipe(),
+        &variants,
+        move || state.get(),
+    )
 }
 
 /// The name in the theme's icon set of the icon `tone` draws, if the theme
