@@ -1,7 +1,7 @@
 //! Role: Tests for path rendering and transformation.
 //! paths and stroke outlines are what pixels and hit regions show.
-use kivact::draw::Transform;
 use kivact::prelude::*;
+use kivact::style::Transform;
 use kivact::test::render;
 use kivact_public_api_tests::paint::{BLACK, RED, WHITE, expect};
 

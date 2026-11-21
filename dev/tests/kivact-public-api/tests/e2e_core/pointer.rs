@@ -44,7 +44,7 @@ fn state_styles_stack_focus_hover_and_pressed_while_hovered() {
                         .background(rgb(0x101010))
                         .focus(style().background(rgb(0x00a000)))
                         .hover(style().background(rgb(0x0000c0)))
-                        .pressed(style().background(rgb(0xc00000))),
+                        .active(style().background(rgb(0xc00000))),
                 ),
             // Only a pressed style: it still shows while pressed.
             node()
@@ -54,7 +54,7 @@ fn state_styles_stack_focus_hover_and_pressed_while_hovered() {
                     style()
                         .size(40, 40)
                         .background(rgb(0x101010))
-                        .pressed(style().background(rgb(0xc00000))),
+                        .active(style().background(rgb(0xc00000))),
                 ),
         ))
         .style(style().align_items(Align::Start))
@@ -257,7 +257,7 @@ fn a_touch_tap_activates_a_button_and_leaves_no_hover() {
                     .size(60, 40)
                     .background(rgb(0x101010))
                     .hover(style().background(rgb(0x0000c0)))
-                    .pressed(style().background(rgb(0xc00000))),
+                    .active(style().background(rgb(0xc00000))),
             ),))
         .style(style().align_items(Align::Start))
     });
@@ -426,7 +426,7 @@ fn a_second_touch_is_not_primary_and_leaves_hover_and_activation_to_the_first() 
                 style()
                     .size(60, 40)
                     .background(rgb(0x101010))
-                    .pressed(style().background(rgb(0xc00000))),
+                    .active(style().background(rgb(0xc00000))),
             )
     };
     let screen = render(move || {

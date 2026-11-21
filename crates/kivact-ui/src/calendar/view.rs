@@ -369,7 +369,7 @@ fn range_prompt(
         .style(
             style()
                 .font_size(12)
-                .color(kivact_core::style::ColorToken::TextMuted),
+                .color(kivact_core::style::color::TEXT_MUTED),
         ),
     )
 }

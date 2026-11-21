@@ -1,5 +1,6 @@
 //! Role: Geometry values: points, sizes, rectangles and corner radii.
 
+use crate::resolve::Resolve;
 use kivact_types::CornerRadius as WireCorner;
 use kivact_types::Length;
 
@@ -42,9 +43,9 @@ impl<X: Into<Length>, Y: Into<Length>> From<(X, Y)> for CornerRadius {
     }
 }
 
-pub(super) fn corner(r: Option<CornerRadius>) -> WireCorner {
+pub(super) fn corner(r: Option<CornerRadius>, cx: &mut Resolve<'_>) -> WireCorner {
     r.map_or_else(WireCorner::default, |r| WireCorner {
-        x: r.x.to_len(),
-        y: r.y.to_len(),
+        x: cx.paint_len(r.x),
+        y: cx.paint_len(r.y),
     })
 }

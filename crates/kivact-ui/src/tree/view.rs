@@ -188,7 +188,7 @@ fn revealed_rows<K: kivact_core::state::ItemKey>(
             // Existing rows are fully laid out on the tree's first frame.
             // Rows added to a mounted tree reveal through engine presence.
             let look = style()
-                .shrink(0)
+                .flex_shrink(0)
                 .exit_size(Orientation::Vertical)
                 .transition(TransitionProp::Size, transition.clone());
             let look = if presence.get_untracked() == kivact_core::view::Presence::Present {

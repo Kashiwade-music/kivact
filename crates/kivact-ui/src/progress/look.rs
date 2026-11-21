@@ -6,7 +6,7 @@ use crate::recipe::recipe_table;
 use crate::variants::{Look, Variant};
 use kivact_core::draw::{LineCap, Path, Stroke};
 use kivact_core::geometry::{Point, Rect};
-use kivact_core::style::{Align, ColorToken, Justify, Position, Style, Theme, pct, style};
+use kivact_core::style::{Align, Justify, Position, Style, Theme, pct, style};
 pub(crate) fn ring(s: &Look<ProgressState>) -> bool {
     s.variant::<ProgressVariant>() == Some(&ProgressVariant::Ring)
 }
@@ -26,7 +26,7 @@ pub(crate) fn progress_track(_: &Theme, s: &Look<ProgressState>) -> Style {
                 d.stroke_path(
                     &Path::new().arc(size.to_rect().center(), radius, 0.0, 359.99, false),
                     &Stroke::new(radius / 5.0),
-                    ColorToken::Border,
+                    kivact_core::style::color::BORDER,
                 );
             })
     } else if gauge(s) {
@@ -43,7 +43,7 @@ pub(crate) fn progress_track(_: &Theme, s: &Look<ProgressState>) -> Style {
                             size.width / 20.0 * 0.75,
                             size.height,
                         ),
-                        ColorToken::Border,
+                        kivact_core::style::color::BORDER,
                     );
                 }
             })
@@ -52,8 +52,8 @@ pub(crate) fn progress_track(_: &Theme, s: &Look<ProgressState>) -> Style {
             .width(pct(100))
             .height(metric_height(s))
             .min_width(0)
-            .radius(metric_height(s) / 2.0)
-            .background(ColorToken::Border)
+            .border_radius(metric_height(s) / 2.0)
+            .background(kivact_core::style::color::BORDER)
             .clip(true)
     }
 }
@@ -84,7 +84,7 @@ pub(crate) fn progress_fill(_: &Theme, s: &Look<ProgressState>) -> Style {
                             false,
                         ),
                         &Stroke::new(radius / 5.0).cap(LineCap::Round),
-                        ColorToken::Accent,
+                        kivact_core::style::color::ACCENT,
                     );
                 }
             } else if is_gauge {
@@ -98,7 +98,7 @@ pub(crate) fn progress_fill(_: &Theme, s: &Look<ProgressState>) -> Style {
                                 size.width / 20.0 * 0.75,
                                 size.height,
                             ),
-                            ColorToken::Accent,
+                            kivact_core::style::color::ACCENT,
                         );
                     }
                 }
@@ -106,7 +106,7 @@ pub(crate) fn progress_fill(_: &Theme, s: &Look<ProgressState>) -> Style {
                 d.rounded_rect(
                     Rect::new(start * size.width, 0.0, length * size.width, size.height),
                     size.height / 2.0,
-                    ColorToken::Accent,
+                    kivact_core::style::color::ACCENT,
                 );
             }
         })
@@ -114,9 +114,9 @@ pub(crate) fn progress_fill(_: &Theme, s: &Look<ProgressState>) -> Style {
 
 pub(crate) fn progress_label(t: &Theme, _: &Look<ProgressState>) -> Style {
     style()
-        .font_size(t.text().size_small)
-        .weight(t.text().weight_strong)
-        .color(ColorToken::Text)
+        .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .color(kivact_core::style::color::TEXT)
 }
 
 /// The state of a [`progress`](super::progress) bar for the recipes of its

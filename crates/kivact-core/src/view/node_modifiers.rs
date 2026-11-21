@@ -52,7 +52,7 @@ impl Node {
     /// written after it overrides only what it sets. A closure that
     /// reads [`use_theme`](crate::style::use_theme) is
     /// recomputed when the theme visible at the node changes:
-    /// `.style(move || { let t = &use_theme(); style().padding(t.space().md) })`.
+    /// `.style(move || { let t = &use_theme(); style().padding(t.get(&kivact::style::space::MD_VAR)) })`.
     #[track_caller]
     pub fn style(self, s: impl IntoValue<Style>) -> Self {
         Element::style(self, s)

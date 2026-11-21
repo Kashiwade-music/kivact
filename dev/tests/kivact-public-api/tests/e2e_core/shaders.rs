@@ -11,11 +11,11 @@
 use std::time::Duration;
 
 use kivact::ErrorKind;
-#[cfg(feature = "gpu")]
-use kivact::draw::Paint;
-use kivact::draw::{Filter, FilterShader, PaintShader};
 use kivact::motion::FrameRate;
 use kivact::prelude::*;
+#[cfg(feature = "gpu")]
+use kivact::style::Paint;
+use kivact::style::{Filter, FilterShader, PaintShader};
 use kivact::test::{MirrorMode, RenderOptions, Screen, gpu_unavailable, render, render_with};
 use kivact_public_api_tests::paint::{RED, at, canvas_of, expect, pixel};
 

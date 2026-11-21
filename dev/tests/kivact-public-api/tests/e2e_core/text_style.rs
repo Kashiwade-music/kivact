@@ -156,12 +156,12 @@ fn an_ellipsis_cuts_a_line_and_the_name_keeps_the_whole_text() {
                 text(LONG)
                     .style(
                         style()
-                            .grow(1)
+                            .flex_grow(1)
                             .text_wrap(false)
                             .text_overflow(TextOverflow::Ellipsis),
                     )
                     .test_id("shrunk"),
-                node().style(style().size(60, 10).shrink(0)),
+                node().style(style().size(60, 10).flex_shrink(0)),
             ))
             .style(at(20, 80, 200, 30)),
         ))
@@ -230,7 +230,7 @@ fn highlight(label: &str, query: &str) -> Vec<Span> {
         Some(i) => vec![
             span(&label[..i]),
             span(&label[i..i + query.len()])
-                .weight(700)
+                .font_weight(700)
                 .background(rgb(GREEN)),
             span(&label[i + query.len()..]),
         ],

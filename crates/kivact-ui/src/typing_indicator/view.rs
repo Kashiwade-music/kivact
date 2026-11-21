@@ -43,7 +43,8 @@ impl Element for TypingIndicator {
 }
 impl IntoView for TypingIndicator {
     fn into_view(self) -> View {
-        let duration = kivact_core::style::use_tokens::<crate::UiTokens>()
+        let duration = kivact_core::style::use_theme()
+            .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
             .chat
             .typing_period_ms;
         let phase = Animated::from(

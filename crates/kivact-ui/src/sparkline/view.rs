@@ -5,10 +5,11 @@ use crate::layer::with_base_recipe_style;
 use crate::sparkline::tokens::SparklineFill;
 use crate::sparkline::tokens::SparklineTokens;
 use crate::variants::{Variant, Variants};
-use kivact_core::draw::{Draw, LineCap, LineJoin, Path, Stroke, linear_gradient};
+use kivact_core::draw::{Draw, LineCap, LineJoin, Path, Stroke};
 use kivact_core::geometry::Point;
 use kivact_core::i18n::{FractionDigits, Grouping, Locale, NumberStyle, message_with, use_locale};
 use kivact_core::state::{IntoText, IntoValue, Value};
+use kivact_core::style::linear_gradient;
 use kivact_core::style::{Color, pct};
 use kivact_core::view::{Element, IntoView, Node, Role, View, node};
 

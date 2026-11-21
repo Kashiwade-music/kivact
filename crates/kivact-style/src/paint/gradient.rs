@@ -1,7 +1,6 @@
 //! Role: Gradients placed by the filled box: linear, radial and conic.
 
-use crate::color::Color;
-use crate::theme::value::ThemeColor;
+use crate::color_value::Color;
 use kivact_types::Length;
 use kivact_types::{ColorInterpolation, ColorSpace, HueInterpolation};
 
@@ -45,7 +44,7 @@ pub(crate) enum RadialSize {
 ///
 /// ```
 /// use kivact::prelude::*;
-/// use kivact::draw::linear_gradient;
+/// use kivact::style::linear_gradient;
 /// // CSS `repeating-linear-gradient(90deg, #2a2a2a 0 3px, #3e3e3e 3px 4px)`
 /// let ruler = linear_gradient(90)
 ///     .repeating()
@@ -83,7 +82,7 @@ pub fn linear_gradient(angle: impl Into<f64>) -> Gradient {
 /// ```
 /// use kivact::prelude::*;
 /// use kivact::style::{Color, rgba};
-/// use kivact::draw::radial_gradient;
+/// use kivact::style::radial_gradient;
 /// // CSS `radial-gradient(circle at 1px 1px, #ffffff10 1px, transparent 0) 0 0 / 18px 18px`
 /// let dots = radial_gradient()
 ///     .circle()
@@ -127,8 +126,8 @@ impl Gradient {
     /// same position make a hard edge; a stop before the previous one is
     /// moved up to it (CSS), so `.stop(c, 0)` after `.stop(d, 10)` is at
     /// 10.
-    pub fn stop(mut self, color: impl ThemeColor, at: impl Into<Length>) -> Gradient {
-        self.stops.push((Color::of(color), Some(at.into())));
+    pub fn stop(mut self, color: impl Into<Color>, at: impl Into<Length>) -> Gradient {
+        self.stops.push((color.into(), Some(at.into())));
         self.hints.push(None);
         self
     }
@@ -136,9 +135,9 @@ impl Gradient {
     /// Color stops without positions: spread evenly between their
     /// positioned neighbours (the first at 0%, the last at 100% when they
     /// have no position), as in CSS `linear-gradient(red, blue)`.
-    pub fn colors<C: ThemeColor>(mut self, colors: impl IntoIterator<Item = C>) -> Gradient {
+    pub fn colors<C: Into<Color>>(mut self, colors: impl IntoIterator<Item = C>) -> Gradient {
         for c in colors {
-            self.stops.push((Color::of(c), None));
+            self.stops.push((c.into(), None));
             self.hints.push(None);
         }
         self

@@ -4,7 +4,7 @@
 use super::fill_layer::fill_layer;
 use super::gradient::Gradient;
 use crate::asset::Asset;
-use crate::theme::value::Theme;
+use crate::resolve::Resolve;
 use kivact_types as p;
 use kivact_types::{BorderImageRepeat, Edges};
 
@@ -14,7 +14,7 @@ pub enum BorderImageSource {
     /// A picture.
     Image(Asset),
     /// A CSS gradient.
-    Gradient(Gradient),
+    Gradient(Box<Gradient>),
 }
 
 impl From<Asset> for BorderImageSource {
@@ -37,7 +37,7 @@ impl From<&'static str> for BorderImageSource {
 
 impl From<Gradient> for BorderImageSource {
     fn from(g: Gradient) -> Self {
-        BorderImageSource::Gradient(g)
+        BorderImageSource::Gradient(Box::new(g))
     }
 }
 
@@ -46,7 +46,7 @@ impl From<Gradient> for BorderImageSource {
 ///
 /// ```
 /// use kivact::prelude::*;
-/// use kivact::draw::{BorderImage, BorderImageRepeat};
+/// use kivact::style::{BorderImage, BorderImageRepeat};
 /// // A 12 px frame cut from the picture, its edges repeated.
 /// let frame = BorderImage::new(&[0u8; 4])
 ///     .slice(12)
@@ -127,8 +127,8 @@ impl BorderImage {
         self
     }
 
-    /// The engine's border image, with its source resolved against `theme`.
-    pub(crate) fn wire(&self, theme: &Theme) -> p::BorderImage {
+    /// The engine's border image, with its source resolved in `cx`.
+    pub(crate) fn wire(&self, cx: &mut Resolve<'_>) -> p::BorderImage {
         let edges = |i: Edges<f64>, pct: bool| {
             let l = |v: f64| {
                 if pct { p::Len::pct(v) } else { p::Len::px(v) }
@@ -143,7 +143,7 @@ impl BorderImage {
         let source = match &self.source {
             BorderImageSource::Image(a) => p::FillImage::Image(a.clone()),
             BorderImageSource::Gradient(g) => {
-                let layer = fill_layer(&super::Paint::from(g.clone()), theme);
+                let layer = fill_layer(&super::Paint::from(g.as_ref().clone()), cx);
                 layer.image
             }
         };

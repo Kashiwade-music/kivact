@@ -2,7 +2,7 @@
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{ColorToken, Style, Theme, style};
+use kivact_core::style::{Style, Theme, style};
 pub(crate) fn typing_dots(_: &Theme, s: &Look<TypingIndicatorState>) -> Style {
     let phase = s.phase;
     style().size(48, 24).paint(move |d, _| {
@@ -11,7 +11,7 @@ pub(crate) fn typing_dots(_: &Theme, s: &Look<TypingIndicatorState>) -> Style {
             d.rounded_rect(
                 kivact_core::geometry::Rect::new(7.0 + i as f64 * 12.0, y, 5.0, 5.0),
                 2.5,
-                ColorToken::TextMuted,
+                kivact_core::style::color::TEXT_MUTED,
             );
         }
     })

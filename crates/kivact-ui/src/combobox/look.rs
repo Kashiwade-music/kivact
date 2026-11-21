@@ -8,41 +8,55 @@ use kivact_interaction::ListItemState;
 pub(crate) fn frame(t: &Theme, state: &PartState) -> Style {
     let tokens = &t.ext::<UiTokens>().combobox;
     let s = style()
-        .wrap(true)
+        .flex_wrap(true)
         .align_items(Align::Center)
         .gap(4)
         .min_height(tokens.field_height)
         .padding(tokens.field_padding)
         .border(1, tokens.border)
-        .radius(tokens.field_radius.unwrap_or(t.radius().md))
+        .border_radius(
+            tokens
+                .field_radius
+                .unwrap_or(t.get(&kivact_core::style::radius::MD_VAR)),
+        )
         .background(tokens.background)
         .color(tokens.foreground)
-        .disabled(style().opacity(tokens.disabled_opacity.unwrap_or(t.disabled_opacity())));
+        .disabled(
+            style().opacity(
+                tokens
+                    .disabled_opacity
+                    .unwrap_or(t.get(&kivact_core::style::control::DISABLED_OPACITY_VAR)),
+            ),
+        );
     if state.is_focused() {
         s.border_color(tokens.focus)
-            .ring(tokens.focus_ring.unwrap_or(t.focus_ring()), tokens.focus)
+            .outline(tokens.focus_ring.unwrap_or(t.focus_ring()), tokens.focus)
     } else {
         s
     }
 }
 pub(crate) fn input(_: &Theme, _: &PartState) -> Style {
     style()
-        .grow(1)
+        .flex_grow(1)
         .min_width(64)
         .height(24)
         .padding(0)
         .border(0, Color::TRANSPARENT)
         .background(Color::TRANSPARENT)
-        .ring_none()
-        .hover(style().ring_none())
-        .focus(style().ring_none())
+        .outline_none()
+        .hover(style().outline_none())
+        .focus(style().outline_none())
 }
 pub(crate) fn surface(t: &Theme, _: &PartState) -> Style {
     let tokens = &t.ext::<UiTokens>().combobox;
     style()
         .padding(4)
         .border(1, tokens.border)
-        .radius(tokens.field_radius.unwrap_or(t.radius().md))
+        .border_radius(
+            tokens
+                .field_radius
+                .unwrap_or(t.get(&kivact_core::style::radius::MD_VAR)),
+        )
         .background(tokens.background)
         .max_height(t.ext::<UiTokens>().combobox.list_height)
 }
@@ -52,9 +66,15 @@ pub(crate) fn option(t: &Theme, state: &ListItemState) -> Style {
         .min_height(tokens.option_height)
         .padding_x(tokens.option_padding_x)
         .padding_y(tokens.option_padding_y)
-        .radius(tokens.option_radius)
+        .border_radius(tokens.option_radius)
         .color(tokens.foreground)
-        .disabled(style().opacity(tokens.disabled_opacity.unwrap_or(t.disabled_opacity())));
+        .disabled(
+            style().opacity(
+                tokens
+                    .disabled_opacity
+                    .unwrap_or(t.get(&kivact_core::style::control::DISABLED_OPACITY_VAR)),
+            ),
+        );
     if state.active {
         s.background(tokens.active_background)
     } else {
@@ -69,7 +89,7 @@ pub(crate) fn chip(t: &Theme, _: &PartState) -> Style {
         .padding_right(4)
         .gap(4)
         .align_items(Align::Center)
-        .radius(tokens.chip_radius)
+        .border_radius(tokens.chip_radius)
         .background(tokens.chip_background)
         .color(tokens.foreground)
 }
@@ -80,7 +100,11 @@ pub(crate) fn empty(t: &Theme, _: &PartState) -> Style {
     let tokens = &t.ext::<UiTokens>().combobox;
     style()
         .padding(8)
-        .font_size(tokens.empty_font_size.unwrap_or(t.text().size_small))
+        .font_size(
+            tokens
+                .empty_font_size
+                .unwrap_or(t.get(&kivact_core::style::font::SIZE_SMALL_VAR)),
+        )
         .color(tokens.muted)
 }
 

@@ -6,15 +6,16 @@
 //! are compared within ±2/255 per channel (tier 2) unless a test says
 //! otherwise; the frame statistics come from `Screen::frame_stats`.
 
-use kivact::draw::Transform;
+use kivact::style::Transform;
 use kivact::view::Node;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 
 use kivact::draw::RegionId;
-use kivact::draw::{BlendMode, Composite, Filter, Layer, PaintShader};
+use kivact::draw::{Composite, Layer, Mix};
 use kivact::prelude::*;
+use kivact::style::{BlendMode, Filter, PaintShader};
 use kivact::style::{Isolation, TransformStyle, WillChange, rgba};
 use kivact::test::{RenderOptions, Screenshot, render, render_with};
 
@@ -294,9 +295,10 @@ fn destination_out_cuts_a_hole() {
     let screen = render(|| {
         canvas(|d, _| {
             d.fill_rect(Rect::new(0.0, 0.0, 200.0, 200.0), rgb(RED));
-            d.layer(Layer::new().composite(Composite::DestinationOut), |d| {
-                d.circle(Point::new(100.0, 100.0), 40.0, rgb(BLACK))
-            });
+            d.layer(
+                Layer::new().mix(Mix::Composite(Composite::DestinationOut)),
+                |d| d.circle(Point::new(100.0, 100.0), 40.0, rgb(BLACK)),
+            );
         })
         .style(style().size(200, 200).background(Color::WHITE))
     });

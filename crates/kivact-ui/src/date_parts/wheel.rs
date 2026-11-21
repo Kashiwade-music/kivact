@@ -182,7 +182,7 @@ fn wheel_rows(
                         .height(tokens.wheel_row_height)
                         .translate_y(settle_offset.get())
                         .opacity(if offset == 0 { 1.0 } else { 0.45 })
-                        .weight(if offset == 0 { 600 } else { 400 })
+                        .font_weight(if offset == 0 { 600 } else { 400 })
                 })
             })
             .collect::<Vec<_>>(),

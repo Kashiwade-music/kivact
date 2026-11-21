@@ -74,7 +74,7 @@ recipe_table! {
     /// let theme = Theme::light();
     /// let recipes = theme.ext::<UiRecipes>();
     /// let square = recipes.to_owned()
-    ///     .button(|prev| move |theme, state| prev(theme, state).radius(0))
+    ///     .button(|prev| move |theme, state| prev(theme, state).border_radius(0))
     ///     .menu(|menu| menu.item(|prev| move |theme, state| prev(theme, state).padding_x(16)));
     /// let theme = theme.with(square);
     /// # let _ = theme;

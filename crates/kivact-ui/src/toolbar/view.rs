@@ -5,7 +5,7 @@ use crate::toolbar::look::ToolbarState;
 use crate::variants::{Variant, Variants};
 use crate::{ControlSize, provide_control_size};
 use kivact_core::state::{IntoText, IntoValue, Value};
-use kivact_core::style::{Align, Direction, Justify, style};
+use kivact_core::style::{Align, FlexDirection, Justify, style};
 use kivact_core::view::{
     Element, IntoChildren, IntoView, Node, Orientation, ReadingDirection, Role, View, node, row,
     use_direction,
@@ -103,17 +103,18 @@ impl IntoView for Toolbar {
         let dividers = self.dividers;
         let make = move |children, justify, column| {
             row(children).base_style(move || {
-                let tokens = kivact_core::style::use_tokens::<crate::UiTokens>();
+                let tokens = kivact_core::style::use_theme()
+                    .with(kivact_core::style::Theme::ext::<crate::UiTokens>);
                 style()
                     .min_width(0)
                     .align_items(Align::Center)
                     .justify_content(justify)
-                    .direction(if vertical {
-                        Direction::Column
+                    .flex_direction(if vertical {
+                        FlexDirection::Column
                     } else if rtl {
-                        Direction::RowReverse
+                        FlexDirection::RowReverse
                     } else {
-                        Direction::Row
+                        FlexDirection::Row
                     })
                     .gap(gap.map_or(tokens.toolbar.gap, |gap| gap.get()))
                     .grid_column(column)

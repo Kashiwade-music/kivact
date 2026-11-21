@@ -8,8 +8,8 @@ use kivact_devtools_protocol as p;
 use kivact_runtime::driver::Runtime;
 use kivact_runtime::{Owner, pure, untrack};
 use kivact_style::Style;
-use kivact_style::internal::{ForcedStates, describe_state_styles, describe_style};
-use kivact_types::{NodeId, WindowId};
+use kivact_style::internal::{describe_state_styles, describe_style, style_property};
+use kivact_types::{NodeId, StateSet, StyleState, WindowId};
 
 use super::convert;
 use crate::devtools::apply;
@@ -27,10 +27,8 @@ pub(super) fn base_value(rt: &Runtime, id: NodeId, property: &str) -> Option<Str
     for layer in &layers {
         merged = merged.merge(&evaluate(owner, layer));
     }
-    describe_style(&merged)
-        .into_iter()
-        .find(|(name, _)| *name == property)
-        .map(|(name, value)| editable(name, value))
+    let definition = style_property(property)?;
+    (definition.describe)(&merged)
 }
 
 /// The style layers of `id`, highest priority first.
@@ -205,7 +203,7 @@ pub(super) fn force_state(
             format!("node {} does not exist", params.node),
         ));
     }
-    let mut states = ForcedStates::default();
+    let mut states = StateSet::EMPTY;
     for state in params.states {
         states.insert(convert::forced_state(state));
     }
@@ -291,7 +289,7 @@ fn source_layer(owner: Owner, style: &Style, layer: &StyleLayer) -> p::StyleLaye
 }
 
 /// One layer per state delta, above the layers that declare them.
-fn state_layers(style: &Style, forced: ForcedStates) -> Vec<p::StyleLayerInfo> {
+fn state_layers(style: &Style, forced: StateSet) -> Vec<p::StyleLayerInfo> {
     let mut deltas = describe_state_styles(style);
     let mut out = Vec::new();
     for (name, origin) in [
@@ -302,7 +300,9 @@ fn state_layers(style: &Style, forced: ForcedStates) -> Vec<p::StyleLayerInfo> {
         ("disabled", p::StyleOrigin::Disabled),
         ("selected", p::StyleOrigin::Selected),
     ] {
-        let Some(index) = deltas.iter().position(|(state, _)| *state == name) else {
+        // The style method is `active` (`StyleState::name`); DevTools calls it `pressed`.
+        let state_name = if name == "pressed" { "active" } else { name };
+        let Some(index) = deltas.iter().position(|(state, _)| *state == state_name) else {
             continue;
         };
         let (_, items) = deltas.remove(index);
@@ -318,21 +318,23 @@ fn state_layers(style: &Style, forced: ForcedStates) -> Vec<p::StyleLayerInfo> {
             properties: properties(
                 items
                     .into_iter()
-                    .map(|(property, value)| (property.to_owned(), editable(property, value))),
+                    .filter(|(property, _)| style_property(property).is_some())
+                    .map(|(property, value)| (property.to_owned(), value)),
             ),
         });
     }
     out
 }
 
-fn forced_bit(name: &str) -> Option<ForcedStates> {
+/// The state a DevTools layer name stands for (`pressed` is `active`).
+fn forced_bit(name: &str) -> Option<StyleState> {
     Some(match name {
-        "hover" => ForcedStates::HOVER,
-        "pressed" => ForcedStates::PRESSED,
-        "focus" => ForcedStates::FOCUS,
-        "focus_visible" => ForcedStates::FOCUS_VISIBLE,
-        "disabled" => ForcedStates::DISABLED,
-        "selected" => ForcedStates::SELECTED,
+        "hover" => StyleState::Hover,
+        "pressed" => StyleState::Active,
+        "focus" => StyleState::Focus,
+        "focus_visible" => StyleState::FocusVisible,
+        "disabled" => StyleState::Disabled,
+        "selected" => StyleState::Selected,
         _ => return None,
     })
 }
@@ -348,17 +350,12 @@ fn properties(items: impl IntoIterator<Item = (String, String)>) -> Vec<p::Style
         .collect()
 }
 
+/// The properties of `style` that the table names, each in its DevTools form.
 fn described(style: &Style) -> Vec<p::StyleProperty> {
-    properties(
-        describe_style(style)
-            .into_iter()
-            .map(|(name, value)| (name.to_owned(), editable(name, value))),
-    )
-}
-
-/// `described` in the form an override takes, when the property has one.
-fn editable(name: &str, described: String) -> String {
-    apply::editable_value(name, &described).unwrap_or(described)
+    properties(describe_style(style).into_iter().filter_map(|(name, _)| {
+        let definition = style_property(name)?;
+        Some((name.to_owned(), (definition.describe)(style)?))
+    }))
 }
 
 /// Mark a property a higher layer also sets.

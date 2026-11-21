@@ -28,8 +28,8 @@ fn taps_and_edges_keep_presses_while_scrolling_cancels_capture_once() {
                         events.borrow_mut().push(event.phase());
                         Handled::No
                     })
-                    .style(style().size(160, 60).shrink(0.0)),
-                node().style(style().height(400).shrink(0.0)),
+                    .style(style().size(160, 60).flex_shrink(0.0)),
+                node().style(style().height(400).flex_shrink(0.0)),
             )))
             .test_id("scroll")
             .style(style().size(200, 100)),
@@ -74,16 +74,16 @@ fn touch_scroll_chains_to_the_outer_container_at_the_inner_boundary() {
             scroll(column((
                 node()
                     .test_id("outer-top")
-                    .style(style().height(20).shrink(0.0)),
+                    .style(style().height(20).flex_shrink(0.0)),
                 scroll(column((
                     button("Inner")
                         .test_id("inner-target")
-                        .style(style().height(60).shrink(0.0)),
-                    node().style(style().height(200).shrink(0.0)),
+                        .style(style().height(60).flex_shrink(0.0)),
+                    node().style(style().height(200).flex_shrink(0.0)),
                 )))
                 .test_id("inner")
-                .style(style().height(80).shrink(0.0)),
-                node().style(style().height(400).shrink(0.0)),
+                .style(style().height(80).flex_shrink(0.0)),
+                node().style(style().height(400).flex_shrink(0.0)),
             )))
             .style(style().size(200, 120)),
         )
@@ -114,7 +114,7 @@ fn fling_decelerates_and_stops() {
         let reference = node_ref();
         (
             reference.scroll_offset(),
-            scroll(node().style(style().height(5000).shrink(0.0)))
+            scroll(node().style(style().height(5000).flex_shrink(0.0)))
                 .node_ref(reference)
                 .test_id("fling")
                 .style(style().size(200, 160)),
@@ -153,11 +153,11 @@ fn scroll_snap_settles_on_a_stop() {
             reference.scroll_offset(),
             scroll(
                 column((
-                    node().style(style().height(90).shrink(0.0)),
+                    node().style(style().height(90).flex_shrink(0.0)),
                     node()
                         .test_id("snap-child")
-                        .style(style().height(150).shrink(0.0)),
-                    node().style(style().height(300).shrink(0.0)),
+                        .style(style().height(150).flex_shrink(0.0)),
+                    node().style(style().height(300).flex_shrink(0.0)),
                 ))
                 .style(style().display(Display::Contents)),
             )
@@ -197,10 +197,10 @@ fn smooth_scroll_uses_the_easing() {
                         ScrollBehavior::Smooth(Easing::EaseOut),
                     );
                 }),
-                scroll(node().style(style().height(1000).shrink(0.0)))
+                scroll(node().style(style().height(1000).flex_shrink(0.0)))
                     .node_ref(slow)
                     .style(style().size(200, 100)),
-                scroll(node().style(style().height(1000).shrink(0.0)))
+                scroll(node().style(style().height(1000).flex_shrink(0.0)))
                     .node_ref(fast)
                     .style(style().size(200, 100)),
             )),

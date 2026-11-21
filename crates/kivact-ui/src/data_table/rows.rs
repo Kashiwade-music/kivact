@@ -9,7 +9,7 @@ use crate::layer::with_recipe_style;
 use crate::variants::Variants;
 use crate::{DataColumn, DataTableCellState, DataTableCheckState, DataTableRowState, checkbox};
 use kivact_core::custom::{NodeRefExt, Part};
-use kivact_core::draw::linear_gradient;
+use kivact_core::style::linear_gradient;
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
 
@@ -17,7 +17,7 @@ use kivact_core::geometry::Rect;
 use kivact_core::i18n::message_with;
 use kivact_core::state::{Callback, Signal, Value, binding, machine, memo};
 use kivact_core::style::{
-    Color, Cursor, Direction, Justify, Position, Style, TransitionProp, pct, style, use_theme,
+    Color, Cursor, FlexDirection, Justify, Position, Style, TransitionProp, pct, style, use_theme,
 };
 use kivact_core::view::{
     ButtonPress, Handled, Key as KeyboardKey, MouseButton, NodeRef, PointerEvent, PointerPhase,
@@ -225,7 +225,7 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
         if self.sticky.as_ref().is_some_and(|sticky| sticky.rtl)
             || (self.row_status.is_some() && use_direction() == ReadingDirection::Rtl)
         {
-            style().direction(Direction::RowReverse)
+            style().flex_direction(FlexDirection::RowReverse)
         } else {
             style()
         }
@@ -346,13 +346,17 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
             let s = match fixed {
                 Some(width) => {
                     let width = width.max(minimum.unwrap_or(0.0));
-                    style().width(width).min_width(width).grow(0).shrink(0)
+                    style()
+                        .width(width)
+                        .min_width(width)
+                        .flex_grow(0)
+                        .flex_shrink(0)
                 }
                 None if let Some(flex) = flex => style()
-                    .basis(0)
-                    .grow(flex)
+                    .flex_basis(0)
+                    .flex_grow(flex)
                     .min_width(minimum.unwrap_or(0.0))
-                    .shrink(1),
+                    .flex_shrink(1),
                 None => minimum.map_or_else(style, |min| style().min_width(min)),
             };
             if numeric {
@@ -388,7 +392,7 @@ pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::It
         };
         root.role(Role::ColumnHeader)
             .name(kivact_core::i18n::message("data_table.actions", "Actions"))
-            .style(style().width(*width).shrink(0))
+            .style(style().width(*width).flex_shrink(0))
     });
     let heads = grid.clone();
     let columns = dynamic(grid.visible, move |indexes: Vec<usize>| {
@@ -503,7 +507,7 @@ fn head_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
         content
             .style(
                 style()
-                    .direction(Direction::Column)
+                    .flex_direction(FlexDirection::Column)
                     .align_items(Align::Stretch)
                     .gap(4),
             )
@@ -696,14 +700,14 @@ fn index_cell(role: Role, text: Node) -> Node {
             .tabular_nums()
             .font_family("monospace")
             .font_size(12)
-            .color(kivact_core::style::ColorToken::TextMuted),
+            .color(kivact_core::style::color::TEXT_MUTED),
     ))
     .role(role)
     .style(
         style()
             .width(48)
             .min_width(48)
-            .shrink(0)
+            .flex_shrink(0)
             .justify_content(Justify::End),
     )
 }
@@ -712,8 +716,8 @@ fn expansion_cell() -> Node {
     node().style(
         style()
             .width(32)
-            .shrink(0)
-            .direction(kivact_core::style::Direction::Row)
+            .flex_shrink(0)
+            .flex_direction(kivact_core::style::FlexDirection::Row)
             .align_items(kivact_core::style::Align::Center)
             .justify_content(Justify::Center),
     )
@@ -961,8 +965,8 @@ fn row_actions<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>
             root.style(
                 style()
                     .width(*width)
-                    .shrink(0)
-                    .direction(kivact_core::style::Direction::Row)
+                    .flex_shrink(0)
+                    .flex_direction(kivact_core::style::FlexDirection::Row)
                     .align_items(kivact_core::style::Align::Center),
             ),
             render.call(item),

@@ -3,7 +3,7 @@
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
 
-use kivact_core::style::{Align, Direction, Justify, Length, Track, pct, style};
+use kivact_core::style::{Align, FlexDirection, Justify, Length, Track, pct, style};
 use kivact_core::view::Orientation;
 pub(crate) fn root_style(
     theme: &kivact_core::style::Theme,
@@ -21,12 +21,12 @@ pub(crate) fn root_style(
         } else {
             Align::Center
         })
-        .direction(if vertical {
-            Direction::Column
+        .flex_direction(if vertical {
+            FlexDirection::Column
         } else if look.rtl {
-            Direction::RowReverse
+            FlexDirection::RowReverse
         } else {
-            Direction::Row
+            FlexDirection::Row
         })
         .justify_content(Justify::SpaceBetween);
     if look.centered && !vertical {

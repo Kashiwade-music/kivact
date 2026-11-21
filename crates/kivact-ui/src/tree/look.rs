@@ -2,30 +2,41 @@
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
-use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 use kivact_core::view::{ReadingDirection, use_direction};
 pub(crate) fn tree_item(t: &Theme, row: &TreeRowRecipeState) -> Style {
     let rtl = use_direction() == ReadingDirection::Rtl;
     let tokens = t.ext::<crate::tokens::UiTokens>();
     let tree = &tokens.tree;
-    let padding = tree.padding.unwrap_or(t.space().md);
+    let padding = tree
+        .padding
+        .unwrap_or(t.get(&kivact_core::style::space::MD_VAR));
     let indent = padding + row.level.saturating_sub(1) as f64 * tree.indent.unwrap_or(16.0);
     style()
         .enter_size(kivact_core::view::Orientation::Vertical)
         .exit_size(kivact_core::view::Orientation::Vertical)
-        .direction(if rtl {
-            Direction::RowReverse
+        .flex_direction(if rtl {
+            FlexDirection::RowReverse
         } else {
-            Direction::Row
+            FlexDirection::Row
         })
         .align_items(Align::Center)
-        .min_height(tree.row_height.unwrap_or(t.control_height()))
+        .min_height(
+            tree.row_height
+                .unwrap_or(t.get(&kivact_core::style::control::HEIGHT_VAR)),
+        )
         .padding_left(if rtl { padding } else { indent })
         .padding_right(if rtl { indent } else { padding })
-        .gap(tree.gap.unwrap_or(t.space().xs))
-        .radius(tree.radius.unwrap_or(t.radius().sm))
-        .hover(style().background(ColorToken::Hover))
-        .selected(style().background(ColorToken::Selection))
+        .gap(
+            tree.gap
+                .unwrap_or(t.get(&kivact_core::style::space::XS_VAR)),
+        )
+        .border_radius(
+            tree.radius
+                .unwrap_or(t.get(&kivact_core::style::radius::SM_VAR)),
+        )
+        .hover(style().background(kivact_core::style::color::HOVER))
+        .selected(style().background(kivact_core::style::color::SELECTION))
 }
 
 pub(crate) fn tree_marker(t: &Theme, _: &TreeRowRecipeState) -> Style {
@@ -36,7 +47,7 @@ pub(crate) fn tree_marker(t: &Theme, _: &TreeRowRecipeState) -> Style {
                 .marker_width
                 .unwrap_or(16.0),
         )
-        .shrink(0)
+        .flex_shrink(0)
 }
 
 /// The mounted row's interaction state and structural position in its visible tree.

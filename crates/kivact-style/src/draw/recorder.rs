@@ -1,8 +1,9 @@
 //! Role: The `Draw` recorder: its state, transform and the `Recording` it yields.
 
-use crate::color::Color;
+use crate::color_value::Color;
 use crate::geometry::Size;
 use crate::paint::{Paint, fill_layer};
+use crate::resolve::Resolve;
 use crate::theme::value::Theme;
 use kivact_types as p;
 use kivact_types::{DrawCmd, DrawList, DrawableId, Fill, RegionId};
@@ -10,6 +11,15 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 /// DrawList builder passed to draw closures.
+///
+/// A drawing's lengths resolve in the theme in effect: `em` is the theme's
+/// base size (a drawing has no style), and an invalid sum is counted as
+/// unsupported. Text spacing resolves in the theme the text is drawn in,
+/// so a measure of the same text agrees. Two places drop an invalid length
+/// without counting it: measuring text (`Draw::measure_text`,
+/// `Draw::layout_paragraph` and the `Constraints` measures), because the
+/// drawing of the same format counts it; and an editor's highlighter
+/// decoration, which runs inside layout, where nothing is reported.
 pub struct Draw {
     pub(super) theme: Theme,
     pub(super) cmds: Vec<DrawCmd>,
@@ -84,12 +94,22 @@ impl Draw {
         c.resolve(&self.theme)
     }
 
+    /// Run `f` with the lengths of this drawing resolved: the theme's
+    /// variables, and `em` of the theme's base size (a drawing has no
+    /// style). An invalid sum counts as unsupported.
+    pub(super) fn resolving<T>(&mut self, f: impl FnOnce(&mut Resolve<'_>) -> T) -> T {
+        let mut misplaced = 0;
+        let out = f(&mut Resolve::of_theme(&self.theme, &mut misplaced));
+        self.unsupported += misplaced;
+        out
+    }
+
     /// Paint tokens are resolved in the same place as element styles.
-    pub(super) fn fill_of(&self, paint: &Paint) -> Fill {
+    pub(super) fn fill_of(&mut self, paint: &Paint) -> Fill {
         if let Some(c) = paint.solid() {
             return Fill::Solid(self.color(c));
         }
-        Fill::Layers(vec![fill_layer(paint, &self.theme)])
+        Fill::Layers(vec![self.resolving(|cx| fill_layer(paint, cx))])
     }
 }
 
@@ -109,9 +129,8 @@ pub struct RegionSemantics {
 
 /// Record one draw layer of a node of `size` with what `cx` gives: run `f`
 /// on a fresh painter and return what it drew. `f` runs the application's
-/// drawing, then the retained style paint
-/// ([`CompiledStyle::paint_retained`](crate::CompiledStyle::paint_retained)).
-/// A panic in `f` propagates.
+/// drawing, then the retained style paint (core calls `LocalPaint::draw`
+/// from its draw effect). A panic in `f` propagates.
 pub fn record(size: Size, cx: RecordContext, f: impl FnOnce(&mut Draw)) -> Recording {
     let mut draw = Draw::new(cx, size);
     f(&mut draw);

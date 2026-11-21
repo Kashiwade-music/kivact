@@ -180,7 +180,7 @@ fn a_drag_during_an_edit_it_did_not_begin_leaves_that_edit_open() {
                 .name(name)
                 .test_id(name)
                 .focusable(true)
-                .style(style().size(100, 30).shrink(0))
+                .style(style().size(100, 30).flex_shrink(0))
         };
         (
             x,

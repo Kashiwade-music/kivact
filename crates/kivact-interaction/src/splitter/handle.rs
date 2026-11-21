@@ -82,7 +82,7 @@ pub struct SplitterState {
 /// use kivact::interaction::{ScalarRange, use_splitter};
 /// use kivact::prelude::*;
 /// use kivact::style::Cursor;
-/// use kivact::style::ColorToken;
+/// use kivact::style::Color;
 /// use kivact::view::Orientation;
 /// let sidebar = signal(240.0);
 /// let range = ScalarRange::new(120.0, 480.0).unwrap();
@@ -97,9 +97,9 @@ pub struct SplitterState {
 ///         style()
 ///             .width(5)
 ///             .cursor(Cursor::EwResize)
-///             .background(ColorToken::Border),
+///             .background(kivact::style::color::BORDER),
 ///     ),
-///     node().style(style().grow(1)),
+///     node().style(style().flex_grow(1)),
 /// ));
 /// ```
 #[derive(Clone, Copy)]

@@ -1,7 +1,7 @@
 //! Role: Apply source-line emphasis and native read-only code navigation.
 use kivact_core::custom::{EditContext, EditOutcome, EditRequest, EditState, TextEditing};
 use kivact_core::state::Value;
-use kivact_core::style::{Color, ColorToken, StyledRange};
+use kivact_core::style::{StyledRange, style};
 use kivact_core::view::Key;
 use kivact_interaction::text_edit_policy;
 /// Fill syntax gaps and unset backgrounds without overlapping glyph-color ranges.
@@ -13,11 +13,11 @@ pub(super) fn line_background(
     diff: bool,
 ) {
     let color = if highlighted.contains(&((index + 1) as u32)) {
-        Some(Color::token(ColorToken::SurfaceAlt))
+        Some(kivact_core::style::color::SURFACE_ALT)
     } else if diff && line.starts_with('+') {
-        Some(Color::token(ColorToken::Success).with_alpha(0.15))
+        Some(kivact_core::style::color::SUCCESS.with_alpha(0.15))
     } else if diff && line.starts_with('-') {
-        Some(Color::token(ColorToken::Danger).with_alpha(0.15))
+        Some(kivact_core::style::color::DANGER.with_alpha(0.15))
     } else {
         None
     };
@@ -30,22 +30,17 @@ pub(super) fn line_background(
             if cursor < start {
                 gaps.push(StyledRange {
                     range: cursor..start,
-                    color: None,
-                    background: Some(background),
-                    decoration: None,
+                    style: style().background(background),
                 });
             }
-            if range.background.is_none() {
-                range.background = Some(background);
-            }
+            // The range's own background, if it sets one, comes after and wins.
+            range.style = style().background(background).merge(&range.style);
             cursor = cursor.max(range.range.end.min(line.len()));
         }
         if cursor < line.len() {
             gaps.push(StyledRange {
                 range: cursor..line.len(),
-                color: None,
-                background: Some(background),
-                decoration: None,
+                style: style().background(background),
             });
         }
         ranges.extend(gaps);

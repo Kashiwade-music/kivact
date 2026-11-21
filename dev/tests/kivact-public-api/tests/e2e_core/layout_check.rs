@@ -99,7 +99,7 @@ fn an_ellipsis_a_scrolling_axis_and_a_text_that_fits_are_not_violations() {
             row((text("A long line of text that cannot fit its box")
                 .style(
                     style()
-                        .grow(1)
+                        .flex_grow(1)
                         .text_wrap(false)
                         .text_overflow(TextOverflow::Ellipsis),
                 )

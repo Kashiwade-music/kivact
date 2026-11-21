@@ -3,7 +3,7 @@ use crate::look_common::{description, mark, trigger};
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
-use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 use kivact_interaction::{MenuItemState, PopupState};
 /// A menu's own trigger, drawn like a select's.
 pub(crate) fn menu_trigger(t: &Theme, _: &PopupState) -> Style {
@@ -12,35 +12,40 @@ pub(crate) fn menu_trigger(t: &Theme, _: &PopupState) -> Style {
 
 pub(crate) fn menu_item(t: &Theme, state: &MenuItemState) -> Style {
     let s = style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(8)
-        .height(t.control_height())
-        .padding_x(t.space().md)
-        .focus(style().background(ColorToken::Hover));
+        .height(t.get(&kivact_core::style::control::HEIGHT_VAR))
+        .padding_x(t.get(&kivact_core::style::space::MD_VAR))
+        .focus(style().background(kivact_core::style::color::HOVER));
     if state.destructive {
-        s.color(ColorToken::Danger)
+        s.color(kivact_core::style::color::DANGER)
     } else {
         s
     }
 }
 
 pub(crate) fn separator(_: &Theme, _: &PartState) -> Style {
-    style().height(1).margin_y(4).background(ColorToken::Border)
+    style()
+        .height(1)
+        .margin_y(4)
+        .background(kivact_core::style::color::BORDER)
 }
 
 /// A heading: muted small text the keys skip.
 pub(crate) fn menu_label(t: &Theme, _: &PartState) -> Style {
     style()
-        .padding_x(t.space().md)
-        .padding_y(t.space().xs)
-        .font_size(t.text().size_small)
-        .weight(t.text().weight_strong)
-        .color(ColorToken::TextMuted)
+        .padding_x(t.get(&kivact_core::style::space::MD_VAR))
+        .padding_y(t.get(&kivact_core::style::space::XS_VAR))
+        .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .color(kivact_core::style::color::TEXT_MUTED)
 }
 
 pub(crate) fn shortcut(_: &Theme, _: &MenuItemState) -> Style {
-    style().grow(1).color(ColorToken::TextMuted)
+    style()
+        .flex_grow(1)
+        .color(kivact_core::style::color::TEXT_MUTED)
 }
 
 pub(crate) fn menu_description(t: &Theme, _: &MenuItemState) -> Style {
@@ -59,7 +64,7 @@ pub(crate) fn menu_submenu(_: &Theme, _: &MenuItemState) -> Style {
 
 /// The room of an inset row: as wide as the check box.
 pub(crate) fn menu_inset(_: &Theme, _: &PartState) -> Style {
-    style().width(16).shrink(0)
+    style().width(16).flex_shrink(0)
 }
 
 recipe_table! {

@@ -33,7 +33,7 @@ fn text_wraps_to_the_width_left_by_its_siblings_and_fields_never_wrap() {
                 text(LONG).test_id("long"),
                 node()
                     .test_id("fixed")
-                    .style(style().size(100, 20).shrink(0.0)),
+                    .style(style().size(100, 20).flex_shrink(0.0)),
             ))
             .style(style().align_items(Align::Start)),
             column((
@@ -125,30 +125,37 @@ fn reaching_rows(tall: Signal<bool>) -> View {
         .map(|i| {
             let row = node().test_id(format!("row {i}"));
             match i {
-                10 => {
-                    row.style(move || style().height(if tall.get() { 40 } else { 20 }).shrink(0.0))
-                }
+                10 => row.style(move || {
+                    style()
+                        .height(if tall.get() { 40 } else { 20 })
+                        .flex_shrink(0.0)
+                }),
                 30 => row.style(
                     style()
                         .height(20)
-                        .shrink(0.0)
-                        .shadow(kivact::draw::Shadow::new(0.0, 0.0, 40.0, rgb(0x000000))),
+                        .flex_shrink(0.0)
+                        .shadow(kivact::style::Shadow::new(0.0, 0.0, 40.0, rgb(0x000000))),
                 ),
                 50 => row.style(
                     style()
                         .height(20)
-                        .shrink(0.0)
+                        .flex_shrink(0.0)
                         .background(rgb(0xff0000))
                         .translate(0, -300),
                 ),
-                _ => row.style(style().height(20).shrink(0.0)),
+                _ => row.style(style().height(20).flex_shrink(0.0)),
             }
             .into_view()
         })
         .collect();
     scroll(column(rows))
         .test_id("list")
-        .style(style().height(200).shrink(0.0).background(rgb(0xffffff)))
+        .style(
+            style()
+                .height(200)
+                .flex_shrink(0.0)
+                .background(rgb(0xffffff)),
+        )
         .into_view()
 }
 
@@ -199,7 +206,7 @@ fn a_scroll_container_scrolls_along_the_axis_its_builder_names() {
     fn boxed(id: &'static str) -> Node {
         node()
             .test_id(id)
-            .style(style().width(400).height(200).shrink(0.0))
+            .style(style().width(400).height(200).flex_shrink(0.0))
     }
     let screen = render(|| {
         column((
@@ -297,26 +304,28 @@ fn nested_scroll_fixture() -> Screen {
                 .on_press(move || tall.scroll_into_view()),
             )),
             scroll(column((
-                node().test_id("top").style(style().height(30).shrink(0.0)),
+                node()
+                    .test_id("top")
+                    .style(style().height(30).flex_shrink(0.0)),
                 scroll(column((
-                    node().style(style().height(200).shrink(0.0)),
+                    node().style(style().height(200).flex_shrink(0.0)),
                     node()
                         .test_id("target")
                         .node_ref(target)
-                        .style(style().height(20).shrink(0.0)),
+                        .style(style().height(20).flex_shrink(0.0)),
                 )))
                 .test_id("inner")
-                .style(style().height(60).shrink(0.0)),
-                node().style(style().height(500).shrink(0.0)),
+                .style(style().height(60).flex_shrink(0.0)),
+                node().style(style().height(500).flex_shrink(0.0)),
             )))
             .test_id("outer")
             .style(style().height(80)),
             scroll(column((
-                node().style(style().height(300).shrink(0.0)),
+                node().style(style().height(300).flex_shrink(0.0)),
                 node()
                     .test_id("tall")
                     .node_ref(tall)
-                    .style(style().height(500).shrink(0.0)),
+                    .style(style().height(500).flex_shrink(0.0)),
             )))
             .test_id("viewport")
             .style(style().height(200)),

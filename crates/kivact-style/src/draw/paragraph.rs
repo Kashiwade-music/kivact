@@ -82,7 +82,7 @@ impl InlineParagraph {
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact::style::ColorToken;
+/// use kivact::style::Color;
 /// use kivact::draw::{Draw, TextFormat};
 /// use kivact::geometry::{Point, Rect, Size};
 ///
@@ -90,9 +90,9 @@ impl InlineParagraph {
 /// fn selected(d: &mut Draw, text: &str, range: std::ops::Range<usize>) {
 ///     let paragraph = d.layout_paragraph(text, &TextFormat::default(), None);
 ///     for band in paragraph.rects(range) {
-///         d.fill_rect(band, ColorToken::Selection);
+///         d.fill_rect(band, kivact::style::color::SELECTION);
 ///     }
-///     d.paragraph(&paragraph, Point::new(0.0, 0.0), ColorToken::Text);
+///     d.paragraph(&paragraph, Point::new(0.0, 0.0), kivact::style::color::TEXT);
 /// }
 /// # let _ = selected;
 /// ```
@@ -302,7 +302,15 @@ impl Draw {
         max_width: Option<f64>,
     ) -> TextParagraph {
         let origin = p::Point { x: 0.0, y: 0.0 };
-        let run = super::text_run(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
+        let run = super::text_run(
+            text,
+            origin,
+            style,
+            1.0,
+            p::Rgba::TRANSPARENT,
+            &self.theme,
+            &mut 0,
+        );
         let shaped = self.measurer.shape(&run, max_width).unwrap_or_default();
         TextParagraph::from_shaped(text, shaped, max_width)
     }
@@ -322,7 +330,8 @@ impl Draw {
             style,
             1.0,
             p::Rgba::TRANSPARENT,
-            None,
+            &self.theme,
+            &mut 0,
         );
         let shaped = self.measurer.shape_inline(&run, max_width, boxes)?;
         Some(InlineParagraph::from_shaped(text, shaped, max_width))

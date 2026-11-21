@@ -2,7 +2,7 @@
 
 use crate::UiTokens;
 use crate::recipe::recipe_table;
-use kivact_core::style::{Direction, Style, Theme, style};
+use kivact_core::style::{FlexDirection, Style, Theme, style};
 use kivact_core::view::{Orientation, ReadingDirection};
 pub(crate) fn carousel_gap(t: &Theme) -> f64 {
     t.ext::<UiTokens>().carousel.gap.unwrap_or(16.0)
@@ -17,7 +17,7 @@ pub(crate) fn carousel_fade_width(t: &Theme) -> f64 {
 }
 
 pub(crate) fn carousel_root(_: &Theme, _: &CarouselSurfaceState) -> Style {
-    style().direction(Direction::Column).min_width(0)
+    style().flex_direction(FlexDirection::Column).min_width(0)
 }
 
 pub(crate) fn carousel_track(t: &Theme, _: &CarouselSurfaceState) -> Style {

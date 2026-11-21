@@ -4,7 +4,8 @@
 use super::fill_layer::fill_layer;
 use super::gradient::Gradient;
 use super::layer::Paint;
-use crate::theme::value::{Theme, ThemeColor};
+use crate::color_value::Color;
+use crate::resolve::Resolve;
 use kivact_types as p;
 pub use kivact_types::{MaskComposite, MaskMode};
 
@@ -13,7 +14,7 @@ pub use kivact_types::{MaskComposite, MaskMode};
 ///
 /// ```
 /// use kivact::prelude::*;
-/// use kivact::draw::{Mask, MaskComposite, MaskLayer, MaskMode, linear_gradient};
+/// use kivact::style::{Mask, MaskComposite, MaskLayer, MaskMode, linear_gradient};
 /// use kivact::style::rgba;
 /// let fade = linear_gradient(180)
 ///     .colors([rgb(0xffffff), rgba(0xffffff, 0.0)]);
@@ -55,10 +56,10 @@ impl MaskLayer {
         &self.paint
     }
 
-    /// The engine's layer, with its paint resolved against `theme`.
-    pub(crate) fn wire(&self, theme: &Theme) -> p::MaskLayer {
+    /// The engine's layer, with its paint resolved in `cx`.
+    pub(crate) fn wire(&self, cx: &mut Resolve<'_>) -> p::MaskLayer {
         p::MaskLayer {
-            fill: fill_layer(&self.paint, theme),
+            fill: fill_layer(&self.paint, cx),
             mode: self.mode,
             composite: self.composite,
         }
@@ -83,12 +84,12 @@ pub struct Mask(pub(crate) Vec<MaskLayer>);
 
 impl Mask {
     /// The engine's layers, first on top.
-    pub(crate) fn wire(&self, theme: &Theme) -> Vec<p::MaskLayer> {
-        self.0.iter().map(|l| l.wire(theme)).collect()
+    pub(crate) fn wire(&self, cx: &mut Resolve<'_>) -> Vec<p::MaskLayer> {
+        self.0.iter().map(|l| l.wire(cx)).collect()
     }
 }
 
-impl<C: ThemeColor> From<C> for Mask {
+impl<C: Into<Color>> From<C> for Mask {
     fn from(c: C) -> Self {
         Mask(vec![MaskLayer::new(c)])
     }

@@ -300,6 +300,9 @@ pub(crate) struct ViewState {
     modifiers: Signal<Modifiers>,
     /// Focus / platform requests waiting for the host.
     pub(crate) requests: RefCell<Requests>,
+    /// The reported host states of the nodes whose style asked for them
+    /// (`view::node_states`), by node.
+    pub(crate) node_states: RefCell<HashMap<NodeId, Signal<kivact_types::StateSet>>>,
 }
 
 // xtask-allow(state): independent: hover and mouse are separate host reports (the node pointed at and the pointer position), and any combination occurs; close_handlers is a registry that an owner adds to and its cleanup removes from
@@ -392,6 +395,7 @@ impl ViewState {
             pointer_modality: Cell::new(Modality::Keyboard),
             modifiers: owner.signal(Modifiers::default(), at),
             requests: RefCell::new(Requests::default()),
+            node_states: RefCell::new(HashMap::new()),
         }
     }
 

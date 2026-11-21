@@ -1,6 +1,5 @@
 //! Role: Verify shared chat scrolling, native composition and selectable code contracts.
 use kivact::prelude::*;
-use kivact::style::ColorToken;
 use kivact::ui::{
     ChatMessageStatus, ChatSender, chat_composer, chat_message, chat_thread, code_block,
 };
@@ -17,7 +16,10 @@ fn chat_thread_is_a_log_and_follows_the_end() {
         let messages = for_each(
             items,
             |id| *id,
-            |id| text(move || format!("Message {}", id.get())).style(style().height(24).shrink(0)),
+            |id| {
+                text(move || format!("Message {}", id.get()))
+                    .style(style().height(24).flex_shrink(0))
+            },
         );
         (
             (items, revision, offset),
@@ -27,7 +29,7 @@ fn chat_thread_is_a_log_and_follows_the_end() {
                     .viewport_ref(viewport)
                     .history_revision(revision)
                     .gap(0.0)
-                    .style(style().size(340, 144).shrink(0)),
+                    .style(style().size(340, 144).flex_shrink(0)),
                 kivact::ui::button("Load history").on_press(move || {
                     items.update(|v| {
                         v.splice(..0, [-2, -1]);
@@ -78,9 +80,7 @@ fn code_block_copies_and_numbers_lines() {
                     (
                         vec![kivact::style::StyledRange {
                             range: 0..line.len(),
-                            color: Some(Color::token(ColorToken::Accent)),
-                            background: None,
-                            decoration: None,
+                            style: kivact::style::style().color(kivact::style::color::ACCENT),
                         }],
                         !*state,
                     )

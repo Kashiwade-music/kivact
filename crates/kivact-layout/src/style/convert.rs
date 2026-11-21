@@ -31,10 +31,12 @@ impl Lengths<'_, '_> {
             Length::Auto => TDim::auto(),
             Length::Px(v) => TDim::length(v as f32),
             Length::Percent(v) => TDim::percent((v / 100.0) as f32),
-            Length::Calc { percent, px } => TDim::calc(self.alloc.calc(percent, px)),
+            Length::Calc { percent, px, .. } => TDim::calc(self.alloc.calc(percent, px)),
             Length::MinContent => TDim::min_content(),
             Length::MaxContent => TDim::max_content(),
             Length::FitContent => TDim::fit_content(),
+            // compile_style resolves em, variables and invalid sums; none reaches layout.
+            Length::Em(_) | Length::Var(_) | Length::Invalid => TDim::auto(),
         }
     }
 
@@ -42,21 +44,33 @@ impl Lengths<'_, '_> {
         match d {
             Length::Percent(v) => LengthPercentage::percent((v / 100.0) as f32),
             Length::Px(v) => LengthPercentage::length(v as f32),
-            Length::Auto | Length::MinContent | Length::MaxContent | Length::FitContent => {
-                LengthPercentage::length(0.0)
+            // compile_style resolves em, variables and invalid sums; none reaches layout.
+            Length::Auto
+            | Length::MinContent
+            | Length::MaxContent
+            | Length::FitContent
+            | Length::Em(_)
+            | Length::Var(_)
+            | Length::Invalid => LengthPercentage::length(0.0),
+            Length::Calc { percent, px, .. } => {
+                LengthPercentage::calc(self.alloc.calc(percent, px))
             }
-            Length::Calc { percent, px } => LengthPercentage::calc(self.alloc.calc(percent, px)),
         }
     }
 
     fn lpa(&mut self, d: Length) -> LengthPercentageAuto {
         match d {
-            Length::Auto | Length::MinContent | Length::MaxContent | Length::FitContent => {
-                LengthPercentageAuto::auto()
-            }
+            // compile_style resolves em, variables and invalid sums; none reaches layout.
+            Length::Auto
+            | Length::MinContent
+            | Length::MaxContent
+            | Length::FitContent
+            | Length::Em(_)
+            | Length::Var(_)
+            | Length::Invalid => LengthPercentageAuto::auto(),
             Length::Px(v) => LengthPercentageAuto::length(v as f32),
             Length::Percent(v) => LengthPercentageAuto::percent((v / 100.0) as f32),
-            Length::Calc { percent, px } => {
+            Length::Calc { percent, px, .. } => {
                 LengthPercentageAuto::calc(self.alloc.calc(percent, px))
             }
         }
@@ -271,10 +285,18 @@ impl Lengths<'_, '_> {
         match b {
             Breadth::Size(Length::Px(v)) => M::length(v as f32),
             Breadth::Size(Length::Percent(v)) => M::percent((v / 100.0) as f32),
-            Breadth::Size(Length::Calc { percent, px }) => M::calc(self.alloc.calc(percent, px)),
+            Breadth::Size(Length::Calc { percent, px, .. }) => {
+                M::calc(self.alloc.calc(percent, px))
+            }
             Breadth::Size(Length::MinContent) => M::min_content(),
             Breadth::Size(Length::MaxContent) => M::max_content(),
-            Breadth::Size(Length::Auto | Length::FitContent)
+            Breadth::Size(
+                Length::Auto
+                | Length::FitContent
+                | Length::Em(_)
+                | Length::Var(_)
+                | Length::Invalid,
+            )
             | Breadth::Fr(_)
             | Breadth::FitContent(_) => M::auto(),
         }
@@ -285,8 +307,12 @@ impl Lengths<'_, '_> {
         match b {
             Breadth::Size(Length::Px(v)) => M::length(v as f32),
             Breadth::Size(Length::Percent(v)) => M::percent((v / 100.0) as f32),
-            Breadth::Size(Length::Calc { percent, px }) => M::calc(self.alloc.calc(percent, px)),
-            Breadth::Size(Length::Auto) => M::auto(),
+            Breadth::Size(Length::Calc { percent, px, .. }) => {
+                M::calc(self.alloc.calc(percent, px))
+            }
+            Breadth::Size(Length::Auto | Length::Em(_) | Length::Var(_) | Length::Invalid) => {
+                M::auto()
+            }
             Breadth::Size(Length::MinContent) => M::min_content(),
             Breadth::Size(Length::MaxContent) => M::max_content(),
             Breadth::Size(Length::FitContent) => M::fit_content_percent(1.0),

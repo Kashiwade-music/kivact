@@ -42,7 +42,8 @@ impl Element for Spinner {
 }
 impl IntoView for Spinner {
     fn into_view(self) -> View {
-        let metrics = kivact_core::style::use_tokens::<crate::UiTokens>()
+        let metrics = kivact_core::style::use_theme()
+            .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
             .indicators
             .clone();
         let size = self.size;
@@ -82,14 +83,15 @@ impl IntoView for Spinner {
             .with_node(|node| {
                 node.base_style(move || {
                     kivact_core::style::style()
-                        .direction(kivact_core::style::Direction::Column)
+                        .flex_direction(kivact_core::style::FlexDirection::Column)
                         .align_items(kivact_core::style::Align::Center)
                         .gap(
-                            kivact_core::style::use_tokens::<crate::UiTokens>()
+                            kivact_core::style::use_theme()
+                                .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
                                 .indicators
                                 .gap,
                         )
-                        .shrink(0)
+                        .flex_shrink(0)
                 })
             })
             .child(glyph)

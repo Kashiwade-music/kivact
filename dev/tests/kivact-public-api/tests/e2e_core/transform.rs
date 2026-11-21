@@ -9,7 +9,7 @@
 //! among siblings, also from a hover state style. Checked on the frame's
 //! pixels (scale 1) and through real input.
 
-use kivact::draw::Transform;
+use kivact::style::Transform;
 use kivact::view::Node;
 use std::cell::RefCell;
 use std::rc::Rc;

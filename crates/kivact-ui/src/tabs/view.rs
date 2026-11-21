@@ -190,7 +190,10 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
         );
         let list = root.part(part).child(labels);
         let list = if self.orientation == Orientation::Vertical {
-            list.style(kivact_core::style::style().direction(kivact_core::style::Direction::Column))
+            list.style(
+                kivact_core::style::style()
+                    .flex_direction(kivact_core::style::FlexDirection::Column),
+            )
         } else {
             list
         };

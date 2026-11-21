@@ -1,20 +1,20 @@
 //! Role: The tabs recipe state, tokens, recipe table and default looks.
 
 use crate::recipe::recipe_table;
-use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 use kivact_core::view::Orientation;
 use kivact_interaction::{TabListState, TabState};
 pub(crate) fn tabs_list(_: &Theme, s: &TabListState) -> Style {
     if s.orientation == Orientation::Vertical {
         style()
-            .direction(Direction::Column)
+            .flex_direction(FlexDirection::Column)
             .gap(4)
-            .border_right(1, ColorToken::Border)
+            .border_right(1, kivact_core::style::color::BORDER)
     } else {
         style()
-            .direction(Direction::Row)
+            .flex_direction(FlexDirection::Row)
             .gap(4)
-            .border_bottom(1, ColorToken::Border)
+            .border_bottom(1, kivact_core::style::color::BORDER)
     }
 }
 
@@ -24,22 +24,22 @@ pub(crate) fn no_tab_indicator(_: &Theme, _: &TabState) -> Style {
 
 pub(crate) fn tab(t: &Theme, s: &TabState) -> Style {
     let mark = if s.orientation == Orientation::Vertical {
-        style().border_right(2, ColorToken::Accent)
+        style().border_right(2, kivact_core::style::color::ACCENT)
     } else {
-        style().border_bottom(2, ColorToken::Accent)
+        style().border_bottom(2, kivact_core::style::color::ACCENT)
     };
     style()
-        .padding_x(t.space().md)
-        .height(t.control_height())
-        .direction(Direction::Row)
+        .padding_x(t.get(&kivact_core::style::space::MD_VAR))
+        .height(t.get(&kivact_core::style::control::HEIGHT_VAR))
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
-        .gap(t.space().sm)
+        .gap(t.get(&kivact_core::style::space::SM_VAR))
         .justify_content(kivact_core::style::Justify::Center)
         .selected(mark)
 }
 
 pub(crate) fn panel(t: &Theme, _: &TabState) -> Style {
-    style().padding(t.space().md)
+    style().padding(t.get(&kivact_core::style::space::MD_VAR))
 }
 
 recipe_table! {

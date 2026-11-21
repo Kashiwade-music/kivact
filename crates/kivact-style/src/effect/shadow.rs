@@ -1,15 +1,14 @@
 //! Role: `Shadow`: a box shadow with offset, blur, spread, color and inset.
 
-use crate::color::Color;
+use crate::color_value::Color;
 use crate::geometry::Point;
-use crate::theme::value::ThemeColor;
 
 /// A box shadow (CSS `box-shadow`); several stack, the first on top.
 ///
 /// ```
 /// use kivact::prelude::*;
 /// use kivact::style::{rgba};
-/// use kivact::draw::Shadow;
+/// use kivact::style::Shadow;
 /// // CSS `box-shadow: 0 4px 14px -4px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.35)`
 /// let s = style()
 ///     .shadow(Shadow::new(0, 4, 14, rgba(0x000000, 0.5)).spread(-4))
@@ -34,13 +33,13 @@ impl Shadow {
         x: impl Into<f64>,
         y: impl Into<f64>,
         blur: impl Into<f64>,
-        color: impl ThemeColor,
+        color: impl Into<Color>,
     ) -> Shadow {
         Shadow {
             offset: Point::new(x.into(), y.into()),
             blur: blur.into(),
             spread: 0.0,
-            color: Color::of(color),
+            color: color.into(),
             inset: false,
         }
     }

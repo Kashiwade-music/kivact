@@ -14,7 +14,7 @@ fn lane() -> Node {
         style()
             .width(28)
             .min_width(28)
-            .shrink(0)
+            .flex_shrink(0)
             .align_items(Align::Center)
             .justify_content(Justify::Center),
     )
@@ -81,7 +81,7 @@ fn marker(status: RowStatus) -> View {
             if has_icon {
                 style().size(12, 12).color(color)
             } else {
-                style().size(8, 8).radius(4).background(color)
+                style().size(8, 8).border_radius(4).background(color)
             }
         });
     tooltip(label).attach(mark)

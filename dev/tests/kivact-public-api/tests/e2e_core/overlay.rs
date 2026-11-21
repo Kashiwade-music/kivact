@@ -20,7 +20,7 @@ fn fitted_overlays_flip_slide_and_respect_the_theme_margin() {
     let screen = render_with(
         RenderOptions::from_env()
             .window_size(240.0, 180.0)
-            .theme(Theme::light().with_overlay_margin(16.0)),
+            .theme(Theme::light().set(&kivact::style::control::OVERLAY_MARGIN_VAR, 16.0)),
         || {
             let anchor = node_ref();
             let middle = node_ref();

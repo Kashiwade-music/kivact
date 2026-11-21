@@ -13,9 +13,8 @@ use kivact_engine::contract::HostEvent;
 use kivact_runtime::NodeId as EffectId;
 use kivact_runtime::driver::Runtime;
 use kivact_runtime::{Handled, Owner, Signal, Value};
-use kivact_style::internal::ForcedStates;
 use kivact_style::{Style, Theme};
-use kivact_types::{Capabilities, FocusTarget, NodeId, WindowId};
+use kivact_types::{Capabilities, FocusTarget, NodeId, StateSet, WindowId};
 
 use crate::i18n::Locale;
 
@@ -67,5 +66,5 @@ pub(crate) trait NodeStyleHook {
     /// the DevTools override signal).
     fn apply(&self, style: Style) -> Style;
     /// The states a tool forces on the node.
-    fn forced(&self) -> ForcedStates;
+    fn forced(&self) -> StateSet;
 }

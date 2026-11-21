@@ -367,6 +367,13 @@ impl Element for Overlay {
     }
 }
 
+/// The theme's overlay margin, read in the theme in effect (tracked).
+fn theme_overlay_margin() -> f64 {
+    kivact_style::use_theme()
+        .get()
+        .get(&kivact_style::control::OVERLAY_MARGIN_VAR)
+}
+
 impl IntoView for Overlay {
     fn into_view(self) -> View {
         view_fn(move |cx| {
@@ -420,16 +427,13 @@ impl IntoView for Overlay {
                         placement: placement.get(),
                         align: align.get(),
                         offset: offset.get(),
-                        fit: viewport_margin
-                            .as_ref()
-                            .map(InputProp::get)
-                            .or_else(|| Some(kivact_style::use_theme().get().overlay_margin()))
-                            .map(|margin| kivact_types::OverlayFit {
-                                margin,
-                                keep_anchor_clear,
-                                rtl: crate::view::use_direction()
-                                    == crate::view::ReadingDirection::Rtl,
-                            }),
+                        fit: Some(kivact_types::OverlayFit {
+                            margin: viewport_margin
+                                .as_ref()
+                                .map_or_else(theme_overlay_margin, InputProp::get),
+                            keep_anchor_clear,
+                            rtl: crate::view::use_direction() == crate::view::ReadingDirection::Rtl,
+                        }),
                         modal,
                     };
                     ViewState::tree_mut(&rt).update(

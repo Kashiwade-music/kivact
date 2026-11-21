@@ -74,7 +74,7 @@ pub(super) fn footer<R: kivact_core::state::PropValue, K: kivact_core::state::It
                 ]
             },
         );
-        kivact_core::view::text(text).style(style().grow(1))
+        kivact_core::view::text(text).style(style().flex_grow(1))
     });
     let (pager, size_picker) = match context.paging {
         Paging::Off => (None, None),
@@ -91,7 +91,9 @@ pub(super) fn footer<R: kivact_core::state::PropValue, K: kivact_core::state::It
             sizes.map(|sizes| size_picker(page_size, sizes)),
         ),
     };
-    let spacer = summary.is_none().then(|| node().style(style().grow(1)));
+    let spacer = summary
+        .is_none()
+        .then(|| node().style(style().flex_grow(1)));
     Some(
         with_recipe_style(
             row((summary, spacer, size_picker, pager)),

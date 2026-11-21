@@ -195,7 +195,8 @@ impl RowContents {
         let has_description = self.description.is_some() || self.description_content.is_some();
         let (title_lines, description_lines) = (self.title_lines, self.description_lines);
         let part = part(move |input| {
-            let tokens = kivact_core::style::use_tokens::<crate::UiTokens>();
+            let tokens = kivact_core::style::use_theme()
+                .with(kivact_core::style::Theme::ext::<crate::UiTokens>);
             ItemRowState {
                 input,
                 has_description,

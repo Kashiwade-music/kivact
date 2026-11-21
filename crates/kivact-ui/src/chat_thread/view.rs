@@ -5,7 +5,7 @@ use crate::chat_thread::look::ChatThreadState;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Value};
-use kivact_core::style::{Direction, style};
+use kivact_core::style::{FlexDirection, style};
 use kivact_core::view::{
     Element, IntoView, Node, NodeRef, Role, ScrollAxes, View, node, node_ref, scroll,
 };
@@ -101,13 +101,19 @@ impl Element for ChatThread {
         &mut self.root
     }
 }
+/// The chat thread's follow slack in the theme in effect (tracked).
+fn follow_slack() -> f64 {
+    kivact_core::style::use_theme()
+        .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
+        .chat
+        .follow_slack
+}
+
 impl IntoView for ChatThread {
     fn into_view(self) -> View {
         let viewport = self.viewport.unwrap_or_else(node_ref);
         let content = node_ref();
-        let slack = kivact_core::style::use_tokens::<crate::UiTokens>()
-            .chat
-            .follow_slack;
+        let slack = follow_slack();
         let follow = use_follow_end(viewport, content, slack, self.history_revision);
         let distance = follow.distance();
         let state = move || ChatThreadState {
@@ -131,9 +137,9 @@ impl IntoView for ChatThread {
         )
         .style(move || {
             let s = style()
-                .direction(Direction::Column)
-                .grow(1)
-                .shrink(0)
+                .flex_direction(FlexDirection::Column)
+                .flex_grow(1)
+                .flex_shrink(0)
                 .justify_content(if align.get() == ChatAlign::End {
                     kivact_core::style::Justify::End
                 } else {

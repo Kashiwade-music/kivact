@@ -8,7 +8,7 @@
 //! hit under the mouse (where the last click was) and at the window's center
 //! with the complete walk, drawables included.
 
-use kivact::draw::Transform;
+use kivact::style::Transform;
 use kivact::view::{Node, drawable};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -61,7 +61,7 @@ fn latency_screen(pinned: bool) -> Screen {
             button("Bump").on_press(move || first.update(|l| l.push('!'))),
             scroll(column(rows))
                 .test_id("list")
-                .style(style().height(300).shrink(0.0)),
+                .style(style().height(300).flex_shrink(0.0)),
         ));
         ((), view)
     });
@@ -141,13 +141,13 @@ fn a_list_clips_rows_by_scroll_and_focus() {
                     .role(Role::Option)
                     .name(format!("Option {i}"))
                     .focusable(true)
-                    .style(style().height(20).shrink(0.0))
+                    .style(style().height(20).flex_shrink(0.0))
             })
             .collect();
         let view = scroll(column(options))
             .with_node(|n| n.role(Role::ListBox))
             .test_id("options")
-            .style(style().height(200).shrink(0.0));
+            .style(style().height(200).flex_shrink(0.0));
         ((), view)
     });
     let list = screen.get_by_test_id("options");
@@ -194,13 +194,14 @@ fn rows_with_heading(log: &Log) -> impl IntoView {
                 .position(Position::Sticky)
                 .top(0)
                 .height(20)
-                .shrink(0.0)
+                .flex_shrink(0.0)
                 .background(rgb(0xdddddd)),
         ),
     ];
-    children.extend(
-        (0..200).map(|i| pressable(format!("row {i}"), log).style(style().height(20).shrink(0.0))),
-    );
+    children
+        .extend((0..200).map(|i| {
+            pressable(format!("row {i}"), log).style(style().height(20).flex_shrink(0.0))
+        }));
     scroll(column(children))
         .test_id("rows")
         .style(at(450, 40, 200, 200))

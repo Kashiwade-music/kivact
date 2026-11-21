@@ -7,7 +7,7 @@
 //! (position within ±1 device px), compositor ops (±2/255 per channel).
 //! Checked on real windows at scale 1.
 
-use kivact::draw::Transform;
+use kivact::style::Transform;
 use kivact::view::Node;
 use std::cell::RefCell;
 use std::rc::Rc;

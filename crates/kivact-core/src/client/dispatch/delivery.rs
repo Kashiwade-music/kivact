@@ -165,6 +165,9 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
         return;
     }
     match host_event {
+        HostEvent::StatesChanged { node, states } => {
+            crate::view::node_states::states_changed(rt, *node, *states)
+        }
         HostEvent::DuplicateLayoutId { node, id } => {
             diagnostics::duplicate_layout_id(rt, *node, id)
         }

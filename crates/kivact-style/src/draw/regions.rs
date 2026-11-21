@@ -86,10 +86,11 @@ impl Draw {
     /// A shaped region resolved against `rect`, following the current transform.
     /// Draw clips do not restrict the region's hit area.
     pub fn region_shape(&mut self, id: RegionId, rect: Rect, shape: &Shape) {
-        if self.push_region(id, rect)
-            && let Some(region) = self.regions.last_mut()
-        {
-            region.shape = Some(basic(rect, shape));
+        if self.push_region(id, rect) {
+            let shape = self.resolving(|cx| basic(rect, shape, cx));
+            if let Some(region) = self.regions.last_mut() {
+                region.shape = Some(shape);
+            }
         }
     }
 

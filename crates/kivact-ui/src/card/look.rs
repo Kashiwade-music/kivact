@@ -2,29 +2,29 @@
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{ColorToken, Direction, Style, Theme, style};
+use kivact_core::style::{FlexDirection, Style, Theme, style};
 pub(crate) fn card_root(t: &Theme, s: &Look<CardState>) -> Style {
     let color = if s.selection() == Selectable::Selected {
-        ColorToken::Accent
+        kivact_core::style::color::ACCENT
     } else {
-        ColorToken::Border
+        kivact_core::style::color::BORDER
     };
     let base = style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .min_width(0)
-        .radius(t.radius().md)
+        .border_radius(t.get(&kivact_core::style::radius::MD_VAR))
         .border(1, color)
-        .background(ColorToken::Surface)
-        .color(ColorToken::Text);
+        .background(kivact_core::style::color::SURFACE)
+        .color(kivact_core::style::color::TEXT);
     if s.is_interactive() {
-        base.focus_visible(style().ring_with_offset(
-            t.focus_ring(),
-            t.focus_ring_offset(),
-            ColorToken::Focus,
-        ))
-        .hover(style().background(ColorToken::SurfaceAlt))
-        .pressed(style().background(ColorToken::Pressed))
-        .disabled(style().opacity(t.disabled_opacity()))
+        base.focus_visible(
+            style()
+                .outline(t.focus_ring(), kivact_core::style::color::FOCUS)
+                .outline_offset(t.focus_ring_offset()),
+        )
+        .hover(style().background(kivact_core::style::color::SURFACE_ALT))
+        .active(style().background(kivact_core::style::color::PRESSED))
+        .disabled(style().opacity(t.get(&kivact_core::style::control::DISABLED_OPACITY_VAR)))
     } else {
         base
     }
@@ -32,9 +32,9 @@ pub(crate) fn card_root(t: &Theme, s: &Look<CardState>) -> Style {
 
 pub(crate) fn card_region(t: &Theme, _: &Look<CardState>) -> Style {
     style()
-        .direction(Direction::Column)
-        .gap(t.space().sm)
-        .padding(t.space().md)
+        .flex_direction(FlexDirection::Column)
+        .gap(t.get(&kivact_core::style::space::SM_VAR))
+        .padding(t.get(&kivact_core::style::space::MD_VAR))
         .min_width(0)
 }
 

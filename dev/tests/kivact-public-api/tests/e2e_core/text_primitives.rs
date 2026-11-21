@@ -7,7 +7,6 @@
 //! publishes for assistive technology (`Node::semantics_text`). The
 //! editor built from all three is the `kivact-text-primitives` fixture.
 
-use kivact::style::ColorToken;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -45,7 +44,7 @@ fn paragraph_node(text: &'static str, width: Option<f64>, seen: Rc<RefCell<Seen>
         })
         .draw(move |d, _| {
             let paragraph = d.layout_paragraph(text, &style_14(), width);
-            d.paragraph(&paragraph, Point::new(0.0, 0.0), ColorToken::Text);
+            d.paragraph(&paragraph, Point::new(0.0, 0.0), kivact::style::color::TEXT);
             seen.borrow_mut().drawn = Some(paragraph);
         })
         .test_id("p")
@@ -112,9 +111,13 @@ fn measured_inline_boxes_wrap_and_share_the_text_baseline_in_draw() {
                 let result = d
                     .layout_inline_paragraph(text, &style_14(), width, &[item])
                     .expect("same inline layout during drawing");
-                d.paragraph(result.paragraph(), Point::default(), ColorToken::Text);
+                d.paragraph(
+                    result.paragraph(),
+                    Point::default(),
+                    kivact::style::color::TEXT,
+                );
                 for placement in result.boxes() {
-                    d.fill_rect(placement.rect, ColorToken::Accent);
+                    d.fill_rect(placement.rect, kivact::style::color::ACCENT);
                 }
                 draw.borrow_mut().1 = Some(result);
             });
@@ -150,7 +153,7 @@ fn a_paragraph_draws_the_pixels_of_the_text_it_measured() {
                     .style(style().size(200, 32))
                     .draw(|d, _| {
                         let paragraph = d.layout_paragraph("Paragraph pixels", &style_14(), None);
-                        d.paragraph(&paragraph, Point::new(0.0, 0.0), ColorToken::Text);
+                        d.paragraph(&paragraph, Point::new(0.0, 0.0), kivact::style::color::TEXT);
                     }),
             )),
         )

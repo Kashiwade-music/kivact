@@ -246,7 +246,6 @@ impl<A: Into<GridPlacement>, B: Into<GridPlacement>> From<(A, B)> for GridPlacem
 
 pub use kivact_types::GridAutoFlow;
 
-// xtask-allow(state): legacy: columns, rows, auto_columns, auto_rows, flow, column, row, justify_items, justify_self; one authored property; absent means the inherited or default
 /// The grid props a style sets (boxed in `Style`: most styles set none).
 #[derive(Clone, Debug, PartialEq, Default)]
 pub(crate) struct GridStyle {
@@ -259,30 +258,6 @@ pub(crate) struct GridStyle {
     pub(crate) row: Option<GridPlacement>,
     pub(crate) justify_items: Option<Align>,
     pub(crate) justify_self: Option<Align>,
-}
-
-impl GridStyle {
-    /// Overlay `o` on `self` (fields set in `o` win).
-    pub(crate) fn merge(&mut self, o: &GridStyle) {
-        macro_rules! take {
-            ($($f:ident),*) => {$(
-                if o.$f.is_some() {
-                    self.$f = o.$f.clone();
-                }
-            )*};
-        }
-        take!(
-            columns,
-            rows,
-            auto_columns,
-            auto_rows,
-            flow,
-            column,
-            row,
-            justify_items,
-            justify_self
-        );
-    }
 }
 
 /// A list of track sizes (repeats left out).

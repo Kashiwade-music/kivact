@@ -3,46 +3,52 @@ use crate::look_common::mark;
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
-use kivact_core::style::{ColorToken, Position, Style, Theme, pct, style};
+use kivact_core::style::{Position, Style, Theme, pct, style};
 use kivact_interaction::DialogMode;
 pub(crate) fn dialog_surface(t: &Theme, _: &DialogState) -> Style {
     style()
         .width(480)
         .max_width(pct(100))
-        .background(ColorToken::Surface)
-        .border(1, ColorToken::Border)
-        .radius(t.radius().md)
+        .background(kivact_core::style::color::SURFACE)
+        .border(1, kivact_core::style::color::BORDER)
+        .border_radius(t.get(&kivact_core::style::radius::MD_VAR))
 }
 
 pub(crate) fn dialog_title(t: &Theme, _: &DialogState) -> Style {
     style()
-        .font_size(t.text().size + 4.0)
-        .weight(t.text().weight_strong)
+        .font_size(t.get(&kivact_core::style::font::SIZE_VAR) + 4.0)
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
 }
 
 pub(crate) fn dialog_description(_: &Theme, _: &DialogState) -> Style {
-    style().color(ColorToken::TextMuted)
+    style().color(kivact_core::style::color::TEXT_MUTED)
 }
 
 /// The title over the description, clear of the close button.
 pub(crate) fn dialog_header(t: &Theme, _: &DialogState) -> Style {
     style()
-        .padding(t.space().lg)
-        .padding_right(t.space().lg + 24.0 + t.space().sm)
-        .gap(t.space().sm)
+        .padding(t.get(&kivact_core::style::space::LG_VAR))
+        .padding_right(
+            t.get(&kivact_core::style::space::LG_VAR)
+                + 24.0
+                + t.get(&kivact_core::style::space::SM_VAR),
+        )
+        .gap(t.get(&kivact_core::style::space::SM_VAR))
 }
 
 /// The media view's box, above the title.
 pub(crate) fn dialog_media(_: &Theme, _: &DialogState) -> Style {
-    style().shrink(0)
+    style().flex_shrink(0)
 }
 
 pub(crate) fn dialog_body(t: &Theme, _: &DialogState) -> Style {
-    style().padding(t.space().lg)
+    style().padding(t.get(&kivact_core::style::space::LG_VAR))
 }
 
 pub(crate) fn dialog_footer(t: &Theme, _: &DialogState) -> Style {
-    style().padding(t.space().lg).gap(t.space().sm)
+    style()
+        .padding(t.get(&kivact_core::style::space::LG_VAR))
+        .gap(t.get(&kivact_core::style::space::SM_VAR))
 }
 
 pub(crate) fn dialog_scrim(_: &Theme, _: &DialogState) -> Style {
@@ -54,15 +60,15 @@ pub(crate) fn dialog_scrim(_: &Theme, _: &DialogState) -> Style {
 
 /// The close button at the surface's top right, around its `x` icon.
 pub(crate) fn dialog_close(t: &Theme, _: &DialogState) -> Style {
-    let inset = t.space().lg - 4.0;
+    let inset = t.get(&kivact_core::style::space::LG_VAR) - 4.0;
     mark()
         .position(Position::Absolute)
         .top(inset)
         .right(inset)
         .size(24, 24)
-        .radius(t.radius().sm)
-        .color(ColorToken::TextMuted)
-        .hover(style().background(ColorToken::Hover))
+        .border_radius(t.get(&kivact_core::style::radius::SM_VAR))
+        .color(kivact_core::style::color::TEXT_MUTED)
+        .hover(style().background(kivact_core::style::color::HOVER))
 }
 
 /// Pointer target for pulling a drawer toward its edge.
@@ -73,9 +79,9 @@ pub(crate) fn drawer_handle(_: &Theme, state: &DialogState) -> Style {
             kivact_core::geometry::Edge::Left | kivact_core::geometry::Edge::Right
         )
     ) {
-        style().width(24).height(48).shrink(0)
+        style().width(24).height(48).flex_shrink(0)
     } else {
-        style().height(24).width(48).shrink(0)
+        style().height(24).width(48).flex_shrink(0)
     }
 }
 

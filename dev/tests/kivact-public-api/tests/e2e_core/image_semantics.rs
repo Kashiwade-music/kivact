@@ -32,7 +32,7 @@ fn image_container_is_decorative_until_named() {
         column((
             node()
                 .role(Role::Image)
-                .style(style().size(16, 16).shrink(0))
+                .style(style().size(16, 16).flex_shrink(0))
                 .child(
                     image(SQUARE)
                         .monochrome(true)
@@ -42,7 +42,7 @@ fn image_container_is_decorative_until_named() {
                 .test_id("plain"),
             node()
                 .role(Role::Image)
-                .style(style().size(16, 16).shrink(0))
+                .style(style().size(16, 16).flex_shrink(0))
                 .child(
                     image(SQUARE)
                         .monochrome(true)

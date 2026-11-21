@@ -2,13 +2,13 @@
 
 use crate::recipe::recipe_table;
 use crate::slider::look::AxisState;
-use kivact_core::style::{ColorToken, Cursor, Direction, Justify, Style, Theme, style};
+use kivact_core::style::{Cursor, FlexDirection, Justify, Style, Theme, style};
 use kivact_core::view::Orientation;
 /// The handle: a hairline in a hit area wide enough to grab.
 pub(crate) fn splitter_handle(_: &Theme, state: &AxisState) -> Style {
     let s = style()
-        .shrink(0)
-        .direction(Direction::Row)
+        .flex_shrink(0)
+        .flex_direction(FlexDirection::Row)
         .justify_content(Justify::Center)
         .paint(|d, size| {
             if size.width <= size.height {
@@ -19,7 +19,7 @@ pub(crate) fn splitter_handle(_: &Theme, state: &AxisState) -> Style {
                         1.0,
                         size.height,
                     ),
-                    ColorToken::Border,
+                    kivact_core::style::color::BORDER,
                 );
             } else {
                 d.fill_rect(
@@ -29,12 +29,12 @@ pub(crate) fn splitter_handle(_: &Theme, state: &AxisState) -> Style {
                         size.width,
                         1.0,
                     ),
-                    ColorToken::Border,
+                    kivact_core::style::color::BORDER,
                 );
             }
         })
-        .hover(style().background(ColorToken::Hover))
-        .pressed(style().background(ColorToken::Pressed));
+        .hover(style().background(kivact_core::style::color::HOVER))
+        .active(style().background(kivact_core::style::color::PRESSED));
     match state.orientation {
         Orientation::Vertical => s.height(6).cursor(Cursor::NsResize),
         _ => s.width(6).cursor(Cursor::EwResize),

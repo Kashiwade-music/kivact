@@ -2,36 +2,36 @@
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{ColorToken, Direction, Style, Theme, style};
+use kivact_core::style::{FlexDirection, Style, Theme, style};
 use kivact_macros::Prop;
 pub(crate) fn stat_root(t: &Theme, _: &Look<StatState>) -> Style {
     style()
-        .direction(Direction::Column)
-        .gap(t.space().sm)
-        .padding(t.space().md)
+        .flex_direction(FlexDirection::Column)
+        .gap(t.get(&kivact_core::style::space::SM_VAR))
+        .padding(t.get(&kivact_core::style::space::MD_VAR))
         .min_width(0)
-        .background(ColorToken::Surface)
-        .border(1, ColorToken::Border)
-        .radius(t.radius().md)
+        .background(kivact_core::style::color::SURFACE)
+        .border(1, kivact_core::style::color::BORDER)
+        .border_radius(t.get(&kivact_core::style::radius::MD_VAR))
 }
 
 pub(crate) fn stat_label(t: &Theme, _: &Look<StatState>) -> Style {
     style()
-        .font_size(t.text().size_small)
-        .color(ColorToken::TextMuted)
+        .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
+        .color(kivact_core::style::color::TEXT_MUTED)
 }
 
 pub(crate) fn stat_value(t: &Theme, _: &Look<StatState>) -> Style {
     style()
-        .font_size(t.text().size * 2.0)
-        .weight(t.text().weight_strong)
-        .color(ColorToken::Text)
+        .font_size(t.get(&kivact_core::style::font::SIZE_VAR) * 2.0)
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .color(kivact_core::style::color::TEXT)
 }
 
 pub(crate) fn stat_delta(t: &Theme, _: &Look<StatState>) -> Style {
     style()
-        .font_size(t.text().size_small)
-        .color(ColorToken::TextMuted)
+        .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
+        .color(kivact_core::style::color::TEXT_MUTED)
 }
 
 pub(crate) fn stat_slot(_: &Theme, _: &Look<StatState>) -> Style {

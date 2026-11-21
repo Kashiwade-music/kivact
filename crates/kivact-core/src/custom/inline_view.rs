@@ -80,14 +80,14 @@ pub fn inline_view(
             let height = layout
                 .get()
                 .map_or(0.0, |snapshot| snapshot.0.paragraph().size().height);
-            style().width(pct(100)).height(height).shrink(0)
+            style().width(pct(100)).height(height).flex_shrink(0)
         })
         .draw(move |draw, _| {
             if let Some(snapshot) = layout.get() {
                 draw.paragraph(
                     snapshot.0.paragraph(),
                     Point::default(),
-                    kivact_style::ColorToken::Text,
+                    kivact_style::color::TEXT,
                 );
             }
         })

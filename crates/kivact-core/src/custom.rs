@@ -115,7 +115,7 @@
 //! ```no_run
 //! # use kivact_core as kivact;
 //! use kivact::state::{Signal};
-//! use kivact::style::{ColorToken};
+//! use kivact::style::{Color};
 //! use kivact::view::{IntoView, Element, Role, row};
 //! use kivact::geometry::{Rect, Size};
 //! use kivact::custom::{Constraints, primitive};
@@ -127,7 +127,7 @@
 //!         .draw(move |d, size| {
 //!             for i in 0..n.get() {
 //!                 let x = i as f64 * 12.0;
-//!                 d.rounded_rect(Rect::new(x + 2.0, 2.0, 8.0, size.height - 4.0), 4.0, ColorToken::Accent);
+//!                 d.rounded_rect(Rect::new(x + 2.0, 2.0, 8.0, size.height - 4.0), 4.0, kivact::style::color::ACCENT);
 //!             }
 //!         })
 //!         .with_node(|node| node.role(Role::Status))

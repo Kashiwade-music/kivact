@@ -86,9 +86,9 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
                     source.revision.track();
                     // The storage borrow ends before the callback, which is
                     // user code.
-                    let compiled = source.value.borrow().clone();
-                    if let Some(compiled) = compiled {
-                        compiled.paint_retained(d, sz);
+                    let retained = source.value.borrow().clone();
+                    if let Some(retained) = retained {
+                        retained.draw(d, sz);
                     }
                 }
             });

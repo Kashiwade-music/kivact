@@ -3,7 +3,7 @@
 use crate::stepper::look::{StepIndicatorKind, StepStatus, StepperItemState, StepperState};
 use kivact_core::custom::Prop;
 use kivact_core::state::{Callback, IntoText, IntoValue, Value, callback, memo};
-use kivact_core::style::{Direction, style};
+use kivact_core::style::{FlexDirection, style};
 use kivact_core::view::{
     CurrentItem, Element, IntoView, Node, Orientation, Role, View, column, for_index, node,
     node_ref, show, text,
@@ -204,10 +204,10 @@ impl IntoView for Stepper {
             move || layout.get(),
         )
         .style(move || {
-            style().direction(if orientation.get() == Orientation::Vertical {
-                Direction::Column
+            style().flex_direction(if orientation.get() == Orientation::Vertical {
+                FlexDirection::Column
             } else {
-                Direction::Row
+                FlexDirection::Row
             })
         })
         .child(previous)

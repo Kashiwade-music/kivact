@@ -1,8 +1,9 @@
 //! Role: Tests for canvas pixels, shaping, compositing, and hit regions.
-use kivact::draw::Transform;
-use kivact::draw::{BlendMode, Filter, LineCap, Shape, radial_gradient};
-use kivact::draw::{FillRule, ImageOptions, Layer};
+use kivact::draw::LineCap;
+use kivact::draw::{FillRule, ImageOptions, Layer, Mix};
 use kivact::prelude::*;
+use kivact::style::Transform;
+use kivact::style::{BlendMode, Filter, Shape, radial_gradient};
 use kivact::test::render;
 use kivact_public_api_tests::paint::{BLACK, BLUE, RED, WHITE, expect, pixel};
 
@@ -74,7 +75,7 @@ fn asset_source_rect_and_path_helpers_are_drawn() {
             d.fill_path(&ellipse, rgb(RED));
             let rounded = Path::new().rounded_rect(
                 Rect::new(90., 0., 40., 30.),
-                [10.into(), (15, 5).into(), 0.into(), 5.into()],
+                [(10.0, 10.0), (15.0, 5.0), (0.0, 0.0), (5.0, 5.0)],
             );
             d.fill_path(&rounded, Color::BLACK);
             let svg_arc = Path::new()
@@ -154,7 +155,7 @@ fn dashed_round_caps_arcs_glow_and_additive_layers() {
                 );
             });
             d.fill_rect(Rect::new(90., 0., 30., 30.), rgb(RED));
-            d.layer(Layer::new().blend(BlendMode::PlusLighter), |d| {
+            d.layer(Layer::new().mix(Mix::Blend(BlendMode::PlusLighter)), |d| {
                 d.fill_rect(Rect::new(100., 10., 30., 30.), rgb(BLUE));
             });
         })

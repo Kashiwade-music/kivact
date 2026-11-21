@@ -36,9 +36,9 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         )
         .row_label(|task| format!("{} #{}", kind_text(task.kind), task.id))
         .name("Tasks and resources")
-        .style(style().grow(1.0).min_height(0.0)),
+        .style(style().flex_grow(1.0).min_height(0.0)),
     ))
-    .style(style().grow(1.0).min_height(0.0))
+    .style(style().flex_grow(1.0).min_height(0.0))
 }
 
 /// The wire name of a task kind.

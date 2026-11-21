@@ -8,12 +8,11 @@
 //! They compare no pixels of the document (Q-01).
 
 use kivact::ErrorKind;
-use kivact::draw::{
-    Composite, Draw, ImageOptions, Layer, Offscreen, Pixels, TextFormat, Transform, linear_gradient,
-};
+use kivact::draw::{Composite, Draw, ImageOptions, Layer, Mix, Offscreen, Pixels, TextFormat};
 use kivact::geometry::{Point, Rect, Size};
-use kivact::style::theme::Typography;
+use kivact::style::FontFamily;
 use kivact::style::{Color, Theme, rgb};
+use kivact::style::{Transform, linear_gradient};
 use std::cell::Cell;
 
 static TUFFY: &[u8] = include_bytes!("../../../../../crates/arvane/assets/fonts/Tuffy.ttf");
@@ -184,7 +183,10 @@ fn a_layer_svg_cannot_express_is_an_error() {
     let mut renderer = Offscreen::new();
     let error = renderer
         .render_svg(10.0, 10.0, |draw, _size| {
-            draw.layer(Layer::new().composite(Composite::DestinationOut), |_| {});
+            draw.layer(
+                Layer::new().mix(Mix::Composite(Composite::DestinationOut)),
+                |_| {},
+            );
         })
         .expect_err("a composite operation has no SVG 1.1 form");
     assert_eq!(error.kind(), &ErrorKind::Unsupported);
@@ -220,10 +222,7 @@ fn artwork(draw: &mut Draw, size: Size) {
 
 #[test]
 fn one_offscreen_with_its_font_exports_the_pixels_and_the_document_of_one_drawing() {
-    let theme = Theme::default().with_text(Typography {
-        family: Some("Tuffy".into()),
-        ..Theme::default().text().clone()
-    });
+    let theme = Theme::default().set(&kivact::style::font::FAMILY_VAR, FontFamily::from("Tuffy"));
     let mut renderer = Offscreen::new().theme(theme);
     renderer.font(TUFFY).expect("the bundled font registers");
 

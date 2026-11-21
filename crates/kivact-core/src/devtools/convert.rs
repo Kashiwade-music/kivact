@@ -5,8 +5,7 @@ use std::panic::Location;
 use kivact_devtools_protocol as p;
 use kivact_engine::contract::{KeyChord, NodeType};
 use kivact_runtime::Stage;
-use kivact_style::internal::ForcedStates;
-use kivact_types::{A11yAction, A11yRequest, Key, Modifiers, MouseButton};
+use kivact_types::{A11yAction, A11yRequest, Key, Modifiers, MouseButton, StyleState};
 
 use kivact_types::{Rect, WindowId};
 
@@ -215,15 +214,15 @@ pub(crate) fn a11y_request(
         .ok_or_else(|| p::RpcError::new(p::code::INVALID_PARAMS, "unknown accessibility action"))
 }
 
-/// The forced states of a protocol interactive state.
-pub(crate) fn forced_state(state: p::InteractiveState) -> ForcedStates {
+/// The style state a protocol interactive state forces.
+pub(crate) fn forced_state(state: p::InteractiveState) -> StyleState {
     match state {
-        p::InteractiveState::Hovered => ForcedStates::HOVER,
-        p::InteractiveState::Pressed => ForcedStates::PRESSED,
-        p::InteractiveState::Focused => ForcedStates::FOCUS,
-        p::InteractiveState::FocusVisible => ForcedStates::FOCUS_VISIBLE,
-        p::InteractiveState::Disabled => ForcedStates::DISABLED,
-        p::InteractiveState::Selected => ForcedStates::SELECTED,
+        p::InteractiveState::Hovered => StyleState::Hover,
+        p::InteractiveState::Pressed => StyleState::Active,
+        p::InteractiveState::Focused => StyleState::Focus,
+        p::InteractiveState::FocusVisible => StyleState::FocusVisible,
+        p::InteractiveState::Disabled => StyleState::Disabled,
+        p::InteractiveState::Selected => StyleState::Selected,
     }
 }
 

@@ -4,7 +4,7 @@ use crate::{Button, ButtonVariant, button};
 use kivact_core::i18n::message;
 use kivact_core::motion::{Easing, Transition};
 use kivact_core::state::{Signal, Value, memo};
-use kivact_core::style::{Align, ColorToken, Direction, TransitionProp, style};
+use kivact_core::style::{Align, FlexDirection, TransitionProp, style};
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
 use kivact_core::view::{ReadingDirection, View, dynamic, use_direction};
@@ -135,7 +135,9 @@ impl<K: kivact_core::state::ItemKey> Plan<K> {
         let open = self.open(key.clone());
         let trigger = dynamic(self.is_parent(key.clone()), move |branch| {
             if !branch {
-                return node().style(style().size(24, 24).shrink(0)).into_view();
+                return node()
+                    .style(style().size(24, 24).flex_shrink(0))
+                    .into_view();
             }
             let key = key.clone();
             control(open, false)
@@ -156,7 +158,9 @@ impl<K: kivact_core::state::ItemKey> Plan<K> {
                 let inset = level.get().saturating_sub(1) as f64 * self.indent.pixels();
                 let style = style().gap(4).align_items(Align::Center).min_width(0);
                 if rtl {
-                    style.direction(Direction::RowReverse).padding_right(inset)
+                    style
+                        .flex_direction(FlexDirection::RowReverse)
+                        .padding_right(inset)
                 } else {
                     style.padding_left(inset)
                 }
@@ -228,15 +232,15 @@ fn control(open: Value<bool>, all: bool) -> Button {
             .size(24, 24)
             .min_width(24)
             .min_height(24)
-            .shrink(0)
+            .flex_shrink(0)
             .padding(0)
-            .radius(6),
+            .border_radius(6),
     )
     .child(
         icon(if rtl { "chevron-left" } else { "chevron-right" }).style(move || {
             style()
                 .size(12, 12)
-                .color(ColorToken::TextMuted)
+                .color(kivact_core::style::color::TEXT_MUTED)
                 .rotate(if open.get() {
                     if rtl { -90.0 } else { 90.0 }
                 } else {

@@ -13,6 +13,7 @@ use kivact_engine::api::PropValue;
 use kivact_engine::contract::LeafMeasure;
 use kivact_runtime::Prop as InputProp;
 use kivact_runtime::driver::EffectKind;
+use kivact_style::Theme;
 use kivact_types::{self as values, NodeId};
 use std::cell::RefCell;
 use std::panic::Location;
@@ -89,9 +90,10 @@ impl Primitive {
     }
 }
 
-/// Write the leaf's measure function for every new content of `src`: a
-/// constant once (in the node's creation), anything else from one render
-/// effect that skips a content equal to the last.
+/// Write the leaf's measure function for every new content of `src` or
+/// new theme, from one render effect that skips a content and theme equal
+/// to the last (like an editor's highlighter). The theme is the one visible
+/// from the node, read here, so a theme switch measures again.
 ///
 /// The engine calls the function inside its layout, with its tree
 /// borrowed: a panic there propagates and ends the App. The current
@@ -111,36 +113,34 @@ fn bind_measure<T, F, R>(
     F: Fn(&T, Constraints<'_>) -> R + 'static,
 {
     let owner = cx.owner;
-    let current: Current<T, Rc<F>> = Rc::new(RefCell::new(HookSlot::Disposed));
+    let current: Current<(T, Theme), Rc<F>> = Rc::new(RefCell::new(HookSlot::Disposed));
     let held = current.clone();
     owner.on_cleanup(move || drop(held.replace(HookSlot::Disposed)));
     let now = current.clone();
-    let leaf = move |content: T| {
+    let leaf = move |content: (T, Theme)| {
         let (hook, hooked) = SyncHook::new(owner, content, f.clone());
         *current.borrow_mut() = HookSlot::Live(hooked);
         LeafMeasure::new(move |request, text| {
-            hook.call(|content, f| f(content, constraints(request, text)))
+            hook.call(|(content, theme), f| f(content, constraints(request, text, theme)))
                 .map_or_else(values::LeafSize::default, |measured| {
                     sanitize(measured.into())
                 })
         })
     };
-    if let Some(v) = src.fixed() {
-        let measure = leaf(v);
-        cx.update(id, PropValue::Measure(measure));
-        return;
-    }
     let weak = cx.weak();
     cx.effect(EffectKind::Render, at, move || {
         let v = src.get();
+        let theme = kivact_style::internal::theme_of(owner)
+            .map_or_else(Theme::default, |theme| theme.get());
         // Compared with the content the engine measures (no second copy).
-        let same = matches!(&*now.borrow(), HookSlot::Live(m) if m.content == v);
+        let same =
+            matches!(&*now.borrow(), HookSlot::Live(m) if m.content.0 == v && m.content.1 == theme);
         if same {
             return;
         }
         // The last content is dropped here, before the view tree is
         // borrowed: its `Drop` may read the tree.
-        let prop = leaf(v);
+        let prop = leaf((v, theme));
         if let Some(rt) = weak.upgrade() {
             ViewState::tree_mut(&rt).update(id, PropValue::Measure(prop), rt.running_effect());
         }

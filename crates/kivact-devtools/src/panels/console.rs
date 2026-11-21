@@ -50,9 +50,9 @@ pub(crate) fn view(session: Session) -> impl IntoView {
             move |error| error_row(error, session),
         )
         .row_height(RowHeight::Fixed(22.0))
-        .style(style().grow(1.0).min_height(0.0)),
+        .style(style().flex_grow(1.0).min_height(0.0)),
     ))
-    .style(style().grow(1.0).min_height(0.0))
+    .style(style().flex_grow(1.0).min_height(0.0))
 }
 
 /// The column titles of the error table.

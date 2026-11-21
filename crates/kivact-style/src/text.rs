@@ -24,7 +24,7 @@
 //!   `Normal` (it inherits nothing). A `provide_theme` subtree does not change
 //!   the root's value. The value is checked again at the host boundary
 //!   (not finite or not above zero is `Normal`).
-//! - `letter_spacing` and `word_spacing` are [`TextLength`]s: a number is
+//! - `letter_spacing` and `word_spacing` are `TextLength`s: a number is
 //!   px, `em` a multiple of the font size; word spacing is added at every
 //!   space.
 //! - `font_kerning`: `Auto` is the font's default, `Normal` and `None` put
@@ -46,7 +46,7 @@
 //!   selection background and placeholder colors.
 //! - Case conversion, the ellipsis and the clamp change only what is drawn:
 //!   the name, `Locator::text` and `get_by_text` use the whole text.
-//! - Rare properties live in the boxed `TextExtras`, so an unused style
+//! - Rare properties live in the boxed `TextRareFields`, so an unused style
 //!   pays no size or merge cost for them.
 //! - Rich text (`rich_text`, `IntoValue<Vec<Span>>`) writes one text
 //!   payload of the joined content with byte-range styles; its spans hold
@@ -56,7 +56,7 @@
 //!   features are replaced, the kerning feature is rebuilt from the span's
 //!   or the paragraph's kerning. Inline boxes inside a paragraph are not
 //!   supported.
-//! - `Draw`'s `TextStyle` has the same vocabulary. A run with no line
+//! - `Draw`'s `TextFormat` has the same vocabulary. A run with no line
 //!   height takes the ancestor's, else the theme's; `TextRun`,
 //!   `Draw::measure_text` and `Constraints::measure_text` follow the same
 //!   rule, so their height matches a text node's. `measure_text` shapes the
@@ -64,9 +64,8 @@
 
 use kivact_types as p;
 
-use super::color::Color;
+use super::color_value::Color;
 use super::effect::Shadow;
-use super::paint::Paint;
 use super::theme::value::Theme;
 
 pub use kivact_types::PaintOrder;
@@ -113,7 +112,7 @@ impl From<(&str, i32)> for FontVariation {
     }
 }
 
-pub use kivact_types::{TextLength, em};
+use kivact_types::Length;
 
 /// The distance between the baselines of a text's lines (CSS
 /// `line-height`).
@@ -201,21 +200,20 @@ impl From<&str> for FontFeature {
     }
 }
 
-// xtask-allow(state): legacy: letter_spacing, word_spacing, kerning, features, tabular_nums, decoration_line, decoration_style, decoration_color, decoration_thickness, underline_offset, overflow, line_clamp, capsize, transform, shadows, caret_color, selection_color, placeholder_color, stroke, paint_order, variations, optical_sizing, font_width; option: one authored property; absent means the inherited or default value
 /// The text properties of a style that are rare enough to keep out of
 /// line (boxed in `Style`).
 #[derive(Clone, Debug, PartialEq, Default)]
-pub(crate) struct TextExtras {
-    pub(crate) letter_spacing: Option<TextLength>,
-    pub(crate) word_spacing: Option<TextLength>,
+pub(crate) struct TextRareFields {
+    pub(crate) letter_spacing: Option<Length>,
+    pub(crate) word_spacing: Option<Length>,
     pub(crate) kerning: Option<FontKerning>,
     pub(crate) features: Option<Vec<FontFeature>>,
     pub(crate) tabular_nums: Option<bool>,
     pub(crate) decoration_line: Option<TextDecorationLine>,
-    pub(crate) decoration_style: Option<DecorationStyleValue>,
+    pub(crate) decoration_style: Option<TextDecorationStyle>,
     pub(crate) decoration_color: Option<Color>,
-    pub(crate) decoration_thickness: Option<TextLength>,
-    pub(crate) underline_offset: Option<TextLength>,
+    pub(crate) decoration_thickness: Option<Length>,
+    pub(crate) underline_offset: Option<Length>,
     pub(crate) overflow: Option<TextOverflow>,
     pub(crate) line_clamp: Option<u32>,
     pub(crate) capsize: Option<bool>,
@@ -224,49 +222,12 @@ pub(crate) struct TextExtras {
     pub(crate) caret_color: Option<Color>,
     pub(crate) selection_color: Option<Color>,
     pub(crate) placeholder_color: Option<Color>,
-    pub(crate) stroke: Option<(TextLength, Color)>,
+    pub(crate) stroke_width: Option<Length>,
+    pub(crate) stroke_color: Option<Color>,
     pub(crate) paint_order: Option<PaintOrder>,
     pub(crate) variations: Option<Vec<FontVariation>>,
     pub(crate) optical_sizing: Option<bool>,
     pub(crate) font_width: Option<f64>,
-}
-
-impl TextExtras {
-    /// Overlay `o` (fields set in `o` win).
-    pub(crate) fn merge(&mut self, o: &TextExtras) {
-        macro_rules! take {
-            ($($f:ident),*) => {$(
-                if o.$f.is_some() {
-                    self.$f = o.$f.clone();
-                }
-            )*};
-        }
-        take!(
-            letter_spacing,
-            word_spacing,
-            kerning,
-            features,
-            tabular_nums,
-            decoration_line,
-            decoration_style,
-            decoration_color,
-            decoration_thickness,
-            underline_offset,
-            overflow,
-            line_clamp,
-            capsize,
-            transform,
-            shadows,
-            caret_color,
-            selection_color,
-            placeholder_color,
-            stroke,
-            paint_order,
-            variations,
-            optical_sizing,
-            font_width
-        );
-    }
 }
 
 /// The OpenType features of `settings` and the numeric variant
@@ -288,20 +249,36 @@ pub(crate) fn features(
     (out, dropped)
 }
 
-/// A decoration as the engine takes it.
-pub(crate) fn decoration(
-    line: Option<TextDecorationLine>,
-    color: Option<Color>,
-    thickness: Option<TextLength>,
-    offset: Option<TextLength>,
+/// The text length of an authored `length`: px (a number or a theme
+/// variable) or em; a percentage, a content size, `auto` or a sum with
+/// both px and em counts in `dropped` and is `None`.
+pub(crate) fn text_length(
+    length: Length,
     theme: &Theme,
-) -> p::TextDecoration {
-    p::TextDecoration {
-        style: TextDecorationStyle::default(),
-        lines: line.unwrap_or_default(),
-        color: color.map(|c| c.resolve(theme)),
-        thickness,
-        underline_offset: offset.unwrap_or_default(),
+    dropped: &mut u32,
+) -> Option<p::TextLength> {
+    match length {
+        Length::Px(v) => Some(p::TextLength::Px(v)),
+        Length::Em(e) => Some(p::TextLength::Em(e)),
+        Length::Var(v) => Some(p::TextLength::Px(theme.get(v))),
+        Length::Calc {
+            percent: 0.0,
+            px,
+            em: 0.0,
+            var,
+        } => Some(p::TextLength::Px(
+            px + var.map_or(0.0, |(v, k)| k * theme.get(v)),
+        )),
+        Length::Calc {
+            percent: 0.0,
+            px: 0.0,
+            em,
+            var: None,
+        } => Some(p::TextLength::Em(em)),
+        _ => {
+            *dropped += 1;
+            None
+        }
     }
 }
 
@@ -328,7 +305,7 @@ pub(crate) fn wire_variations(list: &[FontVariation]) -> (Vec<p::FontVariation>,
 /// Fill `t` (the engine's text props of a style) with the extras `x` it
 /// sets, and return how many values were dropped (a feature tag that is
 /// not four ASCII characters, a text shadow's spread or inset).
-pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme) -> u32 {
+pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextRareFields, theme: &Theme) -> u32 {
     let mut dropped = 0;
     let features = x.features.as_deref().map(|settings| {
         let (features, bad) = self::features(Some(settings), false);
@@ -357,24 +334,34 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme
         dropped += bad;
         list
     });
-    t.stroke = x.stroke.map(|(width, c)| p::TextStroke {
-        width,
-        color: c.resolve(theme),
+    t.stroke = x.stroke_width.and_then(|width| {
+        text_length(width, theme, &mut dropped).map(|width| p::TextStroke {
+            width,
+            color: x.stroke_color.unwrap_or(crate::color::TEXT).resolve(theme),
+        })
     });
     t.paint_order = x.paint_order;
     t.variations = variations;
     t.optical_sizing = x.optical_sizing;
     t.font_width = x.font_width;
-    t.letter_spacing = x.letter_spacing;
-    t.word_spacing = x.word_spacing;
+    t.letter_spacing = x
+        .letter_spacing
+        .and_then(|l| text_length(l, theme, &mut dropped));
+    t.word_spacing = x
+        .word_spacing
+        .and_then(|l| text_length(l, theme, &mut dropped));
     t.kerning = x.kerning;
     t.features = features;
     t.tabular_nums = x.tabular_nums;
     t.decoration_lines = x.decoration_line;
-    t.decoration_style = x.decoration_style.as_ref().map(DecorationStyleValue::get);
+    t.decoration_style = x.decoration_style;
     t.decoration_color = color(x.decoration_color);
-    t.decoration_thickness = x.decoration_thickness;
-    t.underline_offset = x.underline_offset;
+    t.decoration_thickness = x
+        .decoration_thickness
+        .and_then(|l| text_length(l, theme, &mut dropped));
+    t.underline_offset = x
+        .underline_offset
+        .and_then(|l| text_length(l, theme, &mut dropped));
     t.overflow = x.overflow;
     t.max_lines = x.line_clamp;
     t.capsize = x.capsize;
@@ -386,109 +373,11 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme
     dropped
 }
 
-/// The text properties of one span of rich text; each one is optional and an
-/// unset one is the paragraph's. A span's decoration lines and features
-/// replace the paragraph's. The `Span` builders of `kivact::view` fill
-/// it, and [`crate::internal::compile_span_style`] turns it into the engine's form.
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct SpanStyle {
-    /// Font size in logical px.
-    pub font_size: Option<f64>,
-    /// Font weight.
-    pub weight: Option<u16>,
-    /// Color of the glyphs.
-    pub color: Option<Color>,
-    /// Font family: a name, a generic family or an ordered list.
-    pub family: Option<String>,
-    /// Italic, or upright with `false`.
-    pub italic: Option<bool>,
-    /// Space after each character.
-    pub letter_spacing: Option<TextLength>,
-    /// Space after each word.
-    pub word_spacing: Option<TextLength>,
-    /// Pair kerning.
-    pub kerning: Option<FontKerning>,
-    /// OpenType features replacing the paragraph's.
-    pub features: Option<Vec<FontFeature>>,
-    /// Tabular figures (adds the `tnum` feature when `true`).
-    pub tabular_nums: Option<bool>,
-    /// Decoration lines replacing the paragraph's.
-    pub decoration_line: Option<TextDecorationLine>,
-    /// Decoration color (default: the text color).
-    pub decoration_color: Option<Color>,
-    /// Decoration thickness.
-    pub decoration_thickness: Option<TextLength>,
-    /// Underline offset from its normal place.
-    pub underline_offset: Option<TextLength>,
-    /// A band behind the glyphs on each line the span is on.
-    pub background: Option<Paint>,
-    /// OpenType variation axis settings replacing the paragraph's.
-    pub variations: Option<Vec<FontVariation>>,
-    /// CSS font-width (font-stretch) in percent, 50 to 200.
-    pub font_width: Option<f64>,
-    /// Outline of its glyphs (CSS `-webkit-text-stroke`): width and color.
-    pub stroke: Option<(TextLength, Color)>,
-}
-
-/// A [`SpanStyle`] in the engine's form, made by [`crate::internal::compile_span_style`].
-pub struct CompiledSpanStyle {
-    /// The properties the span sets (an unset one stays unset).
-    pub props: p::SpanProps,
-    /// Font feature tags dropped because they are not four ASCII characters.
-    pub unsupported: u32,
-}
-
-/// A tracked decoration input, preserving constant equality and dynamic identity.
-#[derive(Clone)]
-pub(crate) enum DecorationStyleValue {
-    Fixed(TextDecorationStyle),
-    Dynamic(std::rc::Rc<kivact_runtime::Prop<TextDecorationStyle>>),
-}
-impl DecorationStyleValue {
-    pub(crate) fn new(value: impl kivact_runtime::IntoValue<TextDecorationStyle>) -> Self {
-        let value = value.into_prop();
-        match value.fixed() {
-            Some(value) => Self::Fixed(value),
-            None => Self::Dynamic(std::rc::Rc::new(value)),
-        }
-    }
-    fn get(&self) -> TextDecorationStyle {
-        match self {
-            Self::Fixed(value) => *value,
-            Self::Dynamic(value) => value.get(),
-        }
-    }
-}
-impl std::fmt::Debug for DecorationStyleValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("DecorationStyleValue(..)")
-    }
-}
-impl PartialEq for DecorationStyleValue {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Fixed(a), Self::Fixed(b)) => a == b,
-            (Self::Dynamic(a), Self::Dynamic(b)) => std::rc::Rc::ptr_eq(a, b),
-            _ => false,
-        }
-    }
-}
-
-/// Paint overrides for a UTF-8 byte range within one editing line.
+/// The style of a UTF-8 byte range within one editing line: its text
+/// properties (color, decoration, weight, ...) and `background`, as a
+/// [`Style`](crate::Style). A span of rich text takes the same vocabulary.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StyledRange {
     pub range: std::ops::Range<usize>,
-    pub color: Option<Color>,
-    pub background: Option<Color>,
-    pub decoration: Option<TextDecoration>,
-}
-
-/// Lines, pattern and dimensions of a text decoration.
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
-pub struct TextDecoration {
-    pub lines: TextDecorationLine,
-    pub color: Option<Color>,
-    pub thickness: Option<TextLength>,
-    pub underline_offset: TextLength,
-    pub style: TextDecorationStyle,
+    pub style: crate::Style,
 }

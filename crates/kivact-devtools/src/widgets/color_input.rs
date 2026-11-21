@@ -1,7 +1,6 @@
 //! Role: A color input with a text value, HSL sliders and a preview.
 
 use kivact::prelude::*;
-use kivact::style::ColorToken;
 use kivact::view::EditPhase;
 
 /// A hex text field, three HSL sliders and a preview swatch for one color; `disabled` turns the
@@ -33,7 +32,7 @@ pub(crate) fn color_input(
         format!("{label} lightness"),
     );
     let hex = text_input(label.clone(), value)
-        .style(style().grow(1).min_width(0).font_size(12.0))
+        .style(style().flex_grow(1).min_width(0).font_size(12.0))
         .disabled(disabled)
         .on_submit(move || {
             let text = value.get_untracked();
@@ -77,12 +76,12 @@ fn slider_row(
     commit: Callback<()>,
 ) -> impl IntoView {
     row((
-        text(letter).style(style().width(12).shrink(0).font_size(11.0)),
+        text(letter).style(style().width(12).flex_shrink(0).font_size(11.0)),
         slider(name, value)
             .range(range)
             .step(1.0)
             .disabled(disabled)
-            .style(style().grow(1).min_width(0))
+            .style(style().flex_grow(1).min_width(0))
             .on_edit(move |phase| {
                 if phase == EditPhase::Commit {
                     commit.call(());
@@ -98,10 +97,10 @@ fn preview(label: &str, value: Signal<String>) -> impl IntoView {
         let color = Color::css(value.get().trim()).unwrap_or(Color::TRANSPARENT);
         style()
             .size(18, 18)
-            .shrink(0)
-            .radius(4)
+            .flex_shrink(0)
+            .border_radius(4)
             .background(color)
-            .border(1, ColorToken::Border)
+            .border(1, kivact::style::color::BORDER)
     })
 }
 
@@ -109,7 +108,7 @@ fn preview(label: &str, value: Signal<String>) -> impl IntoView {
 fn hsl_of(text: &str) -> Option<(f64, f64, f64)> {
     let text = text.trim();
     let parsed = Color::css(text).or_else(|_| Color::css(&format!("#{text}")));
-    let [r, g, b, _] = parsed.ok()?.components();
+    let [r, g, b, _] = parsed.ok()?.components(&Theme::default());
     let max = r.max(g).max(b);
     let min = r.min(g).min(b);
     let delta = max - min;
@@ -133,7 +132,8 @@ fn hsl_of(text: &str) -> Option<(f64, f64, f64)> {
 
 /// `#rrggbb` for the hue in degrees and the saturation and lightness in percent.
 fn hsl_hex(hue: f64, saturation: f64, lightness: f64) -> String {
-    let [r, g, b, _] = kivact::style::hsl(hue, saturation / 100.0, lightness / 100.0).components();
+    let [r, g, b, _] = kivact::style::hsl(hue, saturation / 100.0, lightness / 100.0)
+        .components(&Theme::default());
     let channel = |value: f64| (value * 255.0).round().clamp(0.0, 255.0) as u8;
     format!("#{:02x}{:02x}{:02x}", channel(r), channel(g), channel(b))
 }

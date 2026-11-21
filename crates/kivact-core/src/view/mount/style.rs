@@ -7,9 +7,9 @@ use std::rc::Rc;
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
 use kivact_runtime::driver::EffectKind;
-use kivact_runtime::{UiError, Value};
+use kivact_runtime::{Signal, UiError, Value};
 use kivact_style::{Interactive, Style};
-use kivact_types::{LayoutProps, NodeId};
+use kivact_types::{LayoutProps, NodeId, StateSet};
 
 use super::facts::{LocalPaint, LocalPaintSource, NodeFacts};
 use crate::view::Variants;
@@ -18,18 +18,33 @@ use crate::view::devtools_hooks::StyleHook;
 use crate::view::element_data::{LayerFn, StyleLayer};
 use crate::view::state::ViewState;
 
-/// Merge `layers` in order over the empty style (a recipe layer reads
-/// `variants`), then let the DevTools hook apply its overrides.
-fn merge_layers(layers: &[StyleLayer], variants: &Variants, hook: &StyleHook) -> Style {
-    hook.apply(layers.iter().fold(Style::default(), |s, layer| {
-        s.merge(&layer.f.style(variants))
-    }))
+/// Merge `layers` in order (a recipe layer reads `variants`). In debug builds
+/// it also counts the declarations that repeat a property within their own
+/// layer: a repeat across layers is an overlay, not a duplicate.
+fn merge_layers(layers: &[StyleLayer], variants: &Variants) -> (Style, u32) {
+    let mut duplicates = 0;
+    let mut out: Option<Style> = None;
+    for layer in layers {
+        let style = layer.f.style(variants);
+        if cfg!(debug_assertions) {
+            duplicates += kivact_style::internal::duplicates(&style);
+        }
+        out = Some(match out {
+            Some(acc) => acc.merge(&style),
+            None => style,
+        });
+    }
+    (out.unwrap_or_default(), duplicates)
 }
 
-/// The memo of the merged layers of a node (see [`Layers::Memo`]).
+/// The memo of the merged layers of a node (see [`Layers::Memo`]), with the
+/// DevTools hook's overrides applied.
 fn merged_memo(hook: StyleHook, layers: Vec<StyleLayer>, variants: Variants) -> Value<Merged> {
     kivact_runtime::memo(move || {
-        kivact_runtime::pure(|| Merged(Rc::new(merge_layers(&layers, &variants, &hook))))
+        kivact_runtime::pure(|| {
+            let (style, duplicates) = merge_layers(&layers, &variants);
+            Merged(Rc::new((hook.apply(style), duplicates)))
+        })
     })
 }
 
@@ -59,10 +74,11 @@ pub(super) struct States {
     pub(super) change: bool,
 }
 
-/// The merged layers of one node. Each recomputation is a new value, so
-/// equality is identity: the memo notifies only when it ran again.
+/// The merged layers of one node, with the overrides applied, and the
+/// duplicates of its layers. Each recomputation is a new value, so equality
+/// is identity: the memo notifies only when it ran again.
 #[derive(Clone)]
-struct Merged(Rc<Style>);
+struct Merged(Rc<(Style, u32)>);
 impl PartialEq for Merged {
     fn eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.0, &other.0)
@@ -188,27 +204,37 @@ pub(crate) fn bind_style(
         Layers::Direct(layers, variants)
     };
     let weak = cx.weak();
+    // The host states the engine reports for this node, once its style asks
+    // for them (see `track_states`).
+    let reported: std::cell::Cell<Option<Signal<StateSet>>> = std::cell::Cell::new(None);
     cx.effect(EffectKind::Render, at, move || {
         let Some(theme_sig) = theme else { return };
         let Some(rt) = weak.upgrade() else { return };
         // The style closures only compute values: pure even when this is
         // an Internal effect feeding a paint transition.
-        let resolved = kivact_runtime::pure(|| {
+        let (resolved, duplicates) = kivact_runtime::pure(|| {
             theme_sig.with(|theme| {
-                let compile = |s: &Style| {
+                let compile = |s: Style, duplicates: u32| {
                     let state = Interactive {
                         focusable,
                         disabled: disabled.as_ref().is_some_and(|f| f()),
                         selected: selected.as_ref().is_some_and(|f| f()),
                         root: kind == NodeType::Root,
                         forced: hook.forced(),
+                        active: reported.get().map(|sig| sig.get()).unwrap_or_default(),
                     };
-                    kivact_style::internal::compile_style(s, theme, state)
+                    let resolved = kivact_style::internal::compile_style(s, theme, state);
+                    (resolved, duplicates)
                 };
                 match &source {
-                    Layers::Memo(merged) => merged.with(|s| compile(&s.0)),
+                    Layers::Memo(merged) => {
+                        let merged = merged.with(|m| m.0.clone());
+                        let (style, duplicates) = &*merged;
+                        compile(style.clone(), *duplicates)
+                    }
                     Layers::Direct(layers, variants) => {
-                        compile(&merge_layers(layers, variants, &hook))
+                        let (style, duplicates) = merge_layers(layers, variants);
+                        compile(hook.apply(style), duplicates)
                     }
                 }
             })
@@ -218,25 +244,61 @@ pub(crate) fn bind_style(
             owner,
             window,
         };
+        track_states(&rt, id, owner, at, &reported, &resolved);
         feed_local_paint(&mcx, id, &local_paint, &resolved, &reports, at);
-        reports.report(&rt, owner, id, &resolved, at);
-        let kivact_style::CompiledStyle {
-            mut layout,
-            paint,
-            text,
-            states,
-            ..
-        } = resolved;
-        if let Some(fix) = fix_layout {
-            fix(&mut layout);
-        }
-        let writer = rt.running_effect();
-        let mut tree = ViewState::tree_mut(&rt);
-        tree.update(id, PropValue::Layout(layout), writer);
-        tree.update(id, PropValue::Paint(paint), writer);
-        tree.update(id, PropValue::TextStyle(text), writer);
-        tree.update(id, PropValue::States(states.unwrap_or_default()), writer);
+        reports.report(&rt, owner, id, &resolved, duplicates, at);
+        write_props(&rt, id, resolved, fix_layout);
     });
+}
+
+/// Ask the engine for the host states of node `id` once its compiled state
+/// styles set more than paint (ST-05). The style effect then reads them as
+/// `Interactive::active`, and runs again when they change.
+fn track_states(
+    rt: &kivact_runtime::driver::Runtime,
+    id: NodeId,
+    owner: kivact_runtime::Owner,
+    at: &'static Location<'static>,
+    reported: &std::cell::Cell<Option<Signal<StateSet>>>,
+    resolved: &kivact_style::CompiledStyle,
+) {
+    let wants = resolved
+        .states
+        .as_ref()
+        .is_some_and(|s| !s.report.is_empty());
+    if wants && reported.get().is_none() {
+        let sig = crate::view::node_states::source(rt, id, owner, at);
+        // Read it from now on: the effect runs again when the engine reports
+        // a change.
+        let _ = sig.get();
+        reported.set(Some(sig));
+    }
+}
+
+/// Set the props of a resolved style on node `id`; `fix_layout` applies to
+/// the layout first.
+fn write_props(
+    rt: &kivact_runtime::driver::Runtime,
+    id: NodeId,
+    resolved: kivact_style::CompiledStyle,
+    fix_layout: Option<fn(&mut LayoutProps)>,
+) {
+    let kivact_style::CompiledStyle {
+        mut layout,
+        paint,
+        text,
+        states,
+        ..
+    } = resolved;
+    if let Some(fix) = fix_layout {
+        fix(&mut layout);
+    }
+    let writer = rt.running_effect();
+    let mut tree = ViewState::tree_mut(rt);
+    tree.update(id, PropValue::Layout(layout), writer);
+    tree.update(id, PropValue::Paint(paint), writer);
+    tree.update(id, PropValue::TextStyle(text), writer);
+    tree.update(id, PropValue::States(states.unwrap_or_default()), writer);
 }
 
 /// Hand the style's paint callback to the node's draw effect (see
@@ -253,7 +315,7 @@ fn feed_local_paint(
     let has_paint = resolved.has_retained_paint();
     if has_paint && matches!(*local_paint.borrow(), LocalPaint::OnFirstPaint) {
         let source = LocalPaintSource::new(cx.owner, at);
-        *source.value.borrow_mut() = Some(Box::new(resolved.clone()));
+        *source.value.borrow_mut() = resolved.retained_paint();
         super::draw::bind_style_paint(cx, id, source.clone(), at);
         *local_paint.borrow_mut() = LocalPaint::WithDraw(source);
     }
@@ -277,13 +339,11 @@ fn feed_local_paint(
             if has_paint {
                 ViewState::tree_mut(cx.rt).set_observe(id, true);
             }
-            let changed = source
-                .value
-                .borrow()
-                .as_ref()
-                .map_or(has_paint, |old| !old.same_retained_paint(resolved));
+            // Callbacks compare by identity: a node redraws only for a new one.
+            let retained = resolved.retained_paint();
+            let changed = *source.value.borrow() != retained;
             if changed {
-                *source.value.borrow_mut() = has_paint.then(|| Box::new(resolved.clone()));
+                *source.value.borrow_mut() = retained;
                 source.revision.notify_from_render();
             }
         }
@@ -306,35 +366,36 @@ impl StyleReports {
         owner: kivact_runtime::Owner,
         id: NodeId,
         resolved: &kivact_style::CompiledStyle,
+        duplicates: u32,
         at: &'static Location<'static>,
     ) {
-        if !resolved.unsupported_in_states.is_empty() && self.states.note() {
+        if !resolved.nested_in_states.is_empty() && self.states.note() {
             rt.report(
                 Some(owner),
                 UiError::new(
                     kivact_runtime::ErrorKind::Unsupported,
                     format!(
-                        "state styles set properties their state cannot change, ignored: {}; a hover, pressed, focus,                          focus_visible, group_hover, group_focus, enter or exit style changes paint only (background,                          border, ring, radius, opacity, shadow, transform, z_index, scrollbar, cursor, filters, mask,                          clip_path, color), and a paint callback belongs on the base style",
-                        resolved.unsupported_in_states.join(", ")
+                        "state styles set a state or group inside a state, ignored: {}; set each state and group() on the base style",
+                        resolved.nested_in_states.join(", ")
                     ),
                     Some(at),
                 ),
             );
         }
-        if resolved.duplicates > 0 && cfg!(debug_assertions) {
+        if duplicates > 0 && cfg!(debug_assertions) {
             rt.note(format!(
                 "style of node {} sets {} properties twice (last wins)",
-                id.0, resolved.duplicates
+                id.0, duplicates
             ));
         }
-        if resolved.misplaced_content > 0 && self.content.note() {
+        if resolved.misplaced_lengths > 0 && self.content.note() {
             rt.report(
                 Some(owner),
                 UiError::new(
                     kivact_runtime::ErrorKind::Unsupported,
                     format!(
-                        "{} content size(s) (Length::MinContent, Length::MaxContent, Length::FitContent) outside width, height and basis; they are auto there",
-                        resolved.misplaced_content
+                        "{} length(s) the property cannot take: a content size outside width, height and basis, or auto, a content size or a variable left unresolved in a paint position or radius; they are 0 or auto there",
+                        resolved.misplaced_lengths
                     ),
                     Some(at),
                 ),

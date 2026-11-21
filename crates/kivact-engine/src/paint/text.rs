@@ -162,10 +162,7 @@ impl Model {
             y: area.y,
         };
         for band in &shaped.highlights {
-            if let Some(fill) = spans
-                .get(band.span)
-                .and_then(|s| s.style.background.as_ref())
-            {
+            if let Some(fill) = spans.get(band.span).and_then(|s| s.background.as_ref()) {
                 let rect = Rect {
                     x: band.rect.x + origin.x,
                     y: band.rect.y + origin.y,

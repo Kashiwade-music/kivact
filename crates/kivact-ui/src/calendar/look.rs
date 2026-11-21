@@ -4,17 +4,15 @@ use crate::UiTokens;
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
 use kivact_core::i18n::CalendarDate;
-use kivact_core::style::{
-    Align, Color, ColorToken, Direction, Justify, Position, Style, Theme, style,
-};
+use kivact_core::style::{Align, Color, FlexDirection, Justify, Position, Style, Theme, style};
 use kivact_interaction::{CalendarDayState, CalendarSpan};
 pub(crate) fn root(t: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .gap(t.ext::<UiTokens>().calendar.month_gap)
-        .padding(t.space().sm)
-        .background(ColorToken::Surface)
-        .color(ColorToken::Text)
+        .padding(t.get(&kivact_core::style::space::SM_VAR))
+        .background(kivact_core::style::color::SURFACE)
+        .color(kivact_core::style::color::TEXT)
 }
 
 pub(crate) fn month(_: &Theme, _: &PartState) -> Style {
@@ -28,31 +26,31 @@ pub(crate) fn day(t: &Theme, s: &CalendarDayVisual) -> Style {
         .left(0)
         .top(0)
         .size(size, size)
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
-        .radius(t.radius().sm)
-        .font_size(t.text().size_small)
+        .border_radius(t.get(&kivact_core::style::radius::SM_VAR))
+        .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
         .text_wrap(false)
-        .focus_visible(style().ring(t.focus_ring(), ColorToken::Focus))
-        .disabled(style().opacity(t.disabled_opacity()));
+        .focus_visible(style().outline(t.focus_ring(), kivact_core::style::color::FOCUS))
+        .disabled(style().opacity(t.get(&kivact_core::style::control::DISABLED_OPACITY_VAR)));
     let base = if s.day.selection == kivact_interaction::DaySelection::Edge {
-        base.background(ColorToken::Accent)
-            .color(ColorToken::AccentText)
+        base.background(kivact_core::style::color::ACCENT)
+            .color(kivact_core::style::color::ACCENT_TEXT)
     } else if s.today || s.day.span == CalendarSpan::Middle {
-        base.background(ColorToken::SurfaceAlt)
-            .color(ColorToken::Text)
+        base.background(kivact_core::style::color::SURFACE_ALT)
+            .color(kivact_core::style::color::TEXT)
     } else {
         base.background(Color::TRANSPARENT)
             .color(if s.in_month {
-                ColorToken::Text
+                kivact_core::style::color::TEXT
             } else {
-                ColorToken::TextMuted
+                kivact_core::style::color::TEXT_MUTED
             })
-            .hover(style().background(ColorToken::SurfaceAlt))
+            .hover(style().background(kivact_core::style::color::SURFACE_ALT))
     };
     if s.mark.is_some() {
-        base.border_bottom(2, ColorToken::Accent)
+        base.border_bottom(2, kivact_core::style::color::ACCENT)
     } else {
         base
     }
@@ -64,7 +62,7 @@ pub(crate) fn range(t: &Theme, s: &CalendarDayState) -> Style {
         .position(Position::Absolute)
         .top(0)
         .height(size)
-        .background(ColorToken::SurfaceAlt);
+        .background(kivact_core::style::color::SURFACE_ALT);
     match s.span {
         CalendarSpan::Start => base.left(size / 2.0).width(size / 2.0),
         CalendarSpan::Middle => base.left(0).width(size),
@@ -75,14 +73,14 @@ pub(crate) fn range(t: &Theme, s: &CalendarDayState) -> Style {
 
 pub(crate) fn events(_: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .position(Position::Absolute)
         .bottom(2)
         .gap(2)
 }
 
 pub(crate) fn event(_: &Theme, s: &CalendarEventVisual) -> Style {
-    style().size(3, 3).radius(2).background(s.color)
+    style().size(3, 3).border_radius(2).background(s.color)
 }
 
 /// The logical state supplied to a calendar day recipe.

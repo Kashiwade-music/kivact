@@ -5,7 +5,7 @@ use crate::{ButtonVariant, ControlSize, button, checkbox, dialog, select, tag_in
 use kivact_core::i18n::{CalendarDate, message, message_with};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Machine, Signal, Step, Value, binding, machine, memo, signal};
-use kivact_core::style::{ColorToken, Justify, Length, pct, style};
+use kivact_core::style::{Justify, Length, pct, style};
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
 use kivact_core::view::{NodeRef, OverlayAlign, Placement, View, node_ref};
@@ -97,9 +97,9 @@ fn popover(
             style()
                 .size(12, 12)
                 .color(if strong {
-                    ColorToken::Accent
+                    kivact_core::style::color::ACCENT
                 } else {
-                    ColorToken::TextMuted
+                    kivact_core::style::color::TEXT_MUTED
                 })
                 .opacity(
                     if strong || focused.get() || hovered.is_some_and(|hovered| hovered.get()) {

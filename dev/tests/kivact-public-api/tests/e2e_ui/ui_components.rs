@@ -208,7 +208,7 @@ fn tooltip_uses_shared_delay_and_native_text_area_remains_controlled() {
             value,
             column((
                 ui::tooltip("A hint")
-                    .content(|| text("Rich detail").style(style().weight(700)))
+                    .content(|| text("Rich detail").style(style().font_weight(700)))
                     .placement(Placement::Below)
                     .attach(ui::button("Help")),
                 ui::text_area("Notes", value),

@@ -373,18 +373,14 @@ fn editor_behavior(initial: &str, editor: &Editor) -> TextEditing {
             let ranges = if comment {
                 vec![StyledRange {
                     range: 0..line.len(),
-                    color: Some(rgb(0x16803a)),
-                    background: None,
-                    decoration: None,
+                    style: kivact::style::style().color(rgb(0x16803a)),
                 }]
             } else {
                 line.char_indices()
                     .filter_map(|(offset, character)| {
                         character.is_ascii_digit().then_some(StyledRange {
                             range: offset..offset + 1,
-                            color: Some(rgb(0x2040d0)),
-                            background: None,
-                            decoration: None,
+                            style: kivact::style::style().color(rgb(0x2040d0)),
                         })
                     })
                     .collect()

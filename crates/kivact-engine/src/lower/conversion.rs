@@ -66,19 +66,56 @@ pub(crate) fn spans(
                     letter_spacing: s.letter_spacing.map(|l| finite(l.px(size))),
                     word_spacing: s.word_spacing.map(|l| finite(l.px(size))),
                     kerning: s.kerning,
-                    features: s.features.clone(),
+                    features: span_features(s),
                     variations: s.variations.clone(),
                     font_width: s.font_width,
                     stroke: s
                         .stroke
                         .map(|stroke| (finite(stroke.width.px(size)).max(0.0), tint(stroke.color))),
-                    decoration: s.decoration.map(|d| {
+                    decoration: s.span_decoration().map(|d| {
                         let color = d.color.map(&tint);
                         kivact_types::TextDecoration { color, ..d }
                     }),
-                    highlight: s.background.is_some(),
+                    highlight: span.background.is_some(),
                 },
             }
         })
         .collect()
+}
+
+/// A span's OpenType features: its own, then `tnum` when it sets tabular
+/// numbers (as a text's features take it); `None` when it sets neither.
+fn span_features(s: &types::TextStyle) -> Option<Vec<types::FontFeature>> {
+    (s.features.is_some() || s.tabular_nums.is_some()).then(|| {
+        let mut out = s.features.clone().unwrap_or_default();
+        if s.tabular_nums == Some(true) {
+            out.push(types::FontFeature {
+                tag: *b"tnum",
+                value: 1,
+            });
+        }
+        out
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of the span conversion.
+    use super::*;
+
+    #[test]
+    fn a_span_keeps_its_decoration_style() {
+        let span = types::TextSpan {
+            range: 0..1,
+            style: types::TextStyle {
+                decoration_lines: Some(types::DecorationLines::UNDERLINE),
+                decoration_style: Some(types::TextDecorationStyle::Wavy),
+                ..types::TextStyle::default()
+            },
+            background: None,
+        };
+        let out = spans(&[span], 16.0, |color| color, |_| None);
+        let decoration = out[0].style.decoration.expect("the span is decorated");
+        assert_eq!(decoration.style, types::TextDecorationStyle::Wavy);
+    }
 }

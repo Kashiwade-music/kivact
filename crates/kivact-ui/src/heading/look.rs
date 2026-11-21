@@ -1,7 +1,7 @@
 //! Role: The heading recipe state, tokens, recipe table and default looks.
 
 use crate::variants::Look;
-use kivact_core::style::{ColorToken, Style, Theme, style};
+use kivact_core::style::{Style, Theme, style};
 pub(crate) fn heading(t: &Theme, s: &Look<HeadingState>) -> Style {
     let scale = match s.level {
         1 => 2.0,
@@ -12,9 +12,9 @@ pub(crate) fn heading(t: &Theme, s: &Look<HeadingState>) -> Style {
         _ => 1.0,
     };
     style()
-        .font_size(t.text().size * scale)
-        .weight(t.text().weight_strong)
-        .color(ColorToken::Text)
+        .font_size(t.get(&kivact_core::style::font::SIZE_VAR) * scale)
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .color(kivact_core::style::color::TEXT)
 }
 
 /// Semantic heading level passed to its recipe.

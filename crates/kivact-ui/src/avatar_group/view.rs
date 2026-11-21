@@ -139,7 +139,8 @@ fn member_overlap(
     let amount = overlap
         .map_or_else(
             || {
-                kivact_core::style::use_tokens::<crate::UiTokens>()
+                kivact_core::style::use_theme()
+                    .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
                     .indicators
                     .avatar_overlap
             },

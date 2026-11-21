@@ -9,9 +9,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::draw::{TextFormat, linear_gradient};
+use kivact::draw::TextFormat;
 use kivact::prelude::*;
 use kivact::style::PaintOrder;
+use kivact::style::linear_gradient;
 use kivact::test::{RenderOptions, Screenshot, render_with};
 use kivact_public_api_tests::paint::{BLACK, BLUE, RED, WHITE, at, canvas_of};
 
@@ -134,7 +135,7 @@ fn font_variation_wght_matches_weight() {
                 .color(rgb(BLACK));
             let sized = match variation {
                 Some(wght) => base.font_variation_settings([("wght", wght)]),
-                None => base.weight(weight),
+                None => base.font_weight(weight),
             };
             canvas_of(text("Hamburg").test_id("sample").style(sized))
         })

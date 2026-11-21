@@ -2,7 +2,7 @@
 //! Coordinates are node-local logical px after layout.
 //! A layer's transform maps every primitive, including text, images and
 //! clips, through the renderer. Regions retain their shapes and transforms for hits.
-//! A style's `paint(..)` callback is kept here as a `LocalPaint` (see `CompiledStyle::paint_retained`).
+//! A style's `paint(..)` callback is kept here as a `LocalPaint` (see `CompiledStyle::retained_paint`).
 //!
 //! `canvas`, `draw` and `draw_over` build the wire `DrawList`. A group opens
 //! only with `d.layer(Layer, closure)` and closes at the end of the
@@ -92,7 +92,9 @@ pub use kivact_types::Stroke;
 #[doc(inline)]
 pub use kivact_types::TextMetrics;
 
-pub(crate) use local_paint::LocalPaint;
+// Core's mount keeps a style's retained paint callback; not a user API.
+#[doc(hidden)]
+pub use local_paint::LocalPaint;
 pub use recorder::{Draw, RecordContext, Recording, RegionSemantics};
 pub use text_run::{TextBaseline, TextFormat, text_run};
 
@@ -106,3 +108,4 @@ pub use crate::paint::{
 pub use crate::shader::{FilterShader, PaintShader, ShaderFilter, ShaderPaint, ShaderValue};
 pub use drawable::DrawableSource;
 pub use kivact_types::Composite;
+pub use kivact_types::Mix;

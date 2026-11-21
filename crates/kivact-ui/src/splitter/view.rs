@@ -7,7 +7,7 @@ use crate::variants::{Variant, Variants};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Callback, Signal, Value};
 use kivact_core::state::{IntoText, callback};
-use kivact_core::style::{Direction, style};
+use kivact_core::style::{FlexDirection, style};
 use kivact_core::view::EditPhase;
 use kivact_core::view::{Element, Node, node};
 use kivact_core::view::{
@@ -233,18 +233,22 @@ impl IntoView for Splitter {
             .child(start)
             .style(move || {
                 let px = size.get();
-                let s = style().shrink(0).min_width(0).min_height(0);
+                let s = style().flex_shrink(0).min_width(0).min_height(0);
                 if vertical { s.height(px) } else { s.width(px) }
             });
-        let trailing = node()
-            .child(end)
-            .style(style().grow(1).basis(0).min_width(0).min_height(0));
+        let trailing = node().child(end).style(
+            style()
+                .flex_grow(1)
+                .flex_basis(0)
+                .min_width(0)
+                .min_height(0),
+        );
         let direction = match (vertical, use_direction()) {
-            (true, _) => Direction::Column,
-            (false, ReadingDirection::Ltr) => Direction::Row,
-            (false, ReadingDirection::Rtl) => Direction::RowReverse,
+            (true, _) => FlexDirection::Column,
+            (false, ReadingDirection::Ltr) => FlexDirection::Row,
+            (false, ReadingDirection::Rtl) => FlexDirection::RowReverse,
         };
-        root.style(style().direction(direction).min_width(0).min_height(0))
+        root.style(style().flex_direction(direction).min_width(0).min_height(0))
             .child(leading)
             .child(handle)
             .child(trailing)

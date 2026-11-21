@@ -40,7 +40,7 @@ pub(crate) fn counters_chart(rows: Value<Vec<[f64; 10]>>) -> impl IntoView {
         canvas(move |draw, size| rows.with(|rows| paint(draw, size, rows)))
             .name("Counters chart")
             .style(style().width(pct(100)).height(180)),
-        row(legend).style(style().gap(12).wrap(true)),
+        row(legend).style(style().gap(12).flex_wrap(true)),
     ))
     .style(style().gap(6))
 }

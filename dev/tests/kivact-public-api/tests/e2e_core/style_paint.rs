@@ -1,6 +1,5 @@
 //! Role: Local style painting follows layout and preserves drawing layers.
 
-use kivact::style::ColorToken;
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -27,7 +26,7 @@ fn paint_only_style_tracks_size_signals_theme_and_removal() {
                     draw.fill_rect(
                         Rect::new(0.0, 0.0, size.width, size.height),
                         if color.get() {
-                            ColorToken::Accent.into()
+                            kivact::style::color::ACCENT
                         } else {
                             rgb(RED)
                         },
@@ -151,9 +150,9 @@ fn merged_paint_runs_between_caller_draw_and_children_and_clears_independently()
     assert!(screen.errors().is_empty());
 }
 
-/// A state style can change paint only; a layout property or a nested state in it is reported once.
+/// A state style applies every property (ST-05); a state nested in a state is ignored and reported once.
 #[test]
-fn a_property_its_state_cannot_change_is_reported() {
+fn a_state_inside_a_state_is_reported() {
     let screen = render(|| {
         node().style(
             style()
@@ -165,12 +164,12 @@ fn a_property_its_state_cannot_change_is_reported() {
     assert_eq!(errors.len(), 1, "{errors:?}");
     assert_eq!(*errors[0].kind(), ErrorKind::Unsupported);
     assert!(
-        errors[0].message().contains("hover.width"),
+        errors[0].message().contains("hover.hover"),
         "{}",
         errors[0].message()
     );
     assert!(
-        errors[0].message().contains("hover.hover"),
+        !errors[0].message().contains("hover.width"),
         "{}",
         errors[0].message()
     );
@@ -190,7 +189,7 @@ fn text_color_transitions_with_paint() {
                 text("MMMM").test_id("ink").style(move || {
                     style()
                         .font_size(48)
-                        .weight(700)
+                        .font_weight(700)
                         .color(if changed.get() { rgb(BLUE) } else { rgb(RED) })
                         .transition(TransitionProp::All, Transition::tween(240, Easing::Linear))
                 }),
@@ -230,15 +229,15 @@ fn text_decoration_style_draws_wavy_lines() {
         let pattern = signal(TextDecorationStyle::Solid);
         (
             pattern,
-            text("MMMMMMMM").test_id("decorated").style(
+            text("MMMMMMMM").test_id("decorated").style(move || {
                 style()
                     .font_size(40)
                     .color(rgb(0))
                     .text_decoration(TextDecorationLine::UNDERLINE)
                     .text_decoration_color(rgb(RED))
                     .text_decoration_thickness(2)
-                    .text_decoration_style(pattern),
-            ),
+                    .text_decoration_style(pattern.get())
+            }),
         )
     });
     let extent = || {
@@ -340,11 +339,7 @@ fn visibility_hidden_keeps_layout_but_hides_the_node() {
 }
 
 fn accent_theme(accent: kivact::style::Color) -> Theme {
-    let colors = kivact::style::theme::Palette {
-        accent,
-        ..Theme::light().colors().clone()
-    };
-    Theme::light().with_colors(colors)
+    Theme::light().set(&kivact::style::color::ACCENT_VAR, accent)
 }
 
 fn visibility_fixture() -> (kivact::test::Screen, (Signal<bool>, Signal<i32>)) {

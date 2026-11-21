@@ -10,7 +10,6 @@ use kivact::interaction::DialogMode;
 use kivact::interaction::{DialogApi, use_dialog};
 use kivact::prelude::*;
 use kivact::state::IntoText;
-use kivact::style::ColorToken;
 use kivact::test::Screen;
 use kivact::view::overlay;
 use kivact::view::{Node, Placement};
@@ -22,7 +21,7 @@ fn button(name: &'static str) -> Node {
         .name(name)
         .focusable(true)
         .test_id(name)
-        .style(style().size(100, 30).shrink(0))
+        .style(style().size(100, 30).flex_shrink(0))
         .child(text(name))
 }
 
@@ -63,7 +62,7 @@ fn framed<B: IntoView, F: IntoView>(
         let content = node().child(body());
         let content = match kind {
             DialogMode::Drawer(_) => scroll(content)
-                .style(style().grow(1).min_height(0))
+                .style(style().flex_grow(1).min_height(0))
                 .into_view(),
             _ => content.into_view(),
         };
@@ -71,7 +70,12 @@ fn framed<B: IntoView, F: IntoView>(
         let footer = (!kivact::custom::view_is_empty(&footer))
             .then(|| row(footer).style(style().justify_content(Justify::End)));
         let mut panel = column((row((heading, closer)), intro, content, footer))
-            .style(style().padding(16).gap(12).background(ColorToken::Surface))
+            .style(
+                style()
+                    .padding(16)
+                    .gap(12)
+                    .background(kivact::style::color::SURFACE),
+            )
             .style(match kind {
                 DialogMode::Drawer(side) => edge(side),
                 DialogMode::Popover => style().width(288),

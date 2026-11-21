@@ -7,7 +7,7 @@ use crate::variants::{Variant, Variants};
 use kivact_core::i18n::message;
 use kivact_core::state::{Callback, Signal, Value, binding, memo};
 use kivact_core::state::{IntoValue, callback};
-use kivact_core::style::{Direction, pct, style};
+use kivact_core::style::{FlexDirection, pct, style};
 use kivact_core::view::EditPhase;
 use kivact_core::view::IntoChildren;
 use kivact_core::view::{Element, Node, node};
@@ -222,9 +222,9 @@ impl IntoView for Split {
                     .node_ref(reference)
                     .style(move || {
                         style()
-                            .direction(Direction::Column)
-                            .grow(shares_now.get().get(at).copied().unwrap_or(0.0))
-                            .basis(0)
+                            .flex_direction(FlexDirection::Column)
+                            .flex_grow(shares_now.get().get(at).copied().unwrap_or(0.0))
+                            .flex_basis(0)
                             .min_width(0)
                             .min_height(0)
                     })
@@ -236,13 +236,13 @@ impl IntoView for Split {
             }
         }
         let direction = match (stacked, use_direction()) {
-            (true, _) => Direction::Column,
-            (false, ReadingDirection::Ltr) => Direction::Row,
-            (false, ReadingDirection::Rtl) => Direction::RowReverse,
+            (true, _) => FlexDirection::Column,
+            (false, ReadingDirection::Ltr) => FlexDirection::Row,
+            (false, ReadingDirection::Rtl) => FlexDirection::RowReverse,
         };
         root.base_style(
             style()
-                .direction(direction)
+                .flex_direction(direction)
                 .width(pct(100))
                 .height(pct(100))
                 .min_width(0)

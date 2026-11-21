@@ -305,17 +305,17 @@ fn explicit_focus_reveals_a_scroll_clipped_button() {
     let (screen, presses) = mount(|| {
         let presses = signal(0);
         let view = scroll(column((
-            node().style(style().height(400).shrink(0.0)),
+            node().style(style().height(400).flex_shrink(0.0)),
             node()
                 .role(Role::Button)
                 .focusable(true)
                 .name("offscreen target")
-                .style(style().height(32).shrink(0.0))
+                .style(style().height(32).flex_shrink(0.0))
                 .child(text("offscreen target"))
                 .on_press(move || presses.update(|n| *n += 1)),
         )))
         .test_id("focus reveal pane")
-        .style(style().height(100).shrink(0.0));
+        .style(style().height(100).flex_shrink(0.0));
         (presses, view)
     });
     let pane = screen.get_by_test_id("focus reveal pane");

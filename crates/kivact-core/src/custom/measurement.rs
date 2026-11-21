@@ -1,5 +1,6 @@
 //! Role: The measurement contract of a primitive: constraints, sizes and baselines.
 
+use kivact_style::Theme;
 use kivact_style::draw::{Size, TextFormat, TextMetrics, TextParagraph};
 use kivact_types::{self as values};
 
@@ -21,6 +22,8 @@ pub struct Constraints<'a> {
     /// The height available.
     pub available_height: AvailableSpace,
     text: kivact_engine::contract::LeafTextMeasurer<'a>,
+    /// The theme the primitive's text is measured in (its drawing's theme).
+    theme: &'a Theme,
 }
 
 impl Constraints<'_> {
@@ -60,8 +63,15 @@ impl Constraints<'_> {
     /// ```
     pub fn measure_text(&self, text: &str, style: &TextFormat) -> TextMetrics {
         let origin = values::Point { x: 0.0, y: 0.0 };
-        let run =
-            kivact_style::draw::text_run(text, origin, style, 1.0, values::Rgba::TRANSPARENT, None);
+        let run = kivact_style::draw::text_run(
+            text,
+            origin,
+            style,
+            1.0,
+            values::Rgba::TRANSPARENT,
+            self.theme,
+            &mut 0,
+        );
         self.text.measure(&run)
     }
 
@@ -97,8 +107,15 @@ impl Constraints<'_> {
         max_width: Option<f64>,
     ) -> TextParagraph {
         let origin = values::Point { x: 0.0, y: 0.0 };
-        let run =
-            kivact_style::draw::text_run(text, origin, style, 1.0, values::Rgba::TRANSPARENT, None);
+        let run = kivact_style::draw::text_run(
+            text,
+            origin,
+            style,
+            1.0,
+            values::Rgba::TRANSPARENT,
+            self.theme,
+            &mut 0,
+        );
         let shaped = self.text.shape(&run, max_width).unwrap_or_default();
         TextParagraph::from_shaped(text, shaped, max_width)
     }
@@ -117,7 +134,8 @@ impl Constraints<'_> {
             style,
             1.0,
             values::Rgba::TRANSPARENT,
-            None,
+            self.theme,
+            &mut 0,
         );
         let shaped = self.text.shape_inline(&run, max_width, boxes)?;
         Some(kivact_style::draw::InlineParagraph::from_shaped(
@@ -146,16 +164,18 @@ impl std::fmt::Debug for Constraints<'_> {
     }
 }
 
-pub(crate) fn constraints(
+pub(crate) fn constraints<'a>(
     r: values::MeasureRequest,
-    text: kivact_engine::contract::LeafTextMeasurer<'_>,
-) -> Constraints<'_> {
+    text: kivact_engine::contract::LeafTextMeasurer<'a>,
+    theme: &'a Theme,
+) -> Constraints<'a> {
     Constraints {
         known_width: r.known_width,
         known_height: r.known_height,
         available_width: r.available_width,
         available_height: r.available_height,
         text,
+        theme,
     }
 }
 

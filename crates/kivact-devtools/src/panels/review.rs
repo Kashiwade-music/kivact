@@ -46,7 +46,7 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         ))
         .style(style().gap(8).padding(12).align_items(Align::Start)),
     )
-    .style(style().grow(1.0).min_height(0.0))
+    .style(style().flex_grow(1.0).min_height(0.0))
 }
 
 /// The editor shown while a comment is being changed.

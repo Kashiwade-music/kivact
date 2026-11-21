@@ -4,13 +4,13 @@ use crate::look_common::{column, row};
 use crate::recipe::recipe_table;
 use crate::variants::Look;
 use crate::variants::Variant;
-use kivact_core::style::{Align, ColorToken, Justify, Style, Theme, pct, style};
+use kivact_core::style::{Align, Justify, Style, Theme, pct, style};
 use kivact_macros::Prop;
 pub(crate) fn author(t: &Theme, _: &Look<ChatMessageState>) -> Style {
     style()
-        .font_size(t.text().size)
-        .weight(t.text().weight_strong)
-        .color(ColorToken::Text)
+        .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .color(kivact_core::style::color::TEXT)
 }
 
 pub(crate) fn message_root(t: &Theme, s: &Look<ChatMessageState>) -> Style {
@@ -27,7 +27,7 @@ pub(crate) fn message_body(t: &Theme, s: &Look<ChatMessageState>) -> Style {
     let base = column(t, s)
         .position(kivact_core::style::Position::Relative)
         .max_width(pct(85))
-        .color(ColorToken::Text);
+        .color(kivact_core::style::color::TEXT);
     let base = if s.has_reactions {
         match s.reactions_side {
             ChatReactionsSide::Top => base.margin_top(18),
@@ -38,37 +38,37 @@ pub(crate) fn message_body(t: &Theme, s: &Look<ChatMessageState>) -> Style {
     };
     let base = if s.actionable {
         base.cursor(kivact_core::style::Cursor::Pointer)
-            .focus_visible(style().ring(t.focus_ring(), ColorToken::Accent))
+            .focus_visible(style().outline(t.focus_ring(), kivact_core::style::color::ACCENT))
     } else {
         base
     };
     if s.variant::<ChatMessageVariant>() == Some(&ChatMessageVariant::Plain) {
         base
     } else {
-        base.padding(t.space().md)
-            .radius_corners(
+        base.padding(t.get(&kivact_core::style::space::MD_VAR))
+            .border_radius_corners(
                 if matches!(s.group, ChatBubbleGroup::Middle | ChatBubbleGroup::Last) {
                     0.0
                 } else {
-                    t.radius().md
+                    t.get(&kivact_core::style::radius::MD_VAR)
                 },
                 if matches!(s.group, ChatBubbleGroup::Middle | ChatBubbleGroup::Last) {
                     0.0
                 } else {
-                    t.radius().md
+                    t.get(&kivact_core::style::radius::MD_VAR)
                 },
                 if matches!(s.group, ChatBubbleGroup::Middle | ChatBubbleGroup::First) {
                     0.0
                 } else {
-                    t.radius().md
+                    t.get(&kivact_core::style::radius::MD_VAR)
                 },
                 if matches!(s.group, ChatBubbleGroup::Middle | ChatBubbleGroup::First) {
                     0.0
                 } else {
-                    t.radius().md
+                    t.get(&kivact_core::style::radius::MD_VAR)
                 },
             )
-            .background(ColorToken::Surface)
+            .background(kivact_core::style::color::SURFACE)
     }
 }
 
@@ -76,8 +76,8 @@ pub(crate) fn reactions(_: &Theme, s: &Look<ChatMessageState>) -> Style {
     let base = style()
         .position(kivact_core::style::Position::Absolute)
         .right(12)
-        .background(ColorToken::SurfaceAlt)
-        .radius(999)
+        .background(kivact_core::style::color::SURFACE_ALT)
+        .border_radius(999)
         .padding_x(6)
         .padding_y(2);
     match s.reactions_side {

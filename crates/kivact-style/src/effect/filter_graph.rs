@@ -13,9 +13,8 @@ use kivact_types::{
 };
 
 use crate::asset::Asset;
-use crate::color::Color;
+use crate::color_value::Color;
 use crate::geometry::Rect;
-use crate::theme::value::ThemeColor;
 
 /// A handle to a primitive's result, or to the element itself. Copy. A handle of a primitive the graph does not have yet is replaced by the element and reported.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -42,8 +41,8 @@ pub(crate) struct AuthoredPrimitive {
 ///
 /// ```
 /// use kivact::prelude::*;
-/// use kivact::draw::{Filter, FilterGraph, FilterInput};
-/// use kivact::draw::filter::Channel;
+/// use kivact::style::{Filter, FilterGraph, FilterInput};
+/// use kivact::style::filter::Channel;
 /// // A glitch: displace the element by noise.
 /// let mut g = FilterGraph::new();
 /// let noise = g.turbulence(0.02, 2, 3.0);
@@ -298,7 +297,7 @@ impl FilterGraph {
         &mut self,
         input: FilterInput,
         light: Light,
-        color: impl ThemeColor,
+        color: impl Into<Color>,
     ) -> FilterInput {
         let input = self.input(input);
         self.push(
@@ -309,7 +308,7 @@ impl FilterGraph {
                 color: Rgba::TRANSPARENT,
                 light,
             },
-            Some(Color::of(color)),
+            Some(color.into()),
         )
     }
 
@@ -318,7 +317,7 @@ impl FilterGraph {
         &mut self,
         input: FilterInput,
         light: Light,
-        color: impl ThemeColor,
+        color: impl Into<Color>,
         exponent: impl Into<f64>,
     ) -> FilterInput {
         let input = self.input(input);
@@ -332,7 +331,7 @@ impl FilterGraph {
                 color: Rgba::TRANSPARENT,
                 light,
             },
-            Some(Color::of(color)),
+            Some(color.into()),
         )
     }
 
@@ -362,7 +361,7 @@ impl FilterGraph {
         x: impl Into<f64>,
         y: impl Into<f64>,
         std_dev: impl Into<f64>,
-        color: impl ThemeColor,
+        color: impl Into<Color>,
     ) -> FilterInput {
         let (x, y, s) = (x.into(), y.into(), std_dev.into());
         let input = self.input(input);
@@ -373,23 +372,23 @@ impl FilterGraph {
                 std_dev: (s, s),
                 color: Rgba::TRANSPARENT,
             },
-            Some(Color::of(color)),
+            Some(color.into()),
         )
     }
 
     /// The color, everywhere the filter region is.
-    pub fn flood(&mut self, color: impl ThemeColor) -> FilterInput {
+    pub fn flood(&mut self, color: impl Into<Color>) -> FilterInput {
         self.push(
             PrimitiveOp::Flood {
                 color: Rgba::TRANSPARENT,
             },
-            Some(Color::of(color)),
+            Some(color.into()),
         )
     }
 
     /// `color` where `input` has alpha (feFlood and feComposite `in`): the
     /// result is the composite, the flood is the one before it.
-    pub fn flood_in(&mut self, input: FilterInput, color: impl ThemeColor) -> FilterInput {
+    pub fn flood_in(&mut self, input: FilterInput, color: impl Into<Color>) -> FilterInput {
         let flood = self.flood(color);
         let bottom = self.input(input);
         let top = self.input(flood);

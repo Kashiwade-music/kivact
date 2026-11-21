@@ -2,7 +2,6 @@
 
 use kivact::draw::TextFormat;
 use kivact::prelude::*;
-use kivact::style::ColorToken;
 use kivact::ui::{DataColumn, data_table, toggle_group};
 use kivact::view::Node;
 use kivact_devtools_protocol as p;
@@ -67,7 +66,7 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         ))
         .style(style().gap(12).padding(12).width(pct(100))),
     )
-    .style(style().grow(1.0).min_height(0.0).width(pct(100)))
+    .style(style().flex_grow(1.0).min_height(0.0).width(pct(100)))
 }
 
 /// The window select, the renderer, the trace export and the paint flashing toggle.
@@ -132,7 +131,7 @@ fn frame_bars(frames: Value<Vec<p::FrameInfo>>) -> Node {
         style()
             .width(pct(100))
             .height(160)
-            .background(Color::token(ColorToken::SurfaceAlt)),
+            .background(kivact::style::color::SURFACE_ALT),
     )
 }
 
@@ -148,13 +147,13 @@ fn paint_frame_bars(draw: &mut Draw, size: Size, frames: &[p::FrameInfo]) {
         Point::new(plot.x, plot.bottom()),
         Point::new(plot.right(), plot.bottom()),
         Stroke::new(1.0),
-        Color::token(ColorToken::Border),
+        kivact::style::color::BORDER,
     );
     if frames.is_empty() {
         draw.text(
             "No frames recorded",
             Point::new(plot.x, plot.y + plot.height / 2.0),
-            label_style(12.0, ColorToken::TextMuted),
+            label_style(12.0, kivact::style::color::TEXT_MUTED),
         );
         return;
     }
@@ -169,12 +168,12 @@ fn paint_frame_bars(draw: &mut Draw, size: Size, frames: &[p::FrameInfo]) {
     draw.text(
         &format!("{:.1} ms", ns_to_ms(max_ns)),
         Point::new(4.0, plot.y),
-        label_style(10.0, ColorToken::TextMuted),
+        label_style(10.0, kivact::style::color::TEXT_MUTED),
     );
     draw.text(
         &format!("budget {:.1} ms", ns_to_ms(budget_ns)),
         Point::new(plot.x, plot.y + 2.0),
-        label_style(10.0, ColorToken::TextMuted),
+        label_style(10.0, kivact::style::color::TEXT_MUTED),
     );
     let budget_y = plot.bottom() - fraction(budget_ns, max_ns) * plot.height;
     draw.line(
@@ -184,7 +183,7 @@ fn paint_frame_bars(draw: &mut Draw, size: Size, frames: &[p::FrameInfo]) {
             dash: vec![4.0, 4.0],
             ..Stroke::new(1.0)
         },
-        Color::token(ColorToken::TextMuted),
+        kivact::style::color::TEXT_MUTED,
     );
     let slot = plot.width / shown.len() as f64;
     let bar_width = (slot * 0.7).max(1.0);
@@ -197,9 +196,9 @@ fn paint_frame_bars(draw: &mut Draw, size: Size, frames: &[p::FrameInfo]) {
             height,
         );
         let color = if frame.over_budget {
-            Color::token(ColorToken::Danger)
+            kivact::style::color::DANGER
         } else {
-            Color::token(ColorToken::Accent)
+            kivact::style::color::ACCENT
         };
         draw.fill_rect(rect, color);
     }
@@ -386,10 +385,10 @@ fn fraction(value: u64, max: u64) -> f64 {
 }
 
 /// A small muted label used by the canvases.
-fn label_style(size: f64, token: ColorToken) -> TextFormat {
+fn label_style(size: f64, token: Color) -> TextFormat {
     TextFormat {
         size,
-        color: Color::token(token),
+        color: token,
         ..TextFormat::default()
     }
 }

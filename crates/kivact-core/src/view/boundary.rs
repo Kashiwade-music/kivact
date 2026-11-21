@@ -101,7 +101,7 @@ pub fn provide<T: Clone + 'static, V: IntoView>(
 /// Its transparent box colors nothing by itself: text inherits its
 /// color from its ancestors (as CSS's `color`), and text under no colored
 /// node takes the App theme's. Give the subtree's top node the theme's
-/// colors (`.background(ColorToken::Surface).color(ColorToken::Text)`, or
+/// colors (`.background(kivact::style::color::SURFACE).color(kivact::style::color::TEXT)`, or
 /// a kit's tokens), as a page sets them on its body.
 ///
 /// ```ignore
@@ -192,7 +192,7 @@ pub fn provide_messages<V: IntoView>(
 }
 
 /// The reading direction of a subtree (the HTML `dir` attribute, base-ui's
-/// `DirectionProvider`). Named apart from [`Direction`](crate::style::Direction),
+/// `DirectionProvider`). Named apart from [`FlexDirection`](crate::style::FlexDirection),
 /// the flex direction of a box.
 ///
 /// Direction-aware behavior reads it once at setup with

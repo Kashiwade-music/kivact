@@ -22,7 +22,7 @@ fn button(name: &'static str) -> Node {
         .name(name)
         .test_id(name)
         .focusable(true)
-        .style(style().size(100, 30).shrink(0))
+        .style(style().size(100, 30).flex_shrink(0))
         .child(text(name))
 }
 

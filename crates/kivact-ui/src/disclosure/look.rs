@@ -1,34 +1,34 @@
 //! Role: The disclosure recipe state, tokens, recipe table and default looks.
 
 use crate::recipe::recipe_table;
-use kivact_core::style::{Align, ColorToken, Direction, Justify, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Justify, Style, Theme, style};
 /// A disclosure: the trigger over the content.
 pub(crate) fn disclosure_root(_: &Theme, _: &DisclosureRecipeState) -> Style {
-    style().direction(Direction::Column)
+    style().flex_direction(FlexDirection::Column)
 }
 
 /// A disclosure's trigger: the title at the start and the indicator at the end.
 pub(crate) fn disclosure_trigger(t: &Theme, _: &DisclosureRecipeState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .justify_content(Justify::SpaceBetween)
-        .gap(t.space().md)
-        .padding_y(t.space().md)
-        .font_size(t.text().size)
-        .weight(t.text().weight_strong)
-        .color(ColorToken::Text)
-        .radius(t.radius().md)
-        .hover(style().background(ColorToken::Hover))
-        .pressed(style().background(ColorToken::Pressed))
+        .gap(t.get(&kivact_core::style::space::MD_VAR))
+        .padding_y(t.get(&kivact_core::style::space::MD_VAR))
+        .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .color(kivact_core::style::color::TEXT)
+        .border_radius(t.get(&kivact_core::style::radius::MD_VAR))
+        .hover(style().background(kivact_core::style::color::HOVER))
+        .active(style().background(kivact_core::style::color::PRESSED))
 }
 
 /// The box of a disclosure's `chevron-down` icon, turned up while it is open.
 pub(crate) fn disclosure_indicator(_: &Theme, state: &DisclosureRecipeState) -> Style {
     style()
         .size(16, 16)
-        .shrink(0)
-        .color(ColorToken::TextMuted)
+        .flex_shrink(0)
+        .color(kivact_core::style::color::TEXT_MUTED)
         .rotate(if state.open { 180 } else { 0 })
 }
 
@@ -37,9 +37,9 @@ pub(crate) fn disclosure_content(t: &Theme, _: &DisclosureRecipeState) -> Style 
     style()
         .enter_size(kivact_core::view::Orientation::Vertical)
         .exit_size(kivact_core::view::Orientation::Vertical)
-        .direction(Direction::Column)
-        .padding_bottom(t.space().md)
-        .color(ColorToken::TextMuted)
+        .flex_direction(FlexDirection::Column)
+        .padding_bottom(t.get(&kivact_core::style::space::MD_VAR))
+        .color(kivact_core::style::color::TEXT_MUTED)
 }
 
 /// A panel's fixed position within its accordion.

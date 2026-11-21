@@ -6,9 +6,9 @@
 //! overflow clips and clip paths, which also clip hit testing. Checked on
 //! the frame's pixels (scale 1: a logical pixel is a physical one).
 
-use kivact::draw::{conic_gradient, linear_gradient, radial_gradient};
 use kivact::prelude::*;
 use kivact::style::BorderStyle;
+use kivact::style::{conic_gradient, linear_gradient, radial_gradient};
 use kivact::test::render;
 use kivact_public_api_tests::paint::{
     BLACK, BLUE, RED, WHITE, at, canvas_of, distance, expect, pixel,
@@ -71,7 +71,7 @@ fn borders_have_sides_styles_and_fractional_widths() {
             // Per-side widths and colors with rounded corners.
             node().style(
                 at(400, 0, 60, 60)
-                    .radius(12)
+                    .border_radius(12)
                     .border_left(6, rgb(RED))
                     .border_top(2, rgb(BLUE)),
             ),
@@ -142,7 +142,7 @@ fn shadows_inset_negative_spread_stacked_and_shaped() {
             // A glow around an ellipse follows it.
             node().style(
                 at(320, 20, 40, 40)
-                    .radius(pct(50))
+                    .border_radius(pct(50))
                     .background(Color::WHITE)
                     .shadow(Shadow::new(0, 0, 0, rgb(RED)).spread(4)),
             ),

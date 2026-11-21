@@ -151,7 +151,7 @@ impl Disclosure {
             show(details.is_open(), region).into_view()
         };
         self.root
-            .style(style().direction(kivact_core::style::Direction::Column))
+            .style(style().flex_direction(kivact_core::style::FlexDirection::Column))
             .child((trigger, body))
     }
 
@@ -228,7 +228,7 @@ impl IntoView for Disclosure {
             move || crate::disclosure::look::DisclosureRecipeState::from_part(state.get(), group),
         )
         .child((
-            text(title).style(crate::helpers::label_style().grow(1)),
+            text(title).style(crate::helpers::label_style().flex_grow(1)),
             indicator,
         ));
         let trigger = match self.heading_level {

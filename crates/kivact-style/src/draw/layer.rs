@@ -1,11 +1,10 @@
 //! Role: Closure-scoped canvas groups and the `Draw::layer` command that records them.
 use super::recorder::Draw;
-use crate::effect::{BlendMode, Filter, Shadow, Shape, basic, filter_ops};
+use crate::effect::{Filter, Shadow, Shape, basic, filter_ops};
 use crate::geometry::Rect;
 use crate::paint::Mask;
 use crate::transform::Transform;
 use kivact_types as p;
-use kivact_types::Composite;
 use kivact_types::Mix;
 use kivact_types::{BackfaceVisibility, TransformStyle};
 
@@ -15,25 +14,26 @@ use kivact_types::{BackfaceVisibility, TransformStyle};
 ///
 /// The parts apply from the outside in: the transform first (so the clip,
 /// the area and the mask are in the transformed coordinates), then the
-/// clip, then the group (opacity, blend or composite, filter, mask, shadow),
+/// clip, then the group (opacity, mix, filter, mask, shadow),
 /// which is composited as one image. A clip outside a transform is a layer
 /// around a layer. A transform with a z component or a perspective is a 3D
 /// matrix that the group carries (its `transform_style` and
 /// `backface_visibility` apply to it); a 2D one maps the drawing directly.
 ///
 /// ```
-/// use kivact::draw::{Layer, Shape, Transform};
+/// use kivact::draw::{Layer};
+/// use kivact::style::{Shape, Transform};
 /// use kivact::prelude::*;
 /// use kivact::draw::{Draw};
 /// use kivact::geometry::{Size};
 /// use kivact::style::{pct};
-/// use kivact::style::ColorToken;
+/// use kivact::style::Color;
 /// fn badge(d: &mut Draw, size: Size) {
 ///     let tilted = Layer::new()
 ///         .transform(Transform::new().rotate(-8))
 ///         .clip(&Shape::circle(pct(50)))
 ///         .opacity(0.8);
-///     d.layer(tilted, |d| d.fill_rect(size.to_rect(), ColorToken::Accent));
+///     d.layer(tilted, |d| d.fill_rect(size.to_rect(), kivact::style::color::ACCENT));
 /// }
 /// # let _ = badge;
 /// ```
@@ -113,17 +113,11 @@ impl Layer {
         self.opacity = opacity.into();
         self
     }
-    /// The blend mode with what is beneath (CSS `mix-blend-mode`). It sets
-    /// the composite to source-over, as a blend does.
-    pub fn blend(mut self, blend: BlendMode) -> Self {
-        self.mix = Mix::Blend(blend).normalized();
-        self
-    }
-    /// The Porter–Duff composite with what is beneath (Canvas
-    /// `globalCompositeOperation`). It sets the blend to normal, so the
-    /// last of `blend` and `composite` wins.
-    pub fn composite(mut self, composite: Composite) -> Self {
-        self.mix = Mix::Composite(composite).normalized();
+    /// How the layer combines with what is beneath: `Mix::Blend(mode)`
+    /// (CSS `mix-blend-mode`) or `Mix::Composite(op)` (Canvas
+    /// `globalCompositeOperation`); `Mix::Normal` by default.
+    pub fn mix(mut self, mix: Mix) -> Self {
+        self.mix = mix.normalized();
         self
     }
     pub fn filter(mut self, filter: Filter) -> Self {
@@ -209,18 +203,23 @@ impl Draw {
             t.to_wire([p::Len::ZERO, p::Len::ZERO], 0.0)
                 .matrix(self.size)
         });
+        let clip = layer
+            .clip
+            .as_ref()
+            .map(|shape| self.resolving(|cx| basic(area, shape, cx)));
+        let masks = layer
+            .mask
+            .as_ref()
+            .map(|m| self.resolving(|cx| m.wire(cx)))
+            .unwrap_or_default();
         self.cmds
             .push(p::DrawCmd::PushLayer(Box::new(p::DrawingLayer {
                 area,
-                clip: layer.clip.as_ref().map(|shape| basic(area, shape)),
+                clip,
                 opacity: layer.opacity,
                 mix: layer.mix,
                 filter: filter_ops(&filter, &self.theme),
-                masks: layer
-                    .mask
-                    .as_ref()
-                    .map(|m| m.wire(&self.theme))
-                    .unwrap_or_default(),
+                masks,
                 transform,
                 transform_style: layer.transform_style,
                 backface: layer.backface,

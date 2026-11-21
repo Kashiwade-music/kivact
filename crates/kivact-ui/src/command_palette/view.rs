@@ -248,8 +248,8 @@ fn row_view<K: kivact_core::state::ItemKey>(
             })
         }
     });
-    let label =
-        text(move || command.with(|command| command.label())).style(style().grow(1).min_width(0));
+    let label = text(move || command.with(|command| command.label()))
+        .style(style().flex_grow(1).min_width(0));
     let hint = dynamic(move || command.with(|command| command.hint()), {
         let variants = variants.clone();
         move |hint: Option<String>| {

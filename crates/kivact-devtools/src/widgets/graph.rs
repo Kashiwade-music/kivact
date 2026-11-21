@@ -1,7 +1,6 @@
 //! Role: The cause graph of one recorded turn or one `why` dependency list.
 
 use kivact::state::IntoValue;
-use kivact::style::ColorToken;
 use kivact::view::Node;
 use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
@@ -93,13 +92,13 @@ fn graph_body(
     let lines = lines(&cards, &causes.edges);
     let band = band_rect(height);
     let canvas = canvas(move |draw, _size| {
-        draw.fill_rect(band, Color::token(ColorToken::Selection).with_alpha(0.10));
+        draw.fill_rect(band, kivact::style::color::SELECTION.with_alpha(0.10));
         for (from, to) in &lines {
             draw.line(
                 *from,
                 *to,
                 kivact::draw::Stroke::new(1.0),
-                Color::token(ColorToken::Border),
+                kivact::style::color::BORDER,
             );
         }
     })
@@ -237,9 +236,9 @@ fn card_node(
                 .padding_x(6)
                 .padding_y(3)
                 .align_items(Align::Center)
-                .background(ColorToken::SurfaceAlt)
+                .background(kivact::style::color::SURFACE_ALT)
                 .border(1, color)
-                .radius(4);
+                .border_radius(4);
             if cause.wasted {
                 base.opacity(0.6)
             } else {
@@ -281,9 +280,9 @@ fn count_button(card: &Card, expanded: Signal<BTreeSet<u32>>) -> Node {
                 .width(COUNT_WIDTH)
                 .height(CARD_HEIGHT - 4.0)
                 .align_items(Align::Center)
-                .background(ColorToken::Surface)
-                .border(1, ColorToken::Border)
-                .radius(3),
+                .background(kivact::style::color::SURFACE)
+                .border(1, kivact::style::color::BORDER)
+                .border_radius(3),
         )
         .on_pointer(move |event| {
             let PointerPhase::Up(press) = event.phase() else {
@@ -327,8 +326,8 @@ fn member_row(
                 .height(MEMBER_HEIGHT)
                 .padding_x(4)
                 .align_items(Align::Center)
-                .background(ColorToken::Surface)
-                .radius(3),
+                .background(kivact::style::color::SURFACE)
+                .border_radius(3),
         )
         .on_pointer(move |event| {
             let PointerPhase::Up(press) = event.phase() else {
@@ -367,13 +366,13 @@ fn column_of(kind: p::CauseKind) -> usize {
 }
 
 /// The border color of a column.
-fn column_color(column: usize) -> ColorToken {
+fn column_color(column: usize) -> Color {
     match column {
-        0 => ColorToken::Accent,
-        1 => ColorToken::Warning,
-        2 => ColorToken::Focus,
-        3 => ColorToken::Success,
-        _ => ColorToken::Border,
+        0 => kivact::style::color::ACCENT,
+        1 => kivact::style::color::WARNING,
+        2 => kivact::style::color::FOCUS,
+        3 => kivact::style::color::SUCCESS,
+        _ => kivact::style::color::BORDER,
     }
 }
 
@@ -401,6 +400,6 @@ fn empty(label: &'static str) -> impl IntoView {
         style()
             .padding(8)
             .font_size(11.0)
-            .color(ColorToken::TextMuted),
+            .color(kivact::style::color::TEXT_MUTED),
     )
 }

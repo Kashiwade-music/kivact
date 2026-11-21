@@ -221,7 +221,7 @@ impl IntoView for SelectionField {
         .name(self.label)
         .node_ref(target)
         .expanded(open)
-        .child(text(self.value_label).style(style().grow(1).single_line()))
+        .child(text(self.value_label).style(style().flex_grow(1).single_line()))
         .child(indicator(open, &self.variants))
         .on_pointer(move |event| {
             field.send(FieldEvent::Pointer(event));

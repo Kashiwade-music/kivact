@@ -2,19 +2,19 @@
 
 use crate::Look;
 use crate::recipe::recipe_table;
-use kivact_core::style::{ColorToken, Direction, Style, Theme, style};
+use kivact_core::style::{FlexDirection, Style, Theme, style};
 pub(crate) fn breadcrumb_root(t: &Theme, _: &Look<()>) -> Style {
     let p = &t.ext::<crate::UiTokens>().breadcrumb;
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .gap(p.gap)
         .padding(p.padding)
-        .font_size(t.text().size)
-        .color(ColorToken::Text)
+        .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
+        .color(kivact_core::style::color::TEXT)
 }
 
 pub(crate) fn breadcrumb_list(_: &Theme, _: &Look<()>) -> Style {
-    style().direction(Direction::Row).gap(8)
+    style().flex_direction(FlexDirection::Row).gap(8)
 }
 
 pub(crate) fn breadcrumb_item(t: &Theme, s: &Look<crate::BreadcrumbItemState>) -> Style {
@@ -25,11 +25,11 @@ pub(crate) fn breadcrumb_item(t: &Theme, s: &Look<crate::BreadcrumbItemState>) -
         .border(0, kivact_core::style::Color::TRANSPARENT)
         .background(kivact_core::style::Color::TRANSPARENT)
         .color(if s.is_current() {
-            t.colors().text
+            t.get(&kivact_core::style::color::TEXT_VAR)
         } else {
-            t.colors().text_muted
+            t.get(&kivact_core::style::color::TEXT_MUTED_VAR)
         })
-        .weight(400)
+        .font_weight(400)
 }
 
 /// What a breadcrumb entry is, with its link's actual input.

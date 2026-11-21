@@ -60,5 +60,5 @@ pub(super) fn label_and_description(
             },
         ),
     ))
-    .style(style().grow(1).min_width(0))
+    .style(style().flex_grow(1).min_width(0))
 }

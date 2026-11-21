@@ -82,7 +82,7 @@ impl Model {
         let len = |d: Length, of: f64| match d {
             Length::Px(v) => Some(v),
             Length::Percent(p) => Some(of * p / 100.0),
-            Length::Calc { percent, px } => Some(of * percent / 100.0 + px),
+            Length::Calc { percent, px, .. } => Some(of * percent / 100.0 + px),
             _ => None,
         };
         Some(Point {
