@@ -1468,3 +1468,13 @@ lane K5 の K33a（commit `84f6dd05`）の報告による。app_shell・mobile_n
 lane K5 の K33e（commit `94d1ed25`）の報告による。設計者の答え「caller の `open` を唯一の signal として使う」と、実際の `NavPanel` の配線が合わない。
 
 - **TopNavMegaMenu の `open`**（`crates/kivact-ui-soft/src/navigation_session.rs:NavPanel::new`、`top_nav.rs`）：`TopNavMegaMenu` が top_nav の navigation group の中にあるとき、group の signal が使われ、caller の `open(..)` は無視される（コードに注記を書いた）。no-group の経路では `use_navigation_menu(open)` に渡す実装にした。group の経路の実行試験はしていない（確認は check・clippy・xtask のみ）。group と caller の `open` の優先順位（どちらを使うか、両方を同期させるか）は設計者の判断。
+
+## 設計者の回答（W9・K33e の TopNavMegaMenu の open、2026-11-22）
+
+- navigation の group の中では、**group が唯一の事実**（一度に開く panel は一つ。どの panel が開いているかは group の signal が持つ）。panel ごとの caller の `open` を足すと二つ目の事実になり、同期が要る。だから両方は使わず、同期もさせない。
+- 決め：
+  - group の外（no-group の経路）では、caller の `open` を使う（今の実装のとおり）。
+  - group の中で caller が `open(..)` を与えたら、黙って無視せず、usage の誤りとして報告する（`caller.at()` の位置、他の usage の誤りと同じ報告の仕方）。開閉は group の signal のまま。報告の文：「`open` is ignored inside a navigation group: the group shows one panel at a time. Read or set the group's open panel instead.」
+  - `open` の setter の doc に 1 文足す：「Inside a navigation group the group decides which panel is open, and `open` is reported as a mistake.」
+- 試験（soft の試験の file。kit の試験が compile に戻る K43 で走らせる。今は書くだけでよい）：`fn an_open_given_inside_a_navigation_group_is_reported()`。
+- lane K5 の fix の commit で行う。その後は PROGRESS の「次にすること」(2)〜(6) のとおり。
