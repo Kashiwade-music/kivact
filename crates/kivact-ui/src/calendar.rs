@@ -10,3 +10,4 @@ mod view;
 
 pub use model::{CalendarCaption, CalendarEvent};
 pub use view::{Calendar, calendar};
+pub(crate) use view::{range_validator, sheet_month};

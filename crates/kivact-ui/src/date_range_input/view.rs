@@ -49,7 +49,7 @@ pub struct DateRangeInput {
     presentation: DatePresentation,
     configure: Option<Rc<dyn Fn(Calendar) -> Calendar>>,
     presets: Option<Value<Vec<DateRangePreset>>>,
-    constraints: Vec<Constraint>,
+    constraint: Option<Constraint>,
     min_span: Value<u32>,
     max_span: Value<Option<u32>>,
 }
@@ -73,7 +73,7 @@ pub fn date_range_input(range: Signal<Option<DateRange>>) -> DateRangeInput {
         presentation: DatePresentation::Adaptive,
         configure: None,
         presets: None,
-        constraints: Vec::new(),
+        constraint: None,
         min_span: 1.into_value(),
         max_span: None.into_value(),
     }
@@ -167,7 +167,7 @@ impl DateRangeInput {
     }
     /// Require both endpoints to satisfy this predicate.
     pub fn date_constraint(mut self, constraint: impl Fn(CalendarDate) -> bool + 'static) -> Self {
-        self.constraints.push(Rc::new(constraint));
+        self.constraint = Some(Rc::new(constraint));
         self
     }
     /// Minimum inclusive span in days.
@@ -260,8 +260,8 @@ impl DateRangeInput {
         let configured_rules = self
             .configure
             .as_ref()
-            .map(|configure| configure(calendar(self.value)).range_validator());
-        let constraints = Rc::new(self.constraints.clone());
+            .map(|configure| crate::calendar::range_validator(&configure(calendar(self.value))));
+        let constraint = self.constraint.clone();
         Rc::new(move |range| {
             let (start, end) = (range.start(), range.end());
             let span = start.to_days().abs_diff(end.to_days()) + 1;
@@ -270,9 +270,9 @@ impl DateRangeInput {
                 && max.get().is_none_or(|max| end <= max)
                 && span >= u64::from(min_span.get().max(1))
                 && max_span.get().is_none_or(|max| span <= u64::from(max))
-                && constraints
-                    .iter()
-                    .all(|accept| accept(start) && accept(end))
+                && constraint
+                    .as_ref()
+                    .is_none_or(|accept| accept(start) && accept(end))
         })
     }
     /// Render preset choices and the canonical two-month range picker.
@@ -293,10 +293,11 @@ impl DateRangeInput {
             let mut picker = calendar(selected)
                 .min(min)
                 .max(max)
-                .range_span(min_span, max_span)
+                .min_span(min_span)
+                .max_span(max_span)
                 .number_of_months(2usize);
             if touch {
-                picker = picker.touch();
+                picker = picker.touch(true);
             }
             if let Some(day) = week_start {
                 picker = picker.week_start(day);

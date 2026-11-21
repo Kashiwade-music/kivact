@@ -12,7 +12,7 @@ pub(crate) fn panel(value: Signal<Option<CalendarDate>>, picker: crate::Calendar
         .get_untracked()
         .unwrap_or_else(CalendarDate::today)
         .month_of();
-    let month = picker.sheet_month(initial);
+    let month = crate::calendar::sheet_month(&picker, initial);
     let locale = use_locale();
     let panel = signal(DateSheetPanel::Calendar);
     let title = crate::button(move || {
@@ -74,7 +74,7 @@ pub(crate) fn panel(value: Signal<Option<CalendarDate>>, picker: crate::Calendar
         wheels,
         picker
             .month(month)
-            .touch()
+            .touch(true)
             .hidden(move || panel.get() == DateSheetPanel::MonthYear),
     ))
 }
