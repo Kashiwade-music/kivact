@@ -1,6 +1,6 @@
 //! Role: Draw console navigation with numbered chevrons and compact page controls.
 use crate::choice_style;
-use crate::color::{PRIMARY_WEAK, SURFACE_3};
+use crate::color::{PRIMARY_WEAK, SURFACE_3, TEXT_3};
 use crate::fonts::{DISPLAY_FAMILY_VAR, MONO_FAMILY_VAR};
 use crate::variants::TabsVariant;
 use kivact::interaction::{NavOpen, TabListState, TabState};
@@ -136,7 +136,7 @@ pub(crate) fn stepper_item(_: &Theme, s: &Look<StepperItemState>, base: Style) -
     } else if s.index < s.current {
         ACCENT
     } else {
-        SURFACE_3
+        TEXT_3
     };
     base.height(40)
         .padding_left(if s.index == 0 { 14 } else { 22 })
