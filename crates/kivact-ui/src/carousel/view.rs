@@ -4,7 +4,7 @@ use crate::carousel::look::CarouselSurfaceState;
 use crate::carousel::look::CarouselTheme;
 use kivact_core::custom::Caller;
 use kivact_core::geometry::Point;
-use kivact_core::state::{Signal, Value, memo};
+use kivact_core::state::{Signal, Value, effect, memo};
 use kivact_core::style::{FlexDirection, Overflow, pct, style, use_theme};
 use kivact_core::view::{
     Children, Element, Handled, IntoView, Key, Node, NodeRef, Orientation, ReadingDirection, Role,
@@ -53,6 +53,7 @@ pub fn carousel(
     let c = prepare(setup, references.clone(), caller.disabled());
     if c.mode == CarouselMode::Scroll {
         follow_scroll(c, references.clone());
+        open_at_index(c, references.clone());
     }
     let items = slide_items(c, &variants, slides, &references);
     let content = slide_track(c, &variants, items);
@@ -159,7 +160,7 @@ fn prepare(setup: Setup, references: Rc<Vec<NodeRef>>, disabled: Option<Value<bo
         }),
     };
     let api = use_carousel(setup.index, count, move |at| {
-        scroll_to_slide(view, &references, at)
+        scroll_to_slide(view, &references, at, false)
     });
     let per_view = setup.items_per_view.map(|count| {
         memo(move || {
@@ -222,7 +223,8 @@ fn navigate(c: Layout, references: &[NodeRef], delta: isize) {
 
 /// Scroll the viewport so slide `at` starts at its padding edge. The carousel
 /// machine calls it for each command and each outside write of the index.
-fn scroll_to_slide(view: SlideView, references: &[NodeRef], at: usize) {
+/// `instant` skips the motion; the first placement of a carousel uses it.
+fn scroll_to_slide(view: SlideView, references: &[NodeRef], at: usize, instant: bool) {
     let (Some(viewport), Some(slide)) = (
         view.viewport.rect().get_untracked(),
         references.get(at).and_then(|r| r.rect().get_untracked()),
@@ -261,12 +263,30 @@ fn scroll_to_slide(view: SlideView, references: &[NodeRef], at: usize) {
     }
     view.viewport.scroll_to(
         point,
-        if kivact_core::platform::is_motion_reduced().get_untracked() {
+        if instant || kivact_core::platform::is_motion_reduced().get_untracked() {
             ScrollBehavior::Instant
         } else {
             ScrollBehavior::Smooth(kivact_core::motion::Easing::EaseOut)
         },
     );
+}
+
+/// Place the current slide once, the first time the viewport and that slide
+/// are measured, so a carousel opens at its index. The index may be set before
+/// the first layout, and the rects arrive after it; the placement is instant.
+/// Later measurements do not scroll: only index changes do.
+fn open_at_index(c: Layout, references: Rc<Vec<NodeRef>>) {
+    let opened = std::cell::Cell::new(false);
+    effect(move || {
+        let viewport = c.view.viewport.rect().get().is_some();
+        let at = c.shown.get_untracked();
+        let slide = references.get(at).is_some_and(|r| r.rect().get().is_some());
+        if opened.get() || !(viewport && slide) {
+            return;
+        }
+        opened.set(true);
+        scroll_to_slide(c.view, &references, at, true);
+    });
 }
 
 /// Report the slide nearest the viewport's start to the carousel each time

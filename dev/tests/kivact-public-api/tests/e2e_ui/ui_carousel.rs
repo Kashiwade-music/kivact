@@ -43,3 +43,30 @@ fn carousel_scroll_mode_snaps_to_a_slide() {
     assert_eq!(index.get_untracked(), 2);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_carousel_opens_at_its_initial_slide() {
+    let (screen, _index) = mount(|| {
+        let index = signal(2usize);
+        (
+            index,
+            carousel(index, (text("One"), text("Two"), text("Three")))
+                .mode(CarouselMode::Scroll)
+                .items_per_view(1.0)
+                .style(style().width(240).height(180)),
+        )
+    });
+    let root = screen
+        .get_by_role(Role::Group, "Carousel")
+        .accessibility_bounds()
+        .expect("carousel bounds");
+    let slide = screen
+        .get_by_role(Role::Group, "Slide 3 / 3")
+        .accessibility_bounds()
+        .expect("slide 3 bounds");
+    assert!(
+        slide.x >= root.x && slide.right() <= root.right(),
+        "slide 3 at {slide:?} is outside the viewport {root:?}"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
