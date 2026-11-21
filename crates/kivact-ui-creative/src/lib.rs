@@ -34,6 +34,7 @@ mod numeric;
 mod options;
 mod panel_group;
 mod pie;
+mod range;
 mod recipe_parts;
 mod recipes_collections;
 mod recipes_controls;
@@ -96,6 +97,7 @@ pub use numeric::{
 pub use options::{Accent, Density, LabelTone};
 pub use panel_group::{InspectorPanel, panel_group};
 pub use pie::{PieEntry, PieMenu, PieMode, PieState, pie_menu};
+pub use range::{Range, range};
 pub use tabs::document_tabs;
 pub use theme::{ThemeOptions, theme, theme_with};
 pub use timeline::{TimelineEditor, timeline_editor};
