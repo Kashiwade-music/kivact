@@ -48,10 +48,12 @@ mod drag_velocity;
 mod edit;
 mod focus_return;
 mod follow_end;
+mod history;
 mod hover_corridor;
 mod list;
 mod menu;
 mod menubar;
+mod month_swipe;
 mod palette;
 mod policy;
 mod popup;
@@ -65,6 +67,8 @@ mod selection;
 mod swipe_dismiss;
 mod switch_drag;
 pub use selection::{IntoSelection, Selection};
+mod date_field;
+mod draft;
 mod select;
 mod space_pan;
 mod splitter;
@@ -140,6 +144,14 @@ pub use tree::{
 pub use text_edit::{TextEditApi, text_edit_policy, use_text_area, use_text_edit};
 
 pub use zoom_pan::{ViewTransform, ZoomPanApi, use_zoom_pan};
+
+pub use date_field::{
+    DateFieldApi, DateFieldOptions, DatePanel, DatePicker, DatePickerApi, TextCheck, TypedCheck,
+    TypedText, use_date_field, use_date_picker,
+};
+pub use draft::{DraftApi, DraftCommit, DraftOptions, use_draft};
+pub use history::{HistoryApi, use_history};
+pub use month_swipe::{MonthSwipeApi, MonthSwipePhase, use_month_swipe};
 
 mod inline_edit;
 mod interaction_policy;

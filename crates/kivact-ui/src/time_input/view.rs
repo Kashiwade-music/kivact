@@ -1,13 +1,13 @@
 //! Role: Time field and its wheel dialog.
-use super::machine::{Event, Snapshot, TimeDraft, TimeInputState};
 use crate::helpers::{is_named, report_unnamed};
 use crate::layer::with_recipe_style;
 use crate::time_input::look::TimeInputTheme;
 use crate::{DatePresentation, button, dialog, text_input};
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{TimeOfDay, TimeStyle, message, use_locale};
-use kivact_core::state::{IntoText, IntoValue, Signal, Value, binding, machine};
+use kivact_core::state::{IntoText, IntoValue, Signal, Value, binding};
 use kivact_core::view::{Element, IntoView, Node, View, node, row};
+use kivact_interaction::{DateFieldApi, DateFieldOptions, DatePanel, TypedCheck, use_date_field};
 use std::panic::Location;
 // xtask-allow(state): record: the builder's props, each written only by its own setter; value is the caller's binding that the hour, minute and second fields write, and picker_label is the optional name of the picker button
 /// A wall-clock time field with hours and minutes, optionally seconds.
@@ -110,39 +110,34 @@ impl IntoView for TimeInput {
         let label = label.unwrap_or_else(|| String::new().into_value());
         let locale = use_locale();
         let state = time_controller(value, seconds, min, max);
-        let draft = time_text(state, value, seconds, locale);
+        let draft = state.editor(move |time| {
+            locale.get().format_time(
+                time,
+                TimeStyle {
+                    seconds: seconds.get(),
+                },
+            )
+        });
         let input_ref = kivact_core::view::node_ref();
         let button_ref = kivact_core::view::node_ref();
-        let return_focus = kivact_core::state::memo(move || match state.get() {
-            TimeInputState::Open { invoker, .. } => invoker,
-            _ => button_ref,
-        });
-        let open = binding(
-            move || state.get().is_open(),
-            move |open| {
-                state.send(if open {
-                    Event::Open(button_ref)
-                } else {
-                    Event::Close
-                })
-            },
-        );
+        let return_focus = state.picker().return_focus(button_ref);
+        let open = state.picker().open(DatePanel::Time, button_ref);
         let field = text_input(draft)
             .label(label)
             .node_ref(input_ref)
             .with_node(|n| n.expanded(open))
             .placeholder("HH:MM")
-            .invalid(move || matches!(state.get().draft(), TimeDraft::Invalid(_)))
+            .invalid(move || state.is_invalid().get())
             .forward_keys(vec![kivact_core::view::Key::ArrowDown])
             .on_key(move |event: kivact_core::view::KeyEvent| {
                 if event.key() == kivact_core::view::Key::ArrowDown {
-                    state.send(Event::Open(input_ref));
+                    state.picker().show(DatePanel::Time, input_ref);
                     kivact_core::view::Handled::Yes
                 } else {
                     kivact_core::view::Handled::No
                 }
             })
-            .on_commit(move |text| state.send(Event::Commit(text)));
+            .on_commit(move |text| state.commit(text));
         let toggle = button(picker_label.unwrap_or_else(|| message("time.open", "Choose time")))
             .node_ref(button_ref);
         let picked = binding(value, move |next| value.set(next));
@@ -158,7 +153,7 @@ impl IntoView for TimeInput {
                         kivact_core::view::column((
                             crate::date_parts::wheel::time_panel(picked, seconds),
                             button(message("time.save", "Save"))
-                                .on_press(move || state.send(Event::Close)),
+                                .on_press(move || state.picker().hide()),
                         ))
                     })
                     .attach(toggle),
@@ -171,54 +166,22 @@ impl IntoView for TimeInput {
     }
 }
 
-fn time_text(
-    state: kivact_core::state::MachineHandle<Snapshot>,
-    value: Signal<Option<TimeOfDay>>,
-    seconds: Value<bool>,
-    locale: Value<kivact_core::i18n::Locale>,
-) -> Signal<String> {
-    binding(
-        move || match state.get().draft() {
-            TimeDraft::Invalid(text) => text.clone(),
-            TimeDraft::Valid { text, value: _ } if !text.is_empty() => text.clone(),
-            _ => value
-                .get()
-                .map(|value| {
-                    locale.get().format_time(
-                        value,
-                        TimeStyle {
-                            seconds: seconds.get(),
-                        },
-                    )
-                })
-                .unwrap_or_default(),
-        },
-        move |text| state.send(Event::Text(text)),
-    )
-}
-
 fn time_controller(
     value: Signal<Option<TimeOfDay>>,
     seconds: Value<bool>,
     min: Value<Option<TimeOfDay>>,
     max: Value<Option<TimeOfDay>>,
-) -> kivact_core::state::MachineHandle<Snapshot> {
-    let initial = value
-        .get_untracked()
-        .map_or(TimeDraft::Empty, |value| TimeDraft::Valid {
-            text: String::new(),
-            value,
-        });
-    let state = machine(
-        TimeInputState::Closed(initial),
-        move || Snapshot {
-            seconds: seconds.get(),
-            min: min.get(),
-            max: max.get(),
-        },
-        move |_, next| value.set(next),
-    );
-    state.send(Event::External(value.get_untracked()));
-    state.feed(value, Event::External);
-    state
+) -> DateFieldApi<TimeOfDay> {
+    let key = |time: TimeOfDay| (time.hour, time.minute, time.second);
+    use_date_field(
+        value,
+        DateFieldOptions::new(
+            move |text: &str| super::parse::parse_time(text, seconds.get()),
+            move |time| {
+                min.get().is_none_or(|min| key(time) >= key(min))
+                    && max.get().is_none_or(|max| key(time) <= key(max))
+            },
+        )
+        .check(TypedCheck::WhileTyping),
+    )
 }

@@ -1,14 +1,12 @@
 //! Role: The date-range field's builder, its ordered draft editing, presets and picker.
 
-use crate::date_input::OpenedBy;
-use crate::date_range_input::draft::{
-    Effect as DraftEffect, Event as DraftEvent, FieldValidity, Policy as DraftPolicy, RangeDraft,
-};
+use crate::date_range_input::draft::{FieldValidity, RangeFields};
 use crate::date_range_input::look::DateRangeInputTheme;
 use crate::{Calendar, DatePresentation, button, calendar, date_input, dialog};
 use kivact_core::i18n::{CalendarDate, DateRange, DateStyle, Weekday, message};
-use kivact_core::state::{IntoText, IntoValue, MachineHandle, Signal, Value, binding, machine};
+use kivact_core::state::{IntoText, IntoValue, Signal, Value, binding};
 use kivact_core::view::{Element, IntoView, Node, View, column, node, row};
+use kivact_interaction::{DraftApi, DraftCommit, DraftOptions, use_draft};
 use std::rc::Rc;
 /// A named range evaluated when the user activates it.
 #[derive(Clone)]
@@ -206,13 +204,13 @@ impl DateRangeInput {
     fn render(self, field: crate::date_parts::trigger::FieldPresentation) -> View {
         let variants = self.root.authored().variants();
         let accept = self.range_validator();
-        let draft = range_machine(self.value, self.valid, accept.clone());
-        let open = range_open(draft);
+        let draft = range_draft(self.value, self.valid, accept.clone());
+        let open = kivact_core::state::signal(false);
         let trigger_focus = match &field {
             crate::date_parts::trigger::FieldPresentation::Trigger(attach) => Some(attach.focus),
             crate::date_parts::trigger::FieldPresentation::Text => None,
         };
-        let content = self.picker_content(draft, accept.clone(), trigger_focus);
+        let content = self.picker_content(open, accept.clone(), trigger_focus);
         if let crate::date_parts::trigger::FieldPresentation::Trigger(attach) = field {
             return self
                 .root
@@ -280,7 +278,7 @@ impl DateRangeInput {
     /// Render preset choices and the canonical two-month range picker.
     fn picker_content(
         &self,
-        draft: MachineHandle<DraftPolicy>,
+        open: Signal<bool>,
         accept: Rc<dyn Fn(DateRange) -> bool>,
         trigger_focus: Option<kivact_core::view::NodeRef>,
     ) -> kivact_core::view::ViewFn {
@@ -291,7 +289,7 @@ impl DateRangeInput {
         let presets = self.presets;
         let touch = self.presentation.sheet();
         kivact_core::view::ViewFn::from(move |()| {
-            let selected = committing_range(value, accept.clone(), draft, trigger_focus);
+            let selected = committing_range(value, accept.clone(), open, trigger_focus);
             let mut picker = calendar(selected)
                 .min(min)
                 .max(max)
@@ -334,7 +332,7 @@ impl DateRangeInput {
                                         let range = (preset.range)();
                                         if accepted(range) {
                                             value.set(Some(range));
-                                            draft.send(DraftEvent::Close);
+                                            open.set(false);
                                             if let Some(focus) = trigger_focus {
                                                 focus.restore_focus();
                                             }
@@ -394,11 +392,11 @@ impl DateRangeInput {
             .with_variants(variants);
         first = first
             .valid(start_valid)
-            .invalid(move || draft.get().order_invalid())
+            .invalid(move || draft.draft().get().order_invalid())
             .with_node(|node| node.described_by(order_ref));
         last = last
             .valid(end_valid)
-            .invalid(move || draft.get().order_invalid())
+            .invalid(move || draft.draft().get().order_invalid())
             .with_node(|node| node.described_by(order_ref));
         if let Some(placeholder) = placeholder {
             first = first.placeholder(placeholder);
@@ -419,74 +417,57 @@ impl DateRangeInput {
 /// The canonical range draft and the bindings which project its endpoint fields.
 #[derive(Clone, Copy)]
 struct RangeEditors {
-    draft: kivact_core::state::MachineHandle<DraftPolicy>,
+    draft: DraftApi<Option<DateRange>, RangeFields>,
     start: Signal<Option<CalendarDate>>,
     end: Signal<Option<CalendarDate>>,
     start_valid: Signal<bool>,
     end_valid: Signal<bool>,
 }
-/// Project endpoint edits and validity into the single canonical range draft machine.
-fn range_machine(
+/// The range draft: the two endpoint fields write the range once they stand for one.
+fn range_draft(
     value: Signal<Option<DateRange>>,
     valid: Option<Signal<bool>>,
     accept: Rc<dyn Fn(DateRange) -> bool>,
-) -> MachineHandle<DraftPolicy> {
-    let draft = machine(
-        RangeDraft::following(value.get_untracked()),
-        move || DraftPolicy {
-            accept: accept.clone(),
-        },
-        move |_, effect| match effect {
-            DraftEffect::Publish(next) => value.set(next),
-            DraftEffect::Validity(next) => {
-                if let Some(valid) = valid {
-                    valid.set(next)
-                }
-            }
-        },
-    );
-    draft.send(DraftEvent::External(value.get_untracked()));
-    draft.feed(value, DraftEvent::External);
-    draft
-}
-/// Bind picker visibility to the draft machine's open and close transitions.
-fn range_open(draft: MachineHandle<DraftPolicy>) -> Signal<bool> {
-    binding(
-        move || draft.get().is_open(),
-        move |open| {
-            draft.send(if open {
-                DraftEvent::Open(OpenedBy::Button)
-            } else {
-                DraftEvent::Close
-            })
-        },
+) -> DraftApi<Option<DateRange>, RangeFields> {
+    use_draft(
+        value,
+        DraftOptions::new(RangeFields::following, move |fields: &RangeFields| {
+            fields
+                .candidate()
+                .filter(|range| range.is_none_or(|range| accept(range)))
+        })
+        .commit(DraftCommit::Live)
+        .valid(valid),
     )
 }
-/// Project endpoint edits and validity into the shared range draft machine.
-fn range_editors(draft: MachineHandle<DraftPolicy>) -> RangeEditors {
-    let start_value = kivact_core::state::memo(move || draft.get().endpoints().0);
-    let end_value = kivact_core::state::memo(move || draft.get().endpoints().1);
-    let start = binding(start_value, move |value| {
-        draft.send(DraftEvent::Start(value))
-    });
-    let end = binding(end_value, move |value| draft.send(DraftEvent::End(value)));
+
+/// Project endpoint edits and validity into the shared range draft.
+fn range_editors(draft: DraftApi<Option<DateRange>, RangeFields>) -> RangeEditors {
+    let start = binding(
+        move || draft.draft().get().start,
+        move |value| draft.update(|fields| *fields = fields.with_start(value)),
+    );
+    let end = binding(
+        move || draft.draft().get().end,
+        move |value| draft.update(|fields| *fields = fields.with_end(value)),
+    );
     let start_valid = binding(
         move || {
             matches!(
-                draft.get().fields(),
+                draft.draft().get().fields,
                 FieldValidity::Valid | FieldValidity::EndInvalid
             )
         },
-        move |valid| draft.send(DraftEvent::StartValid(valid)),
+        move |valid| draft.revise(|fields| *fields = fields.start_valid(valid)),
     );
     let end_valid = binding(
         move || {
             matches!(
-                draft.get().fields(),
+                draft.draft().get().fields,
                 FieldValidity::Valid | FieldValidity::StartInvalid
             )
         },
-        move |valid| draft.send(DraftEvent::EndValid(valid)),
+        move |valid| draft.revise(|fields| *fields = fields.end_valid(valid)),
     );
     RangeEditors {
         draft,
@@ -498,7 +479,7 @@ fn range_editors(draft: MachineHandle<DraftPolicy>) -> RangeEditors {
 }
 /// Expose invalid endpoint order from the actual range draft's validation state.
 fn order_diagnostic(
-    draft: kivact_core::state::MachineHandle<DraftPolicy>,
+    draft: DraftApi<Option<DateRange>, RangeFields>,
 ) -> (kivact_core::view::NodeRef, Node) {
     let order_ref = kivact_core::view::node_ref();
     let order_message = message("date.error.order", "The end date is before the start date");
@@ -506,7 +487,7 @@ fn order_diagnostic(
         .node_ref(order_ref)
         .role(kivact_core::view::Role::Status)
         .live_region(kivact_core::view::LiveRegion::Polite)
-        .hidden(move || !draft.get().order_invalid())
+        .hidden(move || !draft.draft().get().order_invalid())
         .style(
             kivact_core::style::style()
                 .font_size(12)
@@ -518,14 +499,14 @@ fn order_diagnostic(
 fn committing_range(
     value: Signal<Option<DateRange>>,
     accept: Rc<dyn Fn(DateRange) -> bool>,
-    draft: MachineHandle<DraftPolicy>,
+    open: Signal<bool>,
     focus: Option<kivact_core::view::NodeRef>,
 ) -> Signal<Option<DateRange>> {
     binding(value, move |next: Option<DateRange>| {
         if next.is_none_or(|next| accept(next)) {
             value.set(next);
             if value.get_untracked() == next {
-                draft.send(DraftEvent::Close);
+                open.set(false);
                 if let Some(focus) = focus {
                     focus.restore_focus();
                 }

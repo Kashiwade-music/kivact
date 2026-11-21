@@ -1,27 +1,11 @@
 //! Role: Immediate date selection with a sheet-owned month/year panel.
 use kivact_core::i18n::{CalendarDate, CalendarMonth, NameWidth, message, use_locale};
-use kivact_core::state::{Machine, Signal, Step, binding, machine};
+use kivact_core::state::{Signal, binding, signal};
 use kivact_core::view::{Element, IntoView, Node, column, dynamic, row};
 #[derive(Clone, Copy, PartialEq)]
 enum DateSheetPanel {
     Calendar,
     MonthYear,
-}
-enum Event {
-    Calendar,
-    MonthYear,
-}
-struct Controller;
-impl Machine for Controller {
-    type State = DateSheetPanel;
-    type Event = Event;
-    type Effect = ();
-    fn transition(&self, _: &DateSheetPanel, event: Event) -> Step<DateSheetPanel, Event, ()> {
-        Step::to(match event {
-            Event::Calendar => DateSheetPanel::Calendar,
-            Event::MonthYear => DateSheetPanel::MonthYear,
-        })
-    }
 }
 pub(crate) fn panel(value: Signal<Option<CalendarDate>>, picker: crate::Calendar) -> Node {
     let initial = value
@@ -30,7 +14,7 @@ pub(crate) fn panel(value: Signal<Option<CalendarDate>>, picker: crate::Calendar
         .month_of();
     let month = picker.sheet_month(initial);
     let locale = use_locale();
-    let state = machine(DateSheetPanel::Calendar, || Controller, |_, ()| {});
+    let panel = signal(DateSheetPanel::Calendar);
     let title = crate::button(move || {
         format!(
             "{} {}",
@@ -40,7 +24,7 @@ pub(crate) fn panel(value: Signal<Option<CalendarDate>>, picker: crate::Calendar
             month.get().year()
         )
     })
-    .on_press(move || state.send(Event::MonthYear));
+    .on_press(move || panel.set(DateSheetPanel::MonthYear));
     let year = binding(
         move || f64::from(month.get().year()),
         move |year| {
@@ -56,7 +40,7 @@ pub(crate) fn panel(value: Signal<Option<CalendarDate>>, picker: crate::Calendar
         },
     );
     let wheels = dynamic(
-        move || state.get() == DateSheetPanel::MonthYear,
+        move || panel.get() == DateSheetPanel::MonthYear,
         move |show| {
             if show {
                 column((
@@ -77,7 +61,7 @@ pub(crate) fn panel(value: Signal<Option<CalendarDate>>, picker: crate::Calendar
                         ),
                     )),
                     crate::button(message("date.done", "Done"))
-                        .on_press(move || state.send(Event::Calendar)),
+                        .on_press(move || panel.set(DateSheetPanel::Calendar)),
                 ))
                 .into_view()
             } else {
@@ -91,6 +75,6 @@ pub(crate) fn panel(value: Signal<Option<CalendarDate>>, picker: crate::Calendar
         picker
             .month(month)
             .touch()
-            .hidden(move || state.get() == DateSheetPanel::MonthYear),
+            .hidden(move || panel.get() == DateSheetPanel::MonthYear),
     ))
 }

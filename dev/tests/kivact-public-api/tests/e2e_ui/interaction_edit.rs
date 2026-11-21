@@ -8,13 +8,13 @@ use kivact::view::{EditPhase, Node, Orientation};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::interaction::EditSession;
 use kivact::interaction::ScalarRange;
 use kivact::interaction::use_splitter;
+use kivact::interaction::{DraftCommit, DraftOptions, EditSession, use_draft};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
 use kivact::view::A11yAction;
-use kivact_public_api_tests::support::mount_with;
+use kivact_public_api_tests::support::{mount, mount_with};
 
 /// The phases an observer saw, each with the value in the binding at that time.
 type Log = Rc<RefCell<Vec<(EditPhase, f64)>>>;
@@ -300,4 +300,94 @@ fn replace_initial_changes_what_the_active_edit_holds_and_cancel_restores() {
     screen.get_by_role(Role::Button, "Cancel").click();
     assert_eq!(value.get_untracked(), 5);
     assert_eq!(screen.get_by_test_id("held").text(), "None");
+}
+
+#[test]
+fn an_explicit_draft_writes_on_commit_follows_external_writes_and_cancels() {
+    let (screen, (page, shown, editing, valid, draft)) = mount(|| {
+        let page = signal(3usize);
+        let draft = use_draft(
+            page,
+            DraftOptions::new(
+                |page: &usize| page.to_string(),
+                |text: &String| text.trim().parse::<usize>().ok(),
+            ),
+        );
+        let shown = draft.draft();
+        (
+            (page, shown, draft.is_editing(), draft.is_valid(), draft),
+            text(move || shown.get()),
+        )
+    });
+    assert_eq!(shown.get_untracked(), "3");
+    draft.edit("7".to_owned());
+    assert_eq!(
+        page.get_untracked(),
+        3,
+        "an explicit draft writes nothing while it is edited"
+    );
+    assert!(editing.get_untracked());
+    draft.commit();
+    assert_eq!(page.get_untracked(), 7);
+    assert!(!editing.get_untracked());
+    draft.edit("x".to_owned());
+    assert!(!valid.get_untracked());
+    draft.commit();
+    assert_eq!(page.get_untracked(), 7, "a rejected commit writes nothing");
+    assert!(editing.get_untracked(), "a rejected draft stays");
+    page.set(9);
+    screen.run_until_idle();
+    assert_eq!(
+        shown.get_untracked(),
+        "9",
+        "an external write replaces an unrelated draft"
+    );
+    draft.edit("4".to_owned());
+    draft.cancel();
+    assert_eq!(shown.get_untracked(), "9");
+    assert_eq!(page.get_untracked(), 9);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_live_draft_writes_each_accepted_edit_and_keeps_the_text_the_writer_clamped() {
+    let (screen, (stored, shown, valid, draft)) = mount(|| {
+        let stored = signal(5.0f64);
+        let clamped = binding(stored, move |next: f64| stored.set(next.min(10.0)));
+        let draft = use_draft(
+            clamped,
+            DraftOptions::new(
+                |value: &f64| value.to_string(),
+                |text: &String| text.trim().parse::<f64>().ok(),
+            )
+            .commit(DraftCommit::Live),
+        );
+        let shown = draft.draft();
+        (
+            (stored, shown, draft.is_valid(), draft),
+            text(move || shown.get()),
+        )
+    });
+    draft.edit("12".to_owned());
+    screen.run_until_idle();
+    assert_eq!(stored.get_untracked(), 10.0);
+    assert_eq!(
+        shown.get_untracked(),
+        "12",
+        "the typed text stays over the value it wrote"
+    );
+    draft.commit();
+    assert_eq!(shown.get_untracked(), "10");
+    draft.edit("x".to_owned());
+    screen.run_until_idle();
+    assert!(!valid.get_untracked());
+    assert_eq!(stored.get_untracked(), 10.0);
+    stored.set(3.0);
+    screen.run_until_idle();
+    assert_eq!(
+        shown.get_untracked(),
+        "3",
+        "an external write replaces a draft that stands for no value"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

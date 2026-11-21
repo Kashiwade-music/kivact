@@ -1,46 +1,6 @@
-//! Role: Own the active date-time picker panel and accepted endpoint bindings.
+//! Role: Project a date-time value into its date and time fields.
 use kivact_core::i18n::{CalendarDate, DateTime, TimeOfDay};
-use kivact_core::state::{Machine, Signal, Step, Value, binding};
-#[derive(Clone, Copy, PartialEq)]
-pub(crate) enum Panel {
-    Date,
-    Time,
-}
-#[derive(Clone, Copy, PartialEq)]
-pub(crate) enum DateTimeInputState {
-    Closed,
-    Open {
-        panel: Panel,
-        invoker: kivact_core::view::NodeRef,
-    },
-}
-pub(crate) enum Event {
-    Open(Panel, kivact_core::view::NodeRef),
-    Switch(Panel),
-    Close,
-}
-pub(crate) struct Controller;
-impl Machine for Controller {
-    type State = DateTimeInputState;
-    type Event = Event;
-    type Effect = ();
-    fn transition(
-        &self,
-        state: &DateTimeInputState,
-        event: Event,
-    ) -> Step<DateTimeInputState, Event, ()> {
-        Step::to(match event {
-            Event::Open(panel, invoker) => DateTimeInputState::Open { panel, invoker },
-            Event::Switch(panel) => match *state {
-                DateTimeInputState::Open { invoker, .. } => {
-                    DateTimeInputState::Open { panel, invoker }
-                }
-                DateTimeInputState::Closed => DateTimeInputState::Closed,
-            },
-            Event::Close => DateTimeInputState::Closed,
-        })
-    }
-}
+use kivact_core::state::{Signal, Value, binding};
 fn key(value: DateTime) -> (CalendarDate, u8, u8, u8) {
     (
         value.date,

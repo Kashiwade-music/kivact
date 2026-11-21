@@ -1,13 +1,12 @@
 //! Role: The date-time field's builder, its controller wiring and desktop picker.
 
 use crate::date_time_input::look::DateTimeInputTheme;
-use crate::date_time_input::model::{
-    Controller, DateTimeFields, DateTimeInputState, Event, Panel, field_bindings,
-};
+use crate::date_time_input::model::{DateTimeFields, field_bindings};
 use crate::{DatePresentation, button, calendar, date_input, dialog, time_input};
 use kivact_core::i18n::{DateStyle, DateTime, TimeStyle, Weekday, message};
-use kivact_core::state::{IntoText, IntoValue, Signal, Value, binding, machine};
+use kivact_core::state::{IntoText, IntoValue, Signal, Value};
 use kivact_core::view::{Element, IntoView, Node, View, column, node, row};
+use kivact_interaction::{DatePanel, DatePicker, DatePickerApi, use_date_picker};
 // xtask-allow(state): legacy: picker_label, week_start
 /// A Gregorian date and wall-clock time, with no time zone conversion.
 pub struct DateTimeInput {
@@ -137,7 +136,7 @@ impl IntoView for DateTimeInput {
             presentation,
             &variants,
         );
-        let (state, open) = picker_controller();
+        let (picker, open) = picker_controller();
         let trigger = button(
             picker_label.unwrap_or_else(|| message("date_time.open", "Choose date and time")),
         );
@@ -148,7 +147,7 @@ impl IntoView for DateTimeInput {
             week_start,
             presentation,
             seconds,
-            state,
+            picker,
         );
         let root = crate::layer::with_base_recipe_style(
             root,
@@ -169,30 +168,20 @@ impl IntoView for DateTimeInput {
     }
 }
 
-/// Bind picker visibility to its one canonical active-panel state.
-fn picker_controller() -> (kivact_core::state::MachineHandle<Controller>, Signal<bool>) {
+/// The picker's open state and panel, opened from the dialog's trigger.
+fn picker_controller() -> (DatePickerApi, Signal<bool>) {
+    let picker = use_date_picker();
     let invoker = kivact_core::view::node_ref();
-    let state = machine(DateTimeInputState::Closed, || Controller, |_, ()| {});
-    let open = binding(
-        move || matches!(state.get(), DateTimeInputState::Open { .. }),
-        move |open| {
-            state.send(if open {
-                Event::Open(Panel::Date, invoker)
-            } else {
-                Event::Close
-            })
-        },
-    );
-    (state, open)
+    (picker, picker.open(DatePanel::Date, invoker))
 }
 
 /// Switch the canonical date/time picker panel from its visible tab actions.
-fn picker_tabs(state: kivact_core::state::MachineHandle<Controller>) -> Node {
+fn picker_tabs(picker: DatePickerApi) -> Node {
     row((
         button(message("date_time.date", "Date"))
-            .on_press(move || state.send(Event::Switch(Panel::Date))),
+            .on_press(move || picker.show_panel(DatePanel::Date)),
         button(message("date_time.time", "Time"))
-            .on_press(move || state.send(Event::Switch(Panel::Time))),
+            .on_press(move || picker.show_panel(DatePanel::Time)),
     ))
 }
 
@@ -234,16 +223,17 @@ fn desktop_content(
     week_start: Option<Value<Weekday>>,
     presentation: DatePresentation,
     seconds: Value<bool>,
-    state: kivact_core::state::MachineHandle<Controller>,
+    picker: DatePickerApi,
 ) -> kivact_core::view::ViewFn {
     let DateTimeFields { date, time } = fields;
     kivact_core::view::ViewFn::from(move |()| {
-        let tabs = picker_tabs(state);
+        let tabs = picker_tabs(picker);
         let body = kivact_core::view::dynamic(
-            move || state.get(),
+            move || picker.state().get(),
             move |phase| match phase {
-                DateTimeInputState::Open {
-                    panel: Panel::Date, ..
+                DatePicker::Open {
+                    panel: DatePanel::Date,
+                    ..
                 } => {
                     let mut picker = calendar(date)
                         .min(move || min.get().map(|value| value.date))
@@ -257,16 +247,17 @@ fn desktop_content(
                         picker.into_view()
                     }
                 }
-                DateTimeInputState::Open {
-                    panel: Panel::Time, ..
+                DatePicker::Open {
+                    panel: DatePanel::Time,
+                    ..
                 } => crate::date_parts::wheel::time_panel(time, seconds).into_view(),
-                DateTimeInputState::Closed => node().into_view(),
+                DatePicker::Closed => node().into_view(),
             },
         );
         column((
             tabs,
             body,
-            button(message("date_time.done", "Done")).on_press(move || state.send(Event::Close)),
+            button(message("date_time.done", "Done")).on_press(move || picker.hide()),
         ))
     })
 }
