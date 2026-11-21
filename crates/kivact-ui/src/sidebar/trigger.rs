@@ -22,7 +22,7 @@ pub fn sidebar_trigger(on_press: Option<Callback<()>>) -> impl Element {
     let root = crate::button(message("ui.sidebar.toggle", "Toggle Sidebar"))
         .variant(ButtonVariant::Ghost)
         .hide_label(true)
-        .icon(icon("chevrons-left"))
+        .icon(icon("panel-left"))
         .size(ControlSize::Small)
         .with_node(move |root| {
             root.on_press(move || {
