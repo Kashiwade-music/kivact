@@ -10,7 +10,7 @@ fn carousel_moves_with_arrows_and_reports_the_index() {
         (
             index,
             carousel(index, (text("One"), text("Two"), text("Three")))
-                .looping()
+                .looping(true)
                 .style(style().width(240).height(180)),
         )
     });

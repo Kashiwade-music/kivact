@@ -1,142 +1,108 @@
-//! Role: The pagination builder, its page controls and summary rendering.
+//! Role: The pagination component, its page controls and summary rendering.
 
 use crate::pagination::look::PaginationSummary;
 use crate::pagination::look::PaginationTheme;
 use crate::pagination::look::{PageItem, PaginationMode};
-use kivact_core::state::{IntoText, IntoValue, Signal, Value, memo};
+use kivact_core::custom::Caller;
+use kivact_core::state::{IntoValue, Signal, Value, memo};
 use kivact_core::view::{
     CurrentItem, Element, IntoView, Node, Orientation, Role, View, for_each, node, text,
 };
+use kivact_macros::component;
 use std::rc::Rc;
 
-// xtask-allow(state): legacy: page_size, item, summary
-/// Page controls backed by the application's zero-based page binding.
-pub struct Pagination {
-    root: Node,
-    page: Signal<usize>,
-    count: PageCount,
-    siblings: Value<usize>,
-    first_last: Value<bool>,
-    step: Value<usize>,
-    has_more: Value<bool>,
-    page_size: Option<Signal<u32>>,
-    size_options: Value<Vec<u32>>,
-    page_label: Value<String>,
-    mode: PaginationMode,
-    window: PaginationWindow,
-    item: Option<PageSlot>,
-    format: Rc<dyn Fn(usize) -> String>,
-    summary: Option<SummarySlot>,
-}
+/// The page count's source: `count` pages, or an item total with the page size.
 enum PageCount {
     Pages(Value<usize>),
     Items(Value<u64>),
 }
-/// Construct pagination for `count` pages and a caller-owned page index.
-#[track_caller]
-pub fn pagination(count: impl IntoValue<usize>, page: Signal<usize>) -> Pagination {
-    Pagination {
-        root: node()
-            .role(Role::Navigation)
-            .name(kivact_core::i18n::message("pagination.label", "Pagination")),
+
+/// Page controls backed by the application's zero-based page binding.
+///
+/// `count` is the number of pages; `total_items(..)` derives the page count
+/// from an item total and the page size instead. `page_size(..)` binds the
+/// number of items per page, and `page_size_options(..)` offers those sizes in
+/// a select control. `page_label(..)` names the editable page field.
+/// `siblings(..)` is the number of neighbours shown on either side of the
+/// current page, `first_last(..)` shows explicit first and last controls, and
+/// `step(..)` is the number of pages moved by the previous and next controls.
+/// `has_more(..)` permits forward navigation while the total is not yet known.
+/// `mode(..)` selects the structural presentation at construction time, and
+/// `window(..)` the page-window enumeration. `item(..)` replaces the visible
+/// contents of every cell (its behavior stays on the cell), `label_format(..)`
+/// formats the one-based visible page numbers, and `summary(..)` replaces the
+/// summary presentation using the actual zero-based page and total inputs.
+#[component]
+pub fn pagination(
+    count: Value<usize>,
+    page: Signal<usize>,
+    total_items: Option<Value<u64>>,
+    #[prop(default = 1)] siblings: Value<usize>,
+    #[prop(default = false)] first_last: Value<bool>,
+    #[prop(default = 1)] step: Value<usize>,
+    #[prop(default = false)] has_more: Value<bool>,
+    page_size: Option<Signal<u32>>,
+    page_size_options: Option<Value<Vec<u32>>>,
+    page_label: Option<Value<String>>,
+    #[prop(default = PaginationMode::Pages)] mode: PaginationMode,
+    #[prop(default = PaginationWindow::Adjacent)] window: PaginationWindow,
+    item: Option<Rc<dyn Fn(PageItem) -> View>>,
+    label_format: Option<Rc<dyn Fn(usize) -> String>>,
+    summary: Option<Rc<dyn Fn(Value<PaginationSummary>) -> View>>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let variants = caller.variants();
+    let disabled = caller.disabled().unwrap_or_else(|| false.into_value());
+    let count = total_items.map_or(PageCount::Pages(count), PageCount::Items);
+    let total_items = match &count {
+        PageCount::Items(value) => Some(*value),
+        PageCount::Pages(_) => None,
+    };
+    let count = page_count(count, page_size);
+    let current = memo(move || {
+        if has_more.get() {
+            page.get()
+        } else {
+            page.get().min(count.get().saturating_sub(1))
+        }
+    });
+    let format: Rc<dyn Fn(usize) -> String> = match label_format {
+        Some(format) => format,
+        None => Rc::new(|n: usize| n.to_string()),
+    };
+    let options = Rc::new(PageOptions {
+        step,
+        has_more,
+        item,
+        format,
+        mode,
+        window,
+        siblings,
+        first_last,
+        variants: variants.clone(),
+    });
+    let facts = summary_source(total_items, page_size, current, count, has_more);
+    let root = node()
+        .role(Role::Navigation)
+        .name(kivact_core::i18n::message("pagination.label", "Pagination"));
+    render_pagination(
+        root,
         page,
-        count: PageCount::Pages(count.into_value()),
-        siblings: 1usize.into_value(),
-        first_last: false.into_value(),
-        step: 1usize.into_value(),
-        has_more: false.into_value(),
-        page_size: None,
-        size_options: Vec::<u32>::new().into_value(),
-        page_label: kivact_core::i18n::message("pagination.page", "Page"),
-        mode: PaginationMode::Pages,
-        window: PaginationWindow::Adjacent,
-        item: None,
-        format: Rc::new(|n| n.to_string()),
-        summary: None,
-    }
+        current,
+        count,
+        disabled,
+        options,
+        PageExtras {
+            summary,
+            page_size,
+            size_options: page_size_options.unwrap_or_else(|| Vec::<u32>::new().into_value()),
+            page_label: page_label
+                .unwrap_or_else(|| kivact_core::i18n::message("pagination.page", "Page")),
+            facts,
+        },
+    )
 }
-impl Pagination {
-    /// Neighbours shown on either side of the current page.
-    #[track_caller]
-    pub fn siblings(mut self, value: impl IntoValue<usize>) -> Self {
-        self.siblings = value.into_value();
-        self
-    }
-    /// Show explicit first and last controls.
-    #[track_caller]
-    pub fn first_last(mut self, value: impl IntoValue<bool>) -> Self {
-        self.first_last = value.into_value();
-        self
-    }
-    /// Pages moved by previous and next controls.
-    #[track_caller]
-    pub fn step(mut self, value: impl IntoValue<usize>) -> Self {
-        self.step = value.into_value();
-        self
-    }
-    /// Permit forward navigation when the total is not yet known.
-    #[track_caller]
-    pub fn has_more(mut self, value: impl IntoValue<bool>) -> Self {
-        self.has_more = value.into_value();
-        self
-    }
-    /// Derive page count from an item total and the configured page size.
-    #[track_caller]
-    pub fn total_items(mut self, value: impl IntoValue<u64>) -> Self {
-        self.count = PageCount::Items(value.into_value());
-        self
-    }
-    /// Bind the number of items per page.
-    pub fn page_size(mut self, value: Signal<u32>) -> Self {
-        self.page_size = Some(value);
-        self
-    }
-    /// Offer these page sizes in a select control.
-    #[track_caller]
-    pub fn page_size_options(mut self, values: impl IntoValue<Vec<u32>>) -> Self {
-        self.size_options = values.into_value();
-        self
-    }
-    /// Name the editable page field.
-    #[track_caller]
-    pub fn page_label(mut self, value: impl IntoText) -> Self {
-        self.page_label = value.into_text_value();
-        self
-    }
-    /// Select the structural presentation at construction time.
-    pub fn mode(mut self, mode: PaginationMode) -> Self {
-        self.mode = mode;
-        self
-    }
-    /// Choose page-window enumeration without adding a second paging authority.
-    pub fn window(mut self, window: PaginationWindow) -> Self {
-        self.window = window;
-        self
-    }
-    /// Replace the visible contents of every cell; behavior stays on the cell.
-    pub fn item<V: IntoView>(mut self, f: impl Fn(PageItem) -> V + 'static) -> Self {
-        self.item = Some(Rc::new(move |item| f(item).into_view()));
-        self
-    }
-    /// Format one-based visible page numbers.
-    pub fn label_format(mut self, f: impl Fn(usize) -> String + 'static) -> Self {
-        self.format = Rc::new(f);
-        self
-    }
-    /// Replace summary presentation using actual zero-based page and total inputs.
-    pub fn summary<V: IntoView>(
-        mut self,
-        summary: impl Fn(Value<PaginationSummary>) -> V + 'static,
-    ) -> Self {
-        self.summary = Some(Rc::new(move |facts| summary(facts).into_view()));
-        self
-    }
-}
-impl Element for Pagination {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
+
 fn cells(
     page: usize,
     count: usize,
@@ -162,71 +128,6 @@ fn cells(
         .map(|(at, item)| (if item == PageItem::Ellipsis { at } else { 0 }, item))
         .collect()
 }
-impl IntoView for Pagination {
-    fn into_view(self) -> View {
-        let Self {
-            mut root,
-            page,
-            count,
-            siblings,
-            first_last,
-            step,
-            has_more,
-            page_size,
-            size_options,
-            page_label,
-            mode,
-            window,
-            item,
-            format,
-            summary,
-        } = self;
-        let variants = root.authored().variants();
-        let disabled = root
-            .accessible_disabled()
-            .unwrap_or_else(|| false.into_value());
-        let total_items = match &count {
-            PageCount::Items(value) => Some(*value),
-            PageCount::Pages(_) => None,
-        };
-        let count = page_count(count, page_size);
-        let current = memo(move || {
-            if has_more.get() {
-                page.get()
-            } else {
-                page.get().min(count.get().saturating_sub(1))
-            }
-        });
-        let options = Rc::new(PageOptions {
-            step,
-            has_more,
-            item,
-            format,
-            mode,
-            window,
-            siblings,
-            first_last,
-            variants: variants.clone(),
-        });
-        let facts = summary_source(total_items, page_size, current, count, has_more);
-        render_pagination(
-            root,
-            page,
-            current,
-            count,
-            disabled,
-            options,
-            PageExtras {
-                summary,
-                page_size,
-                size_options,
-                page_label,
-                facts,
-            },
-        )
-    }
-}
-
 /// Application-provided presentation for a pagination cell.
 type PageSlot = Rc<dyn Fn(PageItem) -> View>;
 type SummarySlot = Rc<dyn Fn(Value<PaginationSummary>) -> View>;
@@ -708,7 +609,7 @@ fn render_pagination(
     disabled: Value<bool>,
     options: Rc<PageOptions>,
     extras: PageExtras,
-) -> View {
+) -> Node {
     let PageExtras {
         summary,
         page_size,
@@ -760,7 +661,6 @@ fn render_pagination(
     )
     .child(sizes)
     .child(controls)
-    .into_view()
 }
 
 fn presentation_part(

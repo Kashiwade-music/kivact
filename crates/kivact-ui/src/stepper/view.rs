@@ -1,14 +1,15 @@
-//! Role: The stepper builder, its items, indicators, responsive layout and navigation.
+//! Role: The stepper component, its items, indicators, responsive layout and navigation.
 
 use crate::stepper::look::StepperTheme;
 use crate::stepper::look::{StepIndicatorKind, StepStatus, StepperItemState, StepperState};
-use kivact_core::custom::Prop;
+use kivact_core::custom::{Caller, Prop};
 use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, callback, memo};
 use kivact_core::style::{FlexDirection, style};
 use kivact_core::view::{
     CurrentItem, EditPhase, Element, IntoView, Node, Orientation, Role, View, column, for_index,
     node, node_ref, show, text,
 };
+use kivact_macros::component;
 use std::rc::Rc;
 
 /// A step's optional indicator.
@@ -109,129 +110,79 @@ impl StepperItem {
         self.label.get()
     }
 }
-// xtask-allow(state): record: the builder's props, each written only by its own setter; current is the caller's binding that a step press, the previous and next buttons and the step keys write through the one write in into_view, and min_step_width is the optional narrowest step width before the steps collapse
-/// A progress list whose current step belongs to the application.
-pub struct Stepper {
-    root: Node,
-    items: Value<Vec<StepperItem>>,
-    current: Signal<usize>,
-    orientation: Value<Orientation>,
-    collapsed_steps: CollapsedSteps,
-    on_edit: Option<Callback<EditPhase>>,
-    min_step_width: Option<Value<f64>>,
-}
 /// Show progress through an ordered sequence of steps. A press on a step
 /// (or on the collapsed previous and next buttons) writes its index to
 /// `current`, and `on_edit` reports the write as an edit. Every step is
 /// pressable; give `StepperItem::disabled(true)` to a step the user may not
 /// jump to (a linear flow).
-#[track_caller]
-pub fn stepper(items: impl IntoValue<Vec<StepperItem>>, current: Signal<usize>) -> Stepper {
-    Stepper {
-        root: node()
-            .role(Role::List)
-            .name(kivact_core::i18n::message("stepper.label", "Progress")),
-        items: items.into_value(),
-        current,
-        orientation: Orientation::Horizontal.into_value(),
-        collapsed_steps: CollapsedSteps::Current,
-        on_edit: None,
-        min_step_width: None,
-    }
-}
-impl Stepper {
-    /// Override the minimum width used to derive the collapsed layout.
-    #[track_caller]
-    pub fn min_step_width(mut self, width: impl IntoValue<f64>) -> Self {
-        self.min_step_width = Some(width.into_value());
-        self
-    }
-    /// Choose the compact structure without changing current-step ownership.
-    pub fn collapsed_steps(mut self, steps: CollapsedSteps) -> Self {
-        self.collapsed_steps = steps;
-        self
-    }
-    /// Choose horizontal or vertical layout.
-    #[track_caller]
-    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
-        self.orientation = orientation.into_value();
-        self
-    }
-    /// Report each [`EditPhase`] of a write to `current` by the user: a
-    /// press on a step, or on the collapsed previous and next buttons. A
-    /// write from the application own `set` is not reported.
-    pub fn on_edit<R: kivact_core::view::HandlerResult>(
-        mut self,
-        f: impl Fn(EditPhase) -> R + 'static,
-    ) -> Self {
-        self.on_edit = Some(callback(f));
-        self
-    }
-}
-impl Element for Stepper {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for Stepper {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            items,
+///
+/// `min_step_width(..)` overrides the minimum width used to derive the
+/// collapsed layout; `collapsed_steps(..)` chooses the compact structure
+/// without changing current-step ownership; `orientation(..)` chooses
+/// horizontal or vertical layout. `on_edit(..)` reports each [`EditPhase`] of
+/// a write to `current` by the user: a press on a step, or on the collapsed
+/// previous and next buttons. A write from the application's own `set` is not
+/// reported.
+#[component]
+pub fn stepper(
+    items: Value<Vec<StepperItem>>,
+    current: Signal<usize>,
+    #[prop(default = Orientation::Horizontal)] orientation: Value<Orientation>,
+    #[prop(default = CollapsedSteps::Current)] collapsed_steps: CollapsedSteps,
+    min_step_width: Option<Value<f64>>,
+    on_edit: Option<Callback<EditPhase>>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let variants = caller.variants();
+    let edit = kivact_interaction::EditSession::new(move |initial: usize| current.set(initial));
+    let edit = match on_edit {
+        Some(on_edit) => edit.on_edit(move |phase| on_edit.call(phase)),
+        None => edit,
+    };
+    // Every user write of the index goes through here: it clamps the
+    // index to the items and reports one edit when it changes the value.
+    let write = callback(move |index: usize| {
+        let index = index.min(items.with_untracked(|items| items.len().saturating_sub(1)));
+        if index != current.get_untracked() {
+            edit.once(current.get_untracked(), move || current.set(index));
+        }
+    });
+    let reference = node_ref();
+    let layout = responsive_layout(items, current, orientation, min_step_width, reference);
+    let previous = collapsed_navigation(write, items, current, layout, variants.clone(), true);
+    let next = collapsed_navigation(write, items, current, layout, variants.clone(), false);
+    let child_variants = variants.clone();
+    let children = for_index(items, move |index, item| {
+        step_row(
+            index,
+            item,
             current,
-            orientation,
+            layout,
             collapsed_steps,
-            on_edit,
-            min_step_width,
-        } = self;
-        let variants = root.authored().variants();
-        let edit = kivact_interaction::EditSession::new(move |initial: usize| current.set(initial));
-        let edit = match on_edit {
-            Some(on_edit) => edit.on_edit(move |phase| on_edit.call(phase)),
-            None => edit,
-        };
-        // Every user write of the index goes through here: it clamps the
-        // index to the items and reports one edit when it changes the value.
-        let write = callback(move |index: usize| {
-            let index = index.min(items.with_untracked(|items| items.len().saturating_sub(1)));
-            if index != current.get_untracked() {
-                edit.once(current.get_untracked(), move || current.set(index));
-            }
-        });
-        let reference = node_ref();
-        let layout = responsive_layout(items, current, orientation, min_step_width, reference);
-        let previous = collapsed_navigation(write, items, current, layout, variants.clone(), true);
-        let next = collapsed_navigation(write, items, current, layout, variants.clone(), false);
-        let child_variants = variants.clone();
-        let children = for_index(items, move |index, item| {
-            step_row(
-                index,
-                item,
-                current,
-                layout,
-                collapsed_steps,
-                write,
-                child_variants.clone(),
-            )
-        });
-        crate::layer::with_base_recipe_style(
-            root.node_ref(reference),
-            |r: &StepperTheme| r.root_recipe(),
-            &variants,
-            move || layout.get(),
+            write,
+            child_variants.clone(),
         )
-        .style(move || {
-            style().flex_direction(if orientation.get() == Orientation::Vertical {
-                FlexDirection::Column
-            } else {
-                FlexDirection::Row
-            })
+    });
+    // The recipe is the base style, so the caller's styles win.
+    crate::layer::with_base_recipe_style(
+        node()
+            .role(Role::List)
+            .name(kivact_core::i18n::message("stepper.label", "Progress"))
+            .node_ref(reference),
+        |r: &StepperTheme| r.root_recipe(),
+        &variants,
+        move || layout.get(),
+    )
+    .style(move || {
+        style().flex_direction(if orientation.get() == Orientation::Vertical {
+            FlexDirection::Column
+        } else {
+            FlexDirection::Row
         })
-        .child(previous)
-        .child(children)
-        .child(next)
-        .into_view()
-    }
+    })
+    .child(previous)
+    .child(children)
+    .child(next)
 }
 
 fn responsive_layout(

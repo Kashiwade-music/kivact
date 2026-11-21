@@ -271,8 +271,8 @@ pub use crate::item_list::ItemPosition;
 pub use item_list::row::{ItemRow, item_row};
 pub use item_list::{ItemList, item_list};
 pub use table::{
-    Table, TableCell, TableRow, table, table_body, table_cell, table_footer, table_head,
-    table_header, table_row,
+    Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow, table, table_body,
+    table_cell, table_footer, table_head, table_header, table_row,
 };
 mod breadcrumb;
 mod navigation_menu;

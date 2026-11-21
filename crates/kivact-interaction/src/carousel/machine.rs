@@ -13,12 +13,15 @@ pub enum CarouselState {
     },
 }
 pub(super) enum Event {
-    Go(usize),
-    Scroll(usize, u64),
+    GoTo(usize),
+    ScrollObserved(usize, u64),
     Settle,
 }
 pub(super) enum Effect {
-    Index(usize),
+    /// Write the index and scroll the slide into view (a command or an outside write).
+    Go(usize),
+    /// Write the index only: the user's own scroll settled there.
+    Settled(usize),
 }
 pub(super) struct Machine;
 impl MachineTrait for Machine {
@@ -31,10 +34,10 @@ impl MachineTrait for Machine {
         event: Event,
     ) -> Step<CarouselState, Event, Effect> {
         match event {
-            Event::Go(index) => Step::to(CarouselState::Idle { index })
+            Event::GoTo(index) => Step::to(CarouselState::Idle { index })
                 .cancel(Event::Settle)
-                .with(Effect::Index(index)),
-            Event::Scroll(target_index, now) => Step::to(CarouselState::Scrolling {
+                .with(Effect::Go(index)),
+            Event::ScrollObserved(target_index, now) => Step::to(CarouselState::Scrolling {
                 target_index,
                 settle_at_ns: now.saturating_add(120_000_000),
             })
@@ -43,7 +46,7 @@ impl MachineTrait for Machine {
                 CarouselState::Scrolling { target_index, .. } => Step::to(CarouselState::Idle {
                     index: *target_index,
                 })
-                .with(Effect::Index(*target_index)),
+                .with(Effect::Settled(*target_index)),
                 CarouselState::Idle { .. } => Step::stay(),
             },
         }

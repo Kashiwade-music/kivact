@@ -1084,3 +1084,15 @@ U50（lane `wt/rw-W8-U3`、HEAD `2d6e03fb`、変更なし）は着手前に止�
 - (2) `expand_all_control()` は、他の部品と揃えて `expand_all_control(v: bool)` にする（呼出し元は `(true)`。G の移行の文書に 1 行）。
 - U50 は、このほかの部分（`#[track_caller]`、`authored()` の読み、固有の `variant` を残すこと）を今の付属書のとおり済ませて完了。U51 へ進む。
 - allowed_impls の comment の理由の型は 5 つになる（trigger と surface を兄弟で出す／surface を開くたびに作る／型付きの項目を積む／呼出し側の press を包む／型引数や複数の値を一組で受ける mode）。U51 で同じ型に当たるもの（`pagination`・`carousel` など）があれば同じ扱いでよい（OPEN に記録）。
+## Orchestrator の判断（W8・U51、2026-11-21）
+
+- **U51（lane `wt/rw-W8-U3`）**：採る（付属書の既存の precedent に当たるもの）。
+  - `carousel` の `looping()` は `looping(v: bool)`（既定 false。Disclosure の `always_open(bool)`・dropzone の `multiple(bool)` と同じ。呼出し元 `apg_carousel.rs`・`ui_carousel.rs` は `.looping(true)`）。
+  - 位置引数の `slides` と、`table`・`table_header`・`table_body`・`table_footer`・`table_row`・`item_list` の子は `Children`（付属書の表は `Vec<View>`。`Vec<View>` だと試験の tuple の呼出し（`carousel(index, (text, text))` など）の形が変わるので、C1 に従い `Children` にした）。
+  - `item_row` は手書きの builder のまま `allowed_impls` に足した（`position(index, count)` が index と count を一組で受ける。U50 の DataTable と同じ理由 (5)。comment に書いた）。
+  - `pagination` は `count`（位置）と `total_items(..)` を二つの prop にし、本体で `PageCount` を決める（組の片方だけの状態は作れない。手書きにはしない）。
+  - `table_head`・`table_cell` の `width`・`align`・`col_span`（prop 名は `col_span`）。`table_header`・`table_body`・`table_footer`・`table_head` の生成された struct（`TableHeader`・`TableBody`・`TableFooter`・`TableHead`）は `table.rs` と `lib.rs` の `pub use` に足した（既存の `Table`・`TableCell`・`TableRow` の再公開と揃える）。
+  - `item_list` は header があるとき root が column になり、caller の modifier は column に付く（前は list に付いていた。tabs の precedent と同じ形。header が無いときは従来どおり list）。
+  - `SlideView.rtl` は `ReadingDirection`（今の `Layout.rtl` と同じ型。付属書の `Value<ReadingDirection>` は誤り）。
+  - carousel の machine：`Event::GoTo`・`ScrollObserved`・`Settle`、`Effect::Go(at)`（index を書いて `scroll_to(at)`）・`Effect::Settled(at)`（index だけ）。`use_carousel(index, count, scroll_to)`。ui の `follow_index` の effect は消し、`scroll_to_slide(view, refs, at)` を closure にした（`rg "effect\("` は空）。
+- **差戻し（W8・U51 の carousel、初回の scroll）**：`carousel/view.rs` の `follow_index` を消したため、Scroll mode で初期 index が 0 以外のとき、また viewport の rect が届く前に index が書かれたとき、初回の scroll が起きない。旧 `effect` は rect の到着で再実行して `shown` へ scroll していた。`feed` は初期値を飛ばす（`kivact-runtime` の `Machine::feed` は `effect_on`）。既存の試験は初期 index 0 と後からの書込みだけを見るので通る。付属書 U51 の 3 は `effect(` を消すと書いているので、設計者が決める：(a) 初回の rect の到着で一度だけ `scroll_to_slide` を呼ぶ（`effect_on(viewport.rect(), ..)` 相当、`follow_scroll` と同じ形）、(b) 初期 index は scroll しない、(c) 別の形。試験は足していない。
