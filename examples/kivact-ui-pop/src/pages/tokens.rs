@@ -7,7 +7,7 @@ use kivact::style::{GridPlacement, Track};
 use kivact::view::Node;
 use kivact_ui_pop as ui;
 /// The page of the design tokens.
-pub fn page() -> Page {
+pub(crate) fn page() -> Page {
     Page::new(
         "tokens",
         "Design Tokens",

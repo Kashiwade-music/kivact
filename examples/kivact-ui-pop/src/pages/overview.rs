@@ -10,7 +10,7 @@ use kivact::style::rgba;
 use kivact::view::Node;
 use kivact_ui_pop as ui;
 /// The page of the overview.
-pub fn page() -> Page {
+pub(crate) fn page() -> Page {
     Page::new(
         "overview",
         "Dashboard",
@@ -36,38 +36,7 @@ fn overview_demo() -> impl IntoView {
             "Patrol of the outer district is under way.".into(),
         ))
     };
-    let stats = [
-        ("Enrolled students", "124", "+6 this week"),
-        ("Open requests", "18", "3 due soon"),
-        ("Credits", "8.2M", "+12.4%"),
-    ]
-    .into_iter()
-    .map(|(label, value, delta)| {
-        column((
-            text(label).style(style().font_size(12).color(rgba(0xffffff, 0.85))),
-            text(value).style(
-                style()
-                    .font_family("Barlow")
-                    .font_style(kivact::style::FontStyle::Italic)
-                    .font_weight(800)
-                    .font_size(28)
-                    .color(Color::WHITE)
-                    .line_height(1.1),
-            ),
-            text(delta).style(style().font_size(12).color(rgb(0xffdc3c))),
-        ))
-        .style(
-            style()
-                .padding_x(14)
-                .padding_y(12)
-                .gap(2)
-                .border_radius(10.0)
-                .flex_grow(1.0)
-                .background(rgba(0xffffff, 0.14))
-                .border(1, rgba(0xffffff, 0.24)),
-        )
-    })
-    .collect::<Vec<_>>();
+    let stats = hero_stats();
     let heading = kivact::view::rich_text(vec![
         kivact::view::span("Welcome back, "),
         kivact::view::span("Sensei.").background(
@@ -221,4 +190,40 @@ fn hero_ornament(d: &mut kivact::draw::Draw, s: kivact::geometry::Size) {
         &kivact::draw::Stroke::new(2).dash([4.0, 4.0]),
         rgba(0xffffff, 0.3),
     );
+}
+
+/// The three statistics of the hero.
+fn hero_stats() -> Vec<Node> {
+    [
+        ("Enrolled students", "124", "+6 this week"),
+        ("Open requests", "18", "3 due soon"),
+        ("Credits", "8.2M", "+12.4%"),
+    ]
+    .into_iter()
+    .map(|(label, value, delta)| {
+        column((
+            text(label).style(style().font_size(12).color(rgba(0xffffff, 0.85))),
+            text(value).style(
+                style()
+                    .font_family("Barlow")
+                    .font_style(kivact::style::FontStyle::Italic)
+                    .font_weight(800)
+                    .font_size(28)
+                    .color(Color::WHITE)
+                    .line_height(1.1),
+            ),
+            text(delta).style(style().font_size(12).color(rgb(0xffdc3c))),
+        ))
+        .style(
+            style()
+                .padding_x(14)
+                .padding_y(12)
+                .gap(2)
+                .border_radius(10.0)
+                .flex_grow(1.0)
+                .background(rgba(0xffffff, 0.14))
+                .border(1, rgba(0xffffff, 0.24)),
+        )
+    })
+    .collect()
 }

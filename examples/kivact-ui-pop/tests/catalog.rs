@@ -57,6 +57,7 @@ fn pop_forms_edit_drag_choose_date_and_keep_state_in_dark_theme() {
     tags.type_text("Liaison");
     tags.press_key(Key::Enter);
     screen.get_by_role(Role::Button, "Remove Liaison");
+    screen.get_by_test_id("catalog-page").scroll(0., 300.);
     screen
         .get_by_role(Role::CheckBox, "Receive notifications")
         .click();
@@ -72,6 +73,7 @@ fn pop_forms_edit_drag_choose_date_and_keep_state_in_dark_theme() {
             .checked(),
         Some(CheckedState::Indeterminate)
     );
+    screen.get_by_test_id("catalog-page").scroll(0., 300.);
     let volume = screen.get_by_role(Role::Slider, "BGM volume");
     let track = screen.get_by_test_id("pop-volume");
     let width = track.rect().expect("slider laid out").width;
@@ -212,7 +214,7 @@ fn pop_modals_drawer_calendar_and_conversation_use_live_models() {
     screen.get_by_text("Agenda for 10/10 (Sat)");
     screen.evidence("pop-state-calendar-selection");
     check::open(&screen, "messaging");
-    let message = screen.get_by_role(Role::TextBox, "Type a message");
+    let message = screen.get_by_role(Role::TextBox, "Message input");
     message.commit("Got it. Safety first, please.");
     message.press_key(Key::Enter);
     assert_eq!(message.value(), Some(String::new()));
@@ -239,7 +241,7 @@ fn pop_modals_drawer_calendar_and_conversation_use_live_models() {
 fn pop_two_quick_messages_both_get_a_reply() {
     let screen = mount();
     check::open(&screen, "messaging");
-    let message = screen.get_by_role(Role::TextBox, "Type a message");
+    let message = screen.get_by_role(Role::TextBox, "Message input");
     message.commit("First message");
     message.press_key(Key::Enter);
     message.commit("Second message");

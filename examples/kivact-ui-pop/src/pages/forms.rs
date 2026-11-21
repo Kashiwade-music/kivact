@@ -9,7 +9,7 @@ use kivact::view::Node;
 use kivact_ui_pop as ui;
 use std::time::Duration;
 /// The page of the form controls.
-pub fn page() -> Page {
+pub(crate) fn page() -> Page {
     Page::new("forms", "Forms", "Components", include_str!("forms.rs"))
         .description("Inputs, selections, checks, switches, sliders and uploads with their labels, hints and errors.")
         .example(Example::new(
@@ -53,7 +53,7 @@ struct IconInput {
 }
 impl Element for IconInput {
     fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
+        self.input.node_mut()
     }
 }
 impl IntoView for IconInput {

@@ -9,7 +9,7 @@ use kivact::style::GridPlacement;
 use kivact::view::Node;
 use kivact_ui_pop as ui;
 /// The page of the Feedback components.
-pub fn page() -> Page {
+pub(crate) fn page() -> Page {
     Page::new(
         "feedback",
         "Feedback",

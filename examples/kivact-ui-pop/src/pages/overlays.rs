@@ -1,14 +1,16 @@
 //! Role: The Overlays page.
 
 use super::common::*;
+use super::table::student_drawer;
 use catalog_shell::{Example, Page};
 use kivact::i18n::CalendarDate;
+use kivact::interaction::Command;
 use kivact::prelude::*;
 use kivact::view::Node;
 use kivact::view::Placement;
 use kivact_ui_pop as ui;
 /// The page of the Overlays components.
-pub fn page() -> Page {
+pub(crate) fn page() -> Page {
     Page::new(
         "overlays",
         "Overlays",
@@ -32,6 +34,9 @@ fn overlays_demo() -> impl IntoView {
     let sheet = signal(false);
     let command = signal(false);
     let popover_open = signal(false);
+    let notify = notify();
+    let drawer_title = signal("Minato Sorasaki".to_string());
+    column((
     section(
         "08",
         "Overlays",
@@ -61,7 +66,7 @@ fn overlays_demo() -> impl IntoView {
                             MenuEntry::item("archive", "Archive"),
                             MenuEntry::item("delete", "Delete"),
                         ]).on_activate(|_: &'static str| {}),
-                    kivact::ui::dialog("What is a halo?", popover_open).mode(kivact::interaction::DialogMode::Popover).content(move || {
+                    kivact::ui::dialog("What is a halo?", popover_open).mode(kivact::ui::DialogKind::Popover).content(move || {
                             column((
                             super::feedback::halo_loader(),
                             muted("The ring above a character's head. This UI uses it as a decorative motif for avatars and loaders."),
@@ -86,7 +91,12 @@ fn overlays_demo() -> impl IntoView {
                 )),
             )),
         )),
-    )
+    ),
+    operation_confirmation(confirm, notify),
+    request_dialog(form, notify),
+    student_drawer(drawer_title, sheet, notify),
+    overlay_palette(confirm, form, sheet, command, notify),
+    ))
     // end example
 }
 
@@ -265,4 +275,45 @@ fn request_fields(
         ),
     ))
     .style(style().gap(16))
+}
+
+/// The command palette: its commands open the overlays above.
+fn overlay_palette(
+    confirm: Signal<bool>,
+    form: Signal<bool>,
+    sheet: Signal<bool>,
+    command: Signal<bool>,
+    notify: kivact::state::Callback<(ui::Hue, String, String)>,
+) -> impl IntoView {
+    kivact::ui::command_palette(
+        vec![
+            Command::new("create", "Create a new request")
+                .with_group("Actions")
+                .with_hint("Dialog")
+                .with_icon("plus"),
+            Command::new("start", "Start the mission")
+                .with_group("Actions")
+                .with_hint("Confirm")
+                .with_icon("sword"),
+            Command::new("profile", "Show the student profile")
+                .with_group("Actions")
+                .with_hint("Drawer")
+                .with_icon("user"),
+            Command::new("reward", "Claim the reward")
+                .with_group("Actions")
+                .with_hint("Toast")
+                .with_icon("gift"),
+        ],
+        command,
+    )
+    .on_activate(move |id: &'static str| match id {
+        "create" => form.set(true),
+        "start" => confirm.set(true),
+        "profile" => sheet.set(true),
+        _ => notify.call((
+            ui::Hue::Yellow,
+            "Reward claimed".into(),
+            "Credits x12,000 and two activity reports.".into(),
+        )),
+    })
 }

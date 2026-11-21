@@ -9,7 +9,7 @@ use kivact::view::Node;
 use kivact_ui_pop as ui;
 use kivact_ui_pop::Hue;
 /// The page of the Mission Cards components.
-pub fn page() -> Page {
+pub(crate) fn page() -> Page {
     Page::new(
         "cards",
         "Mission Cards",

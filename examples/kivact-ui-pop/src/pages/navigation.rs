@@ -8,7 +8,7 @@ use kivact::style::TextDecorationLine;
 use kivact::view::{rich_text, span as text_span};
 use kivact_ui_pop as ui;
 /// The page of the Navigation components.
-pub fn page() -> Page {
+pub(crate) fn page() -> Page {
     Page::new(
         "navigation",
         "Navigation",

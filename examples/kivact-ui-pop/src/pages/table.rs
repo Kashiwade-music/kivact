@@ -7,7 +7,7 @@ use kivact::prelude::*;
 use kivact::view::Node;
 use kivact_ui_pop as ui;
 /// The page of the data table.
-pub fn page() -> Page {
+pub(crate) fn page() -> Page {
     Page::new("table", "Table", "Components", include_str!("table.rs"))
         .description("A data table with search, sorting, selection and paging.")
         .example(Example::new(
@@ -23,6 +23,7 @@ fn table_demo() -> impl IntoView {
     // example: table
     let sheet = signal(false);
     let drawer_title = signal(String::new());
+    let notify = notify();
     let rows = signal(STUDENT_FIXTURE.to_vec());
     let status = signal(Some("all"));
     let page = signal(0usize);
@@ -41,47 +42,50 @@ fn table_demo() -> impl IntoView {
             .filter(|s| expected.is_none_or(|expected| s.status == expected))
             .collect::<Vec<_>>()
     };
-    section(
-        "06",
-        "Data Table",
-        "Table: search, sort, select and page",
-        column((kivact::ui::data_table(
-            visible,
-            |s: &Student| s.id,
-            vec![
-                student_name_column(),
-                student_academy_column(),
-                student_role_column(),
-                student_level_column(),
-                student_bond_column(),
-                student_status_column(),
-            ],
-        )
-        .row_actions(54.0, move |s: Value<Student>| {
-            let s = s.get_untracked();
-            let name = s.name.to_owned();
-            kivact::ui::button("Open student details")
-                .variant(kivact::ui::ButtonVariant::Ghost)
-                .hide_label(true)
-                .icon(kivact::view::icon("dots-vertical"))
-                .test_id(format!("pop-student-detail-{}", s.id))
-                .on_press(move || {
-                    drawer_title.set(name.clone());
-                    sheet.set(true);
-                })
-        })
-        .selection(selected)
-        .sort(sort)
-        .filter(query)
-        .page(page, 6)
-        .toolbar(move |context| student_toolbar(context, status, page, query, sheet, visible))
-        .footer(student_footer),)),
-    )
+    column((
+        section(
+            "06",
+            "Data Table",
+            "Table: search, sort, select and page",
+            column((kivact::ui::data_table(
+                visible,
+                |s: &Student| s.id,
+                vec![
+                    student_name_column(),
+                    student_academy_column(),
+                    student_role_column(),
+                    student_level_column(),
+                    student_bond_column(),
+                    student_status_column(),
+                ],
+            )
+            .row_actions(54.0, move |s: Value<Student>| {
+                let s = s.get_untracked();
+                let name = s.name.to_owned();
+                kivact::ui::button("Open student details")
+                    .variant(kivact::ui::ButtonVariant::Ghost)
+                    .hide_label(true)
+                    .icon(kivact::view::icon("dots-vertical"))
+                    .test_id(format!("pop-student-detail-{}", s.id))
+                    .on_press(move || {
+                        drawer_title.set(name.clone());
+                        sheet.set(true);
+                    })
+            })
+            .selection(selected)
+            .sort(sort)
+            .filter(query)
+            .page(page, 6)
+            .toolbar(move |context| student_toolbar(context, status, page, query, sheet, visible))
+            .footer(student_footer),)),
+        ),
+        student_drawer(drawer_title, sheet, notify),
+    ))
     // end example
 }
 
 // xtask-allow(state): independent: pin_student and auto_skill back the drawer's two switches (pin to main team, auto skill), each written only by its own switch
-fn student_drawer(
+pub(crate) fn student_drawer(
     drawer_title: Signal<String>,
     sheet: Signal<bool>,
     notify: kivact::state::Callback<(ui::Hue, String, String)>,

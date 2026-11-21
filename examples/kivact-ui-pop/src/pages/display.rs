@@ -10,7 +10,7 @@ use kivact::view::Node;
 use kivact_ui_pop as ui;
 use std::time::Duration;
 /// The page of the data display components.
-pub fn page() -> Page {
+pub(crate) fn page() -> Page {
     Page::new(
         "display",
         "Data Display",
@@ -91,7 +91,7 @@ fn progress_ring(percent: f64, label: &'static str, hue: ui::Hue) -> Node {
         kivact::ui::progress(move || Some(percent.get() / 100.0))
             .name(label)
             .variant(kivact::ui::ProgressVariant::Ring)
-            .variant(ui::ProgressHue(hue.into_value())),
+            .variant(hue),
         text(label).style(style().font_size(12).color(color::TEXT_MUTED)),
     ))
     .style(style().align_items(Align::Center).gap(6))

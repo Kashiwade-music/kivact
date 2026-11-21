@@ -7,7 +7,7 @@ use kivact::prelude::*;
 use kivact::style::GridPlacement;
 use kivact_ui_pop as ui;
 /// The page of the Schedule components.
-pub fn page() -> Page {
+pub(crate) fn page() -> Page {
     Page::new(
         "schedule",
         "Schedule",

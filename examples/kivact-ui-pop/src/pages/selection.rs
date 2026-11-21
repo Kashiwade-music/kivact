@@ -8,7 +8,7 @@ use kivact::ui::RadioGroup;
 use kivact::view::Orientation;
 use kivact_ui_pop as ui;
 /// The page of the segmented controls, toggles and tabs.
-pub fn page() -> Page {
+pub(crate) fn page() -> Page {
     Page::new(
         "selection",
         "Selection",

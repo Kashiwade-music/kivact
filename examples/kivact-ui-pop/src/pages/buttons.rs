@@ -9,7 +9,7 @@ use kivact::view::Node;
 use kivact_ui_pop as ui;
 use std::time::Duration;
 /// The page of the buttons.
-pub fn page() -> Page {
+pub(crate) fn page() -> Page {
     Page::new(
         "buttons",
         "Buttons",
