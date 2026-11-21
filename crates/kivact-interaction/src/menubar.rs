@@ -38,8 +38,8 @@ use super::{
 /// use kivact::view::Element;
 ///
 /// fn bar() -> impl IntoView {
-///     let file = use_menu(vec![MenuEntry::item("new", "New")]).on_activate(|_| {});
-///     let edit = use_menu(vec![MenuEntry::item("undo", "Undo")]).on_activate(|_| {});
+///     let file = use_menu(vec![MenuEntry::item("new", "New")], signal(false)).on_activate(|_| {});
+///     let edit = use_menu(vec![MenuEntry::item("undo", "Undo")], signal(false)).on_activate(|_| {});
 ///     let titles = vec!["File".to_string(), "Edit".to_string()];
 ///     let menubar = use_menubar(titles, vec![file, edit]);
 ///     row((
@@ -119,15 +119,6 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
 }
 
 impl<K: kivact_core::state::ItemKey> MenubarApi<K> {
-    /// Drawing state of the mounted menu bar.
-    pub fn bar_state(self) -> Value<PartState> {
-        self.list.list_state()
-    }
-    /// Drawing state of a mounted top-level trigger.
-    pub fn item_state(self, at: usize) -> Value<ListItemState> {
-        self.list.item_state(at)
-    }
-
     /// The row of triggers: a `Role::MenuBar`. While a menu is open, the
     /// arrows along the bar move the open menu; between closed triggers the
     /// list moves the focus. Setup only.

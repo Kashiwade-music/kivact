@@ -69,30 +69,6 @@ pub(crate) fn use_list_retaining<K: kivact_core::state::ItemKey>(
 }
 
 impl<K: kivact_core::state::ItemKey> ListApi<K> {
-    /// Drawing state of the mounted list container.
-    pub fn list_state(self) -> Value<PartState> {
-        let observed = self.state().container_state;
-        kivact_core::state::memo(move || {
-            observed.get().map(|state| state.get()).unwrap_or_default()
-        })
-    }
-    /// Drawing state of the actual mounted item, or its logical selection before mounting.
-    pub fn item_state(self, key: K) -> Value<ListItemState> {
-        let state = self.state();
-        let watch = state.membership.watch(key.clone());
-        kivact_core::state::memo(move || {
-            state
-                .item_states
-                .with(|states| states.get(&key).copied())
-                .map(|part| part.get())
-                .unwrap_or_else(|| ListItemState {
-                    input: PartState::default(),
-                    selected: state.membership.contains(&key, watch),
-                    active: state.active_key.is(&key),
-                })
-        })
-    }
-
     #[track_caller]
     fn state(self) -> Rc<State<K>> {
         self.state.get()

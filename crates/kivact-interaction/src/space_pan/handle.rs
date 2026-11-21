@@ -1,7 +1,7 @@
 //! Role: Attach the Space modifier machine to focused surfaces.
 use super::machine;
 use kivact_core::custom::{Part, PartState, part};
-use kivact_core::state::{MachineHandle, Signal, Value, machine, memo, signal};
+use kivact_core::state::{MachineHandle, Value, machine, memo};
 use kivact_core::view::{Handled, Key, KeyEvent, NodeRef, PointerEvent, PointerPhase};
 
 /// Whether Space is held on a focused surface.
@@ -15,7 +15,6 @@ use kivact_core::view::{Handled, Key, KeyEvent, NodeRef, PointerEvent, PointerPh
 /// ```
 #[derive(Clone, Copy)]
 pub struct SpacePanApi {
-    observed: Signal<Option<Value<PartState>>>,
     held: MachineHandle<machine::Machine>,
     armed: Value<bool>,
 }
@@ -29,23 +28,12 @@ pub fn use_space_pan() -> SpacePanApi {
         |_, effect| match effect {},
     );
     SpacePanApi {
-        observed: signal(None),
         held,
         armed: memo(move || held.get() == machine::SpaceKey::Held),
     }
 }
 
 impl SpacePanApi {
-    /// Drawing state of the actual attached input target.
-    pub fn control_state(self) -> Value<PartState> {
-        kivact_core::state::memo(move || {
-            self.observed
-                .get()
-                .map(|state| state.get())
-                .unwrap_or_default()
-        })
-    }
-
     /// Whether Space is held while the surface has the focus (tracked). It
     /// turns false on the key's release, when the focus leaves the surface,
     /// when the surface is disabled or hidden and on a pointer `Cancel`.
@@ -61,7 +49,6 @@ impl SpacePanApi {
     pub fn control(self) -> Part<PartState> {
         let input = part(|input| input);
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.observed, part_state);
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             let surface = host.part(input).node_ref(target).region_events();

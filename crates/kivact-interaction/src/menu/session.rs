@@ -5,6 +5,8 @@ use super::order::kept_levels;
 use super::press_state::Press;
 use super::state::{Edge, MenuEntry, MenuOptions, MenuOrigin, Opened, Target, Want};
 use crate::{FocusReturn, PopupApi, PopupCloseReason, ReasonSet, use_popup};
+use kivact_core::ErrorKind;
+use kivact_core::custom::raise;
 use kivact_core::state::{Callback, MachineHandle, Signal, Value, memo, signal};
 use kivact_core::view::NodeRef;
 
@@ -29,6 +31,8 @@ pub(super) struct Session<K: kivact_core::state::ItemKey> {
     pub(super) machine: MachineHandle<super::machine::Machine<K>>,
     pub(super) press: Option<super::press_state::Press>,
     pub(super) surface_rects: Signal<Vec<(Vec<K>, kivact_core::geometry::Rect)>>,
+    /// The mounted submenu items, by their path (see `Session::item_anchor`).
+    pub(super) item_anchors: Signal<Vec<(Vec<K>, NodeRef)>>,
 }
 
 impl<K: kivact_core::state::ItemKey> Clone for Session<K> {
@@ -119,6 +123,7 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
             want,
             machine,
             surface_rects: signal(Vec::new()),
+            item_anchors: signal(Vec::new()),
             press,
         };
         machine.feed(open, Event::Popup);
@@ -180,6 +185,22 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
 }
 
 impl<K: kivact_core::state::ItemKey> Session<K> {
+    /// The node of the mounted item that opens the submenu at `path`.
+    pub(super) fn item_anchor(&self, path: &[K]) -> NodeRef {
+        self.item_anchors
+            .with_untracked(|all| {
+                all.iter()
+                    .find(|(p, _)| p.as_slice() == path)
+                    .map(|(_, r)| *r)
+            })
+            .unwrap_or_else(|| {
+                raise(
+                    ErrorKind::Message,
+                    "MenuApi::surface: the submenu's item is not mounted",
+                )
+            })
+    }
+
     /// The key of the focused item if the focus is on the level at `depth`.
     pub(super) fn focused_at(&self, depth: usize) -> Option<K> {
         self.focus_key.with(|focus| match focus {

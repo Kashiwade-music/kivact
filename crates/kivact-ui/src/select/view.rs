@@ -53,6 +53,7 @@ struct SelectOptions<K: kivact_core::state::ItemKey> {
     arrow_open: Value<bool>,
     keep_trigger_focus: Value<bool>,
     touch_sheet: Option<TouchSheet>,
+    open: Option<Signal<bool>>,
     at: &'static Location<'static>,
 }
 
@@ -85,6 +86,7 @@ pub fn select<K: kivact_core::state::ItemKey>(
             arrow_open: false.into_value(),
             keep_trigger_focus: true.into_value(),
             touch_sheet: None,
+            open: None,
             at: Location::caller(),
         },
     }
@@ -111,6 +113,12 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
 }
 
 impl<K: kivact_core::state::ItemKey> Select<K> {
+    /// Use this signal as the select's open state.
+    pub fn open(mut self, open: Signal<bool>) -> Self {
+        self.settings.open = Some(open);
+        self
+    }
+
     /// Open the options on a bare ArrowDown or ArrowUp without selecting.
     #[track_caller]
     pub fn open_on_arrow(mut self, enabled: impl IntoValue<bool>) -> Self {
@@ -225,17 +233,12 @@ impl<K: kivact_core::state::ItemKey> Element for Select<K> {
 impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
     fn into_view(mut self) -> View {
         let variants = self.root.authored().variants();
-        let behavior = configure_select(&self.settings);
+        let (behavior, open) = configure_select(&self.settings);
         let anchor = kivact_core::view::node_ref();
         let shown = behavior.is_open();
-        let open = behavior.open_binding();
         let sheet_open = behavior.is_sheet_open();
-        let (trigger, sheet_factory) = select_trigger(
-            behavior,
-            &mut self.root,
-            anchor,
-            self.settings.touch_sheet.take(),
-        );
+        let (trigger, sheet_factory) =
+            select_trigger(behavior, &mut self.root, self.settings.touch_sheet.take());
 
         let state = trigger.state();
         let (options, selected, size) = (
@@ -341,8 +344,11 @@ pub(crate) fn with_option_style(
 /// Apply independent interaction configuration before constructing select parts.
 fn configure_select<K: kivact_core::state::ItemKey>(
     settings: &SelectOptions<K>,
-) -> kivact_interaction::SelectApi<K> {
-    let mut behavior = kivact_interaction::use_select(settings.options, settings.selected)
+) -> (kivact_interaction::SelectApi<K>, Signal<bool>) {
+    let open = settings
+        .open
+        .unwrap_or_else(|| kivact_core::state::signal(false));
+    let mut behavior = kivact_interaction::use_select(settings.options, settings.selected, open)
         .open_on_arrow(settings.arrow_open)
         .keep_trigger_focus(settings.keep_trigger_focus);
     if let Some(observer) = settings.on_edit {
@@ -354,57 +360,29 @@ fn configure_select<K: kivact_core::state::ItemKey>(
     if let Some(preview) = settings.preview {
         behavior = behavior.on_active_change(move |key| preview.try_call(key));
     }
-    behavior
+    (behavior, open)
 }
 
 /// Recognize touch-sheet activation while preserving the canonical trigger part.
 pub(crate) fn select_trigger<K: kivact_core::state::ItemKey>(
     behavior: kivact_interaction::SelectApi<K>,
     root: &mut Node,
-    anchor: NodeRef,
     touch_sheet: Option<TouchSheet>,
 ) -> (kivact_core::custom::Part<PopupState>, Option<SheetFactory>) {
     let shown = behavior.is_open();
     let sheet_open = behavior.is_sheet_open();
     if let Some((eligible, factory)) = touch_sheet {
         let disabled = root.accessible_disabled();
-        let bounds = anchor.rect();
-        let gesture = kivact_core::state::machine(
-            crate::select::machine::SheetGesture::Idle,
-            move || crate::select::machine::Machine {
-                readiness: if shown.get() || disabled.as_ref().is_some_and(|read| read.get()) {
-                    crate::select::machine::Readiness::Unavailable
-                } else {
-                    crate::select::machine::Readiness::Ready
-                },
-                bounds: bounds.get(),
-                slop: kivact_core::style::use_theme()
-                    .get()
-                    .ext::<kivact_interaction::InteractionPolicy>()
-                    .select
-                    .sheet_slop,
-            },
-            |_, effect| match effect {},
-        );
-        let trigger = behavior.trigger_with_sheet(move || {
-            let tap = matches!(
-                gesture.get(),
-                crate::select::machine::SheetGesture::Released(
-                    crate::select::machine::Outcome::Tap
-                )
-            );
-            gesture.send(crate::select::machine::Event::Reset);
-            tap && eligible()
+        let tap = kivact_interaction::use_sheet_tap(move || {
+            !shown.get() && !disabled.as_ref().is_some_and(|read| read.get())
         });
+        let trigger = behavior.trigger_with_sheet(move || tap.take_tap() && eligible());
         let trigger_state = trigger.state();
         let trigger = kivact_core::custom::Part::new(trigger_state, move |host| {
             host.part(trigger)
+                .part(tap.target())
                 .on_pointer(move |event| {
-                    gesture.send(crate::select::machine::Event::Pointer(event));
-                    Handled::No
-                })
-                .on_key(move |_| {
-                    gesture.send(crate::select::machine::Event::Reset);
+                    tap.pointer(event);
                     Handled::No
                 })
                 .has_popup(move || {

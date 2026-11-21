@@ -109,64 +109,62 @@ fn open_text(label: &'static str, open: bool) -> String {
 }
 
 #[test]
-fn a_parent_reads_the_disclosure_content_state_across_unmount_and_remount() {
+fn the_disclosure_parts_read_their_own_state_across_remounts() {
     use kivact::interaction::use_disclosure;
-    let (screen, (open, late)) = mount(|| {
+    let (screen, open) = mount(|| {
         let open = signal(true);
-        let late = signal(false);
         let details = use_disclosure(open);
-        // Read at setup, before the content first mounts.
-        let early = details.content_state();
+        let trigger = details.trigger();
+        // Read at setup, before the trigger first mounts.
+        let early = trigger.state();
         (
-            (open, late),
+            open,
             column((
-                control("Details").part(details.trigger()),
+                control("Details").part(trigger),
                 show(details.is_open(), move || {
-                    control("Body").part(details.content())
+                    let part = details.content();
+                    let state = part.state();
+                    control("Body")
+                        .part(part)
+                        .child(text(move || open_text("content", state.get().open)))
                 }),
                 text(move || open_text("early", early.get().open)),
-                // Read for the first time after the content unmounted.
-                show(late, move || {
-                    let state = details.content_state();
-                    text(move || open_text("late", state.get().open))
-                }),
             )),
         )
     });
     screen.get_by_text(&open_text("early", true));
+    screen.get_by_text(&open_text("content", true));
     open.set(false);
     screen.run_until_idle();
     screen.get_by_text(&open_text("early", false));
-    late.set(true);
-    screen.run_until_idle();
-    screen.get_by_text(&open_text("late", false));
+    assert!(screen.query_by_text(&open_text("content", true)).is_none());
     open.set(true);
     screen.run_until_idle();
     screen.get_by_role(Role::Button, "Details");
     screen.get_by_text(&open_text("early", true));
-    screen.get_by_text(&open_text("late", true));
+    screen.get_by_text(&open_text("content", true));
     open.set(false);
     screen.run_until_idle();
-    screen.get_by_text(&open_text("late", false));
+    screen.get_by_text(&open_text("early", false));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
-fn a_parent_reads_the_disclosure_trigger_state_after_the_trigger_unmounts() {
+fn a_remounted_disclosure_trigger_part_starts_from_the_requested_state() {
     use kivact::interaction::use_disclosure;
     let (screen, (open, has_trigger)) = mount(|| {
         let open = signal(false);
         let has_trigger = signal(true);
         let details = use_disclosure(open);
-        let state = details.trigger_state();
         (
             (open, has_trigger),
-            column((
-                show(has_trigger, move || {
-                    control("Details").part(details.trigger())
-                }),
-                text(move || open_text("trigger", state.get().open)),
-            )),
+            show(has_trigger, move || {
+                let part = details.trigger();
+                let state = part.state();
+                control("Details")
+                    .part(part)
+                    .child(text(move || open_text("trigger", state.get().open)))
+            }),
         )
     });
     screen.get_by_role(Role::Button, "Details").click();
@@ -174,45 +172,47 @@ fn a_parent_reads_the_disclosure_trigger_state_after_the_trigger_unmounts() {
     screen.get_by_text(&open_text("trigger", true));
     has_trigger.set(false);
     screen.run_until_idle();
-    // Without a trigger the state falls back to the requested state.
     open.set(false);
     screen.run_until_idle();
-    screen.get_by_text(&open_text("trigger", false));
+    assert!(screen.query_by_text(&open_text("trigger", true)).is_none());
     has_trigger.set(true);
     screen.run_until_idle();
+    screen.get_by_text(&open_text("trigger", false));
     screen.get_by_role(Role::Button, "Details").click();
     screen.get_by_text(&open_text("trigger", true));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
-fn a_parent_reads_the_popup_content_state_across_closing_and_reopening() {
+fn the_popup_content_part_reads_its_state_while_mounted() {
     use kivact::interaction::use_popup;
     use kivact::view::{Placement, overlay};
     let (screen, open) = mount(|| {
         let open = signal(true);
         let popup = use_popup(open);
-        let state = popup.content_state();
         let anchor = node_ref();
         (
             open,
             column((
                 control("Menu").node_ref(anchor).part(popup.trigger()),
                 show(popup.is_open(), move || {
+                    let part = popup.content();
+                    let state = part.state();
                     overlay(
                         anchor,
                         Placement::Below,
-                        control("Surface").part(popup.content()),
+                        control("Surface")
+                            .part(part)
+                            .child(text(move || open_text("surface", state.get().open))),
                     )
                 }),
-                text(move || open_text("surface", state.get().open)),
             )),
         )
     });
     screen.get_by_text(&open_text("surface", true));
     open.set(false);
     screen.run_until_idle();
-    screen.get_by_text(&open_text("surface", false));
+    assert!(screen.query_by_text(&open_text("surface", true)).is_none());
     open.set(true);
     screen.run_until_idle();
     screen.get_by_text(&open_text("surface", true));

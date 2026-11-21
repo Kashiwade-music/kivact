@@ -90,6 +90,37 @@ fn select_touch_opens_the_sheet() {
 }
 
 #[test]
+fn combobox_touch_tap_opens_the_sheet() {
+    let (screen, chosen) = mount(|| {
+        let chosen = signal(None::<&str>);
+        (
+            chosen,
+            combobox(
+                vec![ListItem::new("a", "Alpha"), ListItem::new("b", "Beta")],
+                chosen,
+            )
+            .label("Team")
+            .presentation(SelectPresentation::BottomSheet)
+            .style(style().width(280)),
+        )
+    });
+    let input = screen.get_by_role(Role::ComboBox, "Team");
+    let rect = input.rect().unwrap();
+    let contact = screen.contact_down(
+        PointerKind::Touch,
+        rect.x + rect.width / 2.0,
+        rect.y + rect.height / 2.0,
+    );
+    assert!(screen.query_by_role(Role::Dialog, "Team").is_none());
+    screen.contact_up(contact);
+    screen.advance(Duration::from_millis(350));
+    screen.get_by_role(Role::Dialog, "Team");
+    screen.get_by_role(Role::Option, "Beta").click();
+    assert_eq!(chosen.get_untracked(), Some("b"));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
 fn free_text_is_kept_when_the_list_closes() {
     let (screen, query) = mount(|| {
         let selected = signal(None::<&'static str>);

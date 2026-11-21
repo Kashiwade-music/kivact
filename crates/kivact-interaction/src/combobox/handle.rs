@@ -4,14 +4,15 @@
 //! box whose active option is the field's `active_descendant`. Pickers and
 //! command palettes are built on it.
 //!
-//! The query is a `Signal<String>` the caller gives to
+//! The query is the caller's `Signal<String>`; [`query`](ComboboxApi::query) gives it to
 //! [`use_text_edit`](crate::use_text_edit) on an ordinary node, which also
 //! takes the combobox's `input` part; the options take `content` and `item`.
 //! `visible` is the matching keys and `active` the current option. The focus
-//! stays in the field and a disabled option is never chosen. By default the
-//! list is always there and Escape belongs to the surrounding popup or
-//! dialog's dismissal; [`popup`](ComboboxApi::popup) makes the list a popup this
-//! behavior opens and closes, and a [`Selection::Multiple`] selection lets
+//! stays in the field and a disabled option is never chosen. The list is a
+//! popup this behavior opens and closes in the caller's `open`; with
+//! `ComboboxOptions { inline: true }` it is always there and Escape belongs to
+//! the surrounding popup or dialog's dismissal; and a [`Selection::Multiple`]
+//! selection lets
 //! several options be chosen. Creative's pickers, the command palette
 //! (`crate::palette`) and the kits' searchable selects share this behavior.
 
@@ -30,35 +31,33 @@ use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Value, effect, memo, on_cleanup, on_mount, signal};
 use kivact_core::view::{
-    Handled, Key, KeyEvent, NodeRef, PointerEvent, PointerPhase, Role, node_ref,
+    Element, Handled, IntoView, Key, KeyEvent, NodeRef, PointerEvent, PointerPhase, Role, node_ref,
 };
 
 use crate::{ListItem, ListItemState};
 
 type Filter<K> = Rc<dyn Fn(&str, &ListItem<K>) -> bool>;
 
-#[derive(Clone, Copy)]
-enum PresentationMode {
-    Inline,
-    Popup(Signal<bool>),
+/// Construction-time presentation of a combobox's list.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ComboboxOptions {
+    /// The list is always part of the layout (a palette, a picker): no popup keys, roles or focus-out close.
+    pub inline: bool,
 }
 
 /// What the setup calls of a [`ComboboxApi`] store.
-struct ComboboxSetupOptions<K: 'static> {
+struct SearchOptions<K: 'static> {
     /// The options: the caller's, or the results of [`ComboboxApi::search`].
     source: Value<Vec<ListItem<K>>>,
     debounce: Value<std::time::Duration>,
     search_status: Value<kivact_core::task::AsyncState<()>>,
-    presentation: PresentationMode,
-    /// The query text: a local signal, or the caller's binding.
-    query: Signal<String>,
 }
-impl<K: 'static> Clone for ComboboxSetupOptions<K> {
+impl<K: 'static> Clone for SearchOptions<K> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<K: 'static> Copy for ComboboxSetupOptions<K> {}
+impl<K: 'static> Copy for SearchOptions<K> {}
 
 /// The default search: the query, trimmed and lowercased, is part of the
 /// lowercased label. An empty query accepts everything.
@@ -67,6 +66,7 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
     option.label.get().to_lowercase().contains(&query)
 }
 
+// xtask-allow(state): independent: open is the caller's binding, written by the caller and by hide and write_open (show, show_sheet, type_query); query is the caller's binding, written by the caller, by type_query, by choose and by the machine's Closed effect that clears an inline list; session is the machine that follows open one way (only the feed of open sends Opened and Closed) and holds the opening's surface, filter phase and highlight, noted by Present (show, show_sheet), Typed (type_query) and QueryChanged; inline is set once by use_combobox; filter is set once by filter(); rows is written by register_row at each option's mount and cleanup
 /// A search field over a filtered list box of keyed [`ListItem`]s, without a
 /// look of its own.
 ///
@@ -94,8 +94,8 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 /// makes it active, and a click chooses it. A disabled option is never active
 /// and cannot be chosen.
 ///
-/// With [`popup`](Self::popup) the list is a popup the combobox opens and
-/// closes in the caller's `Signal<bool>`: ArrowDown and ArrowUp open a
+/// Unless it is inline, the list is a popup the combobox opens and closes in
+/// the caller's `open`: ArrowDown and ArrowUp open a
 /// closed list (they move the active option only once it is open and stop
 /// at the ends), Enter on
 /// a closed one does nothing, Escape closes an open one, choosing a single
@@ -109,10 +109,10 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 ///
 /// ```no_run
 /// use kivact::{state::signal, view::{Element, column, node, text, for_each}};
-/// use kivact::interaction::{ListItem, use_combobox, use_text_edit};
+/// use kivact::interaction::{ComboboxOptions, ListItem, use_combobox, use_text_edit};
 /// let options = vec![ListItem::new("red", "Red"), ListItem::new("green", "Green")];
 /// let chosen = signal(None::<&'static str>);
-/// let colors = use_combobox(options.clone(), chosen);
+/// let colors = use_combobox(options.clone(), chosen, signal(String::new()), signal(true), ComboboxOptions { inline: true });
 /// let rows = for_each(colors.visible(), |key| *key, move |item| {
 ///     let key = item.get();
 ///     let label = options.iter().find(|o| *o.key() == key).map(|o| o.label());
@@ -124,15 +124,17 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 /// ));
 /// ```
 pub struct ComboboxApi<K: kivact_core::state::ItemKey> {
-    input_state: Signal<Option<Value<PartState>>>,
-    content_state: Signal<Option<Value<PartState>>>,
-    item_states: Signal<HashMap<K, Value<ListItemState>>>,
     options: Value<Vec<ListItem<K>>>,
     /// The caller's selection: one option or several.
     selection: Selection<K>,
-    /// The setup options: the sources, the debounce, the presentation (the
-    /// open state of a popup) and the query text.
-    settings: OptionsCell<ComboboxSetupOptions<K>>,
+    /// The setup options: the sources and the debounce.
+    settings: OptionsCell<SearchOptions<K>>,
+    /// The caller's open state: the list shows while it is true.
+    open: Signal<bool>,
+    /// The caller's query text, which the field edits.
+    query: Signal<String>,
+    /// Whether the list is always part of the layout (see [`ComboboxOptions`]).
+    inline: bool,
     session: MachineHandle<machine::Machine<K>>,
     filter: Signal<Filter<K>>,
     /// The options that match, in order.
@@ -165,61 +167,66 @@ fn first_enabled<K: Clone>(options: &[ListItem<K>]) -> Option<K> {
         .map(|option| option.key.clone())
 }
 
-/// A combobox over `items` whose choice is written to `selected`, with an
-/// empty query. Setup only.
+/// A combobox over `items` whose choice is written to `selected`, whose
+/// query is `query` and whose list shows while `open` is true. Setup only.
 #[track_caller]
 pub fn use_combobox<K: kivact_core::state::ItemKey>(
     items: impl IntoValue<Vec<ListItem<K>>>,
     selected: impl crate::IntoSelection<K>,
+    query: Signal<String>,
+    open: Signal<bool>,
+    options: ComboboxOptions,
 ) -> ComboboxApi<K> {
     let selection = selected.into_selection();
-    let settings = OptionsCell::new(ComboboxSetupOptions {
+    let inline = options.inline;
+    let settings = OptionsCell::new(SearchOptions {
         source: items.into_value(),
         debounce: std::time::Duration::from_millis(150).into_value(),
         search_status: (|| kivact_core::task::AsyncState::<()>::Idle).into_value(),
-        presentation: PresentationMode::Inline,
-        query: signal(String::new()),
     });
     let options = memo(move || settings.value().with(|settings| settings.source).get());
-    // The one open state; the machine writes the caller's binding, never the reverse.
-    // A combobox starts inline, so its list shows; `popup` closes it at
-    // setup when the caller's open is false.
+    // The machine follows the caller's `open` one way: the notes (the next
+    // opening's surface and filter phase) come first, the write of `open`
+    // decides. Its effect only clears the query of an inline list when it closes.
     let session = machine(
-        machine::ComboState::Open {
-            surface: Surface::Popover,
-            filtering: false,
-            highlight: None::<K>,
+        if open.get_untracked() {
+            machine::ComboState::opened(machine::Opening::default())
+        } else {
+            machine::ComboState::closed()
         },
-        move || {
-            machine::Machine::<K>::new(matches!(
-                settings.get().presentation,
-                PresentationMode::Inline
-            ))
-        },
-        move |_, effect| match effect {
-            machine::Effect::WriteQuery(text) => settings.get().query.set(text),
-            machine::Effect::WriteOpen(open) => {
-                if let PresentationMode::Popup(binding) = settings.get().presentation
-                    && binding.get_untracked() != open
-                {
-                    binding.set(open);
-                }
+        || machine::Machine::<K>::new(),
+        move |_, machine::Effect::Closed| {
+            // An inline list's next opening starts from an empty query; a
+            // popup keeps its query because the field still shows it.
+            if inline && !query.with_untracked(String::is_empty) {
+                query.set(String::new());
             }
         },
     );
-    let query_text = memo(move || settings.value().with(|settings| settings.query).get());
+    session.feed(open, |shown| {
+        if shown {
+            machine::Event::Opened
+        } else {
+            machine::Event::Closed
+        }
+    });
+    kivact_core::state::effect_on(query, move |_| {
+        if open.get_untracked() {
+            session.send(machine::Event::QueryChanged);
+        }
+    });
     let filter = signal::<Filter<K>>(Rc::new(contains_query));
-    let (shown, visible, active) = shown_rows(options, query_text, filter, session);
+    let (shown, visible, active) = shown_rows(options, query, filter, session);
     let index = memo(move || options.with(|all| Index::of_items(all)));
     let active_key = selector(active);
     let membership = Membership::new(selection);
     ComboboxApi {
-        input_state: signal(None),
-        content_state: signal(None),
-        item_states: signal(HashMap::new()),
         options,
         selection,
         settings,
+        open,
+        query,
+        inline,
         session,
         filter,
         shown,
@@ -240,7 +247,7 @@ type Shown<K> = (Value<Vec<ListItem<K>>>, Value<Vec<K>>, Value<Option<K>>);
 /// highlighted one while it is shown and enabled, else the first enabled one.
 fn shown_rows<K: kivact_core::state::ItemKey>(
     options: Value<Vec<ListItem<K>>>,
-    query: Value<String>,
+    query: Signal<String>,
     filter: Signal<Filter<K>>,
     session: MachineHandle<machine::Machine<K>>,
 ) -> Shown<K> {
@@ -275,17 +282,6 @@ fn shown_rows<K: kivact_core::state::ItemKey>(
 }
 
 impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
-    /// Use caller-owned text as the query source without copying it into local state.
-    #[track_caller]
-    pub fn query_binding(self, query: kivact_core::state::Signal<String>) -> Self {
-        self.settings.update(|settings| settings.query = query);
-        // A closed list stays closed when the caller writes the query: the
-        // transition ignores the event while closed.
-        self.session
-            .feed(query, |_: String| machine::Event::QueryChanged);
-        self
-    }
-
     /// Current source rows, including asynchronous suggestions when configured.
     pub fn options(self) -> Value<Vec<ListItem<K>>> {
         self.options
@@ -367,39 +363,6 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         self
     }
 
-    /// Drawing state of the mounted editor anchor.
-    pub fn input_state(self) -> Value<PartState> {
-        memo(move || {
-            self.input_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or_default()
-        })
-    }
-    /// Drawing state of the mounted list surface.
-    pub fn content_state(self) -> Value<PartState> {
-        memo(move || {
-            self.content_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or_default()
-        })
-    }
-    /// Drawing state of the actual option, or its logical selection before mounting.
-    pub fn item_state(self, key: K) -> Value<ListItemState> {
-        let watch = self.membership.watch(key.clone());
-        memo(move || {
-            self.item_states
-                .with(|states| states.get(&key).copied())
-                .map(|state| state.get())
-                .unwrap_or_else(|| ListItemState {
-                    input: PartState::default(),
-                    active: self.active_key.is(&key),
-                    selected: self.membership.contains(&key, watch),
-                })
-        })
-    }
-
     /// Choose which options the query shows. It receives the query as typed
     /// and an option, and reads reactive texts with `get()`, so the list
     /// follows a locale switch. The default accepts an option when the query,
@@ -411,126 +374,108 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         self
     }
 
-    /// Make the list a popup that is open while `open` is true: the field's
-    /// keys open and close it (see the type's documentation), a single choice
-    /// closes it and it closes when the field loses the focus. The caller
-    /// draws the list while [`shown`](Self::is_open). Setup only.
-    #[track_caller]
-    pub fn popup(self, open: kivact_core::state::Signal<bool>) -> Self {
-        self.popup_with_focus_transfer(open, false)
-    }
-
-    /// Allow a separate presentation to own focus while the list is open.
-    #[track_caller]
-    pub fn popup_with_focus_transfer(
-        self,
-        open: kivact_core::state::Signal<bool>,
-        transferred: impl IntoValue<bool>,
-    ) -> Self {
-        let transferred = transferred.into_value();
-        self.settings
-            .update(|settings| settings.presentation = PresentationMode::Popup(open));
-        let session = self.session;
-        // The machine is the source of truth: its state starts from the
-        // caller's value and follows it without feeding its own writes back.
-        session.send(machine::Event::OpenRequested(open.get_untracked()));
-        session.feed(open, machine::Event::OpenRequested);
-        let focused = self.input_ref.focused();
-        kivact_core::state::effect_on(focused, move |focused| {
-            if !focused {
-                session.send(machine::Event::FocusLeft {
-                    transferred: transferred.get(),
-                });
-            }
-        });
-        self
-    }
-
-    /// Open and close an inline list with its owner's `open` (the command
-    /// palette's dialog). Closing clears the query and the highlight in the
-    /// close transition. Setup only.
-    #[track_caller]
-    pub(crate) fn opened_by(self, open: Signal<bool>) {
-        self.session
-            .send(machine::Event::OpenRequested(open.get_untracked()));
-        self.session.feed(open, machine::Event::OpenRequested);
-    }
-
-    /// Whether the list shows: the open state of a [`popup`](Self::popup), and
-    /// always for a combobox without one.
+    /// Whether the list shows: the caller's `open` state.
     pub fn is_open(self) -> Value<bool> {
-        let state = self.session.state();
-        (move || state.with(|state| state.is_open())).into_value()
+        self.open.into_value()
     }
 
     /// Whether the open combobox is presented in a touch sheet.
     pub fn is_sheet_open(self) -> Value<bool> {
         memo(move || {
-            self.session
-                .state()
-                .with(|state| state.surface() == Some(Surface::Sheet))
+            self.open.get()
+                && self
+                    .session
+                    .state()
+                    .with(|state| state.surface() == Some(Surface::Sheet))
         })
     }
 
     /// Show the list in a touch sheet; an open popover list moves to the
-    /// sheet. Nothing changes while the sheet shows.
+    /// sheet. Nothing changes while the sheet shows. An inline list is always
+    /// shown, so this does nothing for it.
     pub fn show_sheet(self) {
-        let in_sheet = self
-            .session
-            .state()
-            .with_untracked(|state| state.surface() == Some(Surface::Sheet));
-        if !in_sheet {
-            self.session.send(machine::Event::OpenSheet);
+        if self.inline || self.is_sheet_open_untracked() {
+            return;
         }
+        self.session.send(machine::Event::Present(Surface::Sheet));
+        self.write_open();
     }
 
-    /// Show a popup list. Nothing changes while the list shows (its query and
-    /// surface stay), and nothing happens without [`popup`](Self::popup).
+    /// Show the list in the popover. Nothing changes while the list shows (its
+    /// query and surface stay). An inline list is always shown, so this does
+    /// nothing for it.
     pub fn show(self) {
-        if !self.shown() {
-            self.session.send(machine::Event::Open);
+        if self.inline || self.open.get_untracked() {
+            return;
         }
+        self.session.send(machine::Event::Present(Surface::Popover));
+        self.write_open();
     }
 
-    /// Hide a popup list. Nothing changes while it is hidden, and nothing
-    /// happens without [`popup`](Self::popup).
+    /// Hide the list. Nothing changes while it is hidden, and an inline list is
+    /// always shown, so this does nothing for it.
     pub fn hide(self) {
-        if let PresentationMode::Popup(_) = self.settings.get().presentation {
-            self.session.send(machine::Event::Close);
+        if !self.inline && self.open.get_untracked() {
+            self.session.send(machine::Event::Closing);
+            self.open.set(false);
         }
     }
 
-    /// Show a hidden popup list and hide a shown one.
+    /// Show a hidden list and hide a shown one. An inline list is always shown,
+    /// so this does nothing for it.
     pub fn toggle(self) {
-        if let PresentationMode::Popup(_) = self.settings.get().presentation {
-            if self.shown() {
-                self.hide();
-            } else {
-                self.show();
-            }
+        if self.inline {
+            return;
+        }
+        if self.open.get_untracked() {
+            self.hide();
+        } else {
+            self.show();
         }
     }
 
-    /// Whether the list shows now, read untracked: [`is_open`](Self::is_open)
-    /// makes a value, which only setup may do, and the commands run in
-    /// handlers.
+    /// Whether the list shows now, read untracked: the commands run in handlers.
     fn shown(self) -> bool {
-        self.session.state().with_untracked(|state| state.is_open())
+        self.open.get_untracked()
     }
 
-    /// The query binding for the caller's native editing attachment.
+    /// Whether the list is shown in the touch sheet, read untracked.
+    fn is_sheet_open_untracked(self) -> bool {
+        self.open.get_untracked()
+            && self
+                .session
+                .state()
+                .with_untracked(|state| state.surface() == Some(Surface::Sheet))
+    }
+
+    /// Write the caller's `open` to true, unless it already is.
+    fn write_open(self) {
+        if !self.open.get_untracked() {
+            self.open.set(true);
+        }
+    }
+
+    /// The query as the field edits it: a write is typing, which opens a closed popup list.
     pub fn query(self) -> Signal<String> {
         binding(
-            memo(move || self.settings.value().with(|settings| settings.query).get()),
-            move |query| {
-                self.session.send(machine::Event::Query(query));
-            },
+            move || self.query.get(),
+            move |text: String| self.type_query(text),
         )
+    }
+
+    /// Set the query from typing: a popup list opens with it.
+    fn type_query(self, text: String) {
+        self.query.set(text);
+        if self.inline {
+            return;
+        }
+        self.session.send(machine::Event::Typed);
+        self.write_open();
     }
 
     /// Whether the current query was entered by the user rather than browsing.
     pub fn is_filtering(self) -> Value<bool> {
-        memo(move || self.session.state().with(|state| state.is_filtering()))
+        memo(move || self.open.get() && self.session.state().with(machine::ComboState::filtering))
     }
 
     /// The keys of the options the query shows, in order.
@@ -564,7 +509,9 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                     None => keys.push(key),
                 }
                 values.set(keys);
-                self.session.send(machine::Event::Toggled);
+                if !self.query.with_untracked(String::is_empty) {
+                    self.query.set(String::new());
+                }
             }
             Selection::Single(value) => {
                 value.set(Some(key));
@@ -591,16 +538,8 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                     .and_then(|key| enabled.iter().position(|k| *k == key))
             });
             let to = match (at, direction > 0) {
-                (Some(at), true)
-                    if matches!(self.settings.get().presentation, PresentationMode::Popup(_)) =>
-                {
-                    (at + 1).min(count - 1)
-                }
-                (Some(at), false)
-                    if matches!(self.settings.get().presentation, PresentationMode::Popup(_)) =>
-                {
-                    at.saturating_sub(1)
-                }
+                (Some(at), true) if !self.inline => (at + 1).min(count - 1),
+                (Some(at), false) if !self.inline => at.saturating_sub(1),
                 (Some(at), true) => (at + 1) % count,
                 (Some(at), false) => (at + count - 1) % count,
                 (None, true) => 0,
@@ -616,24 +555,29 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     /// The search field: it `controls` the surface, publishes the active
     /// option as its `active_descendant` and takes ArrowDown, ArrowUp and
     /// Enter (without modifiers) after the caller's own key handlers, and
-    /// Escape and Backspace where [`popup`](Self::popup) and
-    /// [`multiple`](Self::multiple) give them a meaning. Bind the field's text
-    /// to [`query`](Self::query). Setup only.
+    /// Escape and Backspace where a popup list and a [`Selection::Multiple`]
+    /// selection give them a meaning. Bind the field's text to
+    /// [`query`](Self::query). Setup only.
     #[track_caller]
     pub fn input(self) -> Part<PartState> {
+        self.input_for(self.input_ref)
+    }
+
+    /// The field as [`input`](Self::input), bound to the node `target`.
+    #[track_caller]
+    pub fn input_for(self, target: NodeRef) -> Part<PartState> {
         let (active, rows) = (self.active, self.rows);
         let input = part(|input| input);
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.input_state, part_state);
         let expanded = self.is_open();
         Part::new(part_state, move |host| {
-            let host = if matches!(self.settings.get().presentation, PresentationMode::Popup(_)) {
+            let host = if !self.inline {
                 host.role(Role::ComboBox).expanded(expanded)
             } else {
                 host
             };
             host.part(input)
-                .node_ref(self.input_ref)
+                .node_ref(target)
                 .controls(self.list_ref)
                 .has_popup(|| Some(kivact_core::view::PopupKind::ListBox))
                 .active_descendant(move || {
@@ -667,21 +611,10 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                                 self.choose(key);
                             }
                         }
-                        Key::Escape
-                            if matches!(
-                                self.settings.get().presentation,
-                                PresentationMode::Popup(_)
-                            ) && !closed =>
-                        {
+                        Key::Escape if !self.inline && !closed => {
                             self.hide();
                         }
-                        Key::Backspace
-                            if self
-                                .settings
-                                .get()
-                                .query
-                                .with_untracked(|query| query.is_empty()) =>
-                        {
+                        Key::Backspace if self.query.with_untracked(String::is_empty) => {
                             let Selection::Multiple(values) = self.selection else {
                                 return Handled::No;
                             };
@@ -694,7 +627,42 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                     }
                     Handled::Yes
                 })
+                .on_attach(move |_| self.watch_focus(target))
         })
+    }
+
+    /// Close a popup list when `target` loses the focus, unless the list is in the sheet.
+    fn watch_focus(self, target: NodeRef) {
+        if self.inline {
+            return;
+        }
+        let focused = target.focused();
+        kivact_core::state::effect_on(focused, move |focused: &bool| {
+            if !*focused
+                && self
+                    .session
+                    .state()
+                    .with_untracked(|s| s.surface() != Some(Surface::Sheet))
+            {
+                self.hide();
+            }
+        });
+    }
+
+    /// The floating surface of the list: mounted at the field while the list
+    /// is shown, with the content part, and closed by the overlay's dismissal.
+    #[track_caller]
+    pub fn surface<V: kivact_core::view::IntoView>(
+        self,
+        placement: kivact_core::view::Placement,
+        content: impl Fn() -> V + 'static,
+    ) -> kivact_core::view::View {
+        kivact_core::view::show(self.is_open(), move || {
+            kivact_core::view::overlay(self.input_ref, placement, content())
+                .with_node(|n| n.part(self.content()))
+                .on_dismiss(move |_| self.hide())
+        })
+        .into_view()
     }
 
     /// The list box that holds the options, which the input `controls`.
@@ -704,15 +672,21 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     /// The name stays the caller's. Setup only.
     #[track_caller]
     pub fn content(self) -> Part<PartState> {
-        let input = part(|input| input);
-        let part_state = input.state();
-        crate::part_slot::attach_part_state(self.content_state, part_state);
+        self.content_for(self.input_ref)
+    }
+
+    /// The list box as [`content`](Self::content), with a press on it giving
+    /// the focus to the field `target`.
+    #[track_caller]
+    pub fn content_for(self, target: NodeRef) -> Part<PartState> {
+        let list = part(|input| input);
+        let part_state = list.state();
         Part::new(part_state, move |host| {
-            host.part(input)
+            host.part(list)
                 .node_ref(self.list_ref)
                 .role(Role::ListBox)
                 .multiselectable(matches!(self.selection, Selection::Multiple(_)))
-                .focus_on_press(self.input_ref)
+                .focus_on_press(target)
         })
     }
 
@@ -731,7 +705,6 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
             membership,
             rows,
             selection,
-            item_states,
             session,
             ..
         } = self;
@@ -751,19 +724,6 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
             active: is_active(),
         });
         let part_state = input.state();
-        item_states.update(|states| {
-            states.insert(key.get(), part_state);
-        });
-        on_cleanup(move || {
-            if item_states.try_get_untracked().is_some() {
-                item_states.update(|states| {
-                    let cleanup_key = key.get();
-                    if states.get(&cleanup_key) == Some(&part_state) {
-                        states.remove(&cleanup_key);
-                    }
-                });
-            }
-        });
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             host.part(input)
@@ -791,13 +751,6 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                     follow_active_row(target, key, active_key);
                 })
         })
-    }
-
-    /// Present the same combobox state with a different editor anchor.
-    /// Mount one list surface at a time when using the alternate editor.
-    pub fn with_input_ref(mut self, reference: NodeRef) -> Self {
-        self.input_ref = reference;
-        self
     }
 
     /// The node the input part binds, for a surrounding dialog's initial

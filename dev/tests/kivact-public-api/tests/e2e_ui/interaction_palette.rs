@@ -68,7 +68,7 @@ fn opener(open: Signal<bool>) -> Node {
 }
 
 fn palette_with_height(p: CommandPaletteApi<&'static str>, height: f64) -> View {
-    p.while_open(move || {
+    show(p.is_open(), move || {
         let rows = for_each(
             p.visible(),
             |g| (g.index, g.heading.is_some()),
@@ -118,6 +118,7 @@ fn palette_with_height(p: CommandPaletteApi<&'static str>, height: f64) -> View 
         )
         .with_node(move |node| node.part(p.content()))
     })
+    .into_view()
 }
 
 struct Page {

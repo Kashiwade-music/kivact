@@ -130,8 +130,6 @@ impl Hub {
 pub struct TooltipApi {
     /// Whether the hint may show.
     enabled: Value<bool>,
-    trigger_state: Signal<Option<Value<PopupState>>>,
-    content_state: Signal<Option<Value<PopupState>>>,
     /// What follows the attached trigger: made when it attaches and
     /// dropped when it unmounts.
     attached: Signal<Option<Attached>>,
@@ -163,8 +161,6 @@ pub fn use_tooltip(enabled: impl IntoValue<bool>) -> TooltipApi {
     let id = hub.take_id();
     let attached = signal(None::<Attached>);
     TooltipApi {
-        trigger_state: signal(None),
-        content_state: signal(None),
         enabled: enabled.into_value(),
         attached,
         visible: (move || {
@@ -180,31 +176,6 @@ pub fn use_tooltip(enabled: impl IntoValue<bool>) -> TooltipApi {
 }
 
 impl TooltipApi {
-    /// Drawing state of the actual mounted trigger.
-    pub fn trigger_state(self) -> Value<PopupState> {
-        memo(move || {
-            self.trigger_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(PopupState {
-                    input: kivact_core::custom::PartState::default(),
-                    open: self.visible.get(),
-                })
-        })
-    }
-    /// Drawing state of the actual mounted hint.
-    pub fn content_state(self) -> Value<PopupState> {
-        memo(move || {
-            self.content_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(PopupState {
-                    input: kivact_core::custom::PartState::default(),
-                    open: self.visible.get(),
-                })
-        })
-    }
-
     /// Whether the hint is shown now.
     pub fn is_open(self) -> Value<bool> {
         self.visible
@@ -300,7 +271,6 @@ impl TooltipApi {
             open: visible.get(),
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.trigger_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(self.anchor)
@@ -342,7 +312,6 @@ impl TooltipApi {
             open: visible.get(),
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(self.surface)

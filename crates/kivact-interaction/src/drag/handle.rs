@@ -35,11 +35,11 @@ use super::machine;
 use crate::edit::EditSession;
 use crate::options_cell::OptionsCell;
 use kivact_core::custom::clock_now;
-use kivact_core::custom::{Part, PartState, part};
+use kivact_core::custom::{Part, part};
 use kivact_core::geometry::Point;
 use kivact_core::state::{IntoValue, callback};
 use kivact_core::state::{MachineHandle, machine};
-use kivact_core::state::{Signal, Value, Var, memo, signal, var};
+use kivact_core::state::{Value, Var, memo, var};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
     Handled, Key, KeyCode, KeyEvent, Modifiers, MouseButton, PointerEvent, PointerPhase,
@@ -113,7 +113,6 @@ enum Step<T> {
     },
 }
 
-// xtask-allow(state): legacy: observed, sources, disabled; the observation of the attached source part, absent until it attaches
 /// A Copy handle to one temporary drag session owned by the current setup owner.
 ///
 /// Attach a [`source`](Self::source) to each element or canvas region a drag
@@ -142,7 +141,6 @@ enum Step<T> {
 /// without calling a callback. The setters work in any order, before or
 /// after the sources are made.
 pub struct DragApi<T: 'static> {
-    observed: Signal<Option<Value<DragState>>>,
     session: MachineHandle<machine::Machine<T>>,
     /// The source of the active drag, derived from `session`.
     active_source: Value<Option<Generation>>,
@@ -195,7 +193,6 @@ pub fn use_drag<T: Clone + 'static>(coordinates: DragCoordinates) -> DragApi<T> 
         })
     });
     let drag = DragApi {
-        observed: signal(None),
         session,
         active_source,
         sources: var(Generation::new()),
@@ -253,19 +250,6 @@ impl<T: Clone + 'static> DragApi<T> {
         self.settings
             .update(|options| options.track_velocity = true);
         self
-    }
-
-    /// Drawing state of the actual attached input target.
-    pub fn source_state(self) -> Value<DragState> {
-        kivact_core::state::memo(move || {
-            self.observed
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(DragState {
-                    input: PartState::default(),
-                    active: self.is_active(),
-                })
-        })
     }
 
     /// Cancel when this source becomes disabled, and refuse new starts while disabled.
@@ -630,7 +614,6 @@ impl<T: Clone + 'static> DragApi<T> {
             active: active_source.get() == Some(id),
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.observed, part_state);
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
             host.part(input)

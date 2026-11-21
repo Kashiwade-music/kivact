@@ -100,7 +100,7 @@ fn mount_select(
     mount_with(real_window(), move || {
         let selected = signal(initial);
         let options = options.into_value();
-        let fruit = use_select(options, selected);
+        let fruit = use_select(options, selected, signal(false));
         let trigger = select_view(node().style(style().size(160, 28)), "Fruit", options, fruit);
         (selected, column((trigger, action("After"))))
     })
@@ -300,7 +300,7 @@ fn a_preview_given_after_the_content_part_is_reported() {
     let (screen, _selected) = mount_with(real_window(), move || {
         let selected = signal(None::<&'static str>);
         let options = fruit().into_value();
-        let api = use_select(options, selected);
+        let api = use_select(options, selected, signal(false));
         // The surface part exists before the preview is given.
         let content = std::cell::RefCell::new(Some(api.content()));
         let api = api.on_active_change(move |key| seen.borrow_mut().push(key));
@@ -371,5 +371,30 @@ fn letters_at_the_trigger_and_in_the_open_list_continue_one_search() {
         "\"apr\" continues the search begun at the trigger"
     );
     assert!(closed(&screen));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_note_does_not_outlive_a_hide_in_the_same_turn() {
+    let (screen, (is_sheet, open)) = mount_with(real_window(), || {
+        let open = signal(false);
+        let selected = signal(None::<&'static str>);
+        let api = use_select(fruit().into_value(), selected, open);
+        let view = column((button("Sheet, hide, reopen").on_press(move || {
+            api.show_sheet();
+            api.hide();
+            open.set(true);
+        }),));
+        ((api.is_sheet_open(), open), view)
+    });
+    screen
+        .get_by_role(Role::Button, "Sheet, hide, reopen")
+        .click();
+    screen.run_until_idle();
+    assert!(open.get_untracked(), "the list is open after the reopen");
+    assert!(
+        !is_sheet.get_untracked(),
+        "a list reopened after a hide in the same turn takes the default popover, not the sheet noted before the hide"
+    );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

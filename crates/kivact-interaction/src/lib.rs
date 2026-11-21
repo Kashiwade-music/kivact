@@ -14,23 +14,26 @@
 //! container `list()`, a table has `grid()`, `header`, `row` and `cell`, the
 //! zoom and pan surface is `viewport()`, a slider has `thumb()` and
 //! `track(axis)`, a number field `input()`, and a one-element behavior
-//! `control()`. The open query is `is_open()` and the commands are `show()`,
-//! `hide()` and `toggle()` on a Copy `self`: `show` and `hide` change nothing when
-//! the surface already is so, `toggle` inverts, and a kind of surface is a suffix
-//! (`show_sheet()`). A toaster's `dismiss(id)` removes one toast from its
-//! queue; it is not a show/hide command. State a caller may own is a
-//! builder of that name taking a `Signal` (`sort(binding)`,
-//! `widths(binding)`, `anchor(binding)`), read back with `<name>_value()`.
+//! `control()`.
 //!
-//! Opening and closing is one chain: a disclosure edits the requested open
-//! state, a popup adds the overlay's focus and dismissal rules to it, and a
-//! tooltip and a dialog add their own rules to a popup. A delayed shown state
-//! is a [`DelayedApi`]. The content of a
-//! popup, tooltip or dialog is mounted with the free function
-//! `show(handle.is_open(), factory)`, in a fresh owner on every opening. A menu
-//! and a command palette keep their own [`while_open`](MenuApi::while_open): a menu's top level builds its
-//! content again when a request changes between the pointer and the anchor
-//! origin, and a submenu mounts its level in a new owner while it is open.
+//! Every floating or collapsible surface (disclosure, popup, dialog, menu,
+//! select, combobox, command palette, hover card, navigation panel) takes the
+//! caller's `open: Signal<bool>` as a required argument, and that signal is
+//! its only open state. `is_open()` reads it; `show()`, `hide()` and
+//! `toggle()` write it on a Copy `self`: `show` and `hide` change nothing when
+//! the surface already is so, and `toggle` inverts. A kind of surface is a
+//! suffix (`show_sheet()`). A toaster's `dismiss(id)` removes one toast from
+//! its queue; it is not a show/hide command. The parts are `trigger()` and
+//! `content()`. A surface's content mounts with `show(api.is_open(), ..)`
+//! around an `overlay(..)` carrying `content()`, or in one call with
+//! `api.surface(placement, content)`, which anchors the overlay at the
+//! trigger part and mounts the content in a fresh owner on every opening (a
+//! menu's top level again when its origin changes between the pointer and the
+//! anchor). A popup adds the overlay's focus and dismissal rules to a
+//! disclosure; a dialog, a menu, a select and a navigation panel add theirs to
+//! a popup. A delayed shown state is a [`DelayedApi`]. Other state a caller
+//! may own is a builder of that name taking a `Signal` (`sort(signal)`,
+//! `widths(signal)`), read back with `<name>_value()`.
 
 #![forbid(unsafe_code)]
 
@@ -64,6 +67,7 @@ mod roving;
 mod scalar;
 mod sealed;
 mod selection;
+mod sheet_tap;
 mod swipe_dismiss;
 mod switch_drag;
 pub use selection::{IntoSelection, Selection};
@@ -87,7 +91,7 @@ pub use calendar::{
     CalendarDayState, CalendarGridApi, CalendarOptions, CalendarSelection, CalendarSpan,
     DaySelection, use_calendar_grid,
 };
-pub use combobox::{ComboboxApi, use_combobox};
+pub use combobox::{ComboboxApi, ComboboxOptions, use_combobox};
 pub use delayed::{DelayedApi, DelayedPhase, Delays, use_delayed};
 pub use dialog::{DialogApi, DialogMode, DismissOn, use_dialog};
 pub use disclosure::{DisclosureApi, DisclosureState, use_disclosure};
@@ -107,7 +111,7 @@ pub use list::{
 };
 pub use menu::{
     DisabledMenuFocus, MenuApi, MenuCheck, MenuEntry, MenuItemDisplay, MenuItemKind, MenuItemState,
-    MenuOrigin, MenuPress, MenuRow, PressOver, SubmenuTiming, use_menu, use_menu_with_open,
+    MenuOrigin, MenuPress, MenuRow, PressOver, SubmenuTiming, use_menu,
 };
 pub use menubar::{MenubarApi, use_menubar};
 pub use palette::{Command, CommandGroup, CommandPaletteApi, filter_commands, use_command_palette};
@@ -119,6 +123,7 @@ pub use range_scalar::{RangeScalarApi, RangeThumb, use_range_scalar};
 pub use reorder::Reorder;
 pub use scalar::{ScalarApi, ScalarState, TouchSliderGesture, use_scalar};
 pub use select::{SelectApi, use_select};
+pub use sheet_tap::{SheetTapApi, use_sheet_tap};
 pub use space_pan::{SpacePanApi, use_space_pan};
 pub use splitter::{SplitterApi, SplitterState, use_splitter};
 pub use swipe_dismiss::{
@@ -156,7 +161,6 @@ pub use month_swipe::{MonthSwipeApi, MonthSwipePhase, use_month_swipe};
 mod inline_edit;
 mod interaction_policy;
 mod options_cell;
-mod part_slot;
 pub use inline_edit::{InlineEditApi, use_inline_edit};
 
 pub use interaction_policy::{
@@ -186,4 +190,4 @@ mod hover_card;
 pub use hover_card::{HoverCardApi, HoverCardOpenedBy, HoverCardState, use_hover_card};
 mod navigation_menu;
 mod surface;
-pub use navigation_menu::{NavOpen, NavigationMenuApi, use_navigation_menu};
+pub use navigation_menu::{NavOpen, NavigationMenuApi, NavigationPanelApi, use_navigation_menu};

@@ -120,7 +120,6 @@ struct DialogOptions {
 #[derive(Clone, Copy)]
 pub struct DialogApi {
     popup: PopupApi,
-    content_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
     mode: DialogMode,
     settings: OptionsCell<DialogOptions>,
 }
@@ -130,30 +129,12 @@ pub struct DialogApi {
 pub fn use_dialog(open: kivact_core::state::Signal<bool>, kind: DialogMode) -> DialogApi {
     DialogApi {
         popup: use_popup(open).initial_focus_first(),
-        content_state: kivact_core::state::signal(None),
         mode: kind,
         settings: OptionsCell::new(DialogOptions::default()),
     }
 }
 
 impl DialogApi {
-    /// Drawing state of the mounted trigger.
-    pub fn trigger_state(self) -> Value<PopupState> {
-        self.popup.trigger_state()
-    }
-    /// Drawing state of the mounted dialog surface.
-    pub fn content_state(self) -> Value<PopupState> {
-        kivact_core::state::memo(move || {
-            self.content_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(PopupState {
-                    input: PartState::default(),
-                    open: self.is_open().get(),
-                })
-        })
-    }
-
     /// Put the focus on this node when the dialog opens, instead of the first
     /// focusable one. The content has to mount the node.
     pub fn initial_focus(self, target: NodeRef) -> Self {
@@ -248,7 +229,6 @@ impl DialogApi {
         };
         let surface = self.popup.content_with(allowed);
         let part_state = surface.state();
-        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             host.part(surface).modal().role(match self.mode {
                 DialogMode::AlertModal => Role::AlertDialog,

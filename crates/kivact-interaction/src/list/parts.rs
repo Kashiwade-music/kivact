@@ -15,7 +15,6 @@ pub(super) fn container<K: kivact_core::state::ItemKey>(state: Rc<State<K>>) -> 
     let policy = state.policy.value();
     let input = part(|input| input);
     let part_state = input.state();
-    crate::part_slot::attach_part_state(state.container_state, part_state);
     Part::new(part_state, move |host| {
         host.part(input)
             .role(Role::ListBox)
@@ -61,7 +60,6 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
         active: active(),
     });
     let part_state = input.state();
-    observe_item(&state, key, part_state);
     let set_size = state.set_size;
     let attachment = Part::new(part_state, move |host| {
         let attachment = host.part(input);
@@ -158,25 +156,4 @@ fn mount_item<K: kivact_core::state::ItemKey>(
         }
     });
     state.pending_mounted(&key.get());
-}
-
-fn observe_item<K: kivact_core::state::ItemKey>(
-    state: &State<K>,
-    key: kivact_core::state::Var<K>,
-    part_state: kivact_core::state::Value<ListItemState>,
-) {
-    let observed = state.item_states;
-    observed.update(|states| {
-        states.insert(key.get(), part_state);
-    });
-    kivact_core::state::on_cleanup(move || {
-        if observed.try_get_untracked().is_some() {
-            observed.update(|states| {
-                let item_key = key.get();
-                if states.get(&item_key) == Some(&part_state) {
-                    states.remove(&item_key);
-                }
-            });
-        }
-    });
 }

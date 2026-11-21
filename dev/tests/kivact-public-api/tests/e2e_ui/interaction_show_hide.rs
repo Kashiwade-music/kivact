@@ -7,10 +7,12 @@
 
 use kivact::interaction::Selection;
 use kivact::interaction::{
-    NavOpen, use_combobox, use_menu, use_navigation_menu, use_select, use_text_edit,
+    ComboboxOptions, NavOpen, use_combobox, use_menu, use_navigation_menu, use_select,
+    use_text_edit,
 };
 use kivact::prelude::*;
 use kivact::test::Screen;
+use kivact::view::Placement;
 use kivact_public_api_tests::support::mount;
 
 fn colors() -> Vec<ListItem<&'static str>> {
@@ -31,7 +33,7 @@ fn press(screen: &Screen, name: &str) {
 fn select_show_twice_stays_open_and_toggle_twice_returns() {
     let (screen, (open, sheet)) = mount(|| {
         let selected = signal(None::<&'static str>);
-        let select = use_select(colors(), selected);
+        let select = use_select(colors(), selected, signal(false));
         let view = column((
             node()
                 .part(select.trigger())
@@ -72,7 +74,13 @@ fn select_show_twice_stays_open_and_toggle_twice_returns() {
 fn combobox_show_keeps_a_shown_list_and_its_filter() {
     let (screen, (open, filtering)) = mount(|| {
         let value = signal(None::<&'static str>);
-        let combo = use_combobox(colors(), Selection::Single(value)).popup(signal(false));
+        let combo = use_combobox(
+            colors(),
+            Selection::Single(value),
+            signal(String::new()),
+            signal(false),
+            ComboboxOptions::default(),
+        );
         // Shortcuts on the field: the focus stays in it.
         let shortcuts = move |event: KeyEvent| {
             match event.key() {
@@ -137,17 +145,19 @@ fn combobox_show_keeps_a_shown_list_and_its_filter() {
 #[test]
 fn menu_show_twice_stays_open() {
     let (screen, open) = mount(|| {
-        let menu = use_menu(vec![MenuEntry::item("cut", "Cut")]);
+        let menu = use_menu(vec![MenuEntry::item("cut", "Cut")], signal(false));
         let view = column((
             node().part(menu.trigger()).name("Edit").child(text("Edit")),
-            menu.while_open(move || {
-                column(node().part(menu.item("cut")).child(text("Cut")))
-                    .part(menu.content())
-                    .name("Edit menu")
+            menu.surface(Placement::Below, move || {
+                column(node().part(menu.item("cut")).child(text("Cut"))).name("Edit menu")
             }),
             button("Show twice").on_press(move || {
                 menu.show();
                 menu.show();
+            }),
+            button("Toggle twice").on_press(move || {
+                menu.toggle();
+                menu.toggle();
             }),
             button("Hide twice").on_press(move || {
                 menu.hide();
@@ -156,6 +166,8 @@ fn menu_show_twice_stays_open() {
         ));
         (menu.is_open(), view)
     });
+    press(&screen, "Toggle twice");
+    assert!(!open.get_untracked(), "two toggles return to hidden");
     press(&screen, "Show twice");
     assert!(open.get_untracked(), "a second show does not hide");
     screen.get_by_text("Cut");
@@ -167,19 +179,20 @@ fn menu_show_twice_stays_open() {
 #[test]
 fn navigation_menu_show_is_idempotent_and_toggle_twice_returns() {
     let (screen, state) = mount(|| {
-        let menu = use_navigation_menu();
+        let menu = use_navigation_menu(signal(false));
+        let first = menu.panel();
         let view = column((
             button("Show twice").on_press(move || {
-                menu.show(0);
-                menu.show(0);
+                first.show();
+                first.show();
             }),
             button("Hide twice").on_press(move || {
                 menu.hide();
                 menu.hide();
             }),
             button("Toggle twice").on_press(move || {
-                menu.toggle(0);
-                menu.toggle(0);
+                first.toggle();
+                first.toggle();
             }),
         ));
         (menu.state(), view)

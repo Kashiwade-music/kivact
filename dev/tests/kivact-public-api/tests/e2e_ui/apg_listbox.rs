@@ -10,7 +10,7 @@ fn listbox_select_active_option_is_selected_without_committing_the_value() {
     let (screen, selected) = mount(|| {
         let selected = signal(Some("a"));
         let options = vec![ListItem::new("a", "Apple"), ListItem::new("b", "Banana")];
-        let select = use_select(options.clone(), selected);
+        let select = use_select(options.clone(), selected, signal(false));
         let anchor = node_ref();
         (
             selected,

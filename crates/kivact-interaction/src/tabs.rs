@@ -153,28 +153,6 @@ impl<K: kivact_core::state::ItemKey> TabsApi<K> {
         self.edit.on_edit(f);
         self
     }
-    /// Drawing state of the mounted tab list.
-    pub fn list_state(self) -> Value<TabListState> {
-        let input = self.group.list_state();
-        let orientation = self.orientation;
-        memo(move || TabListState {
-            input: input.get(),
-            orientation: orientation.get(),
-        })
-    }
-    /// Drawing state of an individual tab.
-    pub fn item_state(self, key: K) -> Value<TabState> {
-        let input = self.group.item_state(key);
-        let orientation = self.orientation;
-        memo(move || {
-            let input = input.get();
-            TabState {
-                input: input.input,
-                selected: input.selected,
-                orientation: orientation.get(),
-            }
-        })
-    }
 
     /// Whether moving to a tab with the arrow keys also selects it.
     /// [`Automatic`](ListActivation::Automatic) is the default;

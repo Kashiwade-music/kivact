@@ -9,9 +9,7 @@ use super::session::Session;
 use super::state::{
     Edge, MenuCheck, MenuEntry, MenuItemDisplay, MenuItemKind, MenuItemState, Opened, Target, Want,
 };
-use crate::{
-    ListApi, ListItem, ListOptions, PopupCloseReason, PopupState, use_hover_corridor, use_list,
-};
+use crate::{ListApi, ListItem, ListOptions, PopupCloseReason, use_hover_corridor, use_list};
 use kivact_core::custom::Part;
 use kivact_core::geometry::Rect;
 use kivact_core::state::IntoValue;
@@ -25,8 +23,6 @@ pub use crate::menu_policy::{DisabledMenuFocus, SubmenuTiming};
 
 /// One level of a menu: the top level or a submenu. All handles are `Copy`.
 pub(super) struct Level<K: kivact_core::state::ItemKey> {
-    pub(super) content_state: Signal<Option<Value<PopupState>>>,
-    pub(super) item_states: Signal<std::collections::HashMap<K, Value<MenuItemState>>>,
     session: Session<K>,
     pub(super) depth: usize,
     /// The keys of the submenu items that lead to this level.
@@ -120,8 +116,6 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             .submenu;
         let aiming = corridor(session, anchors, depth, shown, timing);
         Self {
-            content_state: signal(None),
-            item_states: signal(std::collections::HashMap::new()),
             session,
             depth,
             prefix,
@@ -306,22 +300,6 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         });
     }
 
-    fn observe_item(self, observed_key: K, part_state: Value<MenuItemState>) {
-        let observed = self.item_states;
-        observed.update(|states| {
-            states.insert(observed_key.clone(), part_state);
-        });
-        on_cleanup(move || {
-            if observed.try_get_untracked().is_some() {
-                observed.update(|states| {
-                    if states.get(&observed_key) == Some(&part_state) {
-                        states.remove(&observed_key);
-                    }
-                });
-            }
-        });
-    }
-
     /// Pass a pointer event on to the menu press, when the theme opted in.
     fn item_pointer(self, event: PointerEvent) -> Handled {
         match self.session.press {
@@ -381,6 +359,9 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         };
         let expanded = move || submenu && key.with(|key| open_key.is(key));
         let item_ref = kivact_core::view::node_ref();
+        if submenu {
+            register_item_anchor(session, self.prefix.get_untracked(), key.get(), item_ref);
+        }
         if let Some(press) = session.press {
             press.row(item_ref, disabled);
         }
@@ -400,7 +381,6 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             destructive: destructive(),
         });
         let part_state = member.state();
-        self.observe_item(key.get(), part_state);
         Part::new(part_state, move |host| {
             let member = host
                 .part(member)
@@ -421,6 +401,24 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             item_role(member, kind, check, expanded)
         })
     }
+}
+
+/// Record `item` as the anchor of the submenu at `path` + `key` while the
+/// item is mounted; only that same reference is removed at its cleanup.
+fn register_item_anchor<K: kivact_core::state::ItemKey>(
+    session: Session<K>,
+    mut path: Vec<K>,
+    key: K,
+    item: kivact_core::view::NodeRef,
+) {
+    path.push(key);
+    let anchors = session.item_anchors;
+    anchors.update(|all| all.push((path, item)));
+    on_cleanup(move || {
+        if anchors.try_get_untracked().is_some() {
+            anchors.update(|all| all.retain(|(_, r)| *r != item));
+        }
+    });
 }
 
 /// What kind of row an item is: its checked state for a check or radio item,

@@ -35,7 +35,7 @@
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, Owner, Part, PartState, focused_node, part, raise};
 use kivact_core::state::{
-    IntoValue, MachineHandle, Signal, Value, effect, machine, memo, on_cleanup, on_mount,
+    IntoValue, MachineHandle, Signal, Value, effect, machine, on_cleanup, on_mount,
 };
 use kivact_core::view::{
     A11yAction, A11yRequest, DismissReason, Element, Handled, IntoView, Key, KeyEvent, NodeRef,
@@ -95,8 +95,6 @@ pub struct PopupState {
 #[derive(Clone, Copy)]
 pub struct PopupApi {
     disclosure: DisclosureApi,
-    content_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
-    trigger_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
     /// The reference the trigger part binds.
     own_anchor: NodeRef,
     /// The surface's title, a heading the surface is `labelled_by`.
@@ -155,20 +153,25 @@ pub fn use_popup(open: kivact_core::state::Signal<bool>) -> PopupApi {
                 ErrorKind::Message,
                 "PopupApi: one surface at a time; create one popup per simultaneous surface",
             ),
-            machine::Effect::WriteClose { reason, opening } => {
+            machine::Effect::Dismiss(reason) => {
+                cx.send(Event::Closing(reason));
                 if disclosure.is_open().get_untracked() {
                     disclosure.open.set(false);
                 }
+            }
+            machine::Effect::Accept {
+                reason,
+                opener,
+                policy,
+            } => {
                 if !disclosure.is_open().get_untracked() {
-                    let target = opening.and_then(|(opener, policy)| {
-                        return_target(
-                            policy.0,
-                            reason,
-                            opener,
-                            settings.get().anchor.unwrap_or(own_anchor),
-                            disclosure.content.is_modal(),
-                        )
-                    });
+                    let target = return_target(
+                        policy.0,
+                        reason,
+                        opener,
+                        settings.get().anchor.unwrap_or(own_anchor),
+                        disclosure.content.is_modal(),
+                    );
                     cx.send(Event::Accepted { reason, target });
                 }
             }
@@ -191,8 +194,6 @@ pub fn use_popup(open: kivact_core::state::Signal<bool>) -> PopupApi {
     );
     PopupApi {
         disclosure,
-        content_state: kivact_core::state::signal(None),
-        trigger_state: kivact_core::state::signal(None),
         own_anchor,
         title: node_ref(),
         description: node_ref(),
@@ -202,31 +203,6 @@ pub fn use_popup(open: kivact_core::state::Signal<bool>) -> PopupApi {
 }
 
 impl PopupApi {
-    /// Drawing state of the mounted trigger.
-    pub fn trigger_state(self) -> Value<PopupState> {
-        memo(move || {
-            self.trigger_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(PopupState {
-                    input: PartState::default(),
-                    open: self.is_open().get(),
-                })
-        })
-    }
-    /// Drawing state of the mounted surface.
-    pub fn content_state(self) -> Value<PopupState> {
-        memo(move || {
-            self.content_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(PopupState {
-                    input: PartState::default(),
-                    open: self.is_open().get(),
-                })
-        })
-    }
-
     /// Use this node as the anchor instead of the trigger part's node.
     ///
     /// The anchor is the node focus returns to and part of the popup's focus
@@ -314,14 +290,22 @@ impl PopupApi {
         self.disclosure.content
     }
 
-    /// Request closure and apply the focus-return policy only after the
-    /// controlled binding accepts it. A missing target receives no focus request.
+    /// Request closure with `reason`: the focus return follows the caller's
+    /// `open` write. A missing target receives no focus request.
     #[track_caller]
     pub(crate) fn close(self, reason: PopupCloseReason) {
-        if !self.is_open().get_untracked() {
-            return;
+        if self.is_open().get_untracked() {
+            self.note_close(reason);
         }
-        self.machine.send(Event::Close(reason));
+    }
+
+    /// Note `reason` for this opening, then write `open` false. The follow of
+    /// `open` (or the surface's unmount) accepts the close with that reason.
+    fn note_close(self, reason: PopupCloseReason) {
+        self.machine.send(Event::Closing(reason));
+        if self.is_open().get_untracked() {
+            self.disclosure.open.set(false);
+        }
     }
 
     /// Show: write `true` to the open state unless it is shown.
@@ -343,6 +327,19 @@ impl PopupApi {
         } else {
             self.show();
         }
+    }
+
+    /// The focus return of an unmount: by the reason noted for this opening's
+    /// close, else as an unmount.
+    fn unmount_target(self) -> Option<kivact_core::custom::NodeToken> {
+        let reason = match self.machine.state().get_untracked() {
+            State::Open {
+                closing: Some(reason),
+                ..
+            } => reason,
+            _ => PopupCloseReason::Unmount,
+        };
+        self.return_target(reason)
     }
 
     fn return_target(self, reason: PopupCloseReason) -> Option<kivact_core::custom::NodeToken> {
@@ -385,7 +382,6 @@ impl PopupApi {
             .disclosure
             .base_trigger(|input, open| PopupState { input, open });
         let part_state = base.state();
-        crate::part_slot::attach_part_state(self.trigger_state, part_state);
         Part::new(part_state, move |host| {
             host.part(base)
                 .node_ref(self.own_anchor)
@@ -427,7 +423,6 @@ impl PopupApi {
             open: open.get(),
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(self.content_ref())
@@ -444,14 +439,14 @@ impl PopupApi {
                     // binding. The surface is still mounted during this handler
                     // chain, so the close effect still computes the reason's focus
                     // return.
-                    self.machine.send(Event::Close(match reason {
+                    self.note_close(match reason {
                         DismissReason::Escape | DismissReason::WindowClose => {
                             PopupCloseReason::Escape
                         }
                         DismissReason::OutsidePress => PopupCloseReason::OutsidePress,
                         DismissReason::Accessibility => PopupCloseReason::Accessibility,
                         DismissReason::Timeout => PopupCloseReason::Programmatic,
-                    }));
+                    });
                 })
                 .labelled_by(self.title)
                 .described_by(self.description)
@@ -540,7 +535,7 @@ impl PopupApi {
         on_cleanup(move || {
             self.machine.send(Event::Unmount {
                 was_inside: panel.is_some_and(|node| surface.focus_was_in(node)),
-                target: self.return_target(PopupCloseReason::Unmount),
+                target: self.unmount_target(),
             });
         });
         let within = self.content_ref().focus_within();
@@ -563,7 +558,13 @@ impl PopupApi {
                 outside: !anchor_focused && focused.is_some(),
             });
         });
-        self.machine.feed(open, |_| Event::FocusInitial);
+        self.machine.feed(open, |shown| {
+            if shown {
+                Event::FocusInitial
+            } else {
+                Event::Hidden
+            }
+        });
         on_mount(move || self.machine.send(Event::FocusInitial));
     }
 }

@@ -1,12 +1,12 @@
 //! Role: The navigation menu builder, its panel and trigger rendering.
 
 use crate::navigation_menu::look::NavigationMenuTheme;
-use kivact_core::state::{Callback, IntoText, IntoValue, Value, binding, callback, memo};
+use kivact_core::state::{IntoText, IntoValue, Signal, Value, signal};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, Node, OverlayAlign, Placement, PointerPhase, Role, View, node,
     node_ref, overlay, show,
 };
-use kivact_interaction::{NavOpen, use_navigation_menu, use_popup};
+use kivact_interaction::{NavOpen, use_navigation_menu};
 use std::rc::Rc;
 use std::time::Duration;
 enum Entry {
@@ -28,7 +28,7 @@ pub struct NavigationMenu {
     close_delay: Duration,
     placement: Placement,
     align: OverlayAlign,
-    changed: Option<Callback<bool>>,
+    open: Option<Signal<bool>>,
 }
 /// Construct a navigation landmark under an accessible label.
 #[track_caller]
@@ -40,16 +40,13 @@ pub fn navigation_menu(label: impl IntoText) -> NavigationMenu {
         close_delay: Duration::from_millis(150),
         placement: Placement::Below,
         align: OverlayAlign::Start,
-        changed: None,
+        open: None,
     }
 }
 impl NavigationMenu {
-    /// Report accepted opening and closing transitions.
-    pub fn on_open_change<R: kivact_core::view::HandlerResult>(
-        mut self,
-        f: impl Fn(bool) -> R + 'static,
-    ) -> Self {
-        self.changed = Some(callback(f));
+    /// Use this signal as the menu's open state: true while any panel is open.
+    pub fn open(mut self, open: Signal<bool>) -> Self {
+        self.open = Some(open);
         self
     }
     /// Add a panel trigger. Keys belong to the application's navigation data.
@@ -117,15 +114,10 @@ impl IntoView for NavigationMenu {
             close_delay,
             placement,
             align,
-            changed,
+            open,
         } = self;
         let variants = root.authored().variants();
-        let api = use_navigation_menu();
-        let api = if let Some(changed) = changed {
-            api.on_open_change(move |open| changed.call(open))
-        } else {
-            api
-        };
+        let api = use_navigation_menu(open.unwrap_or_else(|| signal(false)));
         let state = api.state();
         let disabled = root
             .accessible_disabled()
@@ -139,28 +131,22 @@ impl IntoView for NavigationMenu {
                     continue;
                 }
             };
-            let at = api.panel_key();
-            let shown = memo(
-                move || matches!(state.get(), NavOpen::Hover(i) | NavOpen::Pinned(i) if i == at),
-            );
-            let pinned = pinned_binding(api, at);
-            let pop = use_popup(pinned);
+            let panel = api.panel();
             let anchor = node_ref();
             let presentation = PanelPresentation {
-                shown,
+                shown: panel.is_open(),
+                state,
                 variants: variants.clone(),
                 placement,
                 align,
                 open_delay,
                 close_delay,
             };
-            let trigger = navigation_trigger(api, at, label, pop, anchor, disabled, &presentation);
+            let trigger = navigation_trigger(panel, label, anchor, disabled, &presentation);
             children.push(trigger.into_view());
             children.push(navigation_panel(
-                api,
-                at,
+                panel,
                 Link { label, content },
-                pop,
                 anchor,
                 presentation,
             ));
@@ -179,6 +165,7 @@ impl IntoView for NavigationMenu {
 /// Independent placement, appearance and actual visibility for one mounted panel.
 struct PanelPresentation {
     shown: Value<bool>,
+    state: Value<NavOpen>,
     variants: kivact_core::view::Variants,
     placement: Placement,
     align: OverlayAlign,
@@ -187,53 +174,51 @@ struct PanelPresentation {
 }
 /// Render one exclusive navigation panel with its existing popup part.
 fn navigation_panel(
-    api: kivact_interaction::NavigationMenuApi,
-    at: usize,
+    panel: kivact_interaction::NavigationPanelApi,
     link: Link,
-    pop: kivact_interaction::PopupApi,
     anchor: kivact_core::view::NodeRef,
     presentation: PanelPresentation,
 ) -> View {
     let Link { label, content } = link;
     let PanelPresentation {
         shown,
+        state,
         variants,
         placement,
         align,
         close_delay,
         ..
     } = presentation;
-    let state = api.state();
     let surface = node_ref();
     show(shown, move || {
         let content = content.clone();
-        let panel = crate::layer::with_recipe_style(
+        let panel_view = crate::layer::with_recipe_style(
             node().role(Role::Group).name(label),
             |r: &NavigationMenuTheme| r.panel_recipe(),
             &variants,
             move || state.get(),
         )
         .child(crate::navigation_menu::context::provide_panel(
-            kivact_core::state::callback(move |()| api.hide()),
+            kivact_core::state::callback(move |()| panel.hide()),
             variants.clone(),
             move || content(),
         ));
-        overlay(anchor, placement, panel)
+        overlay(anchor, placement, panel_view)
             .align(align)
             .offset(0)
             .node_ref(surface)
-            .with_node(|n| n.part(pop.content()))
+            .with_node(|n| n.part(panel.content()))
             .on_pointer(move |event| {
                 match event.phase() {
-                    PointerPhase::Enter => api.hover_after(at, Duration::ZERO),
-                    PointerPhase::Leave => api.leave_after(at, close_delay),
+                    PointerPhase::Enter => panel.hover_after(Duration::ZERO),
+                    PointerPhase::Leave => panel.leave_after(close_delay),
                     _ => (),
                 }
                 Handled::No
             })
             .on_key(move |event| {
                 if event.key() == Key::Escape {
-                    api.hide();
+                    panel.hide();
                     anchor.focus();
                     Handled::Yes
                 } else {
@@ -244,30 +229,10 @@ fn navigation_panel(
     .into_view()
 }
 
-/// Bind a panel's pinned state to the shared exclusive navigation authority.
-fn pinned_binding(
-    api: kivact_interaction::NavigationMenuApi,
-    at: usize,
-) -> kivact_core::state::Signal<bool> {
-    let state = api.state();
-    binding(
-        move || state.get() == NavOpen::Pinned(at),
-        move |pin| {
-            if pin {
-                api.show(at);
-            } else if state.get_untracked() == NavOpen::Pinned(at) {
-                api.hide();
-            }
-        },
-    )
-}
-
-/// Attach navigation trigger input to the canonical exclusive panel authority.
+/// Attach navigation trigger input to the menu's one exclusive panel authority.
 fn navigation_trigger(
-    api: kivact_interaction::NavigationMenuApi,
-    at: usize,
+    panel: kivact_interaction::NavigationPanelApi,
     label: Value<String>,
-    pop: kivact_interaction::PopupApi,
     anchor: kivact_core::view::NodeRef,
     disabled: Value<bool>,
     presentation: &PanelPresentation,
@@ -283,26 +248,25 @@ fn navigation_trigger(
                     .size(12, 12)
                     .rotate(if shown.get() { 180.0 } else { 0.0 })
             }))
-            .with_node(|n| n.part(pop.trigger()))
+            .with_node(|n| n.part(panel.trigger()))
             .node_ref(anchor)
-            .with_node(|n| n.expanded(shown))
             .on_pointer(move |event| {
                 match event.phase() {
                     PointerPhase::Enter if !disabled.get_untracked() => {
-                        api.hover_after(at, open_delay)
+                        panel.hover_after(open_delay)
                     }
-                    PointerPhase::Leave => api.leave_after(at, close_delay),
+                    PointerPhase::Leave => panel.leave_after(close_delay),
                     _ => (),
                 }
                 Handled::No
             })
             .on_key(move |event| match event.key() {
                 Key::Escape if shown.get_untracked() => {
-                    api.hide();
+                    panel.hide();
                     Handled::Yes
                 }
                 Key::ArrowDown if !disabled.get_untracked() => {
-                    api.show(at);
+                    panel.show();
                     Handled::Yes
                 }
                 _ => Handled::No,

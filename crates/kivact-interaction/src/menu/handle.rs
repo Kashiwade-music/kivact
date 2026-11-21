@@ -3,20 +3,20 @@
 use super::level::Level;
 use super::session::Session;
 use super::state::Edge;
-use super::state::{MenuEntry, MenuItemDisplay, MenuItemState, MenuOrigin, MenuRow, PressOver};
+use super::state::{MenuEntry, MenuItemState, MenuOrigin, MenuRow};
 use crate::focus_return::PopupCloseReason;
 use crate::popup::PopupState;
 use kivact_core::ErrorKind;
 use kivact_core::custom::raise;
-use kivact_core::custom::{Part, PartState, part};
+use kivact_core::custom::{Part, part};
 use kivact_core::platform::{ContextMenuTrigger, capabilities};
 use kivact_core::state::{Callback, IntoHandler, Value, memo};
-use kivact_core::state::{IntoValue, Signal, callback, signal};
-use kivact_core::view::HandlerResult;
+use kivact_core::state::{IntoValue, Signal, callback};
 use kivact_core::view::{
     A11yAction, Handled, IntoView, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, View,
     dynamic,
 };
+use kivact_core::view::{Element, HandlerResult};
 
 /// An application menu over keyed [`MenuEntry`] rows, without a look of its own.
 ///
@@ -27,13 +27,13 @@ use kivact_core::view::{
 ///
 /// Attach [`trigger`](Self::trigger) to a menu button, or
 /// [`context_trigger`](Self::context_trigger) to an area that opens it with a
-/// right click; give one menu one of the two. [`while_open`](Self::while_open) mounts the
-/// caller's `overlay(..)` with the [`content`](Self::content) part while the
+/// right click; give one menu one of the two. [`surface`](Self::surface) mounts
+/// the caller's content with the [`content`](Self::content) part while the
 /// menu is open, and the caller renders the rows of a level with
 /// `for_each(menu.entries(), |(row, _)| row.clone(), ..)`, attaching
 /// [`item`](Self::item) to each item row and drawing separators itself.
 /// [`submenu`](Self::submenu) returns the handle of a submenu level, with its
-/// own `entries`, `while_open`, `surface` and `item`; its overlay is anchored to
+/// own `entries`, `surface` and `item`; its overlay is anchored to
 /// its item's node, after it.
 ///
 /// Keys inside the menu: Up and Down move through the focusable items of a level
@@ -66,19 +66,18 @@ use kivact_core::view::{
 /// use kivact::interaction::{MenuEntry, MenuRow, use_menu};
 /// use kivact::view::Element;
 /// use kivact::prelude::*;
-/// use kivact::view::{Placement, overlay};
+/// use kivact::view::Placement;
 ///
 /// fn actions(last: Signal<Option<&'static str>>) -> impl IntoView {
 ///     let entries = vec![
 ///         MenuEntry::item("save", "Save").with_shortcut("Ctrl S"),
 ///         MenuEntry::item("open", "Open"),
 ///     ];
-///     let file = use_menu(entries).on_activate(move |key| last.set(Some(key)));
+///     let file = use_menu(entries, signal(false)).on_activate(move |key| last.set(Some(key)));
 ///     let trigger = file.trigger();
-///     let anchor = node_ref();
 ///     (
-///         node().node_ref(anchor).part(trigger).name("File").child(text("File")),
-///         file.while_open(move || {
+///         node().part(trigger).name("File").child(text("File")),
+///         file.surface(Placement::Below, move || {
 ///             let rows = for_each(file.entries(), |(row, _)| row.clone(), move |entry| {
 ///                 let row = entry.with(|(row, _)| row.clone());
 ///                 match row {
@@ -89,9 +88,7 @@ use kivact_core::view::{
 ///                     MenuRow::Separator(_) | MenuRow::Label(_) => node().role(Role::Separator).into_view(),
 ///                 }
 ///             });
-///             overlay(anchor, Placement::Below, column(rows))
-///                 .with_node(|node| node.part(file.content()))
-///                 .name("File")
+///             column(rows).name("File")
 ///         }),
 ///     )
 /// }
@@ -109,18 +106,12 @@ impl<K: kivact_core::state::ItemKey> Clone for MenuApi<K> {
 
 impl<K: kivact_core::state::ItemKey> Copy for MenuApi<K> {}
 
-/// A menu over `items`; [`on_activate`](MenuApi::on_activate) receives the key of a chosen item.
+/// A menu over `items` that is shown while the caller's `open` is true;
+/// [`on_activate`](MenuApi::on_activate) receives the key of a chosen item.
+/// External opening does not request item focus; keyboard triggers retain canonical focus behavior.
 /// Setup only.
 #[track_caller]
 pub fn use_menu<K: kivact_core::state::ItemKey>(
-    items: impl IntoValue<Vec<MenuEntry<K>>>,
-) -> MenuApi<K> {
-    use_menu_with_open(items, signal(false))
-}
-/// A menu whose popup observes the caller's accepted open binding directly.
-/// External opening does not request item focus; keyboard triggers retain canonical focus behavior.
-#[track_caller]
-pub fn use_menu_with_open<K: kivact_core::state::ItemKey>(
     items: impl IntoValue<Vec<MenuEntry<K>>>,
     open: Signal<bool>,
 ) -> MenuApi<K> {
@@ -134,40 +125,6 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
         self.session
             .options
             .update(|options| options.menubar = Some(navigate));
-    }
-
-    /// Drawing state of the mounted trigger.
-    pub fn trigger_state(self) -> Value<PopupState> {
-        self.session.popup.trigger_state()
-    }
-    /// Drawing state of the mounted menu level.
-    pub fn content_state(self) -> Value<PopupState> {
-        memo(move || {
-            self.level
-                .content_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(PopupState {
-                    input: PartState::default(),
-                    open: self.is_open().get(),
-                })
-        })
-    }
-    /// Drawing state of the actual mounted menu item.
-    /// Before the item mounts it reads as a plain item (`MenuItemDisplay::Action`).
-    pub fn item_state(self, key: K) -> Value<MenuItemState> {
-        memo(move || {
-            self.level
-                .item_states
-                .with(|states| states.get(&key).copied())
-                .map(|state| state.get())
-                .unwrap_or(MenuItemState {
-                    input: PartState::default(),
-                    pressed_over: PressOver::None,
-                    display: MenuItemDisplay::Action,
-                    destructive: false,
-                })
-        })
     }
 
     /// Replace the actual trigger's press action during setup; this is not an observer.
@@ -242,6 +199,18 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
     pub fn hide(self) {
         self.top_level("hide");
         self.session.close(PopupCloseReason::Programmatic);
+    }
+
+    /// Show a hidden menu as [`show`](Self::show) does, hide a shown one as
+    /// [`hide`](Self::hide) does. Top level only.
+    #[track_caller]
+    pub fn toggle(self) {
+        self.top_level("toggle");
+        if self.session.is_open().get_untracked() {
+            self.hide();
+        } else {
+            self.show();
+        }
     }
 
     /// The handle of the submenu that the item `key` of this level opens.
@@ -459,7 +428,6 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
             })
         };
         let part_state = base.state();
-        crate::part_slot::attach_part_state(level.content_state, part_state);
         Part::new(part_state, move |host| level.content(host.part(base)))
     }
 
@@ -474,27 +442,47 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
         self.level.item(key)
     }
 
-    /// Mount the caller's content while this level is open, in a fresh owner
-    /// on every opening. At the top level a request of another
-    /// [`origin`](Self::origin) kind (pointer or anchor) builds it again, so
-    /// the factory can read `origin()` untracked to choose its overlay.
-    ///
-    /// Mount a menu's content with this method, not with
-    /// `show(menu.is_open(), ..)` as a dialog's or a popup's: the rebuild on a
-    /// new origin kind is the menu's own. It is the one exception to
-    /// mounting an overlay's content with the `show` function.
+    /// The floating surface of this level, for the caller's content: mounted
+    /// while the level is open, in a fresh owner on every opening, with the
+    /// content part on its overlay. A submenu is anchored at its item; the top
+    /// level at the pointer for a pointer request and at the trigger otherwise
+    /// (built again when the request changes between the two).
     #[track_caller]
-    pub fn while_open<V: IntoView>(self, factory: impl kivact_core::view::IntoViewFn<V>) -> View {
-        let factory = factory.into_view_fn();
-        let shown = self.level.shown;
-        if self.level.depth > 0 {
-            return kivact_core::view::show(shown, move || factory.call(())).into_view();
+    pub fn surface<V: IntoView>(
+        self,
+        placement: kivact_core::view::Placement,
+        content: impl Fn() -> V + 'static,
+    ) -> View {
+        let content = std::rc::Rc::new(content);
+        let (session, level) = (self.session, self.level);
+        if level.depth > 0 {
+            let prefix = level.prefix;
+            return kivact_core::view::show(level.shown, move || {
+                let anchor = session.item_anchor(&prefix.get_untracked());
+                kivact_core::view::overlay(anchor, placement, content())
+                    .with_node(|n| n.part(self.content()))
+            })
+            .into_view();
         }
-        let origin = self.session.origin;
+        let origin = session.origin;
         let at_pointer = memo(move || matches!(origin.get(), Some(MenuOrigin::Pointer(_))));
-        kivact_core::view::show(shown, move || {
-            let factory = factory.clone();
-            dynamic(at_pointer, move |_| factory.call(()))
+        kivact_core::view::show(level.shown, move || {
+            let content = content.clone();
+            dynamic(at_pointer, move |pointer: bool| {
+                let layer = if pointer {
+                    kivact_core::view::overlay_at(
+                        move || match origin.get() {
+                            Some(MenuOrigin::Pointer(point)) => point,
+                            _ => kivact_core::geometry::Point::new(0.0, 0.0),
+                        },
+                        placement,
+                        content(),
+                    )
+                } else {
+                    kivact_core::view::overlay(session.anchor, placement, content())
+                };
+                layer.with_node(|n| n.part(self.content()))
+            })
         })
         .into_view()
     }

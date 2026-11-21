@@ -225,7 +225,8 @@ fn the_focus_starts_on_the_first_focusable_node_or_on_the_initial_focus() {
             "{kind:?}: first focusable"
         );
     }
-    for kind in [DialogMode::Modal] {
+    let kind = DialogMode::Modal;
+    {
         let (screen, open) = mount(move || {
             let second = node_ref();
             let open = signal(false);
