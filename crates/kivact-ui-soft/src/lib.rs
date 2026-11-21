@@ -65,10 +65,10 @@ pub use variants::{
     AvatarGroupShape, AvatarSize, BadgeVariant, BannerVariant, BreadcrumbsVariant,
     ButtonGroupVariant, CardPadding, CardVariant, ChatBubbleVariant, ChatDensity, ChevronPosition,
     CodeBlockContainer, CodeBlockSize, CodeBlockWidth, ComposerElevation, DisclosureDensity,
-    DisclosureDividers, DropzoneVariant, Elevation, EmptyStateCompact, HeadingDisplay, ItemAlign,
+    DisclosureVariant, DropzoneVariant, Elevation, EmptyStateVariant, HeadingDisplay, ItemAlign,
     ItemDensity, ItemHighlighted, ItemLayout, LabelPosition, ListDividers, ListEdge,
     MetadataColumns, MetadataLabelWidth, MetadataOrientation, PaginationSize, RowStatusDot,
-    SegmentedIconOnly, SegmentedLayout, SkeletonRadius, Space, SpinnerInk, SpinnerShade,
+    SegmentedIconOnly, SegmentedLayout, SkeletonRadius, Space, SpinnerShade, SpinnerVariant,
     StepCollapsedVariant, StepDensity, StepIndicatorPosition, SystemMessageVariant, TableCellAlign,
     TableCellDivider, TableRowDividers, TableRowHover, TableRowStriped, ToolbarVariant, TreeGuides,
 };

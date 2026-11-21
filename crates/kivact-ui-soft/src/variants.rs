@@ -1,5 +1,6 @@
 //! Role: Soft's variant values for the standard components: each look is one type that a caller gives with `.variant(..)`.
 use kivact::Prop;
+use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Color};
 use kivact::ui::{AvatarShape, ControlSize, theme::Variant};
 use kivact::view::Orientation;
@@ -176,11 +177,29 @@ pub enum DisclosureDensity {
 
 impl Variant for DisclosureDensity {}
 
-/// Whether a grouped disclosure draws a separator before each panel after the first.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct DisclosureDividers(pub bool);
+/// Visual options for `kivact::ui::disclosure` and `disclosure_group`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DisclosureVariant {
+    /// Chevron placement; defaults to the trailing side.
+    pub chevron: ChevronPosition,
+    /// Padding override; `None` uses Balanced with dividers and no padding otherwise.
+    pub density: Option<DisclosureDensity>,
+    /// Draw a separator before each grouped panel after the first; false by default.
+    pub dividers: bool,
+}
 
-impl Variant for DisclosureDividers {}
+impl Variant for DisclosureVariant {}
+
+/// Visual options of a spinner: its ink and track pairing and an optional explicit ink.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct SpinnerVariant {
+    /// Ink and track palette; accent by default.
+    pub shade: SpinnerShade,
+    /// Optional ink used by `SpinnerShade::Inherit`.
+    pub ink: Option<Color>,
+}
+
+impl Variant for SpinnerVariant {}
 
 /// The diameter of an avatar.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
@@ -238,11 +257,22 @@ pub enum BannerVariant {
 
 impl Variant for BannerVariant {}
 
-/// Reactive density of an empty message: stacks the actions and uses the compact spacing scale.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct EmptyStateCompact(pub bool);
+/// Reactive visual density of an empty message, without announcement state.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EmptyStateVariant {
+    compact: Value<bool>,
+}
 
-impl Variant for EmptyStateCompact {}
+impl EmptyStateVariant {
+    /// Stack actions and use the compact spacing scale.
+    pub fn compact(compact: impl IntoValue<bool>) -> Self {
+        Self {
+            compact: compact.into_value(),
+        }
+    }
+}
+
+impl Variant for EmptyStateVariant {}
 
 /// Vertical spacing of item content in Soft collection recipes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
@@ -573,12 +603,6 @@ pub enum SpinnerShade {
 }
 
 impl Variant for SpinnerShade {}
-
-/// The ink used by a spinner whose shade is `SpinnerShade::Inherit`.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SpinnerInk(pub Color);
-
-impl Variant for SpinnerInk {}
 
 /// Spacing and indicator sizing for progress steps.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
