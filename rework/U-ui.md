@@ -7703,7 +7703,7 @@ U51 は carousel を `#[component]` にする前に、次を行う（所有：`c
 | `toggle_group.gap` | `toggle_group::GAP` | Length | 4 |
 | `hover_card.offset`・`viewport_margin` | `hover_card::OFFSET`・`VIEWPORT_MARGIN` | Length | 4・8 |
 | `indicators.period_ms` | `spinner::PERIOD_MS_VAR` と `skeleton::PERIOD_MS_VAR`（読む部品ごと） | f64（ms） | 1000 |
-| `indicators.reduced_period_ms` | `spinner::REDUCED_PERIOD_MS_VAR`・`skeleton::REDUCED_PERIOD_MS_VAR` | f64（ms） | 1000（`None` は period と同じ。kit は period を set するとき両方を set する） |
+| `indicators.reduced_period_ms` | `SpinnerTheme::reduced_period(Option<f64>)`（変数でなく setting。skeleton は period を読まないので無い） | f64（ms） | `None`（reduced motion で止まる。U21。kit が `indicators.reduced_period_ms` を set していたら `Some(<その値>)` を set する） |
 | `indicators.skeleton_transition` | `SkeletonTheme` の設定 `transition` | `Option<Transition>` | None |
 | `indicators.delay_ms`・`stagger_ms` | `skeleton::DELAY_MS_VAR`・`STAGGER_MS_VAR` | f64（ms） | 0・100 |
 | `indicators.line_height`・`gap` | `skeleton::LINE_HEIGHT`・`GAP` | Length | 16・6 |
