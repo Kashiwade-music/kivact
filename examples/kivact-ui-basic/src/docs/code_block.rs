@@ -52,7 +52,7 @@ fn basic() -> impl IntoView {
     let source = "fn main() {\n    println!(\"Hello, Kivact!\");\n}";
     let parsed = basic::rust_source(source);
     kivact::ui::code_block(source.to_string())
-        .highlight(
+        .highlight(kivact::ui::highlighter(
             move || {
                 (
                     parsed.clone(),
@@ -60,7 +60,7 @@ fn basic() -> impl IntoView {
                 )
             },
             basic::rust_lines,
-        )
+        ))
         .title("main.rs")
         .style(style().width(pct(100)))
 }
@@ -93,7 +93,7 @@ fn line_numbers() -> impl IntoView {
         .join("\n");
     kivact::ui::code_block(source)
         .copy_button(false)
-        .highlight(
+        .highlight(kivact::ui::highlighter(
             move || {
                 (
                     lines.clone(),
@@ -101,7 +101,7 @@ fn line_numbers() -> impl IntoView {
                 )
             },
             basic::rust_lines,
-        )
+        ))
         .line_numbers(true)
         .style(style().width(pct(100)))
 }
@@ -129,7 +129,7 @@ fn scroll_code() -> impl IntoView {
     let parsed = basic::rust_source(&lines);
     kivact::ui::code_block(lines)
         .copy_button(false)
-        .highlight(
+        .highlight(kivact::ui::highlighter(
             move || {
                 (
                     parsed.clone(),
@@ -137,7 +137,7 @@ fn scroll_code() -> impl IntoView {
                 )
             },
             basic::rust_lines,
-        )
+        ))
         .max_height(120.0)
         .style(style().width(pct(100)))
 }
@@ -151,7 +151,7 @@ fn reactive() -> impl IntoView {
         kivact::ui::text_area("Source", source),
         kivact::ui::code_block(source)
             .title("Editable source preview")
-            .highlight(
+            .highlight(kivact::ui::highlighter(
                 move || {
                     (
                         parsed.get(),
@@ -159,7 +159,7 @@ fn reactive() -> impl IntoView {
                     )
                 },
                 basic::rust_lines,
-            ),
+            )),
     ))
     .style(style().gap(12).width(pct(100)))
 }

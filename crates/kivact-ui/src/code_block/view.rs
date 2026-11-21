@@ -36,11 +36,14 @@ pub struct CodeBlock {
     collapsible: Value<bool>,
     collapsible_threshold: Value<usize>,
     expanded: Option<Signal<bool>>,
-    highlight: Option<Highlight>,
+    highlight: Option<Highlighter>,
 }
-type Highlight = Box<dyn Fn(TextEditing, Value<Vec<u32>>, Value<bool>) -> TextEditing>;
+/// A line highlighter for [`CodeBlock::highlight`], built by [`highlighter`].
+pub struct Highlighter {
+    run: std::rc::Rc<dyn Fn(TextEditing, Value<Vec<u32>>, Value<bool>) -> TextEditing>,
+}
 /// Display `code` with native selection and a copy button.
-/// `line_numbers(true)` enables a reactive gutter; `.highlight(content, f)` uses
+/// `line_numbers(true)` enables a reactive gutter; `.highlight(highlighter(content, f))` uses
 /// the same content and cross-line state contract as `TextEditing::line_styles`.
 #[track_caller]
 pub fn code_block(code: impl IntoValue<String>) -> CodeBlock {
@@ -64,6 +67,39 @@ pub fn code_block(code: impl IntoValue<String>) -> CodeBlock {
         collapsible_threshold: 10usize.into_value(),
         expanded: None,
         highlight: None,
+    }
+}
+/// Style each line with a content source and cross-line parser state.
+/// The callback is pure and has the `TextEditing::line_styles` contract.
+#[track_caller]
+pub fn highlighter<T, S, F>(content: impl IntoValue<T>, f: F) -> Highlighter
+where
+    T: Clone + PartialEq + 'static,
+    S: PartialEq + Default + 'static,
+    F: Fn(&T, &str, &S) -> (Vec<StyledRange>, S) + 'static,
+{
+    let content = content.into_value();
+    let f = std::rc::Rc::new(f);
+    Highlighter {
+        run: std::rc::Rc::new(
+            move |editor: TextEditing, lines: Value<Vec<u32>>, diff: Value<bool>| {
+                let f = f.clone();
+                editor.line_styles(
+                    move || (content.get(), lines.get(), diff.get()),
+                    move |(content, lines, diff), line, state: &(S, usize)| {
+                        let (mut ranges, next) = f(content, line, &state.0);
+                        crate::code_block::editing::line_background(
+                            &mut ranges,
+                            line,
+                            state.1,
+                            lines,
+                            *diff,
+                        );
+                        (ranges, (next, state.1 + 1))
+                    },
+                )
+            },
+        ),
     }
 }
 impl CodeBlock {
@@ -91,34 +127,10 @@ impl CodeBlock {
         self.line_numbers = on.into_value();
         self
     }
-    /// Style each line with a content source and cross-line parser state.
-    /// The callback is pure and has the `TextEditing::line_styles` contract.
+    /// Style each line with a [`highlighter`] (content source and cross-line parser state).
     #[track_caller]
-    pub fn highlight<T, S, F>(mut self, content: impl IntoValue<T>, f: F) -> Self
-    where
-        T: Clone + PartialEq + 'static,
-        S: PartialEq + Default + 'static,
-        F: Fn(&T, &str, &S) -> (Vec<StyledRange>, S) + 'static,
-    {
-        let content = content.into_value();
-        let f = std::rc::Rc::new(f);
-        self.highlight = Some(Box::new(move |editor, lines, diff| {
-            let f = f.clone();
-            editor.line_styles(
-                move || (content.get(), lines.get(), diff.get()),
-                move |(content, lines, diff), line, state: &(S, usize)| {
-                    let (mut ranges, next) = f(content, line, &state.0);
-                    crate::code_block::editing::line_background(
-                        &mut ranges,
-                        line,
-                        state.1,
-                        lines,
-                        *diff,
-                    );
-                    (ranges, (next, state.1 + 1))
-                },
-            )
-        }));
+    pub fn highlight(mut self, h: Highlighter) -> Self {
+        self.highlight = Some(h);
         self
     }
     /// Emphasize these one-based source line numbers.
@@ -203,7 +215,7 @@ struct CodePresentation {
 /// Inputs consumed together when constructing the one native source editor.
 struct CodeSource {
     code: Value<String>,
-    highlight: Option<Highlight>,
+    highlight: Option<Highlighter>,
     highlight_lines: Value<Vec<u32>>,
     diff: Value<bool>,
     max_height: Option<Value<Length>>,
@@ -398,7 +410,7 @@ impl CodeSource {
             .read_only(true)
             .behavior(crate::code_block::editing::code_keys);
         let editing = match &self.highlight {
-            Some(highlight) => highlight(editing, self.highlight_lines, self.diff),
+            Some(highlight) => (highlight.run)(editing, self.highlight_lines, self.diff),
             None => crate::code_block::editing::plain_highlight(
                 editing,
                 self.highlight_lines,

@@ -65,7 +65,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 },
                 kivact::ui::code_block("fn main() {}")
                     .language("rust")
-                    .highlight(
+                    .highlight(kivact::ui::highlighter(
                         || {
                             kivact::style::use_tokens::<kivact_ui_soft::Tokens>()
                                 .colors
@@ -81,7 +81,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                                 (),
                             )
                         },
-                    ),
+                    )),
             ),
             "syntax_theme(colors, || code_block(source).language(\"rust\"))",
         ),
