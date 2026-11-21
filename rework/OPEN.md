@@ -1365,3 +1365,30 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
   - その後、K3 の `SearchPicker::panel` は pick の後に `popup.close(PopupCloseReason::Selection)` を呼ぶ（基点と同じく focus が trigger に戻る）。
 - **K31 の `LayoutInset`・`ContainerInset`**：3.0.6 の S2 のとおり、K31 が同じ unit で変換してよい（`layout.rs`・`stack.rs` の、その 2 つの型と要る helper）。K32 は K31 が変換した所を飛ばす。
 - **K31 の file 名**：読み替えてよい。empty_state・kbd・spinner は、`recipes_feedback.rs` の recipe の関数として変換する（部品の file は作らない）。
+
+## 設計者の回答（P1 の判定と unit P3、2026-11-22）
+
+- **P1 の判定**：統合に merge する（`wt/rw-P1`）。
+  - 設計者の測り直し：click ごとの確保は 625 → 496 回（-21%）、182 → 123 KB（-33%）、core の時間は約 25% 減った。
+  - 時間の p50 は、同じ binary でも約 0.85 と約 1.1 の二つの山に分かれる（process ごとの差）。遅い山に入った回が多かったのは、P1 の仕事が増えたためではない。
+  - 2 つ目（Background）と 3 つ目（deltas）が効いた。1 つ目（compile の cache）は、この bench では当たらない。原因は次の P3 で、P3 の後には状態を報告する node で効く。
+- **見つけた根本の原因**：
+  - 部品の part の状態（`Look<ButtonState>` などの `input: PartState`）は、`part(|input| S)` の memo が hover・press・focus の値ごとに作り直す。
+  - recipe が `input` を読まなくても、hover・press のたびに recipe・合成・compile・props の書込みが全部走り直す。hover と active の見た目は state の style（engine の delta）が描くので、これは要らない仕事。
+  - click のたび、pointer が button の上を動くたびに起きる（K5 の click と pointer の両方の原因）。
+- **unit P3：part の入力の状態を、読んだときだけ追う**（lane P。P1 の merge の後の統合から worktree。P2 と同じく中核）
+  - **所有**：`crates/kivact-core/src/view/part_data.rs`、`crates/kivact-core/src/view/part.rs`、`PartState` を struct の literal で作る所・field を直に読む所（`rg -n "PartState \{|\.availability\b|input\.focus\b" crates/kivact-core crates/kivact-ui crates/kivact-interaction`。今は `tag_input/view.rs`・`combobox/render.rs` などの数か所）、DevTools の強制した状態を作る所、それぞれの試験。
+  - **形**：
+    1. 今の値の struct `PartState { focus, availability }` を `PartFacts` に改名する（同じ field と、`is_focused`・`is_focus_visible`・`is_pressed`・`is_hovered`・`is_disabled`・`is_hidden` の method、`Default`）。
+    2. 公開の `PartState` を、読んだときだけ追う handle にする（`#[derive(Clone, Copy)]`）。中身は二つの形のどちらか：(a) 生きている part：`attach_part` の `facts` の closure が読む reactive の handle（`availability`、`focus`、part の中の入力の signal。どれも `Copy`）をそのまま持つ。(b) 固定：`PartFacts` の値（試験、preview、DevTools の強制した状態）。
+    3. `PartState` の method：`pub fn get(&self) -> PartFacts`（(a) は今の `facts` と同じ読み方で、追跡される。(b) は値）。今の `is_*` の 6 つは `self.get().is_*()`。recipe の `s.input.is_hovered()` は書き方が変わらない。
+    4. `PartState::fixed(facts: PartFacts) -> PartState` と `impl Default for PartState`（`fixed(PartFacts::default())`）。
+    5. `impl PartialEq for PartState`：(a) どうしは handle が同じなら等しい。(b) どうしは値で比べる。(a) と (b) は等しくない。`Eq` と `Debug`（`get()` を表示）も付ける。
+    6. `part.rs`：`part(state: impl Fn(PartState) -> S)` は、生きている `PartState`（(a)）を一度作り、`memo(move || state(input))` にする。S を作る closure が `input.is_disabled()` などを呼べば、その memo は入力の変化で走り直すが、S が `PartialEq` で等しければ先へ伝わらない。part ごとに新しい memo や signal を足さない（K2 のメモリ）。(a) の handle が `attach_part` の handle だけで作れないなら STOP。
+    7. 中の名前の衝突：`part.rs` の非公開の `struct PartInput` は `HeldInput` に改名する。
+  - **doc**（`PartState`）：「The input state of a part, read when asked. A style or a part state that never asks does not run again when the pointer hovers or presses the part; hover and press looks belong in state styles (`style().hover(..)`, `.active(..)`).」
+  - **試験**（`crates/kivact-core` の part の試験の file）：
+    - `fn hovering_does_not_run_a_recipe_that_does_not_read_the_input()`：part の状態を読む style の layer の実行の回数を数える。input を読まない layer は、hover・press・release で回数が増えない。
+    - `fn a_recipe_that_reads_the_input_runs_again_on_hover()`：`s.input.is_hovered()` を読む layer は、hover で 1 回増える。
+  - **kit**：W9 の kit の lane の `s.input.is_*()` と `input: PartState` の field は、そのまま compile する。field を直に読む所（`.focus`、`.availability`）があれば `.get().focus` にする。これは P3 の merge の後、各 lane が統合を取り込むときの機械的な直しとして、lane の fix の commit で行ってよい。
+  - **確認**：tier a（`kivact-core`・`kivact-ui`・`kivact-interaction`・devtools の test、workspace の clippy、XK と XD を除外）、e2e_core・e2e_ui の全件。kv_latency は時間の比べ方が不安定なので、Orchestrator は測らない。設計者が確保の回数と effect の実行の回数で確かめる。
