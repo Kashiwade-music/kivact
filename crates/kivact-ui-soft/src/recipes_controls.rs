@@ -181,5 +181,6 @@ pub(crate) fn install(theme: Theme) -> Theme {
     let theme = crate::recipes_controls_choice::install(theme);
     let theme = crate::recipes_controls_radio::install(theme);
     let theme = crate::recipes_controls_value::install(theme);
-    crate::recipes_field::install(theme)
+    let theme = crate::recipes_field::install(theme);
+    crate::recipes_controls_panel::install(theme)
 }

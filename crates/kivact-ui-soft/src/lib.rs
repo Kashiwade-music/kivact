@@ -16,6 +16,7 @@ mod radius;
 mod recipe_parts;
 mod recipes_controls;
 mod recipes_controls_choice;
+mod recipes_controls_panel;
 mod recipes_controls_radio;
 mod recipes_controls_value;
 mod recipes_field;
