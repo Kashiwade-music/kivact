@@ -9,6 +9,7 @@
 #![forbid(unsafe_code)]
 
 mod env;
+mod gpu_driver;
 mod presentation;
 mod presenter;
 #[cfg(feature = "test")]

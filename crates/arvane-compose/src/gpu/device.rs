@@ -284,6 +284,33 @@ fn next_generation() -> u64 {
     DEVICES.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1
 }
 
+/// The name of the adapter [`GpuDevice::new`] would open, without opening a
+/// device. `Err` when no backend has a hardware adapter.
+pub fn probe_adapter(env: &GpuEnv) -> Result<String, RenderError> {
+    let mut failures = Vec::new();
+    for backends in backend_order(env) {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends,
+            flags: env.flags,
+            ..wgpu::InstanceDescriptor::new_without_display_handle()
+        });
+        match adapter(&instance, backends, env) {
+            Ok(adapter) => {
+                let info = adapter.get_info();
+                if info.device_type != wgpu::DeviceType::Cpu {
+                    return Ok(format!("{} ({:?})", info.name, info.backend));
+                }
+                failures.push(format!(
+                    "{backends:?}: only the software adapter {} ({:?})",
+                    info.name, info.backend
+                ));
+            }
+            Err(Attempt::NoAdapter(message) | Attempt::Failed(message)) => failures.push(message),
+        }
+    }
+    Err(RenderError::NoAdapter(failures.join("; ")))
+}
+
 /// The backend sets tried in order: the environment's or the
 /// application's, else Arvane's.
 fn backend_order(env: &GpuEnv) -> Vec<wgpu::Backends> {

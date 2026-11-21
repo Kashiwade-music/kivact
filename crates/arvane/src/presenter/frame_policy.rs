@@ -2,14 +2,13 @@
 
 use super::exports::{ExportNotice, ExportRegistry};
 use super::frame::{FramePlan, Presented};
-use super::gpu::{Fallback, Gpu};
+use super::gpu::{MakeSurface, WindowGpu};
 use super::health::{FrameHealth, LossAction};
-use crate::env::RendererStart;
+use crate::gpu_driver::{Fallback, GpuDriver};
 use crate::presentation::{GpuStartCause, Notes, Renderer, RendererChange};
 use arvane_compose::{CpuCompositor, CpuOutput, Damage, GpuContext, GpuSurface, Presentation};
 use arvane_protocol::{Composition, FrameReport, PixelRect};
 use arvane_render::RenderError;
-use arvane_shell::ShellWaker;
 use arvane_shell::{BufferAge, ShellWindow};
 use kivact_types::{Failure, FailureKind};
 use std::collections::HashSet;
@@ -44,11 +43,12 @@ impl Drawn {
 /// The renderers of one window and its frame policy.
 pub(crate) struct Presenter {
     pub(super) cpu: CpuCompositor,
-    pub(super) gpu: Gpu,
+    /// The window's GPU context and surface on the driver's device.
+    pub(super) surface: WindowGpu,
     pub(super) notes: Notes,
     /// What the window's surface did with the last frames that reached it.
     pub(super) health: FrameHealth,
-    /// The GPU export pools of the window and the notices for the engine.
+    /// The notices for the engine about the window's GPU export pools.
     pub(super) exports: ExportRegistry,
     /// The shader programs whose failure was already noted.
     shader_failed: HashSet<u64>,
@@ -61,7 +61,7 @@ pub(crate) struct Presenter {
 impl Presenter {
     /// Stop workers needing the native window before that window is dropped.
     pub(crate) fn shutdown(&mut self, window: &mut dyn ShellWindow) {
-        self.gpu.shutdown(window);
+        self.surface.shutdown(window);
     }
 
     /// Note the display period the window's environment reports now.
@@ -71,7 +71,7 @@ impl Presenter {
 
     pub(crate) fn release_caches(&mut self) {
         self.cpu.release_caches();
-        self.gpu.release_caches();
+        self.surface.release_caches();
     }
 
     /// Release the CPU frame state of an idle window; its next frame redraws
@@ -80,12 +80,11 @@ impl Presenter {
         self.cpu.invalidate();
     }
 
-    /// A presenter noting its renderer changes to `notes`, its GPU devices
-    /// made as `env` says.
-    pub(crate) fn new(notes: Notes, env: &crate::env::Env) -> Self {
+    /// A presenter noting its renderer changes to `notes`.
+    pub(crate) fn new(notes: Notes) -> Self {
         Self {
             cpu: CpuCompositor::new(),
-            gpu: Gpu::new(env.gpu),
+            surface: WindowGpu::default(),
             notes,
             health: FrameHealth::Healthy,
             exports: ExportRegistry::default(),
@@ -97,14 +96,18 @@ impl Presenter {
 
     /// The adapter of the GPU device drawing the window's frames, when it
     /// can import shared textures (see [`crate::Window::gpu_adapter`]).
-    pub(crate) fn gpu_adapter(&self) -> Option<kivact_types::GpuAdapter> {
-        self.gpu.adapter()
+    pub(crate) fn gpu_adapter(&self, gpu: &GpuDriver) -> Option<kivact_types::GpuAdapter> {
+        if !self.surface.ready() {
+            return None;
+        }
+        gpu.device()?.gpu.interop_adapter()
     }
 
     /// Import `textures` as the image `id` of the window (see
     /// [`crate::Window::import_external_image`]).
     pub(crate) fn import_external(
         &mut self,
+        gpu: &mut GpuDriver,
         id: kivact_types::ExternalImageId,
         textures: kivact_types::SharedTextures,
     ) -> Result<(), Failure> {
@@ -114,34 +117,33 @@ impl Presenter {
                 "built without GPU support",
             ));
         }
-        if self.gpu.adapter().is_none() {
+        self.sync_gpu(gpu);
+        if self.gpu_adapter(gpu).is_none() {
             return Err(Failure::new(
                 FailureKind::Unavailable,
                 "the window has no GPU device that can import shared textures \
                  (it draws on the CPU, its device is not ready, or the adapter cannot)",
             ));
         }
-        let was_ready = self.gpu.ready();
         let context = self
-            .gpu
-            .context()
+            .surface
+            .context_mut()
             .expect("invariant: a device with an adapter is ready");
-        let result = match context.device().import_external(id, textures) {
+        match context.device().import_external(id, textures) {
             Ok(()) => Ok(()),
             Err(failure) => {
                 let error = kivact_types::Failure::from(failure.clone());
-                self.gpu.failed(&failure, &mut self.notes);
+                self.gpu_failure(gpu, &failure);
                 Err(error)
             }
-        };
-        self.sync_exports(was_ready);
-        result
+        }
     }
 
     /// Drop the image `id` of the window (see
     /// [`crate::Window::drop_external_image`]).
-    pub(crate) fn drop_external(&mut self, id: kivact_types::ExternalImageId) {
-        if let Some(context) = self.gpu.context() {
+    pub(crate) fn drop_external(&mut self, gpu: &GpuDriver, id: kivact_types::ExternalImageId) {
+        self.sync_gpu(gpu);
+        if let Some(context) = self.surface.context_mut() {
             context.device().drop_external(id);
         }
     }
@@ -150,6 +152,7 @@ impl Presenter {
     /// [`crate::Window::export_drawable`]).
     pub(crate) fn export_drawable(
         &mut self,
+        gpu: &GpuDriver,
         sink: kivact_types::ids::DrawableId,
         generation: u64,
         adapter: &kivact_types::GpuAdapter,
@@ -161,23 +164,22 @@ impl Presenter {
                 "built without GPU interop support (feature gpu-interop)",
             ));
         }
-        let Some(context) = self.gpu.context() else {
+        self.sync_gpu(gpu);
+        let Some(context) = self.surface.context_mut() else {
             return Err(Failure::new(
                 FailureKind::NotReady,
                 "the window's GPU device is not ready (it is starting, or the window draws on the CPU)",
             ));
         };
-        let textures = context
+        context
             .export_drawable(sink, generation, adapter, size)
-            .map_err(kivact_types::Failure::from)?;
-        self.exports.made(sink, generation);
-        Ok(textures)
+            .map_err(kivact_types::Failure::from)
     }
 
     /// Drop the export pool of `sink` (see [`crate::Window::drop_export`]).
-    pub(crate) fn drop_export(&mut self, sink: kivact_types::ids::DrawableId) {
-        self.exports.dropped(sink);
-        if let Some(context) = self.gpu.context() {
+    pub(crate) fn drop_export(&mut self, gpu: &GpuDriver, sink: kivact_types::ids::DrawableId) {
+        self.sync_gpu(gpu);
+        if let Some(context) = self.surface.context_mut() {
             context.drop_export(sink);
         }
     }
@@ -189,44 +191,32 @@ impl Presenter {
     }
 
     /// Make the device lost, as a device failure does (the test control of
-    /// `arvane::lose_gpu_device`). Nothing happens without a device.
+    /// `arvane::lose_gpu_device`). Nothing happens while the window is not ready.
     #[cfg(feature = "test")]
-    pub(crate) fn lose_gpu_device(&mut self) {
-        if !self.gpu.ready() {
+    pub(crate) fn lose_gpu_device(&mut self, gpu: &mut GpuDriver) {
+        if !self.surface.ready() {
             return;
         }
         let error = RenderError::Backend("test: device lost".into());
-        self.gpu.failed(&error, &mut self.notes);
-        self.sync_exports(true);
+        self.gpu_failure(gpu, &error);
     }
 
     /// The platform destroyed the window's surface: drop the GPU surface
     /// made for it (a new surface generation gets a new one with its first
     /// frame) and start the frame policy afresh.
     pub(crate) fn surface_destroyed(&mut self) {
-        self.gpu.drop_surface();
+        self.surface.drop_surface();
         self.health = FrameHealth::Healthy;
     }
 
-    /// The renderer the window starts with (see [`Gpu::begin`]); call once,
-    /// when the window opened.
-    pub(crate) fn begin(&mut self, start: RendererStart, waker: ShellWaker) {
-        self.gpu.begin(start, waker, &mut self.notes);
-    }
-
-    /// Start the GPU device the window waits for: the App asks for it (a GPU
-    /// texture the App shares). See [`Gpu::demand`].
-    pub(crate) fn demand_gpu(&mut self) {
-        self.gpu.demand(GpuStartCause::App, &mut self.notes);
-    }
-
-    /// Move a GPU start along for `window` without drawing: once the
-    /// device is ready, make the window's surface and configure it on a
-    /// worker. Returns whether the GPU became ready to draw `window`'s
-    /// frames (draw one now, so the switch happens while the window is
-    /// idle rather than with the next input).
-    pub(crate) fn prepare(&mut self, window: &mut dyn ShellWindow) -> bool {
-        if self.gpu.ready() {
+    /// Make the window's GPU context and surface when the driver has a
+    /// device, and move a configuring surface along, without drawing. Returns
+    /// whether the GPU became ready to draw `window`'s frames (draw one now,
+    /// so the switch happens while the window is idle rather than with the
+    /// next input).
+    pub(crate) fn prepare(&mut self, window: &mut dyn ShellWindow, gpu: &mut GpuDriver) -> bool {
+        self.sync_gpu(gpu);
+        if self.surface.ready() {
             return false;
         }
         let physical = window.physical_size();
@@ -234,9 +224,61 @@ impl Presenter {
         let make = |context: &GpuContext, target: &mut dyn ShellWindow| {
             make_surface(target, context, keep_frames)
         };
-        self.gpu.advance(window, &mut self.notes, &make, physical);
-        self.sync_exports(false);
-        self.gpu.ready()
+        self.advance_gpu(window, gpu, &make, physical);
+        self.surface.ready()
+    }
+
+    /// Move the driver's device start along, then this window's context and
+    /// surface on it (see [`WindowGpu::advance`]). A failed step is applied
+    /// as a frame's failure is.
+    fn advance_gpu(
+        &mut self,
+        window: &mut dyn ShellWindow,
+        gpu: &mut GpuDriver,
+        make: MakeSurface<'_>,
+        physical: (u32, u32),
+    ) {
+        let was_ready = self.surface.ready();
+        gpu.advance(&mut self.notes);
+        let device = gpu.device();
+        match self.surface.advance(device, window, make, physical) {
+            Ok(Some(configure)) => gpu.announce(configure, &mut self.notes),
+            Ok(None) => {}
+            Err(error) => {
+                self.gpu_failure(gpu, &error);
+            }
+        }
+        self.sync_exports(was_ready);
+    }
+
+    /// Bring the window's GPU context onto the driver's device: a context on
+    /// a device the driver no longer has (failed, restarted) is lost.
+    fn sync_gpu(&mut self, gpu: &GpuDriver) {
+        let device = gpu.device();
+        if self
+            .surface
+            .stale(device.as_ref().map(|device| &device.gpu))
+        {
+            self.lose_device();
+        }
+    }
+
+    /// The window's context is gone: its export pools are reported lost.
+    fn lose_device(&mut self) {
+        let losses = self.surface.lose();
+        self.exports.lost(losses);
+    }
+
+    /// Apply a GPU failure of this window (see the driver's failure policy):
+    /// the window's surface is dropped, or its context is lost with the device.
+    fn gpu_failure(&mut self, gpu: &mut GpuDriver, failure: &RenderError) -> Fallback {
+        let fallback = gpu.failed(failure, &mut self.notes);
+        match fallback {
+            Fallback::Surface => self.surface.drop_surface(),
+            Fallback::Cpu => self.lose_device(),
+            Fallback::Other => {}
+        }
+        fallback
     }
 
     /// Apply the frame policy to what drawing a frame did (`now_ns`: the
@@ -248,8 +290,8 @@ impl Presenter {
         (now_ns, period_ns): (u64, u64),
         renderer: Renderer,
         window: &mut dyn ShellWindow,
-        composition: &Composition,
-        plan: FramePlan,
+        gpu: &mut GpuDriver,
+        (composition, plan): (&Composition, FramePlan),
     ) -> Result<Presented, Failure> {
         // Every frame that was drawn notes its report, including one drawn
         // after a surface loss on the CPU.
@@ -291,15 +333,16 @@ impl Presenter {
                 match self.health.lost(renderer) {
                     LossAction::Fail => return Err(error),
                     LossAction::FallbackToCpu => {
-                        self.gpu.fallback_to_cpu(&mut self.notes, &error);
-                        let drawn = self.draw_native(window, composition, plan);
+                        gpu.fallback_to_cpu(&mut self.notes, &error);
+                        self.lose_device();
+                        let drawn = self.draw_native(window, gpu, composition, plan);
                         return self.settle(
                             drawn,
                             (now_ns, period_ns),
                             Renderer::Cpu,
                             window,
-                            composition,
-                            plan,
+                            gpu,
+                            (composition, plan),
                         );
                     }
                     LossAction::Recover => {}
@@ -319,17 +362,19 @@ impl Presenter {
     pub(crate) fn present_native(
         &mut self,
         window: &mut dyn ShellWindow,
+        gpu: &mut GpuDriver,
         composition: &Composition,
         plan: FramePlan,
     ) -> Result<Presented, Failure> {
-        let was_ready = self.gpu.ready();
-        let drawn = self.draw_native(window, composition, plan);
+        self.sync_gpu(gpu);
+        let was_ready = self.surface.ready();
+        let drawn = self.draw_native(window, gpu, composition, plan);
         let (now, period) = (window.now_ns(), self.frame_period_ns);
-        if self.gpu.waits()
+        if gpu.waits()
             && let Ok(drawn) = &drawn
         {
             if drawn.report().shader_fallback {
-                self.gpu.demand(GpuStartCause::Shader, &mut self.notes);
+                gpu.demand(GpuStartCause::Shader, &mut self.notes);
             } else if let Drawn::Shown {
                 renderer: Renderer::Cpu,
                 raster,
@@ -337,19 +382,26 @@ impl Presenter {
                 ..
             } = drawn
             {
-                self.gpu.note_cpu_frame(
+                gpu.note_cpu_frame(
                     *raster + *present,
                     Duration::from_nanos(period),
                     &mut self.notes,
                 );
             }
         }
-        let renderer = if self.gpu.ready() {
+        let renderer = if self.surface.ready() {
             Renderer::Gpu
         } else {
             Renderer::Cpu
         };
-        let presented = self.settle(drawn, (now, period), renderer, window, composition, plan);
+        let presented = self.settle(
+            drawn,
+            (now, period),
+            renderer,
+            window,
+            gpu,
+            (composition, plan),
+        );
         self.sync_exports(was_ready);
         presented
     }
@@ -378,14 +430,12 @@ impl Presenter {
         }
     }
 
-    /// Report the engine's export notices when the GPU's readiness changed:
-    /// the pools go when the device goes, and `Available` comes when a device
-    /// becomes ready.
+    /// Report the engine's `Available` notice when the window became ready
+    /// for exports now (its pools are reported lost with the context, see
+    /// [`Self::lose_device`]).
     fn sync_exports(&mut self, was_ready: bool) {
-        match (was_ready, self.gpu.ready()) {
-            (true, false) => self.exports.lost_all(),
-            (false, true) => self.exports.available(),
-            _ => {}
+        if !was_ready && self.surface.ready() {
+            self.exports.available();
         }
     }
 
@@ -400,6 +450,7 @@ impl Presenter {
     fn draw_native(
         &mut self,
         window: &mut dyn ShellWindow,
+        gpu: &mut GpuDriver,
         composition: &Composition,
         plan: FramePlan,
     ) -> Result<Drawn, Failure> {
@@ -408,27 +459,27 @@ impl Presenter {
         let make = |context: &GpuContext, target: &mut dyn ShellWindow| {
             make_surface(target, context, keep_frames)
         };
-        self.gpu.advance(window, &mut self.notes, &make, physical);
+        self.advance_gpu(window, gpu, &make, physical);
         let started = Instant::now();
         // While a worker makes the window's swapchain, a frame presented
         // through GDI may not show (a flip-model swapchain replaces what
         // the window shows): the window keeps its last CPU frame and
         // the frame is drawn again later (the first GPU frame follows
         // the configuration at once).
-        if self.gpu.configuring() && window.surface().shows_cpu_frame() {
+        if self.surface.configuring() && window.surface().shows_cpu_frame() {
             return Ok(Drawn::NoBuffer {
                 report: FrameReport::default(),
             });
         }
         match self
-            .gpu
+            .surface
             .present(window, &make, composition, plan.scale, physical)
         {
             None => {}
             Some(Ok((presentation, present, report))) => {
                 window.surface().release_cpu_surface();
                 if presentation == Presentation::Shown {
-                    self.keep_shown_frame(window);
+                    self.keep_shown_frame(window, gpu);
                     return Ok(Drawn::Shown {
                         renderer: Renderer::Gpu,
                         raster: started.elapsed().saturating_sub(present),
@@ -445,13 +496,16 @@ impl Presenter {
                 let started = Instant::now();
                 let (pixels, report) = self.cpu_pixels(composition, physical, plan.scale)?;
                 let raster = started.elapsed();
-                match self.gpu.present_pixels(window, &make, &pixels, physical) {
+                match self
+                    .surface
+                    .present_pixels(window, &make, &pixels, physical)
+                {
                     Some(Ok((presentation, present))) => {
                         // The window's CPU surface holds an older frame; the next CPU frame
                         // must not be damage-merged onto it.
                         window.surface().release_cpu_surface();
                         if presentation == Presentation::Shown {
-                            self.keep_shown_frame(window);
+                            self.keep_shown_frame(window, gpu);
                             return Ok(Drawn::Shown {
                                 renderer: Renderer::Cpu,
                                 raster,
@@ -461,11 +515,11 @@ impl Presenter {
                         }
                         return Ok(Drawn::NoBuffer { report });
                     }
-                    Some(Err(e)) => self.gpu_failed(e)?,
+                    Some(Err(e)) => self.gpu_failed(gpu, e)?,
                     None => {}
                 }
             }
-            Some(Err(e)) => self.gpu_failed(e)?,
+            Some(Err(e)) => self.gpu_failed(gpu, e)?,
         }
         self.draw_cpu_native(window, composition, plan.scale, physical)
     }
@@ -553,18 +607,18 @@ impl Presenter {
 
     /// Keep a copy of the GPU frame just shown when `window` keeps frames. A failed read-back
     /// leaves the frame shown: the failure only moves the renderer along for the next frame.
-    fn keep_shown_frame(&mut self, window: &mut dyn ShellWindow) {
+    fn keep_shown_frame(&mut self, window: &mut dyn ShellWindow, gpu: &mut GpuDriver) {
         if window.surface().frame_sink().is_none() {
             return;
         }
-        match self.gpu.read_back() {
+        match self.surface.read_back() {
             Some(Ok(frame)) => {
                 if let Some(sink) = window.surface().frame_sink() {
                     sink.keep(frame);
                 }
             }
             Some(Err(e)) => {
-                if let Err(failure) = self.gpu_failed(e) {
+                if let Err(failure) = self.gpu_failed(gpu, e) {
                     tracing::warn!(target: "kivact", %failure, "could not read back a shown GPU frame");
                 }
             }
@@ -577,9 +631,13 @@ impl Presenter {
     /// surface again); after a device failure, a surface that kept failing
     /// or a scene beyond the GPU renderer's limits the frame is drawn on
     /// the CPU (`Ok`); any other error is returned.
-    pub(super) fn gpu_failed(&mut self, failure: RenderError) -> Result<(), Failure> {
-        let was_ready = self.gpu.ready();
-        let fallback = self.gpu.failed(&failure, &mut self.notes);
+    pub(super) fn gpu_failed(
+        &mut self,
+        gpu: &mut GpuDriver,
+        failure: RenderError,
+    ) -> Result<(), Failure> {
+        let was_ready = self.surface.ready();
+        let fallback = self.gpu_failure(gpu, &failure);
         self.sync_exports(was_ready);
         match fallback {
             Fallback::Cpu => Ok(()),

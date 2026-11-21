@@ -8,7 +8,7 @@ use super::export_pool::{ExportPool, ExportRecord, Pool};
 use super::state::GpuContext;
 use crate::RenderError;
 use crate::plan::PlannedExport;
-use arvane_protocol::{Composition, Export, ExportMode};
+use arvane_protocol::{Composition, Export, ExportLoss, ExportMode};
 use kivact_types::export::{ExportFrame, ExportedFrame};
 use kivact_types::ids::DrawableId;
 use kivact_types::{GpuAdapter, SharedTextures};
@@ -42,6 +42,22 @@ impl GpuContext {
         if let Some(export) = self.exports.pools.remove(&sink) {
             retire(export.pool);
         }
+    }
+
+    /// The losses of the export pools this context holds, by sink: what a
+    /// lost device makes of each pool.
+    pub fn export_losses(&self) -> Vec<ExportLoss> {
+        let mut losses: Vec<ExportLoss> = self
+            .exports
+            .pools
+            .iter()
+            .map(|(sink, export)| ExportLoss {
+                sink: *sink,
+                generation: export.generation,
+            })
+            .collect();
+        losses.sort_by_key(|loss| loss.sink);
+        losses
     }
 
     /// The exports of a frame: pixel frames read back, GPU frames copied into their sink's pool.

@@ -19,9 +19,13 @@ pub(crate) use arvane_render::RenderError;
 pub use build::{GPU_BUILT, GPU_INTEROP_BUILT};
 pub use cpu::{CpuCompositor, CpuOutput, Rendered};
 #[cfg(feature = "gpu")]
-pub use gpu::{GpuContext, GpuDevice, GpuEnv, GpuSurface, Presentation, SurfaceConfigurer};
+pub use gpu::{
+    GpuContext, GpuDevice, GpuEnv, GpuSurface, Presentation, SurfaceConfigurer, probe_adapter,
+};
 #[cfg(not(feature = "gpu"))]
-pub use gpu_unbuilt::{GpuContext, GpuDevice, GpuEnv, GpuSurface, Presentation, SurfaceConfigurer};
+pub use gpu_unbuilt::{
+    GpuContext, GpuDevice, GpuEnv, GpuSurface, Presentation, SurfaceConfigurer, probe_adapter,
+};
 pub use kivact_types::export::{ExportFrame, ExportedFrame};
 pub use output::GpuReport;
 pub use plan::Damage;

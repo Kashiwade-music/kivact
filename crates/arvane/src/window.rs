@@ -1,6 +1,8 @@
 //! Role: One concrete rendering window and shared backend lifecycle driver.
 
-use crate::presentation::{Notes, Observer};
+use crate::env::RendererStart;
+use crate::gpu_driver::GpuDriver;
+use crate::presentation::{GpuStartCause, Notes, Observer, RendererChange};
 use crate::presenter::{ExportNotice, Presenter};
 use crate::{FramePlan, Presented};
 use arvane_protocol::{Composition, SemanticsTree, SemanticsUpdate};
@@ -23,6 +25,8 @@ use std::collections::BTreeMap;
 pub struct Window<'a> {
     shell: &'a mut dyn ShellWindow,
     presenter: Option<&'a mut Presenter>,
+    /// The driver's GPU device, shared by every window.
+    gpu: &'a mut GpuDriver,
 }
 
 /// The error of a renderer call on a foreign-content window, which has none.
@@ -132,7 +136,7 @@ impl Window<'_> {
         let Some(presenter) = self.presenter.as_deref_mut() else {
             return Ok(Presented::NotDrawable(arvane_shell::Drawable::NoSurface));
         };
-        presenter.present_native(self.shell, composition, plan)
+        presenter.present_native(self.shell, self.gpu, composition, plan)
     }
     pub fn replace_accessibility(
         &mut self,
@@ -150,7 +154,7 @@ impl Window<'_> {
     pub fn gpu_adapter(&self) -> Option<GpuAdapter> {
         self.presenter
             .as_deref()
-            .and_then(|presenter| presenter.gpu_adapter())
+            .and_then(|presenter| presenter.gpu_adapter(self.gpu))
     }
     pub fn import_external_image(
         &mut self,
@@ -158,13 +162,13 @@ impl Window<'_> {
         textures: SharedTextures,
     ) -> Result<(), Failure> {
         match self.presenter.as_deref_mut() {
-            Some(presenter) => presenter.import_external(id, textures),
+            Some(presenter) => presenter.import_external(self.gpu, id, textures),
             None => Err(no_renderer()),
         }
     }
     pub fn drop_external_image(&mut self, id: ExternalImageId) {
         if let Some(presenter) = self.presenter.as_deref_mut() {
-            presenter.drop_external(id);
+            presenter.drop_external(self.gpu, id);
         }
     }
 
@@ -180,7 +184,7 @@ impl Window<'_> {
         size: (u32, u32),
     ) -> Result<SharedTextures, Failure> {
         match self.presenter.as_deref_mut() {
-            Some(presenter) => presenter.export_drawable(sink, generation, adapter, size),
+            Some(presenter) => presenter.export_drawable(self.gpu, sink, generation, adapter, size),
             None => Err(no_renderer()),
         }
     }
@@ -188,7 +192,7 @@ impl Window<'_> {
     /// Drop the GPU export pool of drawable `sink`.
     pub fn drop_export(&mut self, sink: DrawableId) {
         if let Some(presenter) = self.presenter.as_deref_mut() {
-            presenter.drop_export(sink);
+            presenter.drop_export(self.gpu, sink);
         }
     }
 
@@ -204,7 +208,7 @@ impl Window<'_> {
     #[cfg(feature = "test")]
     pub(crate) fn lose_gpu_device(&mut self) {
         if let Some(presenter) = self.presenter.as_deref_mut() {
-            presenter.lose_gpu_device();
+            presenter.lose_gpu_device(self.gpu);
         }
     }
 }
@@ -232,9 +236,12 @@ pub trait Handler {
 pub struct Windows<'a> {
     shell: &'a mut dyn ShellLoop,
     presenters: &'a mut BTreeMap<WindowId, Presenter>,
-    env: crate::env::Env,
     /// The renderer observer, cloned into the notes of every presenter.
     observer: &'a Option<Observer>,
+    /// The driver's GPU device.
+    gpu: &'a mut GpuDriver,
+    /// How the driver's renderers start (a window noted as it opens).
+    start: RendererStart,
 }
 
 impl<'a> Windows<'a> {
@@ -242,7 +249,11 @@ impl<'a> Windows<'a> {
     pub fn get(&mut self, id: WindowId) -> Option<Window<'_>> {
         let presenter = self.presenters.get_mut(&id);
         let shell = self.shell.window(id)?;
-        Some(Window { shell, presenter })
+        Some(Window {
+            shell,
+            presenter,
+            gpu: &mut *self.gpu,
+        })
     }
 
     /// The open windows, ascending by id.
@@ -255,14 +266,14 @@ impl<'a> Windows<'a> {
     pub fn open(&mut self, request: WindowRequest) -> Result<(), ShellError> {
         let id = request.id;
         if request.content == WindowContent::Drawn {
-            let presenter = Presenter::new(Notes::new(self.observer.clone(), id), &self.env);
+            let presenter = Presenter::new(Notes::new(self.observer.clone(), id));
             self.presenters.insert(id, presenter);
         }
         if let Err(error) = self.shell.open_window(request) {
             self.presenters.remove(&id);
             return Err(error);
         }
-        // Only an opened window starts its renderer.
+        // Only an opened window takes its frame period, and notes its start.
         let period = self
             .shell
             .window(id)
@@ -271,18 +282,22 @@ impl<'a> Windows<'a> {
             if let Some(period) = period {
                 presenter.set_frame_period(period);
             }
-            presenter.begin(self.env.start, self.shell.waker());
+            let gpu = self.start == RendererStart::GpuAtLaunch;
+            Notes::new(self.observer.clone(), id).note(RendererChange::Start { gpu });
         }
         Ok(())
     }
 
-    /// Start `id`'s GPU device when it waits for a reason (`GpuStart::OnDemand`):
-    /// the App reads the window's adapter to share GPU textures with it. Nothing
-    /// for a window on the CPU only or whose device started.
+    /// Start the driver's GPU device when it waits for a reason
+    /// (`GpuStart::OnDemand`): the App reads a window's adapter to share GPU
+    /// textures with it. Nothing for a driver on the CPU only, or whose
+    /// device started, and nothing for a window that is not open.
     pub fn demand_gpu(&mut self, id: WindowId) {
-        if let Some(presenter) = self.presenters.get_mut(&id) {
-            presenter.demand_gpu();
+        if !self.presenters.contains_key(&id) {
+            return;
         }
+        let mut notes = Notes::new(self.observer.clone(), WindowId::MAIN);
+        self.gpu.demand(GpuStartCause::App, &mut notes);
     }
 
     /// Shut the presenter down, then close the shell window.
@@ -364,15 +379,19 @@ pub(crate) fn driver<H: Handler>(handler: H, options: DriverOptions) -> Driver<H
     Driver {
         handler,
         presenters: BTreeMap::new(),
+        gpu: GpuDriver::new(env.gpu),
         env,
         observer: options.observer,
     }
 }
 
-/// The shell's handler: the host's [`Handler`] and every window's presenter.
+/// The shell's handler: the host's [`Handler`], every window's presenter and
+/// the driver's GPU device.
 pub(crate) struct Driver<H> {
     handler: H,
     presenters: BTreeMap<WindowId, Presenter>,
+    /// The driver's GPU device, shared by its windows.
+    gpu: GpuDriver,
     /// The renderers' environment, read once per loop.
     env: crate::env::Env,
     /// The renderer observer, cloned into the notes of every presenter.
@@ -384,14 +403,18 @@ impl<H: Handler> ShellHandler for Driver<H> {
         let mut windows = Windows {
             shell,
             presenters: &mut self.presenters,
-            env: self.env,
             observer: &self.observer,
+            gpu: &mut self.gpu,
+            start: self.env.start,
         };
         self.handler.close(&mut windows);
         for (id, mut presenter) in std::mem::take(&mut self.presenters) {
             if let Some(window) = shell.window(id) {
                 presenter.shutdown(window);
             }
+        }
+        if let Some(window) = shell.window(WindowId::MAIN) {
+            self.gpu.shutdown(window);
         }
     }
 
@@ -401,18 +424,19 @@ impl<H: Handler> ShellHandler for Driver<H> {
         waker: ShellWaker,
     ) -> Result<ShellControl, ShellError> {
         // On a worker thread: the first frames are drawn on the CPU.
-        let mut presenter =
-            Presenter::new(Notes::new(self.observer.clone(), WindowId::MAIN), &self.env);
+        let mut presenter = Presenter::new(Notes::new(self.observer.clone(), WindowId::MAIN));
         if let Some(window) = shell.window(WindowId::MAIN) {
             presenter.set_frame_period(window.environment().frame_period_ns);
         }
-        presenter.begin(self.env.start, waker.clone());
+        let mut notes = Notes::new(self.observer.clone(), WindowId::MAIN);
+        self.gpu.begin(self.env.start, waker.clone(), &mut notes);
         self.presenters.insert(WindowId::MAIN, presenter);
         let mut windows = Windows {
             shell,
             presenters: &mut self.presenters,
-            env: self.env,
             observer: &self.observer,
+            gpu: &mut self.gpu,
+            start: self.env.start,
         };
         self.handler.start(&mut windows, waker)
     }
@@ -438,12 +462,14 @@ impl<H: Handler> ShellHandler for Driver<H> {
         // A GPU start step finished: once the GPU can draw a window, draw a
         // frame now, while nothing else happens.
         if matches!(event, ShellEvent::Wake(reasons) if reasons.contains(WakeReasons::GPU_STEP)) {
+            let mut notes = Notes::new(self.observer.clone(), WindowId::MAIN);
+            self.gpu.advance(&mut notes);
             for (id, presenter) in &mut self.presenters {
                 let Some(window) = shell.window(*id) else {
                     continue;
                 };
                 if matches!(window.drawable(), arvane_shell::Drawable::Yes { .. })
-                    && presenter.prepare(window)
+                    && presenter.prepare(window, &mut self.gpu)
                 {
                     window.request_redraw();
                 }
@@ -460,8 +486,9 @@ impl<H: Handler> ShellHandler for Driver<H> {
         let mut windows = Windows {
             shell,
             presenters: &mut self.presenters,
-            env: self.env,
             observer: &self.observer,
+            gpu: &mut self.gpu,
+            start: self.env.start,
         };
         self.handler.event(target, event, &mut windows)
     }
