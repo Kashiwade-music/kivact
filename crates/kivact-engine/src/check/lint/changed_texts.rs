@@ -75,7 +75,7 @@ impl Model {
             }
             lint.keys.insert(id, now);
             let mut findings = Vec::new();
-            text_findings(host, engine, &lint.check, id, false, &mut findings);
+            text_findings(host, engine, &lint.check, id, &mut findings);
             warnings.extend(findings.into_iter().map(|f| HostEvent::LayoutWarning {
                 node: id,
                 rule: f.rule,

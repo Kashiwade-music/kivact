@@ -407,7 +407,7 @@ impl Reader {
             return Vec::new();
         };
         let mut engine = self.engine.borrow_mut();
-        crate::check::layout_findings(model, &mut engine, check, None, false)
+        crate::check::layout_findings(model, &mut engine, check, None)
     }
 
     #[doc(hidden)]
