@@ -7,7 +7,6 @@
 
 use super::ink::{drawn, grow, ink_local, local_transform, overlaps, placed, reach};
 use crate::contract::NodeType;
-use crate::layer::LayerView;
 use crate::model::Model;
 use crate::model::transform::map_rect;
 use crate::paint::state::{
@@ -21,6 +20,7 @@ use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
 use kivact_types::{Affine, NodeId, Point, Rect, WillChange};
 use std::collections::{BTreeSet, BinaryHeap, HashMap, HashSet};
+use std::rc::Rc;
 
 /// Logical pixels the clip is grown by before culling: more than a device
 /// pixel at every scale from 0.5 up (and `1 / scale` below).
@@ -124,6 +124,8 @@ struct Walk<'a> {
     scrollers: HashMap<NodeId, ScrollerWalk>,
     /// The look each listed node with state styles or a transition was walked with.
     looks: HashMap<NodeId, LayerTraits>,
+    /// The children of each listed container that sorts them, in stacked order.
+    stack_orders: HashMap<NodeId, Rc<[NodeId]>>,
 }
 
 impl Walk<'_> {
@@ -405,6 +407,31 @@ impl Walk<'_> {
         })
     }
 
+    /// One child of a container with few children, at its layout location
+    /// relative to `base`, unless it is a layer, a drawable or not drawn.
+    fn small_child(
+        &mut self,
+        child: NodeId,
+        n: &HostNode,
+        base: Point,
+        alpha: f64,
+        clip: Rect,
+        perspective: Option<Matrix4>,
+    ) {
+        let host = self.host;
+        let Some(c) = host.node(child).filter(|c| {
+            !c.is_layer() && c.properties.drawable.is_none() && through_drawn(host, c, n.index)
+        }) else {
+            return;
+        };
+        let at = host.location(c);
+        let origin = Point {
+            x: base.x + at.x,
+            y: base.y + at.y,
+        };
+        self.node(child, origin, alpha, clip, perspective);
+    }
+
     /// The children of `id` (its node `n`), whose layout locations are
     /// relative to `base`: through its child index when it has many.
     fn children(
@@ -421,17 +448,22 @@ impl Walk<'_> {
             x: base.x + at.x,
             y: base.y + at.y,
         };
+        let order: Option<Rc<[NodeId]>> = host.sorts_children(n).then(|| host.stacked(n).collect());
+        if let Some(order) = &order {
+            self.stack_orders.insert(id, Rc::clone(order));
+        }
         if host.tree().flat_children(id).len() < INDEXED {
-            for child in host.stacked(n) {
-                let Some(c) = host.node(child).filter(|c| {
-                    !c.is_layer()
-                        && c.properties.drawable.is_none()
-                        && through_drawn(host, c, n.index)
-                }) else {
-                    continue;
-                };
-                let at = host.location(c);
-                self.node(child, place(at), alpha, clip, perspective);
+            match &order {
+                Some(order) => {
+                    for &child in order.iter() {
+                        self.small_child(child, n, base, alpha, clip, perspective);
+                    }
+                }
+                None => {
+                    for child in host.tree().flat_children(id) {
+                        self.small_child(child, n, base, alpha, clip, perspective);
+                    }
+                }
             }
             return;
         }
@@ -504,9 +536,12 @@ impl Model {
         };
         // A layer root placed by another node's motion (a submenu anchored
         // in a moving menu) moves without a restack: the list follows it.
-        let rebuilt = list.state != key
-            || self.layers() != list.layer_origins
-            || (!list.rewalk.is_empty() && !self.rewalk_scrolled(&mut list));
+        let moved = list.state != key || self.layers() != list.layer_origins;
+        let rewalk = !moved && !list.rewalk.is_empty();
+        let rewalked = rewalk && self.rewalk_scrolled(&mut list);
+        let rebuilt = moved || (rewalk && !rewalked);
+        // A part walked again changes the layers' content (`stamp_versions`).
+        self.paint.rewalked |= rewalked;
         if rebuilt {
             self.build_list(&mut list, key);
         }
@@ -546,6 +581,7 @@ impl Model {
             outer: Vec::new(),
             scrollers: HashMap::new(),
             looks: HashMap::new(),
+            stack_orders: HashMap::new(),
         };
         if let Some(root) = self.tree().root() {
             walk.node(root, Point::default(), 1.0, viewport, None);
@@ -561,6 +597,7 @@ impl Model {
             moving,
             scrollers,
             looks,
+            stack_orders,
             ..
         } = walk;
         list.transforms = transforms;
@@ -568,6 +605,7 @@ impl Model {
         list.moving = moving;
         list.scrollers = scrollers;
         list.looks = looks;
+        list.stack_orders = stack_orders;
         list.layer_origins = roots;
         // Indices of containers this walk did not reach (removed, or
         // culled with an ancestor) are built again when reached.
@@ -633,6 +671,7 @@ impl Model {
                 outer: Vec::new(),
                 scrollers: HashMap::new(),
                 looks: HashMap::new(),
+                stack_orders: HashMap::new(),
             };
             walk.node(id, at.origin, at.alpha, at.clip, at.perspective);
             let Walk {
@@ -642,6 +681,7 @@ impl Model {
                 moving,
                 scrollers,
                 looks,
+                stack_orders,
                 ..
             } = walk;
             list.transforms = transforms;
@@ -653,6 +693,9 @@ impl Model {
             list.scrollers.extend(scrollers);
             list.looks.retain(|node, _| !left.contains(node));
             list.looks.extend(looks);
+            // A container that left the list loses its stacked order too.
+            list.stack_orders.retain(|node, _| !left.contains(node));
+            list.stack_orders.extend(stack_orders);
             list.entries.splice(open..=close, out);
             self.forget_left_draws(&left);
         }
@@ -755,7 +798,7 @@ impl Model {
                             .or_else(|| tree.root().filter(|root| *root != id))
                     };
                     let parent_look = parent.and_then(|p| self.drawn_look(p));
-                    let new = crate::layer::node_facts(self, id, parent_look.as_ref(), facts);
+                    let new = super::facts::node_facts(self, id, parent_look.as_ref(), facts);
                     let old = facts.get(&id).copied().unwrap_or_default();
                     if new == SubtreeFacts::default() {
                         facts.remove(&id);
@@ -801,6 +844,7 @@ impl Model {
             outer: Vec::new(),
             scrollers: HashMap::new(),
             looks: HashMap::new(),
+            stack_orders: HashMap::new(),
         };
         if self.tree().drawn(id) {
             walk.node(id, Point::default(), 1.0, clip, None);

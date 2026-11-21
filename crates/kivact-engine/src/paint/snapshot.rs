@@ -49,7 +49,8 @@ impl Model {
             size,
             cache: false,
         };
-        let composition = self.compose_list(engine, &list, pass);
+        let (mut composition, _) = self.compose_list(engine, &list, pass);
+        crate::lower::content_versions::stamp_fresh(&mut composition);
         self.report_dropped_draws();
         Some(OffscreenRenderer::new().render_composition(&composition, (width, height)))
     }

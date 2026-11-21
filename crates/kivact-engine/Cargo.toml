@@ -31,6 +31,18 @@ doctest = false
 testing = ["dep:arvane-virtual", "arvane-virtual/mirror", "dep:png", "arvane-native/test", "arvane/test"]
 
 [[test]]
+name = "content_version"
+required-features = ["testing"]
+
+[[test]]
+name = "draw_cache"
+required-features = ["testing"]
+
+[[test]]
+name = "hit_reference"
+required-features = ["testing"]
+
+[[test]]
 name = "host_locale"
 required-features = ["testing"]
 

@@ -35,9 +35,8 @@
 use crate::contract::{HostEvent, NodeType, SyncRecord};
 
 use kivact_types::{NodeId, OverlayAt, Point, Rect};
-use std::collections::HashMap;
 
-use crate::layer::{self, LayerTraits, SubtreeFacts};
+use crate::layer::LayerTraits;
 use crate::lower::scene::scene_layers;
 use crate::measure::leaf::Measure;
 use crate::model::Model;
@@ -60,21 +59,20 @@ impl LayerTraits {
     }
 }
 
-impl layer::LayerView for Model {
-    fn drawn_look(&self, id: NodeId) -> Option<LayerTraits> {
+impl Model {
+    /// The look of `id` now, or `None` for a node that is missing or not drawn.
+    pub(crate) fn drawn_look(&self, id: NodeId) -> Option<LayerTraits> {
         let n = self.node(id)?;
         self.tree().drawn(id).then(|| LayerTraits::now(self, id, n))
     }
 
-    fn flat_children(&self, id: NodeId) -> Vec<NodeId> {
-        self.tree().flat_children(id).collect()
-    }
-
-    fn is_layer_node(&self, id: NodeId) -> bool {
+    /// Whether `id` is a layer of its own: an overlay or a fixed box.
+    pub(crate) fn is_layer_node(&self, id: NodeId) -> bool {
         self.node(id).is_some_and(|n| n.is_layer())
     }
 
-    fn scene_facts(&self, id: NodeId) -> (bool, bool) {
+    /// Whether the scenes of `id` hold a layer, and whether they hold an item.
+    pub(crate) fn scene_facts(&self, id: NodeId) -> (bool, bool) {
         let Some(n) = self.node(id) else {
             return (false, false);
         };
@@ -87,35 +85,19 @@ impl layer::LayerView for Model {
             })
     }
 
-    fn moves_layer(&self, id: NodeId) -> bool {
+    /// Whether `id` moves as a layer: a running transition or a layout motion.
+    pub(crate) fn moves_layer(&self, id: NodeId) -> bool {
         self.motion.moves_layer(id) || self.layout_motion_transform(id).is_some()
     }
 
-    fn layer_roots(&self) -> Vec<NodeId> {
+    /// The roots of the layer trees: the tree's root, then the layers
+    /// (overlays and fixed boxes) in the order the window draws them.
+    pub(crate) fn layer_roots(&self) -> Vec<NodeId> {
         self.tree()
             .root()
             .into_iter()
             .chain(self.layers().into_iter().map(|(id, _)| id))
             .collect()
-    }
-}
-
-impl Model {
-    /// The facts of every drawn subtree of the layer roots, see
-    /// [`layer::layer_facts`].
-    pub(crate) fn layer_facts(&self) -> HashMap<NodeId, SubtreeFacts> {
-        layer::layer_facts(self)
-    }
-
-    /// The facts of the subtree at `id` (its parent's look is `parent`),
-    /// recorded in `out`, see [`layer::subtree_facts`].
-    pub(crate) fn subtree_facts(
-        &self,
-        id: NodeId,
-        parent: Option<&LayerTraits>,
-        out: &mut HashMap<NodeId, SubtreeFacts>,
-    ) -> SubtreeFacts {
-        layer::subtree_facts(self, id, parent, out)
     }
 
     /// Lay the tree out if anything changed since the last pass, scroll

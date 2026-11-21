@@ -18,7 +18,7 @@ use crate::lower::effects::{self, Tint};
 use crate::lower::fill::Boxes;
 use crate::lower::sanitize;
 use crate::lower::shape::BoxShape;
-use crate::lower::{LayerProps, SceneOut, border, scene, shape};
+use crate::lower::{LayerChange, LayerProps, SceneOut, border, scene, shape};
 use crate::model::Model;
 use crate::model::drawables::export_of;
 use crate::model::interact::visual;
@@ -46,7 +46,8 @@ impl Model {
     /// The frame's composition: the paint list brought up to date, drawn at
     /// the window's scale into the root layer.
     pub(crate) fn composition(&mut self, engine: &mut arvane_text::TextEngine) -> Composition {
-        if self.paint_list() {
+        let rebuilt = self.paint_list();
+        if rebuilt {
             self.evict_draws();
             self.refresh_shader_clocks();
             self.refresh_playback();
@@ -59,7 +60,9 @@ impl Model {
             cache: true,
         };
         self.prepare_canvas(engine);
-        let mut composition = self.compose_list(engine, &self.paint.list, pass);
+        let (mut composition, changes) = self.compose_list(engine, &self.paint.list, pass);
+        self.paint
+            .stamp_versions(&mut composition, &changes, rebuilt);
         self.report_dropped_draws();
         self.append_exports(engine, &mut composition);
         composition
@@ -108,7 +111,7 @@ impl Model {
         engine: &mut arvane_text::TextEngine,
         list: &PaintList,
         pass: PaintPass,
-    ) -> Composition {
+    ) -> (Composition, Vec<LayerChange>) {
         self.assets.borrow_mut().begin_frame();
         let mut out = SceneOut::default();
         // How much the transforms and layers around a node enlarge it,
@@ -340,6 +343,10 @@ impl Model {
         if VERIFY_DRAWS && let Some(draw) = &kept {
             self.verify_draw(step, list, draw, pass, engine);
         }
+        out.set_keeping(
+            kept.as_ref()
+                .is_some_and(|d| matches!(d.recorded, Recorded::Commands { .. })),
+        );
         let paint = kept
             .as_ref()
             .map_or_else(|| Rc::new(visual::paint(self, id)), |d| Rc::clone(&d.paint));
@@ -397,6 +404,7 @@ impl Model {
             }
         };
         self.keep_draw(id, draw, fresh, pass);
+        out.set_keeping(false);
     }
 
     /// Check a kept drawing against one made now (`VERIFY_DRAWS`): its
@@ -567,6 +575,10 @@ impl Model {
     ) {
         match self.take_draw(step, pass) {
             Some(mut draw) => {
+                out.set_keeping(matches!(
+                    draw.recorded,
+                    Recorded::Commands { over: Some(_), .. }
+                ));
                 self.close_kept(step, &mut draw, pass, engine, out);
                 self.keep_draw(step.id, draw, false, pass);
             }
@@ -583,6 +595,7 @@ impl Model {
                 Opening::Presence | Opening::Clip => out.push(D::PopClip),
             }
         }
+        out.set_keeping(false);
     }
 
     /// Draw the kept node's draw-over part: replayed when recorded (checked

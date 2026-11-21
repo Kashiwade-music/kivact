@@ -104,7 +104,10 @@ impl LayerProps {
             backface: self.backface,
             grid: self.grid,
             effects: self.effects,
-            content_version: super::content_versions::fresh_content_version(),
+            // Set by the caller of `into_composition`: the window's frame stamps the
+            // kept versions (`PaintState::stamp_versions`), every other composition
+            // takes fresh ones (`content_versions::stamp_fresh`).
+            content_version: 0,
             items,
         }
     }
@@ -133,6 +136,18 @@ struct DrawablePiece {
     clips: Vec<Outline>,
 }
 
+/// Whether a layer of the frame took a command not kept from the last frame.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum LayerChange {
+    /// Every command it took was kept from the last frame.
+    Kept,
+    /// It took a new command.
+    Touched,
+    /// It is not tracked (a drawable's layers, composed elsewhere).
+    Untracked,
+}
+
+// xtask-allow(state): reopen and deepest track the chunk's open groups; touched says a command not kept from the last frame reached it (SceneOut::push); independent
 /// A layer under construction: its properties, the clips its parent
 /// applies, its finished pieces and the open chunk.
 #[derive(Debug)]
@@ -147,6 +162,8 @@ struct Layer {
     /// The groups of `stack` are to be opened again at the start of the
     /// next chunk (a split closed them).
     reopen: bool,
+    /// A command not kept from the last frame reached the layer.
+    touched: bool,
 }
 
 impl Layer {
@@ -161,6 +178,7 @@ impl Layer {
             space: Affine::IDENTITY,
             deepest: 0,
             reopen: false,
+            touched: false,
         }
     }
 
@@ -289,6 +307,7 @@ fn holds_pixels(command: &D) -> bool {
     }
 }
 
+// xtask-allow(state): keeping marks the commands kept from the last frame (set_keeping); independent
 /// Draw commands and composition pieces being built in paint order. The
 /// open layers form a stack; the root layer is never closed.
 #[derive(Debug)]
@@ -297,6 +316,8 @@ pub(crate) struct SceneOut {
     owner: (NodeId, u8),
     ordinal: u32,
     recording: Option<Recording>,
+    /// The next commands are kept from the last frame (not new).
+    keeping: bool,
 }
 
 impl Default for SceneOut {
@@ -306,6 +327,7 @@ impl Default for SceneOut {
             owner: (NodeId(0), 0),
             ordinal: 0,
             recording: None,
+            keeping: false,
         }
     }
 }
@@ -325,6 +347,11 @@ impl SceneOut {
             Some(layer) => layer,
             None => unreachable!("invariant: the root layer is always open"),
         }
+    }
+
+    /// The next commands are (`true`) or are not kept from the last frame.
+    pub(crate) fn set_keeping(&mut self, keeping: bool) {
+        self.keeping = keeping;
     }
 
     /// Name the node and the draw layer (0 draw, 1 draw-over) whose child
@@ -355,6 +382,9 @@ impl SceneOut {
             } else {
                 recording.commands.push(command.clone());
             }
+        }
+        if !self.keeping {
+            self.top().touched = true;
         }
         self.top().push(command);
     }
@@ -420,6 +450,9 @@ impl SceneOut {
     /// innermost layer's space. Its commands follow until `close_layer`.
     pub(crate) fn open_layer(&mut self, props: LayerProps) {
         self.spoil();
+        if !self.keeping {
+            self.top().touched = true;
+        }
         let parent = self.top();
         let clips = parent.clips();
         let space = parent.space;
@@ -446,6 +479,9 @@ impl SceneOut {
     /// Add an item to the innermost layer, between its chunks.
     pub(crate) fn item(&mut self, item: LayerItem) {
         self.spoil();
+        if !self.keeping {
+            self.top().touched = true;
+        }
         let top = self.top();
         top.split(true);
         top.pieces.push(Piece::Item(Box::new(item)));
@@ -456,6 +492,9 @@ impl SceneOut {
     /// clips. The root layer takes the drawable's transform.
     pub(crate) fn drawable(&mut self, layers: Vec<CompositeLayer>, at: Point) {
         self.spoil();
+        if !self.keeping {
+            self.top().touched = true;
+        }
         let top = self.top();
         let clips = top.clips();
         let space = top.space;
@@ -481,15 +520,18 @@ impl SceneOut {
 
     /// The composition of the root layer of `size` logical pixels, with
     /// its child layers numbered in paint order.
-    pub(crate) fn into_composition(mut self, size: Size) -> Composition {
+    pub(crate) fn into_composition(mut self, size: Size) -> (Composition, Vec<LayerChange>) {
         while self.layers.len() > 1 {
             self.close_layer();
         }
         let Some(mut root) = self.layers.pop() else {
-            return Composition {
-                layers: Vec::new(),
-                exports: Vec::new(),
-            };
+            return (
+                Composition {
+                    layers: Vec::new(),
+                    exports: Vec::new(),
+                },
+                Vec::new(),
+            );
         };
         root.props.bounds = Rect {
             x: 0.0,
@@ -499,12 +541,20 @@ impl SceneOut {
         };
         root.split(false);
         let mut layers = vec![LayerProps::root().into_layer(Vec::new())];
-        let items = flatten(root.pieces, &mut layers);
+        let mut changes = vec![if root.touched {
+            LayerChange::Touched
+        } else {
+            LayerChange::Kept
+        }];
+        let items = flatten(root.pieces, &mut layers, &mut changes);
         layers[0] = root.props.into_layer(items);
-        Composition {
-            layers,
-            exports: Vec::new(),
-        }
+        (
+            Composition {
+                layers,
+                exports: Vec::new(),
+            },
+            changes,
+        )
     }
 
     /// The commands of a scene without items or child layers.
@@ -552,23 +602,37 @@ fn adopt(drawable: DrawablePiece, layers: &mut Vec<CompositeLayer>) -> LayerItem
 
 /// Number the layers below `pieces` into `layers` (a parent before its
 /// children) and return the items of `pieces` in order.
-fn flatten(pieces: Vec<Piece>, layers: &mut Vec<CompositeLayer>) -> Vec<LayerItem> {
+fn flatten(
+    pieces: Vec<Piece>,
+    layers: &mut Vec<CompositeLayer>,
+    changes: &mut Vec<LayerChange>,
+) -> Vec<LayerItem> {
     pieces
         .into_iter()
         .map(|piece| match piece {
             Piece::Raster(scene) => LayerItem::Raster(scene),
             Piece::Item(item) => *item,
-            Piece::Drawable(drawable) => adopt(*drawable, layers),
+            Piece::Drawable(drawable) => {
+                let item = adopt(*drawable, layers);
+                changes.resize(layers.len(), LayerChange::Untracked);
+                item
+            }
             Piece::Layer(child) => {
                 let Layer {
                     props,
                     clips,
                     pieces,
+                    touched,
                     ..
                 } = *child;
                 let index = layers.len();
                 layers.push(LayerProps::root().into_layer(Vec::new()));
-                let items = flatten(pieces, layers);
+                changes.push(if touched {
+                    LayerChange::Touched
+                } else {
+                    LayerChange::Kept
+                });
+                let items = flatten(pieces, layers, changes);
                 layers[index] = props.into_layer(items);
                 LayerItem::Layer {
                     index: index as u32,

@@ -22,6 +22,7 @@ pub use kivact_types::{
 };
 pub use kivact_types::{Affine, PointerSample, Semantics};
 
+pub use crate::paint::state::PaintListSizes;
 pub use display_probe::{display_stats, gpu_unavailable};
 pub use test_frame::TestFrame;
 pub use test_host::{ArvaneTestHost, Renderer};

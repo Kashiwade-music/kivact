@@ -80,7 +80,9 @@ impl Model {
             size: Size::new(bounds.width, bounds.height),
             cache: false,
         };
-        let mut layers = self.compose_list(engine, &list, pass).layers;
+        let (mut composition, _) = self.compose_list(engine, &list, pass);
+        crate::lower::content_versions::stamp_fresh(&mut composition);
+        let mut layers = composition.layers;
         if let Some(first) = layers.first_mut() {
             first.key = LayerKey::Drawable(id);
         }

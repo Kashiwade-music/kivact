@@ -30,7 +30,7 @@ pub(crate) mod scene;
 mod scene_cache;
 mod scene_out;
 pub(crate) use scene_cache::SceneCache;
-pub(crate) use scene_out::{LayerProps, SceneOut};
+pub(crate) use scene_out::{LayerChange, LayerProps, SceneOut};
 pub(crate) mod shape;
 
 mod asset_event;

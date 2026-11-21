@@ -163,10 +163,11 @@ impl OffscreenRenderer {
         }
         // The failures the store kept are the ones the context reported.
         self.assets.get_mut().discard_failures();
-        let composition = lowered.into_composition(Size {
+        let (mut composition, _) = lowered.into_composition(Size {
             width: size.0 as f64,
             height: size.1 as f64,
         });
+        crate::lower::content_versions::stamp_fresh(&mut composition);
         self.render_composition(&composition, size)
     }
 

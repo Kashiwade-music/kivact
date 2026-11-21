@@ -444,6 +444,31 @@ impl ArvaneTestHost {
         }
     }
 
+    /// The content versions of window `window`'s layers in its last frame, by key.
+    pub fn layer_versions(&self, window: WindowId) -> Vec<(arvane_protocol::LayerKey, u64)> {
+        self.with_window(window, |model| model.paint.layer_versions())
+            .unwrap_or_default()
+    }
+
+    /// The sizes of window `window`'s paint list and draw cache after its last frame.
+    pub fn paint_list_sizes(&self, window: WindowId) -> crate::paint::state::PaintListSizes {
+        self.with_window(window, |model| model.paint.list_sizes())
+            .unwrap_or_default()
+    }
+
+    /// Leave `node`'s kept drawing in place when a change marks it for a
+    /// redraw (`None`: leave none): an injected fault the debug check of
+    /// kept drawings must catch.
+    pub fn keep_stale_draw(&self, node: Option<NodeId>) {
+        crate::paint::state::KEEP_STALE_DRAW.with(|kept| kept.set(node));
+    }
+
+    /// Leave `node` out of the hit test's candidates (`None`: leave none
+    /// out): an injected fault the self-check's reference walk must catch.
+    pub fn drop_hit_candidate(&self, node: Option<NodeId>) {
+        crate::paint::state::DROP_HIT_CANDIDATE.with(|dropped| dropped.set(node));
+    }
+
     /// Make window `window`'s GPU device lost, as a device failure does (a test
     /// control; nothing happens on a CPU-only window).
     pub fn lose_gpu_device(&mut self, window: WindowId) {

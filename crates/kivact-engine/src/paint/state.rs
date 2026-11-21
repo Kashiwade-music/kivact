@@ -14,11 +14,13 @@ use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::rc::Rc;
 
-use arvane_protocol::{Plane, RasterGrid, RenderCmd};
+use arvane_protocol::{Composition, LayerKey, Plane, RasterGrid, RenderCmd};
 use kivact_types::cell::Generation;
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
 use kivact_types::{NodeId, PaintProps, Point, Rect, Size};
+
+use crate::lower::LayerChange;
 
 pub(crate) use crate::model::{LayerTraits, SubtreeFacts};
 
@@ -134,7 +136,7 @@ pub(crate) enum StaleFacts {
     Nodes(BTreeSet<NodeId>),
 }
 
-// xtask-allow(state): legacy: scene_cache, dropped_reported, dropped_draws, drawables, misplaced_reported, twice_reported; draw_owners lists the slots holding a kept drawing (keep_draw, evict_draws, forget_draws)
+// xtask-allow(state): legacy: scene_cache, dropped_reported, dropped_draws, drawables, misplaced_reported, twice_reported; draw_owners lists the slots holding a kept drawing (keep_draw, evict_draws, forget_draws); rewalked says the list was walked again in part since the last frame (paint_list), taken by stamp_versions
 /// The paint group of the model: derived caches and whether a
 /// frame must be redrawn. Only the paint modules read the caches.
 pub(crate) struct PaintState {
@@ -154,6 +156,44 @@ pub(crate) struct PaintState {
     pub(crate) stale_facts: StaleFacts,
     /// The nodes (and their slots) that keep a drawing in `Slots::draws`.
     pub(crate) draw_owners: RefCell<HashSet<(NodeId, usize)>>,
+    /// The content version each layer of the window's last frame had.
+    pub(super) versions: LayerVersions,
+    /// The list was walked again in part since the last frame (see `rewalked`).
+    pub(super) rewalked: bool,
+}
+
+/// The content version each layer of the window's last frame had.
+#[derive(Debug, Default)]
+pub(crate) struct LayerVersions(HashMap<LayerKey, u64>);
+
+#[cfg(feature = "testing")]
+thread_local! {
+    /// A node whose kept drawing a redraw mark does not forget: the test
+    /// driver's injected invalidation fault (`ArvaneTestHost::keep_stale_draw`),
+    /// which the debug check of kept drawings must catch.
+    pub(crate) static KEEP_STALE_DRAW: std::cell::Cell<Option<NodeId>> = const { std::cell::Cell::new(None) };
+}
+
+#[cfg(feature = "testing")]
+thread_local! {
+    /// A child the hit test's candidates leave out: the test driver's
+    /// injected fault (`ArvaneTestHost::drop_hit_candidate`), which the
+    /// debug self-check's complete walk must catch.
+    pub(crate) static DROP_HIT_CANDIDATE: std::cell::Cell<Option<NodeId>> = const { std::cell::Cell::new(None) };
+}
+
+/// The sizes of a window's paint list and draw cache (the test driver reads them).
+#[cfg(feature = "testing")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PaintListSizes {
+    /// The list's entries (opens and closes).
+    pub entries: usize,
+    /// The transforms the steps refer to.
+    pub transforms: usize,
+    /// The compositor layers the steps refer to.
+    pub layers: usize,
+    /// The nodes that keep a drawing.
+    pub kept_draws: usize,
 }
 
 impl PaintState {
@@ -171,6 +211,8 @@ impl PaintState {
             redraw: Redraw::Needed,
             stale_facts: StaleFacts::All,
             draw_owners: RefCell::default(),
+            versions: LayerVersions::default(),
+            rewalked: false,
         }
     }
 
@@ -219,6 +261,52 @@ impl PaintState {
     /// Forget the recorded facts of `id` (the node is gone).
     pub(crate) fn forget_fact(&mut self, id: NodeId) {
         self.list.facts.remove(&id);
+    }
+
+    /// Give each layer of the frame its content version: the last frame's
+    /// when nothing in it changed and the list stayed, a fresh one otherwise
+    /// (an untracked layer always).
+    pub(crate) fn stamp_versions(
+        &mut self,
+        composition: &mut Composition,
+        changes: &[LayerChange],
+        rebuilt: bool,
+    ) {
+        let list_changed = rebuilt || std::mem::take(&mut self.rewalked);
+        let mut seen = HashMap::with_capacity(composition.layers.len());
+        for (layer, change) in composition.layers.iter_mut().zip(changes) {
+            let kept = self.versions.0.get(&layer.key).copied();
+            let version = match (change, kept) {
+                (LayerChange::Kept, Some(version)) if !list_changed => version,
+                _ => crate::lower::content_versions::fresh_content_version(),
+            };
+            layer.content_version = version;
+            if *change != LayerChange::Untracked {
+                seen.insert(layer.key, version);
+            }
+        }
+        self.versions.0 = seen;
+    }
+
+    /// The content versions of the last frame's tracked layers, by key (the test driver reads them).
+    #[cfg(feature = "testing")]
+    pub(crate) fn layer_versions(&self) -> Vec<(LayerKey, u64)> {
+        self.versions
+            .0
+            .iter()
+            .map(|(key, version)| (*key, *version))
+            .collect()
+    }
+
+    /// The sizes of the list and the draw cache (the test driver reads them).
+    #[cfg(feature = "testing")]
+    pub(crate) fn list_sizes(&self) -> PaintListSizes {
+        PaintListSizes {
+            entries: self.list.entries.len(),
+            transforms: self.list.transforms.len(),
+            layers: self.list.layers.len(),
+            kept_draws: self.draw_owners.borrow().len(),
+        }
     }
 }
 
@@ -423,6 +511,8 @@ pub(crate) struct PaintList {
     pub(super) looks: HashMap<NodeId, LayerTraits>,
     /// The scroll containers whose subtrees are walked again before the next frame.
     pub(super) rewalk: BTreeSet<NodeId>,
+    /// The children of each listed container that sorts them, in stacked order (paint and hit test share it).
+    pub(super) stack_orders: HashMap<NodeId, Rc<[NodeId]>>,
 }
 
 /// What one child can draw on, relative to its layout location.
