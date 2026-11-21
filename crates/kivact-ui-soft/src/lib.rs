@@ -36,6 +36,7 @@ mod media_query;
 mod metrics;
 mod more_menu;
 mod motion;
+mod navigation_session;
 mod radius;
 mod recipe_parts;
 mod recipes_calendar;

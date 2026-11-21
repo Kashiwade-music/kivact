@@ -1,7 +1,7 @@
 //! Role: Bind domain navigation surfaces to one canonical exclusive owner.
-use kivact::interaction::{Delays, NavOpen, NavigationMenuApi, use_navigation_menu};
+use kivact::interaction::{Delays, NavigationMenuApi, NavigationPanelApi, use_navigation_menu};
 use kivact::state::{
-    IntoValue, Signal, Value, binding, effect_on, on_cleanup, provide, try_use_context,
+    IntoValue, Signal, Value, binding, effect_on, on_cleanup, provide, signal, try_use_context,
 };
 use kivact::view::{Element, Handled, IntoView, PointerEvent, PointerKind, PointerPhase, View};
 use std::time::Duration;
@@ -9,31 +9,28 @@ use std::time::Duration;
 struct NavigationGroup(NavigationMenuApi);
 /// Establish one owner around actual navigation content, without adding a view node.
 pub(crate) fn with_navigation_group<V: IntoView>(content: impl FnOnce() -> V + 'static) -> View {
-    provide(NavigationGroup(use_navigation_menu()), content)
+    provide(NavigationGroup(use_navigation_menu(signal(false))), content)
 }
 #[derive(Clone, Copy)]
 pub(crate) struct NavPanel {
-    api: NavigationMenuApi,
-    key: usize,
+    panel: NavigationPanelApi,
     open: Signal<bool>,
     eligible: Value<bool>,
     delays: Delays,
 }
 impl NavPanel {
     pub(crate) fn new(eligible: impl IntoValue<bool>, delays: Delays) -> Self {
-        let api =
-            try_use_context::<NavigationGroup>().map_or_else(use_navigation_menu, |group| group.0);
-        let key = api.panel_key();
-        let state = api.state();
-        on_cleanup(move || api.panel_removed(key));
+        let api = try_use_context::<NavigationGroup>()
+            .map_or_else(|| use_navigation_menu(signal(false)), |group| group.0);
+        let panel = api.panel();
+        on_cleanup(move || panel.removed());
         let eligible = eligible.into_value();
-        let active =
-            move || matches!(state.get(),NavOpen::Hover(at)|NavOpen::Pinned(at) if at==key);
+        let active = move || panel.is_open().get();
         let open = binding(
             move || eligible.get() && active(),
             move |open| {
                 if open && eligible.get_untracked() {
-                    api.show(key);
+                    panel.show();
                 } else if !open && active() {
                     api.hide();
                 }
@@ -42,12 +39,11 @@ impl NavPanel {
         // Independent eligibility changes send real controller events, never reconcile an open copy.
         effect_on(eligible, move |eligible| {
             if !eligible {
-                api.panel_removed(key);
+                panel.removed();
             }
         });
         Self {
-            api,
-            key,
+            panel,
             open,
             eligible,
             delays,
@@ -58,7 +54,7 @@ impl NavPanel {
     }
     pub(crate) fn toggle(self) {
         if self.eligible.get_untracked() {
-            self.api.toggle(self.key);
+            self.panel.toggle();
         }
     }
     pub(crate) fn trigger<T: Element>(self, target: T) -> T {
@@ -76,16 +72,13 @@ impl NavPanel {
             PointerPhase::Enter
                 if self.eligible.get_untracked() && event.kind() != PointerKind::Touch =>
             {
-                self.api.hover_after(
-                    self.key,
-                    if matches!(part, NavPart::Surface) {
-                        Duration::ZERO
-                    } else {
-                        self.delays.open
-                    },
-                )
+                self.panel.hover_after(if matches!(part, NavPart::Surface) {
+                    Duration::ZERO
+                } else {
+                    self.delays.open
+                })
             }
-            PointerPhase::Leave => self.api.leave_after(self.key, self.delays.close),
+            PointerPhase::Leave => self.panel.leave_after(self.delays.close),
             _ => (),
         }
         Handled::No
