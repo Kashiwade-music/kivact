@@ -1455,3 +1455,10 @@ lane K5 の fix（commit `84858df7`、branch `wt/rw-W9-K5`）の報告による�
 
 - **Slant・Striped の Prop**（K08、`crates/kivact-ui/src/variant_marks.rs`）：中核の `Slant`・`Striped` に `#[derive(Prop)]` が無いため、`.variant(kivact::ui::Slant)` が `IntoValue` を満たさない。旧の pop・game の型はこの derive を持っていた。pop（`b40485d2`）と game（`fe3e9185`）は、定義と再公開を消し、使い所を `kivact::ui` の型にした（lane `wt/rw-W9-fix1`）。`cargo check --all-targets -p kivact-ui-game` の tests/consumer で E0277 が 12 件。直し方は設計者の判断。examples の 60 行は、この derive が付くまで通らない（W10 の lane が直す）。
 - **K32 lightbox**（`crates/kivact-ui-soft/src/lightbox.rs`）：`view` の値の型 `LightboxView` が private で、pub な setter に出せない（private_interfaces）。(a) `LightboxView` を公開する（API の追加）か、(b) `Lightbox` を手書きの builder として `[hand_element] allowed_impls` に入れるか。現在は手書きの builder のまま（`impl IntoView` の note 1 件）。
+
+## 差戻し（W9・K33a、2026-11-22）
+
+lane K5 の K33a（commit `84f6dd05`）の報告による。app_shell・mobile_nav・chat_dictation は変換済み。以下は未変換のまま。
+
+- **K33 markdown**（`crates/kivact-ui-soft/src/markdown.rs`、`Markdown::into_view` の 218・225 行付近）：`CodeLanguage`・`CodeLanguageInput`・`code_highlight` は `code_syntax.rs`（K41 の unit）にしかなく、その file は消えた `SyntaxColors` を使い、lib に配線されていない。markdown の変換は K41 の後か、code_syntax を先に直すか、設計者の判断。K33 の完了 rg は、この 2 行が残るまで 0 件にならない。
+- **K33 nav_heading**（`crates/kivact-ui-soft/src/nav_heading.rs`、`SideNavHeading::into_view`）：`nav_is_rail` と `logical_row` は K33b の side_navigation にしかなく、未配線。Orchestrator は、side_navigation を先に変換し、その後に nav_heading を変換する順に変える（K33 の中の順だけ。付属書の内容は変えない）。
