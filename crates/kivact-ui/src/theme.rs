@@ -9,6 +9,7 @@
 //! the component's name.
 pub use crate::recipe::Look;
 pub use crate::recipe::Recipe;
+pub use crate::syntax_colors as syntax;
 pub use kivact_core::view::Variant;
 
 pub use crate::alert::look::AlertState;

@@ -329,3 +329,9 @@ pub use crate::stepper::StepIndicatorKind;
 pub use crate::stepper::StepStatus;
 
 pub use crate::data_table::types::RowStatus;
+
+mod syntax;
+pub mod syntax_colors;
+mod variant_marks;
+pub use syntax::{SyntaxKind, Tokenizer, syntax_ranges};
+pub use variant_marks::{Slant, Striped};
