@@ -68,6 +68,7 @@ mod recipes_overlays_select;
 mod scrollable_area;
 mod section;
 mod shadows;
+mod soft_table;
 mod space;
 mod stack;
 mod text;
@@ -150,6 +151,10 @@ pub use radius::{
 };
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Section, SectionEdges, SectionVariant, section};
+pub use soft_table::{
+    RowStatusTone, TableSelectionToolbar, table_row_index, table_row_status,
+    table_selection_toolbar,
+};
 pub use space::{
     SPACE_CARD_PADDING, SPACE_DIALOG_PADDING, SPACE_LAYER_VIEWPORT_GUTTER, SPACE_S0, SPACE_S0_5,
     SPACE_S1, SPACE_S1_5, SPACE_S2, SPACE_S3, SPACE_S4, SPACE_S5, SPACE_S6, SPACE_S7, SPACE_S8,

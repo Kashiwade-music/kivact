@@ -540,7 +540,7 @@ pub struct TableCellDivider(pub bool);
 impl Variant for TableCellDivider {}
 
 /// Dot treatment of a canonical badge used in a table's status lane.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, kivact::Prop)]
 pub struct RowStatusDot;
 
 impl Variant for RowStatusDot {}
