@@ -1,82 +1,100 @@
 //! Role: Lyra calendar panels, day cells and range-band recipes.
-use crate::Tokens;
-use crate::theme_access::wide_focus_ring;
-use kivact::interaction::{CalendarSpan, DaySelection};
-use kivact::style::{Align, Color, Direction, Justify, Position, Style, Theme, style};
-use kivact::ui::{CalendarRecipes, Look};
+//!
+//! The looks of calendar.tsx: the panel, its month, the band of a range and
+//! the day cells.
+
+use crate::color::{BACKGROUND, FOREGROUND, MUTED, MUTED_FOREGROUND, PRIMARY, PRIMARY_FOREGROUND};
+use crate::recipe_parts::wide_focus_ring;
+use kivact::custom::PartState;
+use kivact::interaction::{CalendarDayState, CalendarSpan, DaySelection};
+use kivact::style::{
+    Align, Color, FlexDirection, Justify, Position, Style, Theme, ThemeMode, style,
+};
+use kivact::ui::theme::{CalendarDayVisual, CalendarTheme, Look};
+
+/// The width and height of a day cell.
 const CELL: f64 = 28.0;
-pub(crate) fn calendar(r: CalendarRecipes) -> CalendarRecipes {
-    r.root(|_| root)
-        .month(|_| month)
-        .day(|_| day)
-        .range(|_| range)
-}
-fn root(t: &Theme, _: &Look<kivact::custom::PartState>) -> Style {
-    let p = t.ext::<Tokens>();
+
+/// `flex gap-4 p-2`: the panel holds its months side by side.
+fn calendar_root(_: &Theme, _: &Look<PartState>, _base: Style) -> Style {
     style()
-        .direction(Direction::Row)
-        .gap(16)
-        .padding(8)
-        .shrink(0)
-        .background(p.background)
-        .color(p.foreground)
-        .font_size(12)
+        .flex_direction(FlexDirection::Row)
+        .gap(16.0)
+        .padding(8.0)
+        .flex_shrink(0.0)
+        .background(BACKGROUND)
+        .color(FOREGROUND)
+        .font_size(12.0)
         .align_self(Align::Start)
 }
-fn month(_: &Theme, _: &Look<kivact::custom::PartState>) -> Style {
-    style().gap(16).width(CELL * 7.0).shrink(0)
+
+/// A month: seven cells wide, its weeks 16 px apart.
+fn calendar_month(_: &Theme, _: &Look<PartState>, _base: Style) -> Style {
+    style().gap(16.0).width(CELL * 7.0).flex_shrink(0.0)
 }
-fn range(t: &Theme, s: &Look<kivact::interaction::CalendarDayState>) -> Style {
+
+/// The band behind a range: half a cell at the start and the end, a full cell
+/// in the middle.
+fn calendar_range(_: &Theme, s: &Look<CalendarDayState>, _base: Style) -> Style {
     let base = style()
         .position(Position::Absolute)
-        .top(0)
+        .top(0.0)
         .height(CELL)
-        .background(t.ext::<Tokens>().muted);
+        .background(MUTED);
     match s.span {
         CalendarSpan::Start => base.left(CELL / 2.0).width(CELL / 2.0),
-        CalendarSpan::End => base.left(0).width(CELL / 2.0),
-        CalendarSpan::Middle => base.left(0).width(CELL),
-        CalendarSpan::None => base.width(0),
+        CalendarSpan::End => base.left(0.0).width(CELL / 2.0),
+        CalendarSpan::Middle => base.left(0.0).width(CELL),
+        CalendarSpan::None => base.width(0.0),
     }
 }
-fn day(t: &Theme, s: &Look<kivact::ui::CalendarDayVisual>) -> Style {
+
+/// A day cell: a square of `CELL`, in the primary color when selected at an
+/// edge, muted in a range or on today, and muted-foreground outside the month.
+fn calendar_day(t: &Theme, s: &Look<CalendarDayVisual>, _base: Style) -> Style {
     let (state, today, in_month) = (&s.day, s.today, s.in_month);
-    let p = t.ext::<Tokens>();
-    let dark = p.is_dark();
+    let dark = t.mode() == ThemeMode::Dark;
     let disabled = state.disabled;
     let (fill, color) = if state.selection == DaySelection::Edge {
-        (p.primary, p.primary_foreground)
+        (PRIMARY, PRIMARY_FOREGROUND)
     } else if state.span == CalendarSpan::Middle || (today && in_month) {
-        (p.muted, p.foreground)
+        (MUTED, FOREGROUND)
     } else if !in_month || disabled {
-        (Color::TRANSPARENT, p.muted_foreground)
+        (Color::TRANSPARENT, MUTED_FOREGROUND)
     } else {
-        (Color::TRANSPARENT, p.foreground)
+        (Color::TRANSPARENT, FOREGROUND)
     };
-    let hover = if dark {
-        p.muted.with_alpha(0.5)
-    } else {
-        p.muted
-    };
+    let hover = if dark { MUTED.with_alpha(0.5) } else { MUTED };
     let s = style()
         .position(Position::Absolute)
-        .left(0)
-        .top(0)
-        .direction(Direction::Row)
+        .left(0.0)
+        .top(0.0)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
         .size(CELL, CELL)
-        .radius(0)
-        .border(1, Color::TRANSPARENT)
-        .font_size(12)
-        .weight(400)
+        .border_radius(0.0)
+        .border(1.0, Color::TRANSPARENT)
+        .font_size(12.0)
+        .font_weight(400)
         .text_wrap(false)
         .background(fill)
         .color(color)
-        .focus_visible(wide_focus_ring(&p));
+        .focus_visible(wide_focus_ring());
     if state.selection == DaySelection::Edge || disabled {
         s
     } else {
         s.hover(style().background(hover))
     }
+}
+
+/// Installs the calendar parts of the kit.
+pub(crate) fn install(theme: Theme) -> Theme {
+    theme.with(
+        CalendarTheme::default()
+            .root(calendar_root)
+            .month(calendar_month)
+            .day(calendar_day)
+            .range(calendar_range),
+    )
 }
