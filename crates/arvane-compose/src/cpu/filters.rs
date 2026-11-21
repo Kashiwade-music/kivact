@@ -9,14 +9,15 @@ use super::graph;
 use super::surface::Pixmap;
 use crate::RenderError;
 
-/// `input` filtered by `filter`, of the same size. `px_per_unit` and `origin` map layer space to the pixels.
+/// Writes `input` filtered by `filter` into `out`, of the same size. `px_per_unit` and `origin` map layer space to the pixels.
 pub(crate) fn apply(
     filter: &LayerFilter,
     input: &Pixmap,
+    out: &mut Pixmap,
     px_per_unit: f64,
     origin: Point,
-) -> Result<Pixmap, RenderError> {
-    Ok(match filter {
+) -> Result<(), RenderError> {
+    *out = match filter {
         LayerFilter::Blur { std_dev } => {
             let sigma = std_dev * px_per_unit;
             match blur_sigmas(sigma, sigma) {
@@ -37,5 +38,6 @@ pub(crate) fn apply(
         LayerFilter::Graph(filter_graph) => graph::apply(filter_graph, input, px_per_unit, origin)?,
         // The CPU does not run filter shaders: the input passes through.
         LayerFilter::Shader(_) => input.clone(),
-    })
+    };
+    Ok(())
 }
