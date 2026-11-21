@@ -3874,7 +3874,7 @@ fn expected(what: &str, text: &str) -> String {
 - **消すもの**：`group_or_default!`、`ForcedStates`、`CompiledStyle::duplicates`、`CompiledStyle::misplaced_content` の名前、`CompiledStyle::{same_retained_paint, paint_retained}`、`LocalPaintSource` の `CompiledStyle`。
 - **状態の閉じ方**：`CompiledStyle` は compile の結果の値の record（`&mut self` の method なし）：対象外。`Interactive` は compile の入力（名前は対象外の接尾辞ではないが `&mut self` の method なし）：対象外。
 - **試験**：
-  - `crates/kivact-style/src/resolve/compile.rs` に `#[cfg(test)] mod tests`（`//! Role: Tests of style compilation.`）：`fn a_paint_position_that_is_auto_is_counted()`（`style().border_radius(Length::Auto)` は S20 の後の名前。この unit では `style().radius(Length::Auto)` を `compile_style(.., Interactive::default())` して `misplaced_lengths == 4`（4 隅））、`fn forced_states_merge_their_styles()`（`Interactive { forced: StateSet::EMPTY.with(StyleState::Hover), .. }` で `hover(style().opacity(0.5))` の opacity が base の paint に入る）。
+  - `crates/kivact-style/src/resolve/compile.rs` に `#[cfg(test)] mod tests`（`//! Role: Tests of style compilation.`）：`fn a_paint_position_that_is_auto_is_counted()`（`style().border_radius(Length::Auto)` は S20 の後の名前。この unit では `style().radius(Length::Auto)` を `compile_style(.., Interactive::default())` して `misplaced_lengths == 8`（4 隅の x と y。数は長さごと））、`fn forced_states_merge_their_styles()`（`Interactive { forced: StateSet::EMPTY.with(StyleState::Hover), .. }` で `hover(style().opacity(0.5))` の opacity が base の paint に入る）。
   - 公開 E2E の `diagnostics.rs`・`devtools.rs`（forced state、style の表示）、`hover.rs`、`style_paint.rs` がそのまま通ること。
 - **確認（tier a）**：鎖の共通確認と次：
   ```
