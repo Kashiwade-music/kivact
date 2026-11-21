@@ -1,140 +1,98 @@
-//! Role: The input group builder, its member rendering and the addon helper.
+//! Role: The input group component, its member rendering and the addon helper.
 
 use crate::input_group::look::InputGroupTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::{ControlSize, provide_control_size};
+use kivact_core::custom::Caller;
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::Variants;
 use kivact_core::view::{
-    Element, IntoChildren, IntoView, Node, Role, View, node, node_ref, row, text, use_direction,
+    Children, Element, IntoView, Node, Role, View, node, node_ref, row, text, use_direction,
 };
+use kivact_macros::component;
 
 use crate::input_group::look::InputGroupMemberKind;
 use crate::input_group::look::InputGroupMemberState;
 use crate::input_group::look::InputGroupState;
-// xtask-allow(state): legacy: start, end, block_start, block_end
-/// A labelled group of adjacent inputs and adornments.
-pub struct InputGroup<C> {
-    root: Node,
+
+/// Group controls under a visible label. The controls are built by the
+/// caller, and the group gives its size to them as the inherited control size.
+///
+/// Setters: `size` sets the inherited control size of the group's controls
+/// (default medium); `start` and `end` are the leading and trailing inline
+/// adornments; `block_start` and `block_end` are the adornments above and
+/// below the controls.
+#[component]
+pub fn input_group(
     label: Value<String>,
-    controls: C,
-    size: Value<ControlSize>,
+    children: Children,
+    size: Option<Value<ControlSize>>,
     start: Option<View>,
     end: Option<View>,
     block_start: Option<View>,
     block_end: Option<View>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let variants = caller.variants();
+    let size = size.unwrap_or_else(|| ControlSize::Medium.into_value());
+    let direction = use_direction();
+    let reference = node_ref();
+    let focused = reference.focus_within();
+    let invalid = caller.invalid();
+    let part = kivact_core::custom::part(|input| input);
+    let input = part.state();
+    let (has_start, has_end) = (start.is_some(), end.is_some());
+    let (has_block_start, has_block_end) = (block_start.is_some(), block_end.is_some());
+    let state = kivact_core::state::memo(move || InputGroupState {
+        size: size.get(),
+        direction,
+        input: input.get(),
+        focused: focused.get(),
+        invalid: invalid.is_some_and(|invalid| invalid.get()),
+        has_start,
+        has_end,
+        has_block_start,
+        has_block_end,
+    });
+    let render = GroupRender {
+        state,
+        variants: variants.clone(),
+        primary: node_ref(),
+    };
+    let inline = render.clone();
+    let members = provide_control_size(size.get(), move || {
+        crate::input_group::context::provide_state(state, move || {
+            inline.members(start, children.into_views(), end)
+        })
+    });
+    let label_ref = node_ref();
+    let label_view = with_recipe_style(
+        text(label).node_ref(label_ref),
+        |r: &InputGroupTheme| r.label_recipe(),
+        &variants,
+        move || state.get(),
+    );
+    let top = block_start.map(|view| render.block(view, true));
+    let bottom = block_end.map(|view| render.block(view, false));
+    with_base_recipe_style(
+        node().node_ref(reference).part(part),
+        |r: &InputGroupTheme| r.root_recipe(),
+        &variants,
+        move || state.get(),
+    )
+    .role(Role::Group)
+    .name(label)
+    .with_node(move |node| node.labelled_by(label_ref))
+    .child((label_view, top, members, bottom))
 }
-/// Group controls under a visible label. The controls are built by the
-/// caller, and the group gives its size to them as the inherited control size.
-#[track_caller]
-pub fn input_group<C: IntoChildren>(label: impl IntoText, children: C) -> InputGroup<C> {
-    InputGroup {
-        root: node(),
-        label: label.into_text_value(),
-        controls: children,
-        size: ControlSize::Medium.into_value(),
-        start: None,
-        end: None,
-        block_start: None,
-        block_end: None,
-    }
-}
-impl<C> InputGroup<C> {
-    /// Set the inherited control size of the group's controls.
-    #[track_caller]
-    pub fn size(mut self, value: impl IntoValue<ControlSize>) -> Self {
-        self.size = value.into_value();
-        self
-    }
-    /// Set the leading inline adornment.
-    pub fn start(mut self, value: impl IntoView) -> Self {
-        self.start = Some(value.into_view());
-        self
-    }
-    /// Set the trailing inline adornment.
-    pub fn end(mut self, value: impl IntoView) -> Self {
-        self.end = Some(value.into_view());
-        self
-    }
-    /// Set the adornment above the controls.
-    pub fn block_start(mut self, value: impl IntoView) -> Self {
-        self.block_start = Some(value.into_view());
-        self
-    }
-    /// Set the adornment below the controls.
-    pub fn block_end(mut self, value: impl IntoView) -> Self {
-        self.block_end = Some(value.into_view());
-        self
-    }
-}
-impl<C: IntoChildren + 'static> Element for InputGroup<C> {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
-    fn into_view(mut self) -> View {
-        let variants = self.root.authored().variants();
-        let size = self.size;
-        let direction = use_direction();
-        let reference = node_ref();
-        let focused = reference.focus_within();
-        let invalid = self.root.accessible_invalid();
-        let part = kivact_core::custom::part(|input| input);
-        let input = part.state();
-        let (has_start, has_end) = (self.start.is_some(), self.end.is_some());
-        let (has_block_start, has_block_end) =
-            (self.block_start.is_some(), self.block_end.is_some());
-        let state = kivact_core::state::memo(move || InputGroupState {
-            size: size.get(),
-            direction,
-            input: input.get(),
-            focused: focused.get(),
-            invalid: invalid.is_some_and(|invalid| invalid.get()),
-            has_start,
-            has_end,
-            has_block_start,
-            has_block_end,
-        });
-        let render = GroupRender {
-            state,
-            variants: variants.clone(),
-            primary: node_ref(),
-        };
-        let inline = render.clone();
-        let members = provide_control_size(size.get(), move || {
-            crate::input_group::context::provide_state(state, move || {
-                inline.members(self.start, self.controls.into_views(), self.end)
-            })
-        });
-        let label_ref = node_ref();
-        let label = with_recipe_style(
-            text(self.label).node_ref(label_ref),
-            |r: &InputGroupTheme| r.label_recipe(),
-            &variants,
-            move || state.get(),
-        );
-        let top = self.block_start.map(|view| render.block(view, true));
-        let bottom = self.block_end.map(|view| render.block(view, false));
-        with_base_recipe_style(
-            self.root.node_ref(reference).part(part),
-            |r: &InputGroupTheme| r.root_recipe(),
-            &variants,
-            move || state.get(),
-        )
-        .role(Role::Group)
-        .name(self.label)
-        .with_node(move |node| node.labelled_by(label_ref))
-        .child((label, top, members, bottom))
-        .into_view()
-    }
-}
+
 #[derive(Clone)]
 struct GroupRender {
     state: Value<InputGroupState>,
     variants: Variants,
     primary: kivact_core::view::NodeRef,
 }
+
 impl GroupRender {
     fn members(self, start: Option<View>, controls: Vec<View>, end: Option<View>) -> View {
         let variants = self.variants.clone();
@@ -162,6 +120,7 @@ impl GroupRender {
         )
         .into_view()
     }
+
     fn member(&self, view: View, kind: InputGroupMemberKind, index: usize, count: usize) -> Node {
         let variants = self.variants.clone();
         let reference = node_ref();
@@ -185,6 +144,7 @@ impl GroupRender {
             },
         )
     }
+
     fn block(&self, view: View, top: bool) -> Node {
         let variants = self.variants.clone();
         let state = self.state;
@@ -200,6 +160,7 @@ impl GroupRender {
         )
     }
 }
+
 fn adornment(view: View, primary: kivact_core::view::NodeRef) -> Node {
     let reference = node_ref();
     let focused = reference.focus_within();
@@ -213,6 +174,7 @@ fn adornment(view: View, primary: kivact_core::view::NodeRef) -> Node {
             }
         })
 }
+
 /// Add noninteractive text adjacent to a grouped input.
 pub fn input_addon(label: impl IntoText) -> impl kivact_core::view::Element {
     let size = crate::control_size::default_control_size();
