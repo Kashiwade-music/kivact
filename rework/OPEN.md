@@ -1302,3 +1302,23 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
   - 名前は V4 の `<Component><Field>`。`DisclosureVariant` の struct は消す。
   - 所有は K5 lane で disclosure を変換する unit。その unit が済んでいれば、K5 lane の fix の commit にする。
   - 付属書 K の 4.4.5 の表への追加は、Orchestrator が PROGRESS に「K28 の表の漏れ：DisclosureVariant → 分解」と 1 行書けばよい。
+
+## 設計者の回答（K5 counter click p95 の後退の原因と unit P1、2026-11-22）
+
+- **調べた結果**（設計者の subagent。`V:/kv-target/bisect-k5`）：
+  - 段差は W7a の統合 `d1aa3f92`（U1 と E1 の merge）で出る。どちらの branch も単独では速い。
+  - click ごとの確保の回数・量と `screen.stats()` の差分は、速い build と遅い build で一桁まで同じだった。つまり algorithm の変化ではなく、code の配置などの CPU の水準の差で、改修の誤りではない。
+  - ただし click 1 回の仕事は大きい（約 620 回の確保と 182 KB）。その約 68%（334 回、127 KB）は、button の style の effect が click ごとに style の作り直しを全部やり直すことから来る：`crates/kivact-core/src/view/mount/style.rs` の render effect が、engine の報告する host の状態（`reported`）を読む。押す・離すで状態が変わるたびに、`merge_layers` で recipe を評価し直して合成し、`compile_style` で全部の state の style を組み直す。style の入力は何も変わっていないのに。
+  - 次に大きいのは `Background` の `Vec` の複製（78 回、63 KB/click）と、engine の `Model::deltas` の `Vec`（57 回）。
+- **判断**：K5 の後退は直さない（原因が code の配置で、直す対象が無い）。代わりに click の仕事そのものを減らす unit P1 を足す。CP3 の AC-2 で K5 counter click を判定する。
+- **unit P1：click の仕事を減らす**（lane P、W9 と並べて今から。統合 branch の HEAD から worktree。kit の lane とは file が重ならない）
+  - **所有**：`crates/kivact-core/src/view/mount/style.rs`、`crates/kivact-style/src/paint/background.rs`（と `Background` の中身に触る `kivact-style` の file）、`crates/kivact-engine/src/model/states.rs`、それぞれの試験の file。
+  - **手順 1（style の effect）**：
+    1. `source` を `RefCell<Layers>` にする。`track_states` が初めて `reported` を set するとき（その node の style が状態を報告させる。押す・離すで effect が走り直す node）、`source` が `Layers::Direct(layers, variants)` なら、`cx.owner.with_setup(|| merged_memo(hook.clone(), layers, variants))` で `Layers::Memo` に替える。以後は、recipe の closure が読む値が変わったときだけ合成し直す。`with_setup` を effect の中で呼べない（panic・診断）なら STOP。
+    2. compile の結果を覚える：effect の外に `RefCell<[Option<(Theme, *const (Style, u32), Interactive, CompiledStyle)>; 2]>` を置く。`Layers::Memo` の道で、theme（`Theme` の `PartialEq`。同じ theme は `Arc` が同じ）、合成済みの style の `Rc::as_ptr`、`Interactive` の三つが同じ entry があれば、`compile_style` を呼ばずに、その `CompiledStyle` の clone を使う。無ければ compile し、古い方の entry を置き換える（押す・離すの 2 つの状態が入る大きさ）。`Layers::Direct` の道は覚えない。
+    3. 型の doc：「The last two compiled styles of the node, by theme, merged style and interactive state: pressing and releasing alternate between two states, and compiling is a pure function of these three.」
+    4. 試験（`crates/kivact-core` の mount の試験の file）：`fn pressing_again_does_not_run_the_recipe_or_compile_again()`。layer の closure と compile の呼ばれた回数を数え、hover の state style に layout の宣言（`padding`）を持つ node を作る。hover → press → release → press → release の後、layer の closure は 1 回（最初の合成）と memo への切替えの 1 回だけで、2 回目の press・release で増えないこと。描かれる padding が状態に合わせて変わることも確かめる（今ある挙動の試験が通れば足りる）。
+  - **手順 2（`Background` の複製）**：`pub struct Background(pub(crate) Vec<Paint>)` を `pub struct Background(pub(crate) std::sync::Arc<[Paint]>)` にする。`From` の各 impl は `Vec` を作ってから `Arc::from` にする。中身を変える箇所（`.0` の書き換え）があれば、新しい `Vec` を作って置き換える。公開の API は変わらない（field は `pub(crate)`）。doc に 1 文：「Layers are shared: cloning a background never copies them.」
+  - **手順 3（engine の `deltas`）**：`Model::deltas` が `Vec<&PaintDelta>` を作るのをやめる。`StyleState::HOST` の順に、active な delta を返す iterator（`impl Iterator<Item = &PaintDelta> + '_`）にする。`active_deltas(id).is_empty()` などの呼出し側は `next().is_none()` などにする。順序は今と同じ。
+  - **確認**：tier a（`kivact-core`・`kivact-style`・`kivact-engine` の test、workspace の clippy、XK と XD を除外）と e2e_core・e2e_ui の全件。それから `cargo build --release -p kivact-bench --features latency --bin kv_latency` で、HEAD と P1 の binary を交互に 6 回ずつ走らせる（`KIVACT_TEST_MIRROR=off`）。`counter_click` の p50 と mean の中央値を PROGRESS に書く。P1 の方が遅ければ返す。
+  - 設計者が、P1 の後に click ごとの確保の回数を数え直す（subagent）。
