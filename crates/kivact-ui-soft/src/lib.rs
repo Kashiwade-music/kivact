@@ -16,6 +16,7 @@ mod radius;
 mod recipe_parts;
 mod recipes_calendar;
 mod recipes_chat;
+mod recipes_code;
 mod recipes_controls;
 mod recipes_controls_choice;
 mod recipes_controls_panel;

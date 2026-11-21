@@ -1,117 +1,74 @@
-//! Role: Style canonical source blocks using Soft visual variants.
-use crate::Tokens;
-use kivact::Prop;
-use kivact::state::{IntoValue, Value};
-use kivact::style::{Direction, Justify, Style, Theme, pct, style};
-use kivact::ui::{CodeBlockRecipes, CodeBlockState, Look};
-/// Source text size.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
-pub enum CodeBlockSize {
-    /// Use small source typography.
-    Sm,
-    #[default]
-    /// Use standard source typography.
-    Md,
-}
-/// Outer width policy.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Prop)]
-pub enum CodeBlockWidth {
-    #[default]
-    /// Fit the source block within the available width.
-    Fit,
-    /// Fill the available width.
-    Fill,
-    /// Use the specified outer width in pixels.
-    Px(f64),
-}
-/// Source block framing.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
-pub enum CodeBlockContainer {
-    #[default]
-    /// Paint a bordered, rounded source card.
-    Card,
-    /// Render source without the outer card frame.
-    Section,
-}
-/// Read-only reactive appearance of a standard code block.
-#[derive(Clone, Debug, PartialEq)]
-pub struct CodeAppearance {
-    /// Reactive source typography size.
-    pub size: Value<CodeBlockSize>,
-    /// Reactive outer width policy.
-    pub width: Value<CodeBlockWidth>,
-    /// Reactive card or frameless treatment.
-    pub container: Value<CodeBlockContainer>,
-}
-impl Default for CodeAppearance {
-    fn default() -> Self {
-        Self {
-            size: CodeBlockSize::Md.into_value(),
-            width: CodeBlockWidth::Fit.into_value(),
-            container: CodeBlockContainer::Card.into_value(),
-        }
-    }
-}
-impl kivact::ui::Variant for CodeAppearance {}
-impl kivact::ui::Variant for CodeBlockSize {}
-impl kivact::ui::Variant for CodeBlockWidth {}
-impl kivact::ui::Variant for CodeBlockContainer {}
-pub(crate) fn code(r: CodeBlockRecipes) -> CodeBlockRecipes {
-    r.root(|_| root)
-        .header(|_| header)
-        .code(|_| source)
-        .gutter(|_| gutter)
-}
-fn root(t: &Theme, s: &Look<CodeBlockState>) -> Style {
-    let p = t.ext::<Tokens>();
-    let width = s
-        .variant::<CodeAppearance>()
-        .map(|a| a.width.get())
-        .or_else(|| s.variant::<CodeBlockWidth>().copied())
-        .unwrap_or_default();
-    let container = s
-        .variant::<CodeAppearance>()
-        .map(|a| a.container.get())
-        .or_else(|| s.variant::<CodeBlockContainer>().copied())
-        .unwrap_or_default();
-    let look = style().direction(Direction::Column).min_width(0);
-    let look = match width {
-        CodeBlockWidth::Fit => look.max_width(pct(100)),
-        CodeBlockWidth::Fill => look.width(pct(100)),
-        CodeBlockWidth::Px(w) => look.width(w),
+//! Role: Install Astryx Neutral's recipes of the code group: the code block's frame, header, source and gutter.
+use crate::color as c;
+use crate::metrics as m;
+use crate::radius as r;
+use crate::space as s;
+use crate::type_scale as t;
+use crate::variants::{CodeBlockContainer, CodeBlockSize, CodeBlockWidth};
+use kivact::style::{FlexDirection, Justify, Style, Theme, color, pct, style};
+use kivact::ui::theme::{CodeBlockState, CodeBlockTheme, Look};
+
+/// The outer frame of a code block: its width by the width variant, and the card's fill, border and corners.
+fn root(_theme: &Theme, look: &Look<CodeBlockState>, _base: Style) -> Style {
+    let width = look.variant::<CodeBlockWidth>().unwrap_or_default();
+    let container = look.variant::<CodeBlockContainer>().unwrap_or_default();
+    let base = style().flex_direction(FlexDirection::Column).min_width(0);
+    let base = match width {
+        CodeBlockWidth::Fit => base.max_width(pct(100)),
+        CodeBlockWidth::Fill => base.width(pct(100)),
+        CodeBlockWidth::Px(w) => base.width(w),
     };
     if container == CodeBlockContainer::Card {
-        look.background(p.colors.syntax.background)
-            .border(p.sizes.border_width, p.colors.border)
-            .radius(p.radius.element)
+        base.background(c::SYNTAX_BACKGROUND)
+            .border(m::BORDER_WIDTH, color::BORDER)
+            .border_radius(r::RADIUS_ELEMENT)
             .clip(true)
     } else {
-        look
+        base
     }
 }
-fn header(t: &Theme, _: &Look<CodeBlockState>) -> Style {
-    let p = t.ext::<Tokens>();
+
+/// The header line: the title and the actions spread apart, in the code font.
+fn header(_theme: &Theme, _look: &Look<CodeBlockState>, _base: Style) -> Style {
     style()
         .justify_content(Justify::SpaceBetween)
-        .padding_x(p.spacing.s4)
-        .padding_y(p.spacing.s2)
-        .gap(p.spacing.s2)
-        .font_family(p.typography.family_code)
-        .font_size(12)
-        .color(p.colors.text_secondary)
+        .padding_x(s::SPACE_S4)
+        .padding_y(s::SPACE_S2)
+        .gap(s::SPACE_S2)
+        .font_family(t::FAMILY_CODE)
+        .font_size(t::SIZE_SM)
+        .color(c::TEXT_SECONDARY)
 }
-fn source(t: &Theme, s: &Look<CodeBlockState>) -> Style {
-    let p = t.ext::<Tokens>();
-    let size = s
-        .variant::<CodeAppearance>()
-        .map(|a| a.size.get())
-        .or_else(|| s.variant::<CodeBlockSize>().copied())
-        .unwrap_or_default();
+
+/// The type of the source text at the size variant: the code font at its small or medium size.
+fn source_text(look: &Look<CodeBlockState>) -> Style {
+    let size = look.variant::<CodeBlockSize>().unwrap_or_default();
     style()
-        .font_family(p.typography.family_code)
-        .font_size(if size == CodeBlockSize::Sm { 12 } else { 14 })
-        .color(p.colors.text_primary)
+        .font_family(t::FAMILY_CODE)
+        .font_size(if size == CodeBlockSize::Sm {
+            t::SIZE_SM
+        } else {
+            t::SIZE_MD
+        })
 }
-fn gutter(t: &Theme, s: &Look<CodeBlockState>) -> Style {
-    source(t, s).color(t.ext::<Tokens>().colors.text_secondary)
+
+/// The source text in the primary text color.
+fn source(_theme: &Theme, look: &Look<CodeBlockState>, _base: Style) -> Style {
+    source_text(look).color(c::TEXT_PRIMARY)
+}
+
+/// The line numbers: the source type in the secondary text color.
+fn gutter(_theme: &Theme, look: &Look<CodeBlockState>, _base: Style) -> Style {
+    source_text(look).color(c::TEXT_SECONDARY)
+}
+
+/// Install the kit's recipes of the code group.
+pub(crate) fn install(theme: Theme) -> Theme {
+    theme.with(
+        CodeBlockTheme::default()
+            .root(root)
+            .header(header)
+            .code(source)
+            .gutter(gutter),
+    )
 }
