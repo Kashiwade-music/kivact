@@ -659,3 +659,9 @@ C19 のほかの点は、Orchestrator の判断どおり：shorthand の展開�
 - S18：`misplaced` の数えは `Resolve` の既存の counter で、`Resolve::paint_len` を足した（件数は同じ）。採る。
 - S18：clippy の `too_many_lines`（`bind_style` が 82 行）は `write_props` に分けた（0.4 の「意味のある helper に分ける」）。採る。
 - S18：`ForcedStates` の再公開を消し、`kivact_types::StateSet` にした（ST-09 の style 側）。`pressed` の wire 名は変えていない。採る。
+
+## Orchestrator の判断（W6b・S19、2026-11-21）
+
+- **S19 の STOP（`crates/kivact-engine/src/model/focus/navigation.rs:change_focus`）**：許可した。`report_states(n)` が `self.focus.focused = new;` より前に呼ばれ、フォーカスの state が core に届かなかった（E2E の `state_styles::focus_applies_a_text_property` と `focus_draws_its_paint_callback` が落ちた）。0.5 節の「所有ファイルの外の 1〜3 ファイル」の行に当たる：この file は W6b のどの lane も所有しない（W4・W5a・W7b の E の所有）。報告の loop を代入の後へ移す 1 file の順序修正だけ。採る。
+- **S19 の border の doc（`sheet/shorthands.rs`、「a width lays out again while the state applies, as CSS does」）**：採る。付属書 S19 の module doc の文（「border widths … are compiled into the node's style while the host reports the state, so they lay out again like CSS」）と一致する。設計者の 2026-11-21 の S17 (b) の答えの「border() の doc は S19 後の姿」は、この文を指すと読んだ。
+- S19 の module doc と hover の doc の `pressed` は、S20 で `active` に直す（付属書 S20 の所有）。採る。
