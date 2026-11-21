@@ -1485,3 +1485,27 @@ lane K5 の K33e（commit `94d1ed25`）の報告による。設計者の答え�
 - **lightbox の zoom が開き直しで残る**：残さない（旧は `show` のたびに `Fit` に戻した）。view の signal は、開いている間の surface の中で作る（開くたびに新しい `Fit` の signal。「surface を開くたびに作る」の形）。`LightboxHandle::view()` の道は、今どおり handle の state の `Open { view }` が事実。lane K5 の fix で行う。
 - **TopNavMegaMenu の drawer**：drawer の形でも、caller の modifier は trigger に付ける（`node_mut()` は二つの形で同じ trigger の node）。wrapper には付けない。非 drawer の trigger の見た目は、旧の row の見た目と同じであることを K43 の catalog の確認で見る（違えば返す）。lane K5 の fix で行う。
 - **fix1 の worktree と branch**：merge 済みなので消してよい（`git worktree remove`。submodule の都合で要るなら、clean と merge 済みを確かめてから `--force`）。
+
+## 設計者の回答（W10 の K41・K34・K38、2026-11-22）
+
+- **(1) soft の tabs の `TabsVariant { Tabs, Navigation }`**：(c) にする。
+  - 旧の pattern は見た目に効かず、role と roving の振る舞いだけを切り替えていた。tab で頁を移る navigation は、意味が tablist ではなく link の列（`aria-current`）。中核では `navigation_menu`（`NavigationMenuLink` の current）の役目で、別の部品にするのが正しい（Radix の Tabs と NavigationMenu の分け方と同じ）。
+  - soft は `TabsVariant` を作らない。旧の Navigation の pattern は消す。中核の tabs は変えない。
+  - G の移行の文書に 1 行（W11b）：「soft の `tab_list` の Navigation の pattern は無くなった。頁の移動は `kivact::ui::navigation_menu` の link を使う。」
+  - K41 は `6376c231` のまま完了としてよい（付属書 K の K41 の TabsVariant の手順は、この答えで置き換える）。
+- **(2) basic の code_block と Rust の tokenizer**：
+  - 中核の部分は lane P の commit にする（K1 の所有の外なので）。
+  - 形は行ごとではなく source 全体から作る：`pub fn rust_tokens(source: &str) -> Vec<Vec<(Range<usize>, SyntaxKind)>>`。返すのは行ごとの token の列で、range はその行の中の byte の範囲。複数行の block comment と文字列は、状態を行をまたいで持ち、各行の部分に同じ `SyntaxKind` を付ける。
+  - doc：「The Rust tokens of each line of `source`, read as one text: a block comment or a string that spans lines keeps its kind on every line. Give a line's tokens to [`syntax_ranges`].」
+  - 置き場は `crates/kivact-ui/src/code_block/` の新しい file `rust.rs`。basic の `rust.rs` の字句の規則をそのまま移し、`CodeTone` の分類は `SyntaxKind` に写す。試験は旧の basic の tokenizer の試験を移す。
+  - basic は `rust_source`・`CodeLine`・`CodeSpan`・`CodeTone` を消す。basic の code_block は、中核の code_block と `rust_tokens`・`syntax_ranges` を使う（一つの item に公開の path は一つ）。
+  - 順序：lane P の commit → 統合 → K1 の lane に取り込み、K34 の手順 4 を終える。K35 の catalog-shell の色付けも `rust_tokens` を使う。
+  - **sidebar の group_label の色**：旧の式（`sidebar_foreground.with_alpha(0.7)`）を写したことを採る（見た目を変えない）。
+- **(3) creative の tool window の drag の clamp**：期待値は変えない（tool window は window の外へ出ないのが基点の挙動。利用者に見える振る舞い）。
+  - 原因の候補：tool window を `use_popup(..).surface(Placement::Center, ..)` に替えた（W9 の (B3) の答え）ので、mover が clamp に使う原点が、旧の dialog の道と違う（-235.5 は anchor 基準の座標に見える）。
+  - 直す所は creative の側（tool window の位置の計算・`window_mover` の clamp の基準を、popup の Center の配置の原点に合わせる）。中核の popup の配置の規則は変えない。
+  - 中核を変えないと直らないと分かったら、その理由（中核のどの関数が何を返すか）を返す（STOP）。lane K3 の fix で行う。
+  - 確認 3 点：
+    - `pub mod color`：その item が crate の root にも再公開されていなければ採る（一つの item に公開の path は一つ）。root にもあるなら、module は非公開に戻し、catalog は root の path を使う。
+    - range の label を caller の `.name` にした：採る（C6 と同じ）。
+    - picker の search の名前を placeholder にした：旧と同じなら採る。
