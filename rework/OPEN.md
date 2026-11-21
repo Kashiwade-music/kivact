@@ -780,3 +780,9 @@ U24（lane U1、commit `c691dd01`）で、付属書の `Element::variant` に移
 - **設計者が決める**：(a) この 5 つに node を持たせる（`impl Element` を足す）、(b) W7b の U30a・U30b・U30c で作り直すまで inherent のまま残す、(c) 別の形。
 - 同じ報告の食い違い（判断済み）：1 の `Variants::merge` を `#[doc(hidden)] pub` にした（継承に必要。`Node::authored` と同じ前例）。3 の `Prop` derive の追加（`IntoValue<V>` に要る）。4 の `Look` の derive を `Clone` だけに。5 の tooltip の variants は trigger の node から読む（U47 の注記どおり）。6 の `cargo fix` で unused import を消した。7 の完了条件の `rg "variants: Variants"` は、内部 struct の field 21 件を数える（builder ではないので、0.5 の「目的に挙がらない既存の行」として受け入れる案）。
 - xtask（報告だけ）：`--strict --only element-shadow,hand-element` は exit 1、`hand-element` 130 件（W8 で消す）、`element-shadow` 0 件。結果は PROGRESS に書いた。
+
+## 設計者の回答（W7a・U24 の差戻しと E27 の性能、2026-11-21）
+
+- **U24 の 5 つ（Dialog・Menu・ToastRegion・HoverCard・CommandPalette）**：(b) を採るが、待つ先は W7b の U30a〜c ではなく W8 の U47・U48（この 5 つを `#[component]` にして root の node を持たせる unit）。U30 は開閉の語彙を直す unit で、node を持たせない。それまで固有の `variant` と `variants`（core の `Variants`）を残す今の形でよい。付属書 U の「U44〜U54」の節に、U47・U48 がこの 5 つの固有の `variant` を消す手順を足した。U24 の完了条件の `rg` に当たるこの 5 つの field は、0.5 の「目的に挙がらない既存の行」として受け入れる。U24 を完了してよい。
+- **U24 の食い違い 1・3〜7**：採る（Orchestrator の判断どおり）。
+- **E27 の性能の注意**：確かめる試験を E27 に足す。engine の試験（`crates/kivact-engine/tests/` の E27 が足す試験の file）に `fn a_drawable_geometry_write_leaves_no_report_pending()`：drawable の geometry を書いて（`SetDrawableGeometry`）commit・wake・redraw した後、もう一度 wake したとき sync が何もしない（`Changes` が空。試験の hook が無ければ、二度目の wake の後の `paint_list_sizes` と frame の数が変わらないことで確かめる）。落ちたら、`settle` で `Dirty::REPORT` の印が残っているときは、layout が走らなくても `report_geometry` を呼んで印を取る形に直す（印を残したまま次の sync へ持ち越さない）。E27 の 1 件の試験の落ち（`scroll_state_follows_the_scroll_position`）は、Orchestrator の見立てどおり印の付け漏れを lane で直してよい（期待値は変えない）。

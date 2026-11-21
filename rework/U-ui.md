@@ -7454,6 +7454,8 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 
 各 unit は、2.3 節の表の自分の行の部品を、U40 と規則 C1〜C7 のとおりに書き換える。表の「特別な扱い」の列はその部品だけの手順である。
 
+**U24 の残り（2026-11-21 の設計者の回答）**：`Dialog`（U47）・`HoverCard`（U47）・`Menu`（U48）・`CommandPalette`（U48）・`ToastRegion`（U48）は W7a の時点で node を持たず、U24 の後も固有の `pub fn variant` と field `variants: Variants` を残している。この 5 つを `#[component]` にする unit は、root の node を `Element` にし（C1〜C7 のとおり）、固有の `variant` と `variants` の field を消して、variant を `caller` の `Node::authored` から読む（tooltip の U47 の注記と同じ形）。呼出し元の `.variant(..)` は変わらない（`Element::variant` に解決される）。
+
 | unit | wave / lane / 前提 | 所有（`crates/kivact-ui/src/` 以下。各部品の `<name>.rs` と `<name>/` の全部） | 部品 |
 |---|---|---|---|
 | U44 | W8 / U1 / U40 | `toggle`、`toggle_button`、`toggle_group`、`button_group`（U40 の `member_style` の追加を除く）、`toolbar` | checkbox、switch、toggle_button、toggle_group、button_group、button_group_separator、button_group_text、toolbar |
