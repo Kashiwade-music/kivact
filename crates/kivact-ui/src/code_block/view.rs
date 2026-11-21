@@ -38,9 +38,11 @@ pub struct CodeBlock {
     expanded: Option<Signal<bool>>,
     highlight: Option<Highlighter>,
 }
+/// The line-styling function a [`Highlighter`] holds.
+type HighlightRun = std::rc::Rc<dyn Fn(TextEditing, Value<Vec<u32>>, Value<bool>) -> TextEditing>;
 /// A line highlighter for [`CodeBlock::highlight`], built by [`highlighter`].
 pub struct Highlighter {
-    run: std::rc::Rc<dyn Fn(TextEditing, Value<Vec<u32>>, Value<bool>) -> TextEditing>,
+    run: HighlightRun,
 }
 /// Display `code` with native selection and a copy button.
 /// `line_numbers(true)` enables a reactive gutter; `.highlight(highlighter(content, f))` uses
