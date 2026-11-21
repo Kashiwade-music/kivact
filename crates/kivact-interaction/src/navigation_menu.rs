@@ -89,19 +89,28 @@ fn publish(old: NavMachineState, next: NavMachineState) -> Step<NavMachineState,
         step
     }
 }
+/// Cancel only the timer of the pending command that the transition replaces.
 fn cancel_timers(
     step: Step<NavMachineState, Event, Effect>,
+    pending: NavTimer,
 ) -> Step<NavMachineState, Event, Effect> {
-    step.cancel(Event::HoverDue(0)).cancel(Event::LeaveDue(0))
+    match pending {
+        NavTimer::Idle => step,
+        NavTimer::Opening(key) => step.cancel(Event::HoverDue(key)),
+        NavTimer::Leaving(key) => step.cancel(Event::LeaveDue(key)),
+    }
 }
 fn activate(state: NavMachineState, open: NavOpen) -> Step<NavMachineState, Event, Effect> {
-    cancel_timers(publish(
-        state,
-        NavMachineState {
-            open,
-            pending: NavTimer::Idle,
-        },
-    ))
+    cancel_timers(
+        publish(
+            state,
+            NavMachineState {
+                open,
+                pending: NavTimer::Idle,
+            },
+        ),
+        state.pending,
+    )
 }
 fn enter(state: NavMachineState, key: usize) -> Step<NavMachineState, Event, Effect> {
     activate(
@@ -127,11 +136,11 @@ fn leave(state: NavMachineState, key: usize) -> Step<NavMachineState, Event, Eff
             if matches!(next.open, NavOpen::Hover(_)) {
                 next.open = NavOpen::Closed;
             }
-            publish(state, next).cancel(Event::HoverDue(0))
+            publish(state, next).cancel(Event::HoverDue(key))
         }
         NavTimer::Leaving(at) if at == key => {
             next.pending = NavTimer::Idle;
-            publish(state, next).cancel(Event::LeaveDue(0))
+            publish(state, next).cancel(Event::LeaveDue(key))
         }
         _ => publish(state, next),
     }
@@ -147,13 +156,16 @@ fn schedule_open(
     if state.pending == NavTimer::Opening(key) {
         return Step::stay();
     }
-    cancel_timers(publish(
-        state,
-        NavMachineState {
-            open: state.open,
-            pending: NavTimer::Opening(key),
-        },
-    ))
+    cancel_timers(
+        publish(
+            state,
+            NavMachineState {
+                open: state.open,
+                pending: NavTimer::Opening(key),
+            },
+        ),
+        state.pending,
+    )
     .after(delay, Event::HoverDue(key))
 }
 fn schedule_leave(
@@ -170,13 +182,16 @@ fn schedule_leave(
     if matches!(state.pending, NavTimer::Opening(_)) {
         return leave(state, key);
     }
-    cancel_timers(publish(
-        state,
-        NavMachineState {
-            open: state.open,
-            pending: NavTimer::Leaving(key),
-        },
-    ))
+    cancel_timers(
+        publish(
+            state,
+            NavMachineState {
+                open: state.open,
+                pending: NavTimer::Leaving(key),
+            },
+        ),
+        state.pending,
+    )
     .after(delay, Event::LeaveDue(key))
 }
 fn remove_panel(state: NavMachineState, key: usize) -> Step<NavMachineState, Event, Effect> {
@@ -187,11 +202,11 @@ fn remove_panel(state: NavMachineState, key: usize) -> Step<NavMachineState, Eve
     match state.pending {
         NavTimer::Opening(at) if at == key => {
             next.pending = NavTimer::Idle;
-            publish(state, next).cancel(Event::HoverDue(0))
+            publish(state, next).cancel(Event::HoverDue(key))
         }
         NavTimer::Leaving(at) if at == key => {
             next.pending = NavTimer::Idle;
-            publish(state, next).cancel(Event::LeaveDue(0))
+            publish(state, next).cancel(Event::LeaveDue(key))
         }
         _ => publish(state, next),
     }
