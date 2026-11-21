@@ -113,17 +113,24 @@ impl Model {
     ) -> arvane_protocol::SemanticsTree {
         let Enumerated { metadata, order } = enumerated;
         let modal_changed = metadata.modal != self.a11y.metadata.modal;
+        // What a node inherits from its tree ancestors reaches the nodes below
+        // it through the node tree's children, so a fragment (not published)
+        // passes it on to its own children. Parents are visited before their
+        // children.
         let mut inherited = BTreeSet::new();
-        for &id in order {
-            let parent_dirty = metadata
-                .parents
-                .get(&id)
-                .and_then(|p| *p)
-                .is_some_and(|p| inherited.contains(&p));
-            if modal_changed || parent_dirty || subtree_roots.contains(&id) {
+        let mut stack = vec![(root, false)];
+        while let Some((id, from_above)) = stack.pop() {
+            let inherits = modal_changed || from_above || subtree_roots.contains(&id);
+            if inherits {
                 inherited.insert(id);
                 dirty.insert(id);
             }
+            stack.extend(
+                self.tree()
+                    .logical_children(id)
+                    .into_iter()
+                    .map(|child| (child, inherits)),
+            );
         }
         self.expand_overlay_dirt(order, &inherited, &mut dirty);
         self.expand_relation_dirt(metadata, &mut dirty);
