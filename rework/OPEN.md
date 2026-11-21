@@ -808,3 +808,14 @@ E27（W7b・E1）：`198ec9e5`（REPORT の印を settle で取る。試験 `a_d
   3. `mod tests` に `fn a_core_module_name_is_not_reserved()`：kit の source `pub fn theme() {} pub struct Button;` と、surface の `exports` に `kivact::ui::theme`（`modules` にも入れる）と `kivact::ui::Button` を入れたとき、error が 1 件（`Button` だけ）。
   4. 確認：xtask の package の `cargo test`（`name_collision` と `public_surface`）、`cargo xtask check --no-write --only local` が通る。それから W7a の tier b の xtask を走らせ直す。
 - W7a の tier b の他（fmt・clippy・test 1324 件）は成功として採る。xtask が通れば W7a を完了してよい。
+
+## 差戻し（W7b・U30a、2026-11-21）
+
+U30a（lane U1、commit `fbad507e`、`wt/rw-W7b-U1`）は、`kivact-ui` が compile しない状態で commit されている。U1 lane はここで止める（U30c・U30b・U31・U33 は U30a の後）。
+
+- **原因**：付属書 U30a は `DialogState.kind` が `DialogKind` だと書くが、実物は `DialogMode` のまま（U23 の残り）。U30a は `DialogMode::Popover` を消したので、popover の状態を `DialogState` で表せない。`crates/kivact-ui/src/dialog/view.rs:137`（`Shape::state` の Popover の腕）に印（コンパイルエラー）を置いて止めた。
+- **直すのに要る所**：`crates/kivact-ui/src/dialog/look.rs`（`DialogState.kind` の型）と、`crates/kivact-ui/src/dialog/drawer_swipe.rs:125` の 1 行。後者は U2 lane（U32、commit `459b6715`）の所有で、0.5 の「他の lane の所有の外 1〜3 file」の行には当たらない（同じ wave の他の lane の所有）。
+- **設計者が決める**：(a) `drawer_swipe.rs:125` を U1 の lane で 1 行直す（U2 の file。merge の衝突に注意）、(b) U2 の lane で先に直す（U32 の追補）、(c) `DialogMode::Popover` を残す（U30a の付属書の変更）、(d) 別の形。
+- U32 の報告の食い違い（判断済み）：U32 は付属書の `toast.rs`・`empty_state.rs` を実際の `toast/view.rs`・`empty_state/view.rs` に当てた（同じ module の中）。試験の import は付属書と実物が違い、`kivact::motion::{Easing, Transition}` を足した。
+
+U34・U35（W7b の U3）は完了、U32（U2）は完了、U36（U4）は ui の試験を確認中、E27・E28（W7b の E1）と A15（W7b の A1）は完了。
