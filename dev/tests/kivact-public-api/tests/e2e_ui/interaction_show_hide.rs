@@ -304,3 +304,44 @@ fn popup_surface_mounts_the_content_at_its_trigger() {
     assert!(screen.get_by_role(Role::Button, "Options").is_focused());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_surface_opens_with_the_given_align_and_offset() {
+    use kivact::interaction::use_popup;
+    use kivact::view::{OverlayAlign, Placement};
+    let (screen, _open) = mount(|| {
+        let popup = use_popup(signal(false));
+        (
+            popup.is_open(),
+            column((
+                node()
+                    .part(popup.trigger())
+                    .name("Options")
+                    .child(text("Options"))
+                    .test_id("trigger"),
+                popup.surface(
+                    Placement::Below.align(OverlayAlign::Start).offset(8.0),
+                    || column((button("Inside"),)).test_id("surface"),
+                ),
+            )),
+        )
+    });
+    screen.get_by_role(Role::Button, "Options").click();
+    let anchor = screen
+        .get_by_test_id("trigger")
+        .rect()
+        .expect("trigger layout");
+    let surface = screen
+        .get_by_test_id("surface")
+        .rect()
+        .expect("surface layout");
+    assert!(
+        (surface.x - anchor.x).abs() < 0.5,
+        "start edges line up: {surface:?} {anchor:?}"
+    );
+    assert!(
+        (surface.y - (anchor.y + anchor.height + 8.0)).abs() < 0.5,
+        "top edge is 8px below the anchor: {surface:?} {anchor:?}"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
