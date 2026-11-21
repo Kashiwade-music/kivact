@@ -798,3 +798,13 @@ W7a の 4 lane を統合 branch に merge した（HEAD `fd0acf24`）。tier b�
 - W7b は kit に依らないので、この答えを待たずに進める。W7b の lane は統合の HEAD から作る。
 
 E27（W7b・E1）：`198ec9e5`（REPORT の印を settle で取る。試験 `a_drawable_geometry_write_leaves_no_report_pending` は通る）。計測で、修正前は 19 回の settle のうち 9 回で印が残り、修正後は 0 回。採る（設計者の決め）。
+
+## 設計者の回答（W7a・tier b の name-collision、2026-11-21）
+
+- (c) を採る。ただし「`kivact::ui::*` を予約名から外す」のではなく、**core の module の名前を予約名にしない**形にする。検査の目的は「kit を `kivact::prelude` と並べて glob で import しても名前が曖昧にならない」ことで、module は型の名前空間、kit の `pub fn theme` は値の名前空間にあるので、Rust では曖昧にならない。付属書 K は W9 の後も kit に `pub use theme::theme;` を残すので、(a) では直らない。(b) の `kivact::ui::theme` の改名は要らない。
+- 直し（Orchestrator が統合 branch で、Haiku high の subagent に任せてよい。所有：`dev/xtask/src/public_surface.rs`、`dev/xtask/src/name_collision.rs`）：
+  1. `public_surface.rs` の `pub(crate) struct Surface` に `pub(crate) modules: BTreeSet<String>`（doc：「The public paths that name a module.」）を足し、`build_for` の `if modules.contains(&target) {` の中で `surface.modules.insert(path.clone());` を足す。
+  2. `name_collision.rs` の `reserved` を作る loop で、`surface.modules.contains(path)` の path は飛ばす。module の doc に 1 文足す：「A core module's name is not reserved: a module is in the type namespace and does not make a kit's function or value of the same name ambiguous.」
+  3. `mod tests` に `fn a_core_module_name_is_not_reserved()`：kit の source `pub fn theme() {} pub struct Button;` と、surface の `exports` に `kivact::ui::theme`（`modules` にも入れる）と `kivact::ui::Button` を入れたとき、error が 1 件（`Button` だけ）。
+  4. 確認：xtask の package の `cargo test`（`name_collision` と `public_surface`）、`cargo xtask check --no-write --only local` が通る。それから W7a の tier b の xtask を走らせ直す。
+- W7a の tier b の他（fmt・clippy・test 1324 件）は成功として採る。xtask が通れば W7a を完了してよい。
