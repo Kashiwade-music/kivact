@@ -1485,3 +1485,94 @@ lane K5 の K33e（commit `94d1ed25`）の報告による。設計者の答え�
 - **lightbox の zoom が開き直しで残る**：残さない（旧は `show` のたびに `Fit` に戻した）。view の signal は、開いている間の surface の中で作る（開くたびに新しい `Fit` の signal。「surface を開くたびに作る」の形）。`LightboxHandle::view()` の道は、今どおり handle の state の `Open { view }` が事実。lane K5 の fix で行う。
 - **TopNavMegaMenu の drawer**：drawer の形でも、caller の modifier は trigger に付ける（`node_mut()` は二つの形で同じ trigger の node）。wrapper には付けない。非 drawer の trigger の見た目は、旧の row の見た目と同じであることを K43 の catalog の確認で見る（違えば返す）。lane K5 の fix で行う。
 - **fix1 の worktree と branch**：merge 済みなので消してよい（`git worktree remove`。submodule の都合で要るなら、clean と merge 済みを確かめてから `--force`）。
+
+## 設計者の回答（W10 の K41・K34・K38、2026-11-22）
+
+- **(1) soft の tabs の `TabsVariant { Tabs, Navigation }`**：(c) にする。
+  - 旧の pattern は見た目に効かず、role と roving の振る舞いだけを切り替えていた。tab で頁を移る navigation は、意味が tablist ではなく link の列（`aria-current`）。中核では `navigation_menu`（`NavigationMenuLink` の current）の役目で、別の部品にするのが正しい（Radix の Tabs と NavigationMenu の分け方と同じ）。
+  - soft は `TabsVariant` を作らない。旧の Navigation の pattern は消す。中核の tabs は変えない。
+  - G の移行の文書に 1 行（W11b）：「soft の `tab_list` の Navigation の pattern は無くなった。頁の移動は `kivact::ui::navigation_menu` の link を使う。」
+  - K41 は `6376c231` のまま完了としてよい（付属書 K の K41 の TabsVariant の手順は、この答えで置き換える）。
+- **(2) basic の code_block と Rust の tokenizer**：
+  - 中核の部分は lane P の commit にする（K1 の所有の外なので）。
+  - 形は行ごとではなく source 全体から作る：`pub fn rust_tokens(source: &str) -> Vec<Vec<(Range<usize>, SyntaxKind)>>`。返すのは行ごとの token の列で、range はその行の中の byte の範囲。複数行の block comment と文字列は、状態を行をまたいで持ち、各行の部分に同じ `SyntaxKind` を付ける。
+  - doc：「The Rust tokens of each line of `source`, read as one text: a block comment or a string that spans lines keeps its kind on every line. Give a line's tokens to [`syntax_ranges`].」
+  - 置き場は `crates/kivact-ui/src/code_block/` の新しい file `rust.rs`。basic の `rust.rs` の字句の規則をそのまま移し、`CodeTone` の分類は `SyntaxKind` に写す。試験は旧の basic の tokenizer の試験を移す。
+  - basic は `rust_source`・`CodeLine`・`CodeSpan`・`CodeTone` を消す。basic の code_block は、中核の code_block と `rust_tokens`・`syntax_ranges` を使う（一つの item に公開の path は一つ）。
+  - 順序：lane P の commit → 統合 → K1 の lane に取り込み、K34 の手順 4 を終える。K35 の catalog-shell の色付けも `rust_tokens` を使う。
+  - **sidebar の group_label の色**：旧の式（`sidebar_foreground.with_alpha(0.7)`）を写したことを採る（見た目を変えない）。
+- **(3) creative の tool window の drag の clamp**：期待値は変えない（tool window は window の外へ出ないのが基点の挙動。利用者に見える振る舞い）。
+  - 原因の候補：tool window を `use_popup(..).surface(Placement::Center, ..)` に替えた（W9 の (B3) の答え）ので、mover が clamp に使う原点が、旧の dialog の道と違う（-235.5 は anchor 基準の座標に見える）。
+  - 直す所は creative の側（tool window の位置の計算・`window_mover` の clamp の基準を、popup の Center の配置の原点に合わせる）。中核の popup の配置の規則は変えない。
+  - 中核を変えないと直らないと分かったら、その理由（中核のどの関数が何を返すか）を返す（STOP）。lane K3 の fix で行う。
+  - 確認 3 点：
+    - `pub mod color`：その item が crate の root にも再公開されていなければ採る（一つの item に公開の path は一つ）。root にもあるなら、module は非公開に戻し、catalog は root の path を使う。
+    - range の label を caller の `.name` にした：採る（C6 と同じ）。
+    - picker の search の名前を placeholder にした：旧と同じなら採る。
+
+## 設計者の回答（W10 の K42・K37・K40・K38 と P の fix、2026-11-22）
+
+### (A) soft の K42（side navigation → 中核の sidebar）
+1. **app_shell の `sidebar_provider` の `open` と `page`**：
+   - `AppShell` に任意の setter `sidebar_open(open: Signal<bool>)` を足す。無ければ `AppShell` の中で `signal(true)` を一つ作る。signal は一つだけで、同期させない。
+   - `page`（main の領域）は `sidebar_provider` の 3 つ目の引数に渡す。`row((sidebar, main))` は `sidebar_provider(open, sidebar().content(factory()), main)` に置き換える。
+   - doc：「Give `sidebar_open` to read or set whether the sidebar is open; without it the shell keeps its own, open at first.」
+2. **nav_heading の rail の判定**：中核に、sidebar の状態を読む公開の道を足す（lane P の commit）。shadcn の `useSidebar` と同じ役目。
+   - `pub fn use_sidebar() -> Option<SidebarHandle>`（provider の外では `None`）。`#[derive(Clone, Copy)] pub struct SidebarHandle`。
+   - method：`pub fn icon_only(self) -> bool`（今の `SidebarCx::icon_only`。反応する文脈で読めば追跡される）、`pub fn state(self) -> SidebarState`、`pub fn toggle(self)`。中身は今の `SidebarCx` を包む。
+   - `kivact::ui` から公開する。doc は 1 行ずつ。試験は中核の sidebar の試験の file に 1 件：`fn use_sidebar_reads_the_providers_icon_only_state()`。
+   - nav_heading は `use_sidebar().is_some_and(|s| s.icon_only())` で判定する。
+3. **top_nav の drawer の行（`side_row_style`、`items::logical_row`）**：top_nav の private の関数として `top_nav.rs` に移す（使うのは top_nav だけになる）。中身と見た目は今のまま。
+4. **`SidebarTheme::menu_button_icon`**：付属書 K の SidebarTheme の part の表（4.4）には `menu_button_icon` がある。中核の K11 での漏れなので、中核に足す（lane P の commit）。
+   - `/// The icon of a menu row.` と `menu_button_icon(menu_button_icon_recipe): SidebarItemState = crate::look_common::part,`
+   - 中核の menu button の icon の箱に、この part を付ける。
+   - soft の recipe は、そこに旧の色（選択 `TEXT_PRIMARY`、非選択 `ICON_SECONDARY`、disabled `ICON_DISABLED`）を書く。
+- **K42 の完了条件の `rg`**：`allowed_impls` にある手書きの builder の file（`alert_dialog.rs`、`top_nav.rs` の `TopNavMegaMenu`）は除いて読む（`--glob '!alert_dialog.rs' --glob '!top_nav.rs'`）。`SideNavHeading` は残す部品なので `#[component]` にする。できない理由があれば返す。
+
+### (B) pop の K37（catalog）
+1. **`ProgressHue`**：K20 で消した型。catalog の `progress_ring` は、recipe の `progress_fill` が読む hue の variant（K20 が作った形）を `.variant(..)` で渡す。
+2. **`DialogMode::Popover`**：`kivact::ui::dialog(title, open).mode(DialogKind::Popover).content(..).attach(trigger)` にする（中核の `Dialog` の doc の例と同じ形）。
+3. **`IconInput`**：手書きの builder の例外にする（more_menu の trigger と同じ形）。`node_mut()` は中の `TextInput` の node を返すので、`field(..)` が付ける label・invalid・described_by と caller の modifier は、中の入力に付く。`allowed_impls` に `kivact_ui_pop::...::IconInput <file>`（実際の path）を足す。
+4. **overlays_demo の印 5 件**（`independent:`、confirm・form・sheet・command・popover_open）：採る。demo の別々の開閉で、互いに読まない。
+
+### (C) game の K40（catalog の layout 検査）
+- **11px の label・heading が 1〜2px はみ出す**：line-height 1 の文字の箱は、CSS でも字形がはみ出すことがある正しい形（clip はしない）。
+  - 検査（walker）が font の自然な高さを箱と比べているなら、それは誤り。layout が決めた行の箱（line-height × 行の数）と比べる形に、walker を直す（catalog-shell か kivact-test の、walker の所有の unit の fix）。
+  - layout の行の箱そのものが親の箱を越えているなら、それは kit の recipe の誤り。基点の見た目どおりになるよう recipe を直す。
+  - どちらかを確かめてから直す。期待値は変えない。
+- **native-layout**：demo の幅を変える（example の中だけ）。768px の page で、document の欄が 200px 以上になる初期幅にする（例：explorer 160、inspector 220）。
+- **data-display の 0px の箱**：原因を確かめる。
+  - demo の幅の不足なら、demo を直す。
+  - kit の recipe の flex の縮み（基点では縮まなかった）なら、recipe を基点の形に戻す。
+  - 中核の layout の挙動の違いなら返す。
+
+### (D) creative の K38
+- **(i) tool window の初期位置**：popup の anchor を trigger ではなく、viewport の大きさの `window_layer` の node にする。Center の配置が viewport の中央になり、feedback.rs の translate の前提と合う（clamp も中核の規則のまま）。creative で中核の clamp の規則を複製しない。viewport の大きさの node が無ければ返す。
+- **(ii-1) operator_search の SECTIONS**：catalog-shell（K14、dev の crate）に `pub fn open_page(slug: &str)` を足し、各 entry の押下でその page を開く。参照先は page の slug。catalog-shell の所有の fix。
+- **(ii-2) `Accent::colors`**：公開にする（`pub fn colors(self) -> ..`、doc 1 行）。theme の色を読む kit の API として自然。
+- **(ii-3) property_editor と viewport_3d の state**：0.2 の規則どおり、組み合わさる state の局所変数を一つの enum（取りうる組合せだけを variant にする）と一つの signal にする。
+  - variant は今の code の到達できる組合せから決める（どの event がどの組合せに移すかを表にして、commit message に書く）。
+  - 組合せが曖昧（code からは決まらない）なら、その表を返す。印は足さない。
+
+### (E) P の fix（`72a4c138`）の逸脱
+- `kivact::ui::rust_tokens` の path、`rust.rs` の中の `#[cfg(test)]` の試験、行の数が `split('\n')` と同じ、`Plain` を返さない：すべて採る。doc に 1 文足す：「It returns one entry per `\n`-separated line, so a trailing newline gives a last empty line.」
+
+## 設計者の回答（W10 の K42・K37・K40・K38 の続きと記録、2026-11-22）
+
+- **(1) soft の drawer の `disabled`**：中核の `sidebar_menu_button` を直す（lane P の commit）。`disabled` は C4a のとおり props にしない。部品の本体が `#[caller] caller: Caller` から caller の disabled を読み、中の button と `SidebarItemState::disabled` に渡す（root の list item の wrapper だけに付けない）。試験 1 件（中核の sidebar の試験の file）：`fn a_disabled_menu_button_takes_no_press()`。soft の drawer は `sidebar_menu_button(..).disabled(item.disabled)` と書く。
+  - app_shell の `side_nav` → `sidebar` の改名：採る（中核の名前とそろう）。W11b の移行の文書に 1 行足す。
+  - `SidebarState` が `kivact::ui::theme::SidebarState` の path にあるのは、他の recipe の状態の型（`ButtonState` など、`kivact::ui::theme`）と同じ置き場なので採る。
+- **(2) pop の tokens_demo の 12 列の grid**：demo の中だけを直す。二つの card を `span 12` ずつにして縦に積む（catalog の preview の幅に収める）。kit の recipe は変えない。他の確認（drawer・dialog の呼出しを戻した、palette は overlay の 4 件、tests の locator を英語の a11y の名前に、forms に scroll を 1 つ）は採る。
+- **(3a) layout の検査が字形の ink を箱と比べる**：中核の検査の誤り。`crates/kivact-engine/src/check/findings.rs` の判定を直す（lane P の commit）。文字の行は、layout が決めた行の箱（line-height × 行の数）で比べ、字形の ink は比べない。
+  - CSS でも、line-height 1 の字形が行の箱からはみ出すのは正しい形（clip しない）。
+  - 試験 2 件（engine の check の試験の file）：`fn glyphs_beyond_a_tight_line_box_are_not_reported()`、`fn a_line_box_beyond_its_parent_is_reported()`。
+  - catalog-shell の側は変えない。
+- **(3b) game の progress の SLA の文字**：demo の中だけを直す。`#[component]` の root に子を足さない。progress の ring と SLA の文字を一つの container（ring の上に文字を重ねる。`position(Relative)` の箱と、絶対位置で中央に置いた文字）に入れる。
+- **(4a) creative の property_editor**：subagent の案を採る。viewport の表示の flag（name・axes・wireframe）は、それを使う viewport の表示の部品（別の関数）が持つ。demo は tab の signal だけを持つ。互いに依らない値を一つの enum にしない。
+- **(4b) operator_search の mount**：catalog-shell に overlay の hook を足さない。creative の catalog の page のうち、operator search を見せる page の demo に、開く button と一緒に置く（demo として見せる）。`open_section`・`SECTIONS` は、その demo の中で `open_page` を使う。使わない `glass` などは消す。
+- **(4c) areas-docking の clip**：
+  - dock の tab の label は、kit の側で溢れない形にする。tab の label の箱に `min_width(0)` と、溢れた文字の省略（`text_overflow` の ellipsis。中核にある CSS の値）を付ける。基点で溢れていた分は、省略で見せる。
+  - walker は、省略の付いた文字と scroll の container の中身を「切れた」と報告しないこと。今それを報告するなら、(3a) と同じ lane P の commit で検査を直す。
+  - console は scroll の container（`overflow` を scroll）にする。console の中身は流れて見えなくなるのが正しい形。
+  - catalog-shell の moon.svg・sun.svg（Lucide、ISC）：採る。ただし catalog-shell の assets に Lucide の license の文書（basic の `assets/LICENSE-lucide.txt` と同じもの）を置く。
+- **(5) legacy の印の 180 文字**：その規則は作業書に無く、xtask も通るので、今の付属書の文字どおりでよい。

@@ -2,24 +2,24 @@
 //!
 //! The layout check: finds texts that are laid out wrong, from the shapes
 //! the engine already has (the lines of a shaped text, their advances and
-//! metrics, the ink of their glyphs) and the boxes of the layout. The test
-//! driver runs it on demand (`layout_findings`, with the ink, for
-//! `ArvaneTestHost::layout_findings`); in debug builds the engine runs it
-//! after a layout pass for the texts whose boxes changed, without the ink
-//! (`lint`). It walks the `Text` nodes and native editing leaves in tree
+//! metrics) and the boxes of the layout. The test driver runs it on demand
+//! (`layout_findings`, for `ArvaneTestHost::layout_findings`); in debug
+//! builds the engine runs it after a layout pass for the texts whose boxes
+//! changed (`lint`). It walks the `Text` nodes and native editing leaves in tree
 //! order and gives one `LayoutFinding` per defect (the node, the rule, how
 //! far, the text's rect and the box it broke).
 //!
 //! A text is shaped as it is painted (`shape_glyphs` at its box's width
 //! plus 1 px, colors aside), so the check shares the paint's shaping cache.
 //! A line's rect is its advance across (`TextLine::rect`: what an ellipsis
-//! left of it, the ellipsis included) and its ink down, the glyphs'
-//! outlines (`arvane_render::glyph_ink_bounds`), else from its capitals' top (its
-//! ascent without a cap height) to its descent. A multiline text input
-//! (whose lines scroll) is not checked.
+//! left of it, the ellipsis included) and its line box down (the line-height
+//! included, as the layout tiles it). The glyphs' outlines do not count: an
+//! accent or a descender past its line box is how a tight line-height is
+//! drawn, not a defect. A multiline text input (whose lines scroll) is not
+//! checked.
 //!
 //! The rules (`LayoutRule`), with the defaults of `LayoutCheck::default`:
-//! - **Overflow.** The text's rect (a line's advance across, its ink
+//! - **Overflow.** The text's rect (a line's advance across, its line box
 //!   down) reaches outside its own content box, or the padding box of its
 //!   visual parent, by more than the tolerance (`overflow_tolerance`,
 //!   1 px); the amount is the most of its four sides. A scrolling axis,
@@ -40,7 +40,7 @@
 //!   own `align_self` first) to the center, or a column that justifies to
 //!   the center with no other child in flow; a grid, and a child out of
 //!   flow, center nothing. A line with no cap height is not checked.
-//! - **ClippedWithoutEllipsis.** A clipping ancestor cuts the ink of a
+//! - **ClippedWithoutEllipsis.** A clipping ancestor cuts the line box of a
 //!   line that no ellipsis cut, across an axis it does not scroll (a text
 //!   input's horizontal one aside); the nearest such ancestor is
 //!   reported.

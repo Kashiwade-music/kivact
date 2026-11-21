@@ -265,3 +265,20 @@
 - **手順の注意**：subagent への指示は、cargo に必ず `--manifest-path <worktree>/Cargo.toml` を付ける（cwd は main repo のままで、付けないと統合の crate を check してしまう。前に出た 403 件の偽の error はこれが原因。lane では error 0 を確認済み）。cargo は cwd を main repo（`W:/w/kivact`）に保つ（別の cwd では stable の toolchain が選ばれ、`kivact-core` が E0658 で落ちる）。
 - **次にすること**：(1) 設計者の答え（K33e の `open`）を実施し、lane K5 を直す（fix commit）。(2) lane K5 に統合を取り込み、確認（tier a の全体。`cargo check --lib`・clippy（`-A dead_code` は W9 の間だけ）・xtask `--crate kivact-ui-soft`）。(3) 統合へ `merge --no-ff`。(4) W9 の wave の終わり：統合で `cargo xtask check --no-write --only local`、tier b（W9 の形：fmt・clippy・test に XK を足して除外）。失敗は error を出した crate の lane の fix へ。(5) `PROGRESS.md` に「W9 merged」を書いて push（origin の `refactor/kashiwade/fundamental-rework` だけ）。(6) W10：K34→K35→L7（basic）、K36→K37→L8（pop）、K38→L9（creative）、K39→K40→L10（game）、K41→K42→K43→L11（soft）、K44（W11a）、L12、G の文書、CP3。
 - **注意**：W10 の kit の lane は、この `PROGRESS` の「W9 の引継ぎ（2026-11-22）」の一覧とは別の unit を持つ。K41 は code_syntax の手順 2 を、K33 が変換した分は飛ばす（設計者の答え）。
+
+## W9 完了（統合 merge 済み・tier b 成功、2026-11-22）
+
+- 統合 HEAD：`8c894268`。merge の順：K1・K2・K3・K4・K6・P1〜P3（前の記録どおり）、K5（`0e72e54b`。fix の commit：`e7dde104` lightbox の zoom、`b5eb7664` TopNavMegaMenu の open と drawer の modifier、merge 元 `277c12c8`）、fix（`cad59887`：basic の tests/consumer.rs の dangling な `mod plot` を消す、absorb の doc の答え）、改行の直し（`8c894268`：fix の commit が 2 file を CRLF で入れていたため LF に戻す）。
+- K5 の判断の記録（設計者の答え）：
+  - TopNavMegaMenu の drawer は、caller の modifier を `side_nav_item(..).with_node(|node| node.absorb(root))` で trigger に付ける（設計者の答え (a)：absorb は `#[component]` の macro と同じ仕組みとして残す。core の absorb の doc を「Generated code and the hand-written builders listed in `[hand_element] allowed_impls` call it」に直した）。
+  - 残った rg の出力（`impl IntoView for AlertDialog`、`impl Element/IntoView for TopNavMegaMenu`）は、設計者の答えの手書きの builder の例外（`allowed_impls`）に当たるため正しい。
+  - `open` の group 内の usage 報告の試験（`an_open_given_inside_a_navigation_group_is_reported`）は `crates/kivact-ui-soft/tests/consumer/navigation.rs` に書いた（K43 で走らせる）。
+- fix1 の worktree と branch（`wt/rw-W9-fix1`）は merge 済みを確かめて消した。`wt/rw-W9-fix` も消した。
+- W9 の lane の worktree と branch（K1〜K6・xt・P1〜P3）は merge 済みを確かめて消した。
+- tier b（W9 の形：fmt・xtask `--only local`・clippy・test に XK と XD を除外）：
+  - `cargo fmt --all -- --check`：成功。
+  - `cargo xtask check --no-write --only local`：exit 0。pending の表示（kit の hand-element の残り、legacy の印 24 件）は W10・W11 で閉じる分（想定どおり）。
+  - clippy（`--workspace --all-targets --all-features`、XD・XK を除外）：exit 0。
+  - test（`window-lock.sh --timeout 5400`、XD・XK・gpu-interop-producer を除外）：exit 0。1450 件 passed、failed 0。
+  - rg の `xtask-allow(state-fields)`（W1c の後の確認）：0 件（rg が無いため grep で確かめた）。
+- 次：W10（K34→K35→L7、K36→K37→L8、K38→L9、K39→K40→L10、K41→K42→K43→L11）。lane の worktree（`W:/w/kv-wt/rw-W10-K1〜K5`、branch `wt/rw-W10-K1〜K5`）は統合 `8c894268` から作った。

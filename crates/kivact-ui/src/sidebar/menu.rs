@@ -6,7 +6,7 @@ use super::state::{SidebarCollapsible, SidebarCx, SidebarMenuButtonSize, current
 use crate::skeleton::skeleton;
 use crate::text_input;
 use kivact_core::custom::{Caller, PartState, part};
-use kivact_core::state::{Callback, Signal, Value, callback, memo};
+use kivact_core::state::{Callback, IntoValue, Signal, Value, callback, memo};
 use kivact_core::style::{pct, style};
 use kivact_core::view::{
     Element, IntoView, Node, NodeRef, Orientation, OverlayAlign, Placement, ReadingDirection, Role,
@@ -132,6 +132,9 @@ pub fn sidebar_menu_button(
 ) -> impl Element {
     let cx = current();
     let variants = caller.variants();
+    // The caller's `.disabled(..)` is read here: the button takes no press
+    // and the row's state says so (not only the list item around it).
+    let disabled = caller.disabled().unwrap_or_else(|| false.into_value());
     let rtl = use_direction() == ReadingDirection::Rtl;
     let has_action = action.is_some();
     let item = memo(move || SidebarItemState {
@@ -139,6 +142,7 @@ pub fn sidebar_menu_button(
         icon_only: cx.is_some_and(SidebarCx::icon_only),
         has_action,
         rtl,
+        disabled: disabled.get(),
         size: variants.get::<SidebarMenuButtonSize>().unwrap_or_default(),
         expanded: sub_open.map(|open| open.get()),
     });
@@ -150,7 +154,7 @@ pub fn sidebar_menu_button(
         }),
         None => press,
     };
-    let root = node().name(label).selected(active);
+    let root = node().name(label).selected(active).disabled(disabled);
     let root = match sub_open {
         Some(open) => root.expanded(open),
         None => root,
@@ -169,10 +173,18 @@ pub fn sidebar_menu_button(
         None => button,
     };
     let button = match active_icon {
-        None => button.child(icon),
+        None => button.child(icon.map(|icon| menu_button_icon(icon, item))),
         Some(active_icon) => button
-            .child(icon.map(|icon| node().hidden(move || item.get().active).child(icon)))
-            .child(node().hidden(move || !item.get().active).child(active_icon)),
+            .child(icon.map(|icon| {
+                node()
+                    .hidden(move || item.get().active)
+                    .child(menu_button_icon(icon, item))
+            }))
+            .child(
+                node()
+                    .hidden(move || !item.get().active)
+                    .child(menu_button_icon(active_icon, item)),
+            ),
     };
     let button = button
         .child(menu_button_label(label, item))
@@ -203,6 +215,7 @@ pub fn sidebar_menu_sub_button(
         icon_only: false,
         has_action: false,
         rtl: false,
+        disabled: false,
         size: SidebarMenuButtonSize::Default,
         expanded: None,
     });
@@ -254,6 +267,15 @@ pub fn sidebar_menu_skeleton(#[caller] caller: Caller) -> impl Element {
         row(skeleton().style(style().height(16).flex_grow(1).max_width(pct(width)))),
         |r: &SidebarTheme| r.skeleton_recipe(),
         part_state(current()),
+    )
+}
+
+/// The icon of a menu row, in its icon part.
+fn menu_button_icon(icon: View, item: Value<SidebarItemState>) -> Node {
+    themed(
+        node().child(icon),
+        |r: &SidebarTheme| r.menu_button_icon_recipe(),
+        item,
     )
 }
 
