@@ -376,10 +376,10 @@ fn standard_components_name_their_controls_through_messages() {
             column((
                 carousel(signal(0usize), (text("One"), text("Two"))),
                 combobox(
-                    "Fruit",
                     vec![ListItem::new("a", "Apple")],
                     signal(None::<&'static str>),
-                ),
+                )
+                .label("Fruit"),
             ))
         },
     );

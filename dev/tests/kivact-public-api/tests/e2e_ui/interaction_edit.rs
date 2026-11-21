@@ -185,11 +185,11 @@ fn every_value_writing_standard_component_reports_on_edit() {
                     checkbox("Check", checked).on_edit(observe(0)),
                     switch("Switch", switched).on_edit(observe(1)),
                     toggle_button("Toggle", pressed).on_edit(observe(2)),
-                    select("Choose", options.clone(), selected).on_edit(observe(3)),
+                    select(options.clone(), selected)
+                        .label("Choose")
+                        .on_edit(observe(3)),
                     tabs("Pages", options, tab).on_edit(observe(4)),
-                    tag_input("Tags", tags)
-                        .on_add(move |tag| tags.update(|tags| tags.push(tag)))
-                        .on_edit(observe(5)),
+                    tag_input(tags).label("Tags").on_edit(observe(5)),
                 )),
             )
         });
@@ -235,7 +235,8 @@ fn text_input_reports_edit_phases_from_the_native_editor() {
             value,
             column((
                 native,
-                kivact::ui::text_input("Standard", value)
+                kivact::ui::text_input(value)
+                    .label("Standard")
                     .on_edit(move |phase| ui_seen.borrow_mut()[1].push(phase)),
             )),
         )

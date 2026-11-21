@@ -512,7 +512,6 @@ fn a_generic_component_with_a_where_clause() {
 
 #[derive(Clone, Copy, Debug, PartialEq, Prop)]
 enum Look3 {
-    Plain,
     Ghost,
     Bold,
 }

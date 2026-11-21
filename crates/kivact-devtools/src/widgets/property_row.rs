@@ -28,7 +28,8 @@ pub(crate) fn property_row(
     on_commit: impl Fn(String) + 'static,
 ) -> View {
     let commit = callback(on_commit);
-    let editor = text_input(name.clone(), value)
+    let editor = text_input(value)
+        .label(name.clone())
         .style(style().flex_grow(1).min_width(0).font_size(12.0))
         .disabled(access != RowAccess::Editable)
         .on_submit(move || commit.call(value.get_untracked()));

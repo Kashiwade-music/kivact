@@ -56,12 +56,12 @@ pub struct DateRangeInput {
     max_span: Value<Option<u32>>,
 }
 /// Edit two dates; selecting an earlier end reorders the range in one transition.
-pub fn date_range_input(label: impl IntoText, range: Signal<Option<DateRange>>) -> DateRangeInput {
+pub fn date_range_input(range: Signal<Option<DateRange>>) -> DateRangeInput {
     DateRangeInput {
         picker_label: None,
         root: node(),
         variants: crate::variants::Variants::default(),
-        label: label.into_text_value(),
+        label: message("date.range_open", "Choose date range"),
         start_label: message("date.start", "Start date"),
         end_label: message("date.end", "End date"),
         value: range,
@@ -81,6 +81,14 @@ pub fn date_range_input(label: impl IntoText, range: Signal<Option<DateRange>>) 
     }
 }
 impl DateRangeInput {
+    /// The name of the picker dialog (default "Choose date range"). The two
+    /// endpoints are named by [`start_label`](Self::start_label) and
+    /// [`end_label`](Self::end_label).
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.label = label.into_text_value();
+        self
+    }
+
     /// Name the separate picker button independently of the text editor.
     pub fn picker_label(mut self, label: impl IntoText) -> Self {
         self.picker_label = Some(label.into_text_value());
@@ -361,13 +369,15 @@ impl DateRangeInput {
             self.week_start,
         );
         let variants = &self.variants;
-        let mut first = date_input(start_label, start)
+        let mut first = date_input(start)
+            .label(start_label)
             .format(format)
             .min(min)
             .max(max)
             .presentation(presentation)
             .with_variants(variants);
-        let mut last = date_input(end_label, end)
+        let mut last = date_input(end)
+            .label(end_label)
             .format(format)
             .min(min)
             .max(max)

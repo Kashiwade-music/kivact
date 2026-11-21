@@ -1,5 +1,6 @@
 //! Role: Time field and its wheel dialog.
 use super::machine::{Event, Snapshot, TimeDraft, TimeInputState};
+use crate::helpers::{is_named, report_unnamed};
 use crate::layer::with_recipe_style;
 use crate::time_input::look::TimeInputTheme;
 use crate::{DatePresentation, button, dialog, text_input};
@@ -7,34 +8,47 @@ use kivact_core::custom::PartState;
 use kivact_core::i18n::{TimeOfDay, TimeStyle, message, use_locale};
 use kivact_core::state::{IntoText, IntoValue, Signal, Value, binding, machine};
 use kivact_core::view::{Element, IntoView, Node, View, node, row};
+use std::panic::Location;
 // xtask-allow(state): record: the builder's props, each written only by its own setter; value is the caller's binding that the hour, minute and second fields write, and picker_label is the optional name of the picker button
 /// A wall-clock time field with hours and minutes, optionally seconds.
 pub struct TimeInput {
     root: Node,
     variants: crate::variants::Variants,
-    label: Value<String>,
+    label: Option<Value<String>>,
     picker_label: Option<Value<String>>,
     value: Signal<Option<TimeOfDay>>,
     seconds: Value<bool>,
     min: Value<Option<TimeOfDay>>,
     max: Value<Option<TimeOfDay>>,
     presentation: DatePresentation,
+    at: &'static Location<'static>,
 }
 /// Edit optional wall-clock time, independently of date and time zone.
-pub fn time_input(label: impl IntoText, value: Signal<Option<TimeOfDay>>) -> TimeInput {
+/// Name it with [`label`](TimeInput::label).
+#[track_caller]
+pub fn time_input(value: Signal<Option<TimeOfDay>>) -> TimeInput {
     TimeInput {
         root: node(),
         variants: crate::variants::Variants::default(),
-        label: label.into_text_value(),
+        label: None,
         picker_label: None,
         value,
         seconds: false.into_value(),
         min: None.into_value(),
         max: None.into_value(),
         presentation: DatePresentation::Adaptive,
+        at: Location::caller(),
     }
 }
 impl TimeInput {
+    /// The field's accessible name, and the title of the wheel dialog.
+    /// Inside a [`field`](crate::field) the field's label names it.
+    #[track_caller]
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.label = Some(label.into_text_value());
+        self
+    }
+
     /// Name the separate picker button independently of the text editor.
     pub fn picker_label(mut self, label: impl IntoText) -> Self {
         self.picker_label = Some(label.into_text_value());
@@ -80,7 +94,7 @@ impl Element for TimeInput {
 impl IntoView for TimeInput {
     fn into_view(self) -> View {
         let Self {
-            root,
+            mut root,
             variants,
             label,
             picker_label,
@@ -89,7 +103,11 @@ impl IntoView for TimeInput {
             min,
             max,
             presentation,
+            at,
         } = self;
+        let named = is_named(&mut root) || label.is_some();
+        report_unnamed(named, "time_input", at);
+        let label = label.unwrap_or_else(|| String::new().into_value());
         let locale = use_locale();
         let state = time_controller(value, seconds, min, max);
         let draft = time_text(state, value, seconds, locale);
@@ -109,7 +127,8 @@ impl IntoView for TimeInput {
                 })
             },
         );
-        let field = text_input(label, draft)
+        let field = text_input(draft)
+            .label(label)
             .node_ref(input_ref)
             .with_node(|n| n.expanded(open))
             .placeholder("HH:MM")

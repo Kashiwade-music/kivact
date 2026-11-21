@@ -132,7 +132,6 @@ pub(crate) fn view(session: Session) -> impl IntoView {
 /// The theme select.
 fn theme_select(session: Session) -> impl IntoView {
     select(
-        "Theme",
         theme_options(),
         binding(
             move || {
@@ -151,6 +150,7 @@ fn theme_select(session: Session) -> impl IntoView {
             },
         ),
     )
+    .label("Theme")
     .disabled(unavailable(session))
 }
 
@@ -177,7 +177,8 @@ fn motion_switch(session: Session) -> impl IntoView {
 
 /// The locale input.
 fn locale_input(session: Session, locale: Signal<String>) -> impl IntoView {
-    text_input("Locale", locale)
+    text_input(locale)
+        .label("Locale")
         .on_draft_commit(move |text| {
             let locale = text.trim();
             let locale = (!locale.is_empty()).then(|| locale.to_owned());
@@ -189,7 +190,6 @@ fn locale_input(session: Session, locale: Signal<String>) -> impl IntoView {
 /// The pseudo-locale select.
 fn pseudo_select(session: Session) -> impl IntoView {
     select(
-        "Pseudo-locale",
         pseudo_options(),
         binding(
             move || {
@@ -208,12 +208,14 @@ fn pseudo_select(session: Session) -> impl IntoView {
             },
         ),
     )
+    .label("Pseudo-locale")
     .disabled(unavailable(session))
 }
 
 /// The DPI-scale input; an empty text removes the emulated scale.
 fn scale_input(session: Session, scale: Signal<String>) -> impl IntoView {
-    text_input("DPI scale", scale)
+    text_input(scale)
+        .label("DPI scale")
         .on_draft_commit(move |draft| {
             let draft = draft.trim();
             if draft.is_empty() {

@@ -77,7 +77,6 @@ fn controls(
 ) -> impl IntoView {
     row((
         select(
-            "Window",
             move || {
                 session.windows.with(|windows| {
                     windows
@@ -94,7 +93,8 @@ fn controls(
                     }
                 },
             ),
-        ),
+        )
+        .label("Window"),
         text(move || frame_summary(&frames.get())),
         spacer(),
         button("Export as Perfetto").on_press(move || export_trace(session)),

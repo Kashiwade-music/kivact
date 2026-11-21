@@ -3,6 +3,7 @@
 use crate::text_input::look::TextAreaTheme;
 use crate::text_input::look::TextInputTheme;
 use kivact_core::style::use_theme;
+use std::panic::Location;
 
 use kivact_core::state::Signal;
 use kivact_core::state::{IntoText, IntoValue};
@@ -12,6 +13,7 @@ use kivact_core::view::{HandlerResult, IntoView, NodeRef, View};
 use kivact_interaction::{TextEditApi, use_text_area, use_text_edit};
 
 use crate::control_size::ControlSize;
+use crate::helpers::{is_named, report_unnamed};
 use crate::text_input::look::TextInputState;
 use crate::variants::{Variant, Variants};
 
@@ -26,13 +28,14 @@ pub struct TextInput {
     size: kivact_core::state::Value<ControlSize>,
     variants: Variants,
     multiline: bool,
+    at: &'static Location<'static>,
 }
 
-/// A text input named `label` (its accessible name; a later `.name(..)`
-/// replaces it) that edits `value`: the text shown is the binding's, and
+/// A text input that edits `value`: the text shown is the signal's, and
 /// each committed edit (never an IME composition in progress) is written
-/// to it. Changes are observed through the binding: to run more code on
-/// each edit, pass `binding(read, write)` with that code in `write`.
+/// to it. Changes are observed through the signal: to run more code on
+/// each edit, pass `binding(read, write)` with that code in `write`. Name
+/// it with [`label`](TextInput::label), or with [`field`](crate::field).
 ///
 /// The look is the theme's [`TextInputTheme::root`](crate::theme::TextInputTheme):
 /// a bordered, rounded field that draws a focus ring. Text is edited
@@ -44,26 +47,23 @@ pub struct TextInput {
 /// fn search() -> impl IntoView {
 ///     let query = signal(String::new());
 ///     column((
-///         text_input("Search", query).placeholder("Type to search"),
+///         text_input(query).label("Search").placeholder("Type to search"),
 ///         text(move || format!("Searching for {}", query.get())),
 ///     ))
 ///     .style(style().gap(8))
 /// }
 /// ```
 #[track_caller]
-pub fn text_input(label: impl IntoText, value: kivact_core::state::Signal<String>) -> TextInput {
-    create(label.into_text_value(), value, false)
+pub fn text_input(value: kivact_core::state::Signal<String>) -> TextInput {
+    create(value, false)
 }
 /// A controlled native multiline input with the theme's text-area recipe.
 #[track_caller]
-pub fn text_area(label: impl IntoText, value: kivact_core::state::Signal<String>) -> TextInput {
-    create(label.into_text_value(), value, true)
+pub fn text_area(value: kivact_core::state::Signal<String>) -> TextInput {
+    create(value, true)
 }
-fn create(
-    label: kivact_core::state::Value<String>,
-    value: Signal<String>,
-    multiline: bool,
-) -> TextInput {
+#[track_caller]
+fn create(value: Signal<String>, multiline: bool) -> TextInput {
     let size = crate::control_size::default_control_size().into_value();
     let editing = if multiline {
         use_text_area(value)
@@ -72,17 +72,26 @@ fn create(
     };
     let part = editing.control();
     let variants = Variants::default();
-    let field = node().name(label).part(part);
+    let field = node().part(part);
     TextInput {
         field,
         editing,
         size,
         variants,
         multiline,
+        at: Location::caller(),
     }
 }
 
 impl TextInput {
+    /// The control's accessible name, read by assistive technology and not
+    /// drawn. Inside a [`field`](crate::field) the field's label names it.
+    #[track_caller]
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.field = self.field.name(label);
+        self
+    }
+
     /// Soft-wrap a text area's visual rows at its content width.
     pub fn wrap(mut self, on: impl IntoValue<bool>) -> Self {
         self.editing = self.editing.wrap(on);
@@ -201,7 +210,7 @@ impl TextInput {
     ///     let draft = signal(name.get_untracked());
     ///     let editing = signal(true);
     ///     show(editing, move || {
-    ///         text_input("Name", draft)
+    ///         text_input(draft).label("Name")
     ///             .on_draft_commit(move |text| name.set(text))
     ///             .on_edit(move |phase| {
     ///                 if phase != EditPhase::Begin {
@@ -258,6 +267,12 @@ impl Element for TextInput {
 
 impl IntoView for TextInput {
     fn into_view(mut self) -> View {
+        let what = if self.multiline {
+            "text_area"
+        } else {
+            "text_input"
+        };
+        report_unnamed(is_named(&mut self.field), what, self.at);
         let invalid = self
             .field
             .accessible_invalid()

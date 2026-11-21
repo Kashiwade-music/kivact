@@ -351,7 +351,7 @@ fn focus_ring_and_caret_follow_3d() {
         canvas_of(
             node()
                 .style(at(100, 100, 240, 56).rotate_y(60))
-                .child(kivact::ui::text_input("Name", signal(String::new()))),
+                .child(kivact::ui::text_input(signal(String::new())).label("Name")),
         )
     });
     let field = screen.get_by_role(Role::TextBox, "Name");

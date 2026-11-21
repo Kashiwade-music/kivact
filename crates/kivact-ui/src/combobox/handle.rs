@@ -8,7 +8,8 @@ use kivact_interaction::{ComboboxMode, IntoSelection, ListItem};
 use std::rc::Rc;
 use std::time::Duration;
 
-/// A combobox named `label` over keyed `items`, editing the choices in `selected` (one or many).
+/// A combobox over keyed `items`, editing the choices in `selected` (one or many).
+/// Name it with [`label`](Combobox::label), or with [`field`](crate::field).
 ///
 /// Typing filters labels, arrows highlight enabled rows, and Enter chooses.
 /// Focus remains in the editor. Multiple selection toggles keys and Backspace
@@ -20,18 +21,17 @@ use std::time::Duration;
 /// use kivact::prelude::*;
 /// fn colors() -> impl IntoView {
 ///     let chosen = signal(Vec::<&str>::new());
-///     kivact::ui::combobox("Colors", vec![ListItem::new("red", "Red")], chosen).chips()
+///     kivact::ui::combobox(vec![ListItem::new("red", "Red")], chosen).label("Colors").chips()
 /// }
 /// ```
 #[track_caller]
 pub fn combobox<K: ItemKey>(
-    label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
     selected: impl IntoSelection<K>,
 ) -> Combobox<K> {
     Combobox {
         root: node(),
-        label: label.into_text_value(),
+        label: None,
         options: items.into_value(),
         selection: selected.into_selection(),
         query: None,
@@ -49,9 +49,18 @@ pub fn combobox<K: ItemKey>(
         exclude_selected: false,
         presentation: SelectPresentation::Popover,
         variants: Variants::default(),
+        at: std::panic::Location::caller(),
     }
 }
 impl<K: ItemKey> Combobox<K> {
+    /// The editor's accessible name. A name given to the root with `.name`
+    /// wins over it.
+    #[track_caller]
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.label = Some(label.into_text_value());
+        self
+    }
+
     /// Observe each committed selection change.
     pub fn on_edit<R: kivact_core::view::HandlerResult>(
         mut self,

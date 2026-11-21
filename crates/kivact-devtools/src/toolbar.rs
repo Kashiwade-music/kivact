@@ -10,7 +10,6 @@ pub(crate) fn view(session: Session) -> impl IntoView {
     row((
         text(move || session.target.with(|target| target.app.name.clone())),
         select(
-            "Window",
             move || {
                 session.windows.with(|windows| {
                     windows
@@ -27,7 +26,8 @@ pub(crate) fn view(session: Session) -> impl IntoView {
                     }
                 },
             ),
-        ),
+        )
+        .label("Window"),
         button("Pick").on_press(move || {
             session.send::<p::StartPick>(
                 p::StartPickParams {

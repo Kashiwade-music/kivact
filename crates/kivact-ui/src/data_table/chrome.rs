@@ -33,7 +33,8 @@ pub(super) fn toolbar<R: kivact_core::state::PropValue, K: kivact_core::state::I
         }
     });
     let label = message("data_table.filter", "Filter…");
-    let field = text_input(label, edited)
+    let field = text_input(edited)
+        .label(label)
         .placeholder(label)
         .style(style().max_width(384).width(pct(100)));
     Some(
@@ -118,7 +119,6 @@ fn size_picker(size: Signal<usize>, sizes: Value<Vec<usize>>) -> View {
         })
     };
     select(
-        message("data_table.page_size", "Rows per page"),
         options,
         binding(
             move || Some(size.get().max(1)),
@@ -129,6 +129,7 @@ fn size_picker(size: Signal<usize>, sizes: Value<Vec<usize>>) -> View {
             },
         ),
     )
+    .label(message("data_table.page_size", "Rows per page"))
     .into_view()
 }
 

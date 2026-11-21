@@ -170,7 +170,8 @@ fn editor(
                     value.set(key.flatten().map(FilterValue::Choice))
                 },
             );
-            select(label, options, choice)
+            select(options, choice)
+                .label(label)
                 .keep_trigger_focus(true)
                 .size(size)
                 .style(style().width(pct(100)))
@@ -199,28 +200,26 @@ fn editor(
             column(controls).style(style().gap(4)).into_view()
         }
         FilterField::Tokens => {
-            let tags = memo(move || {
+            let tokens = memo(move || {
                 value.with(|value| match value {
                     Some(FilterValue::Tokens(tags)) => tags.clone(),
                     _ => Vec::new(),
                 })
             });
-            tag_input(label, tags)
-                .on_add(move |tag| {
-                    let mut next = tags.get_untracked();
-                    if !next.contains(&tag) {
-                        next.push(tag);
-                        value.set(Some(FilterValue::Tokens(next)));
+            // A token is added once: a repeated one is dropped on the write.
+            let tags = binding(
+                move || tokens.get(),
+                move |next: Vec<String>| {
+                    let mut unique: Vec<String> = Vec::with_capacity(next.len());
+                    for tag in next {
+                        if !unique.contains(&tag) {
+                            unique.push(tag);
+                        }
                     }
-                })
-                .on_remove(move |index| {
-                    let mut next = tags.get_untracked();
-                    if index < next.len() {
-                        next.remove(index);
-                        value.set((!next.is_empty()).then_some(FilterValue::Tokens(next)));
-                    }
-                })
-                .into_view()
+                    value.set((!unique.is_empty()).then_some(FilterValue::Tokens(unique)));
+                },
+            );
+            tag_input(tags).label(label).into_view()
         }
         field => return text_editor(field, label, value, size),
     };
@@ -311,7 +310,8 @@ fn text_editor(
         move || draft.get().text().to_owned(),
         move |text| draft.send(FilterEvent::Typed(text)),
     );
-    let view = text_input(label, draft)
+    let view = text_input(draft)
+        .label(label)
         .size(size)
         .placeholder(hint)
         .invalid(move || !valid.get())

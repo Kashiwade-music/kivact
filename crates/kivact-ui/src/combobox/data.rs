@@ -16,7 +16,7 @@ pub(super) type Search<K> =
 /// Single choices show their label; multiple choices can be displayed as chips.
 pub struct Combobox<K: ItemKey> {
     pub(super) root: Node,
-    pub(super) label: Value<String>,
+    pub(super) label: Option<Value<String>>,
     pub(super) options: Value<Vec<ListItem<K>>>,
     pub(super) selection: Selection<K>,
     pub(super) query: Option<Signal<String>>,
@@ -34,4 +34,5 @@ pub struct Combobox<K: ItemKey> {
     pub(super) exclude_selected: bool,
     pub(super) presentation: SelectPresentation,
     pub(super) variants: Variants,
+    pub(super) at: &'static std::panic::Location<'static>,
 }

@@ -1,6 +1,7 @@
 //! Role: The select builder, its trigger, option rows and popup surface.
 
 use crate::control_size::ControlSize;
+use crate::helpers::{is_named, report_unnamed};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::select::look::SelectTheme;
 use crate::select::look::SelectTriggerState;
@@ -12,6 +13,7 @@ use kivact_core::view::{
     for_each, node, overlay, scroll, show, text,
 };
 use kivact_interaction::{ListItem, ListItemState, PopupState};
+use std::panic::Location;
 use std::rc::Rc;
 
 /// What an option row shows, from its item and its state.
@@ -37,7 +39,7 @@ pub struct Select<K: kivact_core::state::ItemKey> {
 }
 
 struct SelectOptions<K: kivact_core::state::ItemKey> {
-    label: Value<String>,
+    label: Option<Value<String>>,
     options: Value<Vec<ListItem<K>>>,
     selected: Signal<Option<K>>,
     on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
@@ -50,6 +52,7 @@ struct SelectOptions<K: kivact_core::state::ItemKey> {
     arrow_open: Value<bool>,
     keep_trigger_focus: Value<bool>,
     touch_sheet: Option<TouchSheet>,
+    at: &'static Location<'static>,
 }
 
 /// A themed keyed select whose value, focus and keys belong to interaction.
@@ -58,18 +61,18 @@ struct SelectOptions<K: kivact_core::state::ItemKey> {
 /// `chevron-down` icon; an option row shows its icon, its label over its
 /// description and, while it is the selected one, the theme's `check` icon.
 /// [`option`](Select::item) replaces what an option row shows, the check
-/// included.
+/// included. Name it with [`label`](Select::label), or with
+/// [`field`](crate::field).
+#[track_caller]
 pub fn select<K: kivact_core::state::ItemKey>(
-    label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
     selected: kivact_core::state::Signal<Option<K>>,
 ) -> Select<K> {
-    let label = label.into_text_value();
     let variants = Variants::default();
     Select {
-        root: node().name(label),
+        root: node(),
         settings: SelectOptions {
-            label,
+            label: None,
             options: items.into_value(),
             selected,
             placeholder: None,
@@ -82,11 +85,21 @@ pub fn select<K: kivact_core::state::ItemKey>(
             arrow_open: false.into_value(),
             keep_trigger_focus: true.into_value(),
             touch_sheet: None,
+            at: Location::caller(),
         },
     }
 }
 
 impl<K: kivact_core::state::ItemKey> Select<K> {
+    /// The trigger's accessible name (a name given to the root with `.name`
+    /// wins over it). Inside a [`field`](crate::field) the field's label
+    /// names it.
+    #[track_caller]
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.settings.label = Some(label.into_text_value());
+        self
+    }
+
     /// Observe the beginning and commit of each value edit.
     pub fn on_edit<R: kivact_core::view::HandlerResult>(
         mut self,
@@ -189,7 +202,7 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
     /// fn fruit() -> impl IntoView {
     ///     let chosen = signal(None::<&str>);
     ///     let options = vec![ListItem::new("apple", "Apple"), ListItem::new("pear", "Pear")];
-    ///     select("Fruit", options, chosen).item(|item, state| {
+    ///     select(options, chosen).label("Fruit").item(|item, state| {
     ///         text(move || {
     ///             let mark = if state.get().selected { "* " } else { "" };
     ///             format!("{mark}{}", item.get().label())
@@ -241,12 +254,14 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
             &self.settings.variants,
             move || trigger_state.get(),
         );
+        let named = is_named(&mut self.root) || self.settings.label.is_some();
+        report_unnamed(named, "select", self.settings.at);
+        if let (Some(label), None) = (self.settings.label, self.root.accessible_name()) {
+            self.root = self.root.name(label);
+        }
         let name = self.root.accessible_name();
-        let fallback = self.settings.label;
         let label = kivact_core::state::memo(move || {
-            name.as_ref()
-                .map(|read| read.get())
-                .unwrap_or_else(|| fallback.get())
+            name.as_ref().map(|read| read.get()).unwrap_or_default()
         });
         let variants = self.settings.variants;
         let indicator = with_recipe_style(

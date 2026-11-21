@@ -177,15 +177,16 @@ impl ChatComposer {
         let history = crate::chat_composer::history::use_history(input_ref);
         let send = self.submission(disabled, history);
         let keep_history = self.history;
-        let input = crate::text_area(
-            kivact_core::i18n::message("chat_composer.input", "Message input"),
-            self.value,
-        )
-        .placeholder(self.placeholder)
-        .disabled(disabled)
-        .node_ref(input_ref)
-        .forward_keys(vec![Key::Enter])
-        .on_key(move |event| composer_key(event, input_ref, send, history, keep_history));
+        let input = crate::text_area(self.value)
+            .label(kivact_core::i18n::message(
+                "chat_composer.input",
+                "Message input",
+            ))
+            .placeholder(self.placeholder)
+            .disabled(disabled)
+            .node_ref(input_ref)
+            .forward_keys(vec![Key::Enter])
+            .on_key(move |event| composer_key(event, input_ref, send, history, keep_history));
         (
             with_recipe_style(
                 input,

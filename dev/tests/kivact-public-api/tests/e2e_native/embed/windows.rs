@@ -62,7 +62,8 @@ fn chord_keeps_drag_and_alt_f4_reaches_host() {
         .window_size(320, 100)
         .embed(parent.parent().scale(1.0), move || {
             let value = signal(0.5);
-            slider("Gain", value)
+            slider(value)
+                .label("Gain")
                 .range(0.0..=1.0)
                 .on_edit(move |phase| output.lock().unwrap().push(phase))
                 .style(style().width(300).height(40))

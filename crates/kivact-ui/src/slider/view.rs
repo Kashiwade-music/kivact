@@ -1,6 +1,7 @@
 //! Role: The slider builder, its track geometry and thumb rendering.
 
 use crate::control_size::ControlSize;
+use crate::helpers::{is_named, report_unnamed};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::slider::look::AxisState;
 use crate::slider::look::SliderTheme;
@@ -18,6 +19,7 @@ use kivact_core::view::{
 };
 use kivact_interaction::SliderTouchMotion;
 use kivact_interaction::{RangeThumb, ScalarApi, ScalarRange, use_range_scalar, use_scalar};
+use std::panic::Location;
 
 /// The values a slider edits: one, or the two ends of a range.
 enum Values {
@@ -29,8 +31,9 @@ enum Values {
 /// A themed slider, created by [`slider`] or [`range_slider`].
 pub struct Slider {
     root: Node,
-    label: Value<String>,
+    label: Option<Value<String>>,
     values: Values,
+    at: &'static Location<'static>,
     range: Option<Value<ScalarRange>>,
     step: Option<f64>,
     orientation: Orientation,
@@ -39,8 +42,9 @@ pub struct Slider {
     variants: Variants,
 }
 
-/// A themed slider named `label` (its thumb's accessible name) that edits
-/// `value` in 0 to 100 unless [`range`](Slider::range) says otherwise.
+/// A themed slider that edits `value` in 0 to 100 unless
+/// [`range`](Slider::range) says otherwise. Its thumb's accessible name is
+/// [`label`](Slider::label).
 ///
 /// The thumb is a `Role::Slider` with the value and its bounds. The arrow
 /// keys step it (ArrowLeft increases in a right-to-left subtree, where the
@@ -56,37 +60,37 @@ pub struct Slider {
 ///
 /// fn volume() -> impl IntoView {
 ///     let volume = signal(40.0);
-///     slider("Volume", volume)
+///     slider(volume).label("Volume")
 /// }
 /// ```
 #[track_caller]
-pub fn slider(label: impl IntoText, value: kivact_core::state::Signal<f64>) -> Slider {
-    create(label.into_text_value(), Values::One(value))
+pub fn slider(value: kivact_core::state::Signal<f64>) -> Slider {
+    create(Values::One(value))
 }
 
-/// A themed slider named `label` with two thumbs editing the ends of a
-/// range, `low` and `high`, which never cross.
+/// A themed slider with two thumbs editing the ends of a range, `low` and
+/// `high`, which never cross.
 ///
-/// The group is named `label` and the thumbs are named by the messages
+/// The group is named by [`label`](Slider::label) and the thumbs are named by the messages
 /// `slider.minimum` and `slider.maximum` ("Minimum", "Maximum"). Keys,
 /// pointer, assistive technology and edits are as [`slider`]'s; a press on
 /// the track moves the thumb nearest to it, and a drag of the filled range
 /// between the thumbs moves both ([`RangeScalarApi::body`](kivact_interaction::RangeScalarApi::body)).
 #[track_caller]
 pub fn range_slider(
-    label: impl IntoText,
     low: kivact_core::state::Signal<f64>,
     high: kivact_core::state::Signal<f64>,
 ) -> Slider {
-    create(label.into_text_value(), Values::Two(low, high))
+    create(Values::Two(low, high))
 }
 
-fn create(label: Value<String>, values: Values) -> Slider {
+#[track_caller]
+fn create(values: Values) -> Slider {
     // The variants are shared: `.variant` adds to them before mount.
     let variants = Variants::default();
     Slider {
         root: node().style(style().position(Position::Relative)),
-        label,
+        label: None,
         values,
         range: None,
         step: None,
@@ -94,6 +98,7 @@ fn create(label: Value<String>, values: Values) -> Slider {
         size: crate::control_size::default_control_size().into_value(),
         on_edit: None,
         variants,
+        at: Location::caller(),
     }
 }
 
@@ -110,6 +115,16 @@ impl Slider {
     /// reads, or a reactive `.style(..)` of the caller's.
     pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
+        self
+    }
+}
+
+impl Slider {
+    /// The accessible name: for a slider, the thumb's name; for a range, the
+    /// group's. Inside a [`field`](crate::field) the field's label names it.
+    #[track_caller]
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.label = Some(label.into_text_value());
         self
     }
 }
@@ -296,7 +311,9 @@ impl IntoView for Slider {
             size,
             on_edit,
             variants,
+            at,
         } = self;
+        let thumb_name = thumb_label(&mut root, &values, label, at);
         // `.disabled(..)` on the slider ends a drag in progress and ignores
         // input and assistive technology; the track is disabled with its
         // thumbs, so its recipe's disabled state style dims the whole slider.
@@ -314,7 +331,15 @@ impl IntoView for Slider {
             thumbs,
             fractions,
             body,
-        } = slider_parts(values, label, range, orientation, disabled, on_edit, touch);
+        } = slider_parts(
+            values,
+            thumb_name,
+            range,
+            orientation,
+            disabled,
+            on_edit,
+            touch,
+        );
         let track_state = track_part.state();
         let track_ref = node_ref();
         let geometry = std::rc::Rc::new(Geometry {
@@ -356,13 +381,7 @@ impl IntoView for Slider {
         .node_ref(track_ref)
         .part(track_part);
         let root = if fractions.from.is_some() {
-            let mut root = root.role(Role::Group);
-            // The caller's name of the group wins.
-            if root.accessible_name().is_none() {
-                root.name(label)
-            } else {
-                root
-            }
+            range_group(root, label)
         } else {
             root
         };
@@ -403,6 +422,30 @@ struct SliderParts {
     body: Option<kivact_core::custom::Part<PartState>>,
 }
 /// Configure one scalar or a paired range without duplicating interaction state.
+/// The name of a single slider's thumb. A single slider that nothing names
+/// (no `label`, no `field(..)`) is reported; a range's thumbs are named by
+/// messages.
+fn thumb_label(
+    root: &mut Node,
+    values: &Values,
+    label: Option<Value<String>>,
+    at: &'static Location<'static>,
+) -> Value<String> {
+    if matches!(values, Values::One(_)) {
+        report_unnamed(is_named(root) || label.is_some(), "slider", at);
+    }
+    label.unwrap_or_else(|| String::new().into_value())
+}
+
+/// A range's group takes the label as its name, unless the caller named it.
+fn range_group(root: Node, label: Option<Value<String>>) -> Node {
+    let mut root = root.role(Role::Group);
+    match (root.accessible_name().is_none(), label) {
+        (true, Some(label)) => root.name(label),
+        _ => root,
+    }
+}
+
 fn slider_parts(
     values: Values,
     label: Value<String>,

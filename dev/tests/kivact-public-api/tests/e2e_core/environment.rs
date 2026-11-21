@@ -172,7 +172,7 @@ fn advanced_semantics_publish_roles_and_reactive_states() {
                 .with_node(move |node| {
                     node.current_item(move || current.get().then_some(CurrentItem::Page))
                 }),
-            field("Email", text_input("Email", signal(String::new()))).required(true),
+            field("Email", text_input(signal(String::new())).label("Email")).required(true),
             button("Working").busy(current),
             button("Clear").on_press(move || current.set(false)),
         ))

@@ -24,11 +24,11 @@ pub struct DateTimeInput {
     seconds: Value<bool>,
 }
 /// Edit an optional local date and time.
-pub fn date_time_input(label: impl IntoText, value: Signal<Option<DateTime>>) -> DateTimeInput {
+pub fn date_time_input(value: Signal<Option<DateTime>>) -> DateTimeInput {
     DateTimeInput {
         root: node(),
         variants: crate::variants::Variants::default(),
-        label: label.into_text_value(),
+        label: message("date_time.open", "Choose date and time"),
         picker_label: None,
         value,
         format: DateStyle::Iso.into_value(),
@@ -40,6 +40,14 @@ pub fn date_time_input(label: impl IntoText, value: Signal<Option<DateTime>>) ->
     }
 }
 impl DateTimeInput {
+    /// The name of the date and time group and of its picker (default
+    /// "Choose date and time"). The date and the time fields are named by
+    /// their own messages.
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.label = label.into_text_value();
+        self
+    }
+
     /// Name the separate picker button independently of the text editor.
     pub fn picker_label(mut self, label: impl IntoText) -> Self {
         self.picker_label = Some(label.into_text_value());
@@ -197,7 +205,8 @@ fn desktop_editors(
 ) -> Node {
     let DateTimeFields { date, time } = fields;
     let (format, seconds) = formats;
-    let mut date_field = date_input(message("date_time.date", "Date"), date)
+    let mut date_field = date_input(date)
+        .label(message("date_time.date", "Date"))
         .format(format)
         .min(move || min.get().map(|value| value.date))
         .max(move || max.get().map(|value| value.date))
@@ -206,7 +215,8 @@ fn desktop_editors(
     if let Some(day) = week_start {
         date_field = date_field.week_start(day);
     }
-    let time_field = time_input(message("date_time.time", "Time"), time)
+    let time_field = time_input(time)
+        .label(message("date_time.time", "Time"))
         .format(move || TimeStyle {
             seconds: seconds.get(),
         })

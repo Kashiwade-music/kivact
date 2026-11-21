@@ -115,7 +115,7 @@ fn input_group_scopes_control_sizes_and_preserves_adornments() {
             ui::input_group_with("Address", || {
                 (
                     ui::input_addon("https://"),
-                    ui::text_input("Host", signal(String::new())),
+                    ui::text_input(signal(String::new())).label("Host"),
                 )
             })
             .size(ControlSize::Large)
@@ -256,7 +256,7 @@ fn input_group_addons_focus_controls_without_stealing_nested_button_focus() {
                 "Search group",
                 (
                     ui::input_addon("Prefix"),
-                    ui::text_input("Search", signal(String::new())),
+                    ui::text_input(signal(String::new())).label("Search"),
                 ),
             )
             .start(text("Search icon").test_id("search-addon"))

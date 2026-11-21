@@ -46,7 +46,7 @@ pub struct Field<C> {
 ///         let email = email.get();
 ///         (!email.is_empty() && !email.contains('@')).then(|| "Enter an email address".to_owned())
 ///     });
-///     field("Email", text_input("Email", email))
+///     field("Email", text_input(email).label("Email"))
 ///         .hint("We never share it")
 ///         .error(error)
 /// }

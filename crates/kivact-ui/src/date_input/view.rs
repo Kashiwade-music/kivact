@@ -1,6 +1,7 @@
 //! Role: Build an editable date and its keyboard-accessible picker.
 use super::machine::{DateField, DateValidation, Event, OpenedBy, Picker, Snapshot, TypedDate};
 use crate::date_input::look::DateInputTheme;
+use crate::helpers::{is_named, report_unnamed};
 use crate::layer::with_recipe_style;
 use crate::{ButtonVariant, Calendar, button, calendar, dialog, text_input};
 use kivact_core::custom::PartState;
@@ -9,6 +10,7 @@ use kivact_core::i18n::{CalendarDate, DateStyle, Weekday, message, use_locale};
 use kivact_core::state::{IntoText, IntoValue, Signal, Value, binding, machine};
 use kivact_core::view::{Element, Handled, IntoView, Key, KeyEvent, Node, View, icon, node, row};
 use kivact_interaction::DialogMode;
+use std::panic::Location;
 use std::rc::Rc;
 /// The surface used for date and time picking.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -39,7 +41,7 @@ impl DatePresentation {
 pub struct DateInput {
     root: Node,
     variants: crate::variants::Variants,
-    label: Value<String>,
+    label: Option<Value<String>>,
     picker_label: Option<Value<String>>,
     value: Signal<Option<CalendarDate>>,
     format: Value<DateStyle>,
@@ -51,13 +53,16 @@ pub struct DateInput {
     week_start: Option<Value<Weekday>>,
     presentation: DatePresentation,
     configure: Option<Rc<dyn Fn(Calendar) -> Calendar>>,
+    at: &'static Location<'static>,
 }
 /// Edit an optional date. Enter commits valid text; Arrow Down opens the picker.
-pub fn date_input(label: impl IntoText, value: Signal<Option<CalendarDate>>) -> DateInput {
+/// Name it with [`label`](DateInput::label).
+#[track_caller]
+pub fn date_input(value: Signal<Option<CalendarDate>>) -> DateInput {
     DateInput {
         root: node(),
         variants: crate::variants::Variants::default(),
-        label: label.into_text_value(),
+        label: None,
         picker_label: None,
         value,
         format: DateStyle::Iso.into_value(),
@@ -69,9 +74,19 @@ pub fn date_input(label: impl IntoText, value: Signal<Option<CalendarDate>>) -> 
         week_start: None,
         presentation: DatePresentation::Adaptive,
         configure: None,
+        at: Location::caller(),
     }
 }
 impl DateInput {
+    /// The editor's accessible name (and the title of the picker when it is
+    /// attached as a trigger). Inside a [`field`](crate::field) the field's
+    /// label names it.
+    #[track_caller]
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.label = Some(label.into_text_value());
+        self
+    }
+
     /// Name the separate picker button independently of the text editor.
     pub fn picker_label(mut self, label: impl IntoText) -> Self {
         self.picker_label = Some(label.into_text_value());
@@ -171,7 +186,11 @@ impl DateInput {
             week_start,
             presentation,
             configure,
+            at,
         } = self;
+        let named = is_named(&mut root) || label.is_some();
+        report_unnamed(named, "date_input", at);
+        let label = label.unwrap_or_else(|| String::new().into_value());
         let external_invalid = root.accessible_invalid();
         let described_by = root.accessible_described_by();
         let locale = use_locale();
@@ -276,7 +295,7 @@ impl DateInput {
         };
         root.child(
             attach.view(
-                dialog(label, open)
+                dialog(label.unwrap_or_else(|| String::new().into_value()), open)
                     .with_variants(&variants)
                     .mode(presentation.mode())
                     .hide_title(true)
@@ -434,7 +453,8 @@ fn date_editor(
         external_invalid,
         described_by,
     } = inputs;
-    let mut field = text_input(label, draft)
+    let mut field = text_input(draft)
+        .label(label)
         .with_node(|node| node.described_by(error_ref))
         .placeholder(placeholder)
         .invalid(move || {

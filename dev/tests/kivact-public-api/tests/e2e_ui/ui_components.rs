@@ -16,8 +16,12 @@ fn roving_group_has_one_tab_stop_and_leaves_editing_arrows_to_the_caret() {
             (),
             column((
                 button("Before"),
-                row((button("First"), text_input("Edit", text), button("Last")))
-                    .roving_focus(Orientation::Horizontal),
+                row((
+                    button("First"),
+                    text_input(text).label("Edit"),
+                    button("Last"),
+                ))
+                .roving_focus(Orientation::Horizontal),
                 button("After"),
             )),
         )
@@ -76,7 +80,8 @@ fn select_keeps_reactive_options_placeholder_and_keyboard_selection() {
         let options = vec![ListItem::new(1, label), ListItem::new(2, "Beta")];
         (
             (selected, label),
-            ui::select("Original", options, selected)
+            ui::select(options, selected)
+                .label("Original")
                 .name("Choice")
                 .placeholder("Pick one"),
         )
@@ -158,7 +163,7 @@ fn dialog_preserves_fresh_content_dismissal_and_focus_restoration() {
                     .description("Preferences")
                     .content(move || {
                         mounts.update(|n| *n += 1);
-                        ui::text_input("Name", signal(String::new()))
+                        ui::text_input(signal(String::new())).label("Name")
                     }),
             )),
         )
@@ -211,7 +216,7 @@ fn tooltip_uses_shared_delay_and_native_text_area_remains_controlled() {
                     .content(|| text("Rich detail").style(style().font_weight(700)))
                     .placement(Placement::Below)
                     .attach(ui::button("Help")),
-                ui::text_area("Notes", value),
+                ui::text_area(value).label("Notes"),
             )),
         )
     });
@@ -235,7 +240,8 @@ fn a_soft_wrapping_text_area_grows_to_its_visual_row_limit() {
         let value = signal("alpha".to_owned());
         (
             value,
-            column((ui::text_area("Notes", value)
+            column((ui::text_area(value)
+                .label("Notes")
                 .wrap(true)
                 .rows(1..=3)
                 .style(style().width(104).font_size(16)),)),

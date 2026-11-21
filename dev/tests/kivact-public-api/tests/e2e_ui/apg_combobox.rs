@@ -66,10 +66,10 @@ fn standard_combobox_alt_arrows_preserve_the_choice_and_editor_focus() {
         (
             selected,
             kivact::ui::combobox(
-                "Fruit",
                 vec![ListItem::new("a", "Apple"), ListItem::new("b", "Banana")],
                 selected,
-            ),
+            )
+            .label("Fruit"),
         )
     });
     let input = screen.get_by_role(Role::ComboBox, "Fruit");
@@ -101,10 +101,10 @@ fn multiple_combobox_keeps_active_descendant_separate_from_chosen_options() {
         (
             selected,
             kivact::ui::combobox(
-                "Fruit",
                 vec![ListItem::new("a", "Apple"), ListItem::new("b", "Banana")],
                 selected,
             )
+            .label("Fruit")
             .chips(),
         )
     });

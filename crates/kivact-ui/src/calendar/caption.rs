@@ -79,8 +79,8 @@ pub(super) fn title(
                 },
             );
             row((
-                crate::select(message("calendar.month", "Month"), months, selected_month),
-                crate::select(message("calendar.year", "Year"), years, selected_year),
+                crate::select(months, selected_month).label(message("calendar.month", "Month")),
+                crate::select(years, selected_year).label(message("calendar.year", "Year")),
             ))
             .into_view()
         }

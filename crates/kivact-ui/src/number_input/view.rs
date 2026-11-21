@@ -3,6 +3,7 @@
 use crate::number_input::draft::{NumberEvent, NumberInputSnapshot, NumberText, format_value};
 use crate::number_input::look::NumberInputTheme;
 
+use crate::helpers::{is_named, report_unnamed};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::text_input::{TextInput, text_input};
 use crate::variants::{Variant, Variants};
@@ -16,19 +17,21 @@ use kivact_core::view::EditPhase;
 use kivact_core::view::{Element, Node, grid, icon};
 use kivact_core::view::{IntoView, NodeRef, View, node_ref};
 use kivact_interaction::{ScalarRange, use_scalar};
+use std::panic::Location;
 
 /// A number field with a decrease and an increase button, created by
 /// [`number_input`].
 pub struct NumberInput {
     root: Node,
-    label: Value<String>,
     value: Signal<f64>,
     range: Value<ScalarRange>,
     on_edit: Option<kivact_core::state::Callback<EditPhase>>,
     variants: Variants,
+    at: &'static Location<'static>,
 }
 
-/// A number field named `label` that edits `value` within `range`.
+/// A number field that edits `value` within `range`. Name it with
+/// [`label`](NumberInput::label), or with [`field`](crate::field).
 ///
 /// The text shown is the value; each text that parses to a number is written
 /// at once, clamped to the range and rounded to its step. The text the user
@@ -55,27 +58,34 @@ pub struct NumberInput {
 /// fn quantity() -> impl IntoView {
 ///     let value = signal(2.0);
 ///     let range = ScalarRange::new(0.0, 10.0).unwrap().with_step(1.0).unwrap();
-///     number_input("Quantity", value, range)
+///     number_input(value, range).label("Quantity")
 /// }
 /// ```
 #[track_caller]
 pub fn number_input(
-    label: impl IntoText,
     value: kivact_core::state::Signal<f64>,
     range: impl IntoValue<ScalarRange>,
 ) -> NumberInput {
     let root = grid(()).base_style(style().grid_template_columns((auto(), Track::fr(1), auto())));
     NumberInput {
         root,
-        label: label.into_text_value(),
         value,
         range: range.into_value(),
         on_edit: None,
         variants: Variants::default(),
+        at: Location::caller(),
     }
 }
 
 impl NumberInput {
+    /// The editor's accessible name (the root's name, as `.name` sets it).
+    /// Inside a [`field`](crate::field) the field's label names it.
+    #[track_caller]
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.root = self.root.name(label);
+        self
+    }
+
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
     /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
@@ -113,16 +123,16 @@ impl IntoView for NumberInput {
     fn into_view(self) -> View {
         let NumberInput {
             mut root,
-            label,
             value,
             range,
             on_edit,
             variants,
+            at,
         } = self;
         let disabled = root
             .accessible_disabled()
             .unwrap_or_else(|| false.into_value());
-        let label = root.accessible_name().unwrap_or(label);
+        let label = editor_name(&mut root, at);
         let invalid = root
             .accessible_invalid()
             .unwrap_or_else(|| false.into_value());
@@ -164,7 +174,8 @@ impl IntoView for NumberInput {
                 typed.send(NumberEvent::Typed(text));
             },
         );
-        let field = text_input(label, edit)
+        let field = text_input(edit)
+            .label(label)
             .disabled(disabled)
             .invalid(move || {
                 invalid.get() || text_invalid(&typed.get(), range.get(), &locale.get())
@@ -190,6 +201,14 @@ impl IntoView for NumberInput {
         .child((field, decrease, increase))
         .into_view()
     }
+}
+
+/// The editor's name: the root's name. Without one (and without a
+/// `field(..)`) the editor is named "" and the missing name is reported.
+fn editor_name(root: &mut Node, at: &'static Location<'static>) -> Value<String> {
+    report_unnamed(is_named(root), "number_input", at);
+    root.accessible_name()
+        .unwrap_or_else(|| String::new().into_value())
 }
 
 /// The editor with its recipe and the caller's accessibility references.

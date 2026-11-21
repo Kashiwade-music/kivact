@@ -125,7 +125,8 @@ fn a_slider_steps_by_keys_and_actions_and_a_canceled_drag_writes_the_start_back(
     let seen = log.clone();
     let (screen, value) = mount_with(options(), move || {
         let value = signal(40.0);
-        let view = slider("Volume", value)
+        let view = slider(value)
+            .label("Volume")
             .on_edit(logger(&seen))
             .test_id("volume")
             .style(style().width(220));
@@ -171,7 +172,8 @@ fn a_range_slider_names_its_thumbs_keeps_them_apart_and_cancels_both() {
     let seen = log.clone();
     let (screen, (low, high)) = mount_with(options(), move || {
         let (low, high) = (signal(20.0), signal(60.0));
-        let view = range_slider("Price", low, high)
+        let view = range_slider(low, high)
+            .label("Price")
             .on_edit(logger(&seen))
             .test_id("price")
             .style(style().width(220));

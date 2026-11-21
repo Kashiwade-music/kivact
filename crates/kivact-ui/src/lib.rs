@@ -119,7 +119,7 @@
 //!     let name = signal(String::new());
 //!     let agreed = signal(false);
 //!     column((
-//!         text_input("Name", name).placeholder("Your name"),
+//!         text_input(name).label("Name").placeholder("Your name"),
 //!         checkbox("I agree", agreed),
 //!         button("Create account")
 //!             .variant(ButtonVariant::Primary)

@@ -360,7 +360,6 @@ fn page_count(count: PageCount, page_size: Option<Signal<u32>>) -> Value<usize> 
 }
 fn size_selector(size: Signal<u32>, size_options: Value<Vec<u32>>, page: Signal<usize>) -> View {
     crate::select(
-        "Items per page",
         move || {
             size_options
                 .get()
@@ -379,6 +378,7 @@ fn size_selector(size: Signal<u32>, size_options: Value<Vec<u32>>, page: Signal<
             },
         ),
     )
+    .label("Items per page")
     .into_view()
 }
 

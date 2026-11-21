@@ -3,6 +3,7 @@ use super::data::Combobox;
 use super::labels::{KnownLabels, label};
 use super::notices::Notices;
 use crate::combobox::look::ComboboxTheme;
+use crate::helpers::{is_named, report_unnamed};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::{ButtonVariant, button, text_input};
 use kivact_core::custom::PartState;
@@ -285,7 +286,8 @@ fn editor_view<K: ItemKey>(
         },
     );
     let mut editor = with_recipe_style(
-        text_input(name, displayed)
+        text_input(displayed)
+            .label(name)
             .node_ref(input_ref)
             .disabled(disabled)
             .invalid(invalid)
@@ -454,7 +456,8 @@ fn sheet_surface<K: ItemKey>(
         .initial_focus(sheet_input)
         .content(move || {
             column((
-                text_input(sheet_search, query)
+                text_input(query)
+                    .label(sheet_search)
                     .node_ref(sheet_input)
                     .disabled(disabled)
                     .placeholder(placeholder)
@@ -486,7 +489,13 @@ struct Mounted<K: ItemKey> {
 /// Configure shared interaction and retain the labels required by its selection.
 fn prepare<K: ItemKey>(field: &mut Combobox<K>) -> Mounted<K> {
     let selection = field.selection;
-    let name = field.root.accessible_name().unwrap_or(field.label);
+    let named = is_named(&mut field.root) || field.label.is_some();
+    report_unnamed(named, "combobox", field.at);
+    let name = field
+        .root
+        .accessible_name()
+        .or(field.label)
+        .unwrap_or_else(|| String::new().into_value());
     let disabled = field
         .root
         .accessible_disabled()
