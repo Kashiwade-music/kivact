@@ -973,3 +973,15 @@ U43（lane `wt/rw-W8-U3`、作業ツリーに変更、commit なし）。設計�
 - HEAD の `row_drag.rs`・`rows.rs` の `drag_source` に戻しても、同じ試験が同じ失敗（`left: []`）。drag が始まらない（`on_start` が呼ばれない）。`TableFocus::None` で `Role::Cell` を押しても失敗する。
 - 守りを行の press に移せない：`crates/kivact-core/src/client/dispatch/pointer.rs` の `pointer()` は押しを最も近い pointer handler の祖先 1 つに渡す。`TableFocus::Cells` では、セルの part の handler（`crates/kivact-interaction/src/table/cells.rs` の `cell`、`list.select` を呼ぶ）が先に当たる。
 - **設計者が決める**：(a) チェック付きのセルの押しで選択を置き換えない守りを `table/cells.rs` に置く（所有の外）、(b) drag の出どころを行全体でなく drag の取手（handle）に限る。どちらでも、drag が始まらない原因（どの part が押しを取るか）を先に調べる。U3 lane は止める（U49〜U51 は後）。
+
+## 設計者の回答（W8・名前の規則と U43 の二度目、2026-11-21）
+
+- **(1) 名前の規則**：名前は今のとおり body の root に載る（マクロは変えない）。直すのは読む側：**外から受け取った element（trigger・control など）の、呼出し側が書いた値は `node_mut().authored()` で読む**（`authored()` は caller の segment を畳むので、`#[component]` の element でも呼出し側の `.name(..)` が見える）。`accessible_name()` などの `accessible_*()` は、その node に直に書かれた値だけを読むので、外から受け取った element には使わない。自分の body の中は C3 のとおり `Caller` から読む。
+  - 直す所：`menu/view.rs` の 184・240 行の `trigger.node_mut().accessible_name()` を `trigger.node_mut().authored().name()` に（menu は lane U2 の U48 の file。U2 lane で U47 の続きの前に直して commit する。U1 lane は直さない）。U44 の toggle・toggle_button・toggle_group・button_group・toolbar の中で、外から受け取った element の名前などを `accessible_*()` で読んでいる所があれば、U1 lane で同じく `authored()` にする。U48 以降の lane も同じ規則（combobox・select・slider・tag_input・number_input の `self.root.accessible_name()` は自分の root を読む手書きの builder の間はそのままでよく、`#[component]` にするときに `Caller` にする）。
+  - U1 lane の `menu_renders_nested_levels_and_custom_trigger_keeps_its_style` の失敗は、U2 lane の直しが merge されるまでの既知の失敗として記録し、U1 lane は U45・U46 へ進んでよい。W8 の merge は U2 を U1 より先に入れ、W8 の tier b でこの試験が通ることを確かめる。
+- **(2) U43**：先に原因を突き止める。DevTools の `handler_ran`（`devtools_hooks::handler_ran` が on_pointer を記録する）か一時的な log で、試験の press（Ada の GridCell の中心）を受ける node と、その handler が返す `Handled` を調べる。core の `client/dispatch/pointer.rs` の `pointer()` は、最も近い pointer handler の祖先一つにだけ渡し、`Handled::No` でもそれより上の handler には渡さない。そのため、セル（またはその子）に hover・press の状態を取る part の pointer handler があると、行の `drag_source` は押しを受けない。原因がこれなら、直しは core にする：
+  - `pointer()` で、handler が `Handled::No` を返したら、その node の親から上へ次の pointer handler を探して渡す（Enter・Leave は今のとおりその node だけ）。`Handled::Yes`・`PreventDefault` で止まる（Web の伝播と同じ。`keep_selection` が `Handled::Yes` で行の選択を止めるという今の文の意図もこの形を前提にしている）。この 1 file は U43 の所有の外だが、設計者の決まりとして許す。
+  - セルの選択の handler（`table/cells.rs` の `cell`）が down で `Handled::Yes` を返していれば、選択はしても `Handled::No` を返す（押しでセルを選び、動かせば行を drag する。ファイルの一覧と同じ）。この file も許す。
+  - core の変更は全体に効くので、確認は e2e_core・e2e_ui・e2e_native・kivact-test の全件と workspace の clippy。期待値を変えないと通らない試験が出たら STOP して、その試験の名前と理由を報告する。
+  - 原因が別（例えば `drag_source` の on_start の配線の誤り）なら、それを直し、上の core の変更はしない。
+  - drag の取手（handle）に限る案は採らない。
