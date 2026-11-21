@@ -1462,3 +1462,9 @@ lane K5 の K33a（commit `84f6dd05`）の報告による。app_shell・mobile_n
 
 - **K33 markdown**（`crates/kivact-ui-soft/src/markdown.rs`、`Markdown::into_view` の 218・225 行付近）：`CodeLanguage`・`CodeLanguageInput`・`code_highlight` は `code_syntax.rs`（K41 の unit）にしかなく、その file は消えた `SyntaxColors` を使い、lib に配線されていない。markdown の変換は K41 の後か、code_syntax を先に直すか、設計者の判断。K33 の完了 rg は、この 2 行が残るまで 0 件にならない。
 - **K33 nav_heading**（`crates/kivact-ui-soft/src/nav_heading.rs`、`SideNavHeading::into_view`）：`nav_is_rail` と `logical_row` は K33b の side_navigation にしかなく、未配線。Orchestrator は、side_navigation を先に変換し、その後に nav_heading を変換する順に変える（K33 の中の順だけ。付属書の内容は変えない）。
+
+## 差戻し（W9・K33e、2026-11-22）
+
+lane K5 の K33e（commit `94d1ed25`）の報告による。設計者の答え「caller の `open` を唯一の signal として使う」と、実際の `NavPanel` の配線が合わない。
+
+- **TopNavMegaMenu の `open`**（`crates/kivact-ui-soft/src/navigation_session.rs:NavPanel::new`、`top_nav.rs`）：`TopNavMegaMenu` が top_nav の navigation group の中にあるとき、group の signal が使われ、caller の `open(..)` は無視される（コードに注記を書いた）。no-group の経路では `use_navigation_menu(open)` に渡す実装にした。group の経路の実行試験はしていない（確認は check・clippy・xtask のみ）。group と caller の `open` の優先順位（どちらを使うか、両方を同期させるか）は設計者の判断。
