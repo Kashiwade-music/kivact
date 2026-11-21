@@ -142,10 +142,12 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
         self
     }
     /// Open the menu from `trigger` (a press, Enter, Space or the Down key)
-    /// and return the trigger with the menu. A trigger without a name of its
-    /// own is named by the menu's label; a trigger with a role keeps it (a
-    /// menu bar's triggers are `Role::MenuItem`), and one without is a
-    /// `Role::Button`.
+    /// and return the trigger with the menu. The trigger keeps its own name
+    /// and role (a menu bar's triggers are `Role::MenuItem`; one without a
+    /// role is a `Role::Button`). The menu's surface is named by the
+    /// trigger's name, or labelled by the trigger when it has none. The
+    /// menu's label names only the default trigger of [`menu`] and the
+    /// surface of a context menu.
     pub fn attach<T: Element + IntoView>(self, trigger: T) -> View {
         self.render(Some(trigger), Opening::Trigger)
     }
@@ -180,14 +182,7 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
         };
         let anchor = kivact_core::view::node_ref();
         let (name, trigger) = match trigger {
-            Some(mut trigger) => {
-                let trigger = if trigger.node_mut().authored().name().is_none() {
-                    trigger.name(self.label)
-                } else {
-                    trigger
-                };
-                named(trigger.node_ref(anchor), part)
-            }
+            Some(trigger) => named(trigger.node_ref(anchor), part),
             None => {
                 let state = part.state();
                 let trigger = with_recipe_style(
@@ -200,12 +195,14 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
                 named(trigger.node_ref(anchor), part)
             }
         };
-        let fallback = self.label;
-        let label = kivact_core::state::memo(move || {
-            name.as_ref()
-                .map(|read| read.get())
-                .unwrap_or_else(|| fallback.get())
-        });
+        // A custom trigger is never given the label: the surface takes the
+        // trigger's own name, or is labelled by the trigger. A context menu
+        // without a named target, and the default trigger, use the label.
+        let name = if kind == LevelKind::Context {
+            name.or(Some(self.label))
+        } else {
+            name
+        };
         (
             trigger,
             surface(
@@ -217,7 +214,7 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
                     at_least_anchor_width: self.at_least_anchor_width
                         && kind == LevelKind::Anchored,
                     kind,
-                    label,
+                    name,
                     offset: self.offset.unwrap_or(if kind == LevelKind::Context {
                         0.0
                     } else {
@@ -275,7 +272,8 @@ struct Level<K: kivact_core::state::ItemKey> {
     align: Option<OverlayAlign>,
     at_least_anchor_width: bool,
     kind: LevelKind,
-    label: Value<String>,
+    /// The surface's name; `None` when it is labelled by the anchor.
+    name: Option<Value<String>>,
     offset: f64,
     variants: Variants,
 }
@@ -379,7 +377,7 @@ fn surface<K: kivact_core::state::ItemKey>(level: Level<K>, slot: Option<ItemCon
         align,
         at_least_anchor_width,
         kind,
-        label,
+        name,
         offset,
         variants,
     } = level;
@@ -427,10 +425,12 @@ fn surface<K: kivact_core::state::ItemKey>(level: Level<K>, slot: Option<ItemCon
             Some(align) => layer.align(align),
             None => layer,
         };
-        layer
-            .with_node(|node| node.part(part))
-            .name(label)
-            .offset(offset)
+        let layer = layer.with_node(|node| node.part(part));
+        let layer = match name {
+            Some(name) => layer.name(name),
+            None => layer.with_node(|node| node.labelled_by(anchor)),
+        };
+        layer.offset(offset)
     });
     if kind == LevelKind::Context {
         kivact_core::view::show(shown, move || {
@@ -560,7 +560,7 @@ fn menu_item<K: kivact_core::state::ItemKey>(
                 align: None,
                 at_least_anchor_width: false,
                 kind: LevelKind::Submenu,
-                label: kivact_core::state::memo(move || entry.get().1.label()),
+                name: Some(kivact_core::state::memo(move || entry.get().1.label())),
                 offset: 0.0,
                 variants: looks.clone(),
             },
