@@ -92,7 +92,7 @@ pub use calendar::{
     CalendarDayState, CalendarGridApi, CalendarOptions, CalendarSelection, CalendarSpan,
     DaySelection, use_calendar_grid,
 };
-pub use combobox::{ComboboxApi, ComboboxOptions, use_combobox};
+pub use combobox::{ComboboxApi, ComboboxOptions, KnownOptions, known_options, use_combobox};
 pub use delayed::{DelayedApi, DelayedPhase, Delays, use_delayed};
 pub use dialog::{DialogApi, DialogMode, DismissOn, use_dialog};
 pub use disclosure::{DisclosureApi, DisclosureState, use_disclosure};
