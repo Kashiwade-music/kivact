@@ -231,7 +231,8 @@ mod button_group;
 mod toggle_group;
 mod toolbar;
 pub use button_group::{
-    ButtonGroup, ButtonGroupCell, button_group, button_group_separator, button_group_text,
+    ButtonGroup, ButtonGroupSeparator, ButtonGroupText, button_group, button_group_separator,
+    button_group_text,
 };
 pub use toggle_group::{ToggleGroup, toggle_group};
 pub use toolbar::{Toolbar, toolbar};
