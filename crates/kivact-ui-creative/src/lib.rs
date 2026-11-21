@@ -22,6 +22,7 @@ mod color_popup;
 mod color_wheel;
 mod curve_preview;
 mod dock;
+mod dope_sheet;
 mod editors;
 mod feedback;
 mod fonts;
@@ -41,6 +42,7 @@ mod recipes_navigation;
 mod recipes_overlays;
 mod size;
 mod theme;
+mod timeline;
 mod variants;
 
 pub use audio::view_state::ChannelState;
@@ -53,6 +55,9 @@ pub use dock::{
     Dock, DockAxis, DockChild, DockLayout, DockNode, DockPlacement, DockSide, DockTab, DockTabs,
     dock,
 };
+pub use dope_sheet::{DopeSheet, dope_sheet};
+pub use editors::shared::lane::{EditorMenu, LaneCell};
+pub use editors::time::view_state::TimeState;
 pub use feedback::{
     SplitButton, ToolWindowApi, ToolWindowOptions, WindowPosition, popup_button, split_button,
 };
@@ -66,4 +71,5 @@ pub use numeric::{
 };
 pub use options::{Accent, Density, LabelTone};
 pub use theme::{ThemeOptions, theme, theme_with};
+pub use timeline::{TimelineEditor, timeline_editor};
 pub use variants::NoticeVariant;

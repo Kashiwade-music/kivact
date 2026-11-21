@@ -137,11 +137,10 @@ impl Ruler {
 
     /// The playhead's badge centered on `x`, wide enough for its label.
     pub(crate) fn badge(&self, d: &mut Draw, x: f64, time: f64) {
-        let p = d.theme().ext::<crate::tokens::Tokens>();
         let text = self.label(time);
         let style = TextFormat {
             size: 9.0,
-            color: p.canvas,
+            color: crate::color::CANVAS,
             align: TextAlign::Center,
             ..TextFormat::default()
         };
@@ -149,7 +148,7 @@ impl Ruler {
         d.rounded_rect(
             Rect::new(x - width / 2.0, 0.0, width, 17.0),
             6.0,
-            p.text_high,
+            crate::color::TEXT_HIGH,
         );
         d.text(&text, Point::new(x, 3.0), style);
     }
@@ -157,7 +156,6 @@ impl Ruler {
     /// Grid lines, ticks and labels of the area right of `left`, below the
     /// ruler band `0..top`.
     pub(crate) fn draw(&self, d: &mut Draw, size: Size, left: f64, z: f64, pan: Point, top: f64) {
-        let p = d.theme().ext::<crate::tokens::Tokens>();
         let interval = self.ticks.interval(z);
         let step = interval * z;
         if !step.is_finite() || step <= 0.0 {
@@ -170,14 +168,19 @@ impl Ruler {
         let minor_step = step / (minors + 1) as f64;
         for i in first..=last {
             let x = origin + (i as f64 * interval) * z;
-            d.line(Point::new(x, top), Point::new(x, size.height), 1.0, p.hair);
+            d.line(
+                Point::new(x, top),
+                Point::new(x, size.height),
+                1.0,
+                crate::color::HAIR,
+            );
             label(
                 d,
                 &self.label(i as f64 * interval),
                 x + 3.0,
                 5.0,
                 9.0,
-                p.dim,
+                crate::color::DIM,
             );
             if minor_step >= 3.0 {
                 for k in 1..=i64::from(minors) {
@@ -189,7 +192,7 @@ impl Ruler {
                         Point::new(mx, top - 5.0),
                         Point::new(mx, top),
                         1.0,
-                        p.hair_strong,
+                        crate::color::HAIR_STRONG,
                     );
                 }
             }

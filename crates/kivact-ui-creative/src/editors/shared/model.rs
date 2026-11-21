@@ -49,7 +49,7 @@ impl Clip {
             start,
             duration,
             label: label.into(),
-            color: crate::color::default_item_color(),
+            color: crate::color::DEFAULT_ITEM_COLOR,
             muted: false,
         }
     }
