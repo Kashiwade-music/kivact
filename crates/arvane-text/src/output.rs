@@ -312,6 +312,9 @@ pub(crate) fn lines(
     justified: bool,
     range: impl Fn(std::ops::Range<usize>) -> std::ops::Range<usize>,
 ) -> Vec<TextLine> {
+    // Parley stacks each line box below the one before, so the line boxes
+    // add up to the layout's height (the one `plan` measures).
+    let mut top = 0.0f64;
     layout
         .lines()
         .take(plan.visible)
@@ -326,6 +329,14 @@ pub(crate) fn lines(
                 ),
                 None => native_inline_bounds(&line, justified),
             };
+            let width = width.max(0.0);
+            let line_box = Rect {
+                x,
+                y: top,
+                width,
+                height: f64::from(m.line_height),
+            };
+            top += line_box.height;
             // The tallest letters of the line's fonts.
             let (mut cap_height, mut x_height) = (0.0f64, 0.0f64);
             for run in line.runs() {
@@ -338,9 +349,10 @@ pub(crate) fn lines(
                 rect: Rect {
                     x,
                     y: f64::from(m.block_min_coord),
-                    width: width.max(0.0),
+                    width,
                     height: f64::from(m.block_max_coord) - f64::from(m.block_min_coord),
                 },
+                line_box,
                 baseline: f64::from(m.baseline),
                 ascent: f64::from(m.ascent),
                 descent: f64::from(m.descent),

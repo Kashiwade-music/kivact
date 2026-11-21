@@ -103,6 +103,19 @@ fn glyphs_beyond_a_tight_line_box_are_not_reported() {
 }
 
 #[test]
+fn a_tight_heading_is_not_reported() {
+    // Its line box is 32.3 tall (34 times 0.95). The selection box is taller,
+    // so only the line box is compared with the text's own box.
+    let screen = render(|| {
+        column((text("Heading")
+            .style(style().font_size(34).line_height(0.95))
+            .test_id("heading"),))
+        .style(style().width(200).align_items(Align::Start))
+    });
+    assert_eq!(screen.check_layout(), []);
+}
+
+#[test]
 fn a_line_box_beyond_its_parent_is_reported() {
     // The line box is 40 tall in a column 20 tall: 20 px beyond its bottom.
     let screen = render(|| {
