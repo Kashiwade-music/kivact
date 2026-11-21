@@ -13,7 +13,7 @@
 #[cfg(any(windows, target_os = "linux"))]
 use std::sync::atomic::{AtomicBool, Ordering};
 
-// xtask-allow(state): legacy: mapping, reported; the loader's answer for keeping this module mapped (`retain`); asking again gives the same answer, so it is asked once per process
+// xtask-allow(state): independent: mapping is the loader's answer, fixed when RETAINED is initialized; reported is the report-once flag swapped only by retain_module
 /// What retaining the module gave, and whether it was reported.
 #[cfg(any(windows, target_os = "linux"))]
 struct Retained {

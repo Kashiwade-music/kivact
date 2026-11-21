@@ -101,7 +101,7 @@ pub struct MirrorStats {
     pub presented: u64,
 }
 
-// xtask-allow(state): legacy: created, reused, presented; native windows created
+// xtask-allow(state): statistic: created, reused and presented are separate counts the test UI thread adds to (a new window, a pooled window, a shown frame); TestDisplay::stats only reads them
 #[derive(Default)]
 struct Counters {
     created: AtomicU64,
@@ -165,7 +165,7 @@ enum Command {
     },
 }
 
-// xtask-allow(state): legacy: proxy, next
+// xtask-allow(state): identity: next allocates test window ids in TestDisplay::open; proxy is the event-loop sender behind a Mutex only for Sync and is never replaced
 /// The process-wide test display: the UI thread and its event loop.
 pub struct TestDisplay {
     proxy: Mutex<EventLoopProxy<Command>>,

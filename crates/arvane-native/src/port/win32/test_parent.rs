@@ -41,7 +41,7 @@ const NAME: &[u16] = &[
     116, 0,
 ];
 static CLASS: Mutex<(usize, isize)> = Mutex::new((0, 0));
-// xtask-allow(state): legacy: point, buttons
+// xtask-allow(state): independent: point is the last injected mouse position (button, move_to) and buttons the held-button mask (button only); any position pairs with any mask
 /// A real top-level host. Use and drop it on the thread that opened it.
 pub struct TestParent {
     point: Cell<(f64, f64)>,

@@ -59,7 +59,7 @@ impl FrameClock {
     }
 }
 
-// xtask-allow(state): legacy: next_id, next_generation; the next image id, given to each image the store makes
+// xtask-allow(state): identity: next_id allocates AssetImage ids (new_pixels) and next_generation allocates entry generations (start_load, reparse) that drop stale job results; neither derives from the other
 /// Loads, decodes and keeps images for one host instance (see the module
 /// invariants).
 pub struct AssetStore {
