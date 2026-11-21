@@ -2,16 +2,14 @@
 
 use crate::recipe_parts::{field_fill, focus_ring, row_style, surface_style};
 use crate::{DESTRUCTIVE, FOREGROUND, INPUT, MUTED_FOREGROUND};
-use kivact::component;
-use kivact::custom::Caller;
 use kivact::interaction::{ListItem, SelectApi, use_select};
-use kivact::state::{IntoValue, Signal, Value, memo, signal};
+use kivact::state::{IntoText, IntoValue, Signal, Value, memo, signal};
 use kivact::style::{
     Align, FlexDirection, Justify, Position, Style, ThemeMode, pct, style, use_theme,
 };
 use kivact::view::{
-    Element, IntoView, NodeRef, Placement, View, column, for_each, icon, node, node_ref, overlay,
-    scroll, show, text,
+    Element, IntoView, Node, NodeRef, Placement, View, column, for_each, icon, node, node_ref,
+    overlay, scroll, show, text,
 };
 
 use kivact::Prop;
@@ -27,6 +25,24 @@ pub enum NativeSelectSize {
 }
 
 /// A select drawn like the browser's native select (`NativeSelect`).
+///
+/// Created by [`native_select`]. Its root is the trigger, and the open list is
+/// its sibling, not its child, so the trigger's accessible name stays its own
+/// label. Modifiers given to the select apply to the trigger.
+pub struct NativeSelect<K: kivact::state::ItemKey> {
+    root: Node,
+    settings: NativeSelectSettings<K>,
+}
+
+/// What a [`NativeSelect`] is built from, set only by the builder's setters.
+struct NativeSelectSettings<K: kivact::state::ItemKey> {
+    options: Value<Vec<ListItem<K>>>,
+    selected: Signal<Option<K>>,
+    size: Value<NativeSelectSize>,
+    placeholder: Option<Value<String>>,
+}
+
+/// A select drawn like the browser's native select.
 ///
 /// Behavior (keys, typeahead, the open list) comes from
 /// `kivact::interaction::use_select`. Give it an accessible name with
@@ -48,56 +64,101 @@ pub enum NativeSelectSize {
 ///     .name("Fruit")
 /// }
 /// ```
-#[component]
 pub fn native_select<K: kivact::state::ItemKey>(
-    options: Value<Vec<ListItem<K>>>,
+    options: impl IntoValue<Vec<ListItem<K>>>,
     selected: Signal<Option<K>>,
-    #[prop(default = NativeSelectSize::Default)] size: Value<NativeSelectSize>,
-    placeholder: Option<Value<String>>,
-    #[caller] caller: Caller,
-) -> impl Element {
-    // `.invalid(..)` shows the destructive border and ring.
-    let invalid = caller.invalid();
-    let name = caller.name();
-    let root = node().base_style(move || trigger_style(Cfg { size, invalid }));
-    let mut behavior = use_select(options, selected, signal(false));
-    if let Some(placeholder) = placeholder {
-        behavior = behavior.placeholder(placeholder);
+) -> NativeSelect<K> {
+    NativeSelect {
+        root: node(),
+        settings: NativeSelectSettings {
+            options: options.into_value(),
+            selected,
+            size: NativeSelectSize::Default.into_value(),
+            placeholder: None,
+        },
     }
-    let trigger = behavior.trigger();
-    let anchor = node_ref();
-    let current = selected.into_value();
-    let has_value = memo(move || {
-        current.with(|key| {
-            key.as_ref()
-                .is_some_and(|key| options.with(|all| all.iter().any(|o| o.key() == key)))
-        })
-    });
-    let label = behavior.label();
-    let popup_name = memo(move || name.as_ref().map(|read| read.get()).unwrap_or_default());
-    root.with_node(|root| root.part(trigger))
-        .node_ref(anchor)
-        .child(text(label).style(move || {
-            style()
-                .flex_grow(1.0)
-                .single_line()
-                .color(if has_value.get() {
-                    FOREGROUND
-                } else {
-                    MUTED_FOREGROUND
-                })
-        }))
-        .child(
-            node().child(icon("chevron-down")).style(
+}
+
+impl<K: kivact::state::ItemKey> NativeSelect<K> {
+    /// The height (default [`NativeSelectSize::Default`]).
+    pub fn size(mut self, size: impl IntoValue<NativeSelectSize>) -> Self {
+        self.settings.size = size.into_value();
+        self
+    }
+
+    /// Text shown while nothing is selected.
+    pub fn placeholder(mut self, text: impl IntoText) -> Self {
+        self.settings.placeholder = Some(text.into_text_value());
+        self
+    }
+}
+
+impl<K: kivact::state::ItemKey> Element for NativeSelect<K> {
+    fn node_mut(&mut self) -> &mut Node {
+        &mut self.root
+    }
+}
+
+impl<K: kivact::state::ItemKey> IntoView for NativeSelect<K> {
+    fn into_view(self) -> View {
+        let NativeSelect {
+            mut root,
+            settings:
+                NativeSelectSettings {
+                    options,
+                    selected,
+                    size,
+                    placeholder,
+                },
+        } = self;
+        // `.invalid(..)` shows the destructive border and ring.
+        let invalid = root.accessible_invalid();
+        let name = root.accessible_name();
+        let mut behavior = use_select(options, selected, signal(false));
+        if let Some(placeholder) = placeholder {
+            behavior = behavior.placeholder(placeholder);
+        }
+        let trigger = behavior.trigger();
+        let anchor = node_ref();
+        let current = selected.into_value();
+        let has_value = memo(move || {
+            current.with(|key| {
+                key.as_ref()
+                    .is_some_and(|key| options.with(|all| all.iter().any(|o| o.key() == key)))
+            })
+        });
+        let label = behavior.label();
+        let popup_name = memo(move || name.as_ref().map(|read| read.get()).unwrap_or_default());
+        let trigger_node = root
+            .base_style(move || trigger_style(Cfg { size, invalid }))
+            .node_ref(anchor)
+            .part(trigger)
+            .child(text(label).style(move || {
                 style()
-                    .position(Position::Absolute)
-                    .right(10)
-                    .top(pct(50) - 8)
-                    .size(16, 16)
-                    .color(MUTED_FOREGROUND),
-            ),
+                    .flex_grow(1.0)
+                    .single_line()
+                    .color(if has_value.get() {
+                        FOREGROUND
+                    } else {
+                        MUTED_FOREGROUND
+                    })
+            }))
+            .child(
+                node().child(icon("chevron-down")).style(
+                    style()
+                        .position(Position::Absolute)
+                        .right(10)
+                        .top(pct(50) - 8)
+                        .size(16, 16)
+                        .color(MUTED_FOREGROUND),
+                ),
+            );
+        (
+            trigger_node,
+            select_popup(behavior, options, anchor, popup_name),
         )
-        .child(select_popup(behavior, options, anchor, popup_name))
+            .into_view()
+    }
 }
 
 /// What the trigger's default style reads.

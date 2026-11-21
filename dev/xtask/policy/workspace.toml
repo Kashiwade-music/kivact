@@ -506,6 +506,7 @@ allowed_impls = [
   "kivact_ui::item_list::row::ItemRow crates/kivact-ui/src/item_list/row.rs",
   "kivact_ui::date_input::view::DateInput crates/kivact-ui/src/date_input/view.rs",
   "kivact_ui::date_range_input::view::DateRangeInput crates/kivact-ui/src/date_range_input/view.rs",
+  "kivact_ui_basic::native_select::NativeSelect crates/kivact-ui-basic/src/native_select.rs",
 ]
 
 [module_rules.arvane-virtual.uses]
