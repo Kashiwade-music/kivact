@@ -3,9 +3,10 @@
 use crate::color as c;
 use crate::radius as r;
 
-use kivact::component;
 use kivact::i18n::message;
 use kivact::interaction::ListItem;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
 use kivact::state::ItemKey;
 use kivact::state::Machine;
 use kivact::state::Signal;
@@ -25,6 +26,7 @@ use kivact::ui::text_input;
 use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::Node;
+use kivact::view::View;
 use kivact::view::for_each;
 use kivact::view::icon;
 use kivact::view::node;
@@ -53,62 +55,89 @@ pub enum SearchOperator {
     Contains,
 }
 
-/// A structured search editor over `filters`, with the keyed `items` as its fields.
-///
-/// `label` names the trigger and the editor.
-#[component]
-pub fn power_search<K: ItemKey>(
+/// A structured search editor bound to a collection of field filters.
+pub struct PowerSearch<K: ItemKey> {
+    root: Node,
     label: Value<String>,
     items: Value<Vec<ListItem<K>>>,
     filters: Signal<Vec<SearchFilter<K>>>,
-) -> impl Element {
-    let editor = machine(
-        PowerSearchState::Closed,
-        move || SearchMachine {
-            filters: filters.get_untracked(),
-        },
-        move |_, entries| filters.set(entries),
-    );
-    let open = binding(
-        move || !matches!(editor.get(), PowerSearchState::Closed),
-        move |open| {
-            if !open {
-                editor.send(SearchEvent::Close);
-            } else if matches!(editor.get(), PowerSearchState::Closed) {
+}
+
+/// Build an editor for adding, changing and removing filters over the supplied keyed fields.
+pub fn power_search<K: ItemKey>(
+    label: impl IntoText,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    filters: Signal<Vec<SearchFilter<K>>>,
+) -> PowerSearch<K> {
+    PowerSearch {
+        root: node(),
+        label: label.into_text_value(),
+        items: items.into_value(),
+        filters,
+    }
+}
+
+impl<K: ItemKey> Element for PowerSearch<K> {
+    #[doc(hidden)]
+    fn node_mut(&mut self) -> &mut Node {
+        &mut self.root
+    }
+}
+
+impl<K: ItemKey> IntoView for PowerSearch<K> {
+    fn into_view(self) -> View {
+        let Self {
+            root,
+            label,
+            items,
+            filters,
+        } = self;
+        let editor = machine(
+            PowerSearchState::Closed,
+            move || SearchMachine {
+                filters: filters.get_untracked(),
+            },
+            move |_, entries| filters.set(entries),
+        );
+        let open = binding(
+            move || !matches!(editor.get(), PowerSearchState::Closed),
+            move |open| {
+                if !open {
+                    editor.send(SearchEvent::Close);
+                } else if matches!(editor.get(), PowerSearchState::Closed) {
+                    editor.send(SearchEvent::Add);
+                }
+            },
+        );
+        let field = binding(
+            move || editor.get().draft().field,
+            move |field| editor.send(SearchEvent::Field(field)),
+        );
+        let operator = binding(
+            move || editor.get().draft().operator,
+            move |operator| editor.send(SearchEvent::Operator(operator)),
+        );
+        let value = binding(
+            move || editor.get().draft().value,
+            move |value| editor.send(SearchEvent::Value(value)),
+        );
+        let tokens_view = filter_tokens(items, filters, editor);
+        let add = button(message("soft.power_search.add", "Add filter"))
+            .variant(ButtonVariant::Ghost)
+            .icon(icon("plus"))
+            .on_press(move || {
                 editor.send(SearchEvent::Add);
-            }
-        },
-    );
-    let field = binding(
-        move || editor.get().draft().field,
-        move |field| editor.send(SearchEvent::Field(field)),
-    );
-    let operator = binding(
-        move || editor.get().draft().operator,
-        move |operator| editor.send(SearchEvent::Operator(operator)),
-    );
-    let value = binding(
-        move || editor.get().draft().value,
-        move |value| editor.send(SearchEvent::Value(value)),
-    );
-    let tokens_view = filter_tokens(items, filters, editor);
-    let add = button(message("soft.power_search.add", "Add filter"))
-        .variant(ButtonVariant::Ghost)
-        .icon(icon("plus"))
-        .on_press(move || {
-            editor.send(SearchEvent::Add);
-        });
-    let trigger = node()
-        .name(label)
-        .child(row((tokens_view, add)).style(style().flex_wrap(true).gap(4)));
-    node().child(
+            });
+        let trigger = root
+            .name(label)
+            .child(row((tokens_view, add)).style(style().flex_wrap(true).gap(4)));
         dialog(label, open)
             .mode(DialogKind::Popover)
             .hide_title(true)
             .width(Length::Auto)
             .content(move || filter_form(items, field, operator, value, editor))
-            .attach(trigger),
-    )
+            .attach(trigger)
+    }
 }
 
 #[derive(Clone, PartialEq)]
