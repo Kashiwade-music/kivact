@@ -3,15 +3,14 @@ use crate::layer::with_recipe_style;
 use crate::navigation_menu::look::NavigationLinkState;
 use crate::navigation_menu::look::NavigationMenuTheme;
 use crate::variants::{Variant, Variants};
-use kivact_core::state::IntoHandler;
-use kivact_core::state::{Callback, IntoText, Value};
+use kivact_core::UiError;
+use kivact_core::state::{IntoText, Value};
 use kivact_core::view::{Element, IntoView, Node, Role, View, column, node, node_ref, text};
 /// A title, optional icon and description that activates and closes its navigation panel.
 pub struct NavigationMenuLink {
     root: Node,
     title: Value<String>,
     icon: Option<View>,
-    press: Option<Callback<()>>,
     variants: Variants,
 }
 /// Construct a navigation link, optionally inside a standard navigation menu panel.
@@ -22,19 +21,12 @@ pub fn navigation_menu_link(title: impl IntoText) -> NavigationMenuLink {
         root: node().role(Role::Link).name(title),
         title,
         icon: None,
-        press: None,
         variants: Variants::default(),
     }
 }
 impl NavigationMenuLink {
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
-        self
-    }
-    pub fn on_press<M>(mut self, press: impl IntoHandler<(), M>) -> Self {
-        self.press = Some(kivact_core::state::Callback::from_handler(
-            kivact_core::state::IntoHandler::into_handler(press),
-        ));
         self
     }
     pub fn variant(mut self, variant: impl Variant) -> Self {
@@ -91,16 +83,19 @@ impl IntoView for NavigationMenuLink {
                 move || state.get(),
             )
         });
-        let press = self.press;
+        let caller = root.take_press();
         with_recipe_style(
-            root.part(behavior).role(role).on_press(move || {
-                if let Some(press) = press {
-                    press.call(());
-                }
-                if let Some(context) = &context {
-                    context.close.call(());
-                }
-            }),
+            root.part(behavior)
+                .role(role)
+                .on_press(move || -> Result<(), UiError> {
+                    if let Some(caller) = &caller {
+                        caller.call(None)?;
+                    }
+                    if let Some(context) = &context {
+                        context.close.call(());
+                    }
+                    Ok(())
+                }),
             |r: &NavigationMenuTheme| r.link_recipe(),
             variants,
             move || state.get(),

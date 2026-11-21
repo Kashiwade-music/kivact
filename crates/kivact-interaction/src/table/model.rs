@@ -129,7 +129,7 @@ impl<R, C> ColumnDef<R, C> {
     }
 
     /// The starting width in the caller's unit; `None` leaves it to layout.
-    pub fn with_width(mut self, width: impl Into<Option<f64>>) -> Self {
+    pub fn width(mut self, width: impl Into<Option<f64>>) -> Self {
         self.width = width.into();
         self
     }
@@ -183,8 +183,8 @@ impl<R, C> ColumnDef<R, C> {
         self.matches.is_some() || self.matches_value.is_some()
     }
 
-    /// The starting width ([`width`](Self::width)).
-    pub fn width(&self) -> Option<f64> {
+    /// The width the column asked for ([`width`](Self::width)), before the user resizes it.
+    pub fn preferred_width(&self) -> Option<f64> {
         self.width
     }
 }

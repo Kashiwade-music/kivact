@@ -241,7 +241,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
 
     /// Keep the column widths in the caller's binding instead of the table's own.
     ///
-    /// The table's own widths start from each [`ColumnDef::width`]. Resize parts
+    /// The table's own widths start from each [`ColumnDef::preferred_width`]. Resize parts
     /// offer the whole next map to the binding's writer. Setup only.
     #[track_caller]
     pub fn with_widths(self, widths: kivact_core::state::Signal<HashMap<C, f64>>) -> Self {
@@ -443,7 +443,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
     /// A splitter on the trailing boundary of a column that edits its width.
     ///
     /// The width is the column's entry in [`widths_value`](Self::widths), else its
-    /// [`ColumnDef::width`], else the measured width of its header. Writes go
+    /// [`ColumnDef::preferred_width`], else the measured width of its header. Writes go
     /// through [`resize_limits`](Self::resize_limits) to the widths binding.
     /// The caller names the handle and draws it. Setup only.
     #[track_caller]

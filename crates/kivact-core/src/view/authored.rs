@@ -55,6 +55,27 @@ impl Node {
             })
             .chain(std::iter::once(&self.common))
     }
+
+    /// Take the press handler the authors gave this node so far (the one
+    /// press resolves to: the last), leaving the node without one, so a
+    /// component that must also act on press runs it inside its own:
+    /// `let caller = root.take_press(); root.on_press(move || { /* call caller */ close() })`.
+    #[doc(hidden)]
+    pub fn take_press(
+        &mut self,
+    ) -> Option<kivact_runtime::Handler<Option<kivact_style::draw::RegionId>>> {
+        let mut taken = None;
+        let closed = self.modifiers.iter_mut().filter_map(|m| match m {
+            crate::view::element_data::Modifier::Caller(c) => Some(c.as_mut()),
+            crate::view::element_data::Modifier::Part(_) => None,
+        });
+        for common in closed.chain(std::iter::once(&mut self.common)) {
+            if let Some(press) = common.handlers.activate.take() {
+                taken = Some(press);
+            }
+        }
+        taken
+    }
 }
 
 impl Authored {

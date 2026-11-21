@@ -122,7 +122,9 @@ pub struct Stepper {
 }
 /// Show progress through an ordered sequence of steps. A press on a step
 /// (or on the collapsed previous and next buttons) writes its index to
-/// `current`, and `on_edit` reports the write as an edit.
+/// `current`, and `on_edit` reports the write as an edit. Every step is
+/// pressable; give `StepperItem::disabled(true)` to a step the user may not
+/// jump to (a linear flow).
 #[track_caller]
 pub fn stepper(items: impl IntoValue<Vec<StepperItem>>, current: Signal<usize>) -> Stepper {
     Stepper {
