@@ -1404,3 +1404,7 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
 - **K31 の alert_dialog**：`node().child(dialog)` で包まない（包む node が layout と a11y に一つ増え、caller の modifier の行き先が変わる）。soft の `alert_dialog` は、中核の `Dialog` の builder を返す関数にする：`pub fn alert_dialog(title: impl IntoText, open: Signal<bool>) -> kivact::ui::Dialog`。本体は `kivact::ui::dialog(title, open).mode(DialogKind::AlertModal)` に、soft の見た目の variant を付ける。caller の modifier は中核の `Dialog` の setter に付く。soft の部品の型（`AlertDialog`）は作らない。今の alert_dialog の props が `Dialog` の setter（`content`、`footer`、`description`、`dismiss` など）で表せなければ、その props の一覧を返す。
 - **K31 の indicator の `input`**：P3 の merge で `PartState` は読んだときだけ追う `Copy` の handle になったので、`IntoValue` は要らない。props の型を `PartState` にし、本体の反応する closure の中で `input.is_hovered()` などを読む。生きている part の handle を渡せば反応する。既定は `PartState::default()`（固定の値）。K32 の indicator の直しで行う。
 - **K31 の theme_scope の白**：`ON_DARK_VAR` を白の代わりに使わない（意味が違う名前に頼ると、theme が `ON_DARK` を変えたときに壊れる）。soft の `color.rs` に色の変数 `WHITE`（`"soft.white"`、light・dark とも `rgb(0xffffff)`。literal は `color.rs` の中なので kit-literal-color の規則に当たらない）を足して使う。lane K5 の fix の commit で行う。
+
+## 設計者の記録（P3 の効果、2026-11-22）
+
+- counter の click（kv_latency と同じ手順、200 回）：確保は P1 の merge の 496 → 234 回/click（-53%）、bytes は 122.8 → 49.7 KB/click（-59%）。最初の基点（625 回、182.9 KB）からは -63%・-73%。style の effect と `compile_style` は click では一度も走らない（以前は 4 回ずつ）。engine の stats の差分は同じ。測ったのは設計者の subagent（`V:/kv-target/bisect-k5/p3-*.raw`）。時間は CP3 の KPI で判定する。
