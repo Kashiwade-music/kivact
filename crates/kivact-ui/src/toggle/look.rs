@@ -9,6 +9,7 @@ use kivact_core::draw::{Draw, LineCap, LineJoin, Path, Stroke};
 use kivact_core::geometry::{Point, Rect, Size};
 use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 use kivact_core::view::CheckedState;
+use kivact_interaction::ThumbDrag;
 /// The side of a check box and the height of a switch's track.
 pub(crate) fn indicator(theme: &Theme, size: ControlSize) -> f64 {
     font_size(theme, size).round() + 2.0
@@ -125,58 +126,6 @@ pub(crate) fn draw_switch(theme: &Theme, look: &CheckableState, d: &mut Draw, si
 /// The standard checkbox and switch draw their indicators in the root.
 pub(crate) fn empty_toggle_part(_: &Theme, _: &Look<CheckableState>) -> Style {
     style().size(0, 0)
-}
-
-/// The visual position of a switch thumb during an opt-in gesture.
-///
-/// Only the combinations the gesture machine reaches exist: a touch press, a
-/// tracked contact (touch with its offset, or a pointer), and a released touch
-/// thumb which is still raised or has settled.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ThumbDrag {
-    /// A touch contact pressed the switch before moving it.
-    TouchPressed,
-    /// The contact moves the thumb.
-    Tracking(TrackInput),
-    /// A touch contact was released.
-    TouchReleased(Lift),
-}
-
-impl ThumbDrag {
-    /// Whether the gesture follows a touch contact.
-    pub fn is_touch(self) -> bool {
-        match self {
-            Self::TouchPressed | Self::TouchReleased(_) => true,
-            Self::Tracking(TrackInput::Touch { .. }) => true,
-            Self::Tracking(TrackInput::Pointer { .. }) => false,
-        }
-    }
-}
-
-/// What a tracked switch gesture follows.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum TrackInput {
-    /// A touch contact, at a physical offset along the writing direction.
-    Touch {
-        /// Physical translation along the writing direction, in logical pixels.
-        offset: f64,
-        /// The side the thumb shows before the binding commits.
-        on: bool,
-    },
-    /// A mouse or pen pointer.
-    Pointer {
-        /// The side the thumb shows before the binding commits.
-        on: bool,
-    },
-}
-
-/// Whether a released touch thumb is still raised or has settled.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Lift {
-    /// The thumb is still raised above the track.
-    Raised,
-    /// The thumb has settled back onto the track.
-    Settled,
 }
 
 /// Which control a [`CheckableState`] describes, with the state only that

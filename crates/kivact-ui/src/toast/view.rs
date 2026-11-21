@@ -4,16 +4,19 @@ use crate::button::ButtonVariant;
 use crate::layer::with_recipe_style;
 use crate::toast::look::ToastGroupState;
 use crate::toast::look::ToastTheme;
-use crate::toast::swipe::Swipe;
+use crate::toast::swipe;
 use kivact_core::custom::part;
+use kivact_core::geometry::Edge;
 use kivact_core::motion::Transition;
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::use_theme;
+use kivact_core::task::spawn;
 use kivact_core::view::Element;
 use kivact_core::view::{IntoView, LiveRegion, View, for_each};
 use kivact_core::view::{Variant, Variants};
 use kivact_core::view::{column, node, text};
 use kivact_interaction::ToastSwipe;
+use kivact_interaction::{SwipeDismissApi, SwipeDismissPolicy, use_swipe_dismiss};
 use kivact_interaction::{ToastId, ToasterApi, Tone};
 
 /// Where the toasts of `toaster` show: two live regions (polite and
@@ -110,15 +113,17 @@ impl IntoView for ToastRegion {
                 shown,
                 |id| *id,
                 move |id| {
-                    let (card, swipe) = build(id.get_untracked());
+                    let (card, swiping) = build(id.get_untracked());
                     let row = with_recipe_style(
                         column(card),
                         |r: &ToastTheme| r.row_recipe(),
                         &row_variants,
                         kivact_core::custom::PartState::default,
                     );
-                    match swipe {
-                        Some((swipe, exit)) => row.style(move || swipe.row_style(&exit)),
+                    match swiping {
+                        Some((gesture, _, exit)) => {
+                            row.style(move || swipe::row_style(gesture.phase().get(), &exit))
+                        }
                         None => row,
                     }
                 },
@@ -186,9 +191,10 @@ fn card_icon(
     state: Value<kivact_interaction::ToastState>,
     variants: &Variants,
 ) -> Option<View> {
-    match &content.icon {
-        Some(icon) => Some(icon.call(())),
-        None => tone_icon(content.tone).map(|name| {
+    content
+        .icon_name
+        .or_else(|| tone_icon(content.tone))
+        .map(|name| {
             with_recipe_style(
                 kivact_core::view::icon(name),
                 |r: &ToastTheme| r.icon_recipe(),
@@ -196,8 +202,7 @@ fn card_icon(
                 move || state.get(),
             )
             .into_view()
-        }),
-    }
+        })
 }
 
 /// One toast's card, with its swipe gesture and the gesture's exit
@@ -206,26 +211,36 @@ fn toast(
     toaster: ToasterApi,
     id: ToastId,
     variants: &Variants,
-) -> (View, Option<(Swipe, Transition)>) {
+) -> (View, Option<(SwipeDismissApi, Edge, Transition)>) {
     let Some(content) = toaster.toast(id) else {
         return (().into_view(), None);
     };
     let card_ref = kivact_core::view::node_ref();
-    let swipe = use_theme()
+    let policy = use_theme()
         .get()
         .ext::<kivact_interaction::InteractionPolicy>()
         .toast
-        .swipe
         .clone();
-    let (part, swipe) = match &swipe {
+    let (part, swiping) = match &policy.swipe {
         ToastSwipe::Disabled => (toaster.item(id), None),
         ToastSwipe::Enabled { edge, transition } => {
-            let swipe = Swipe::new(*edge, card_ref.rect(), toaster, id);
-            let part = toaster.item_while(id, swipe.held());
-            (part, Some((swipe, transition.clone())))
+            // A task runs in the same turn once the effects have settled:
+            // the card's style has committed its released look (the swipe
+            // exit and the theme's transition) before the card is removed,
+            // so the exit starts from the drag offset instead of jumping
+            // through the drag's zero-length transition.
+            let gesture = use_swipe_dismiss(
+                SwipeDismissPolicy::toast(*edge, policy.swipe_slop),
+                card_ref.rect(),
+                move || {
+                    spawn(async move { toaster.dismiss(id) });
+                },
+            );
+            let part = toaster.item_while(id, gesture.is_held());
+            (part, Some((gesture, *edge, transition.clone())))
         }
     };
-    let gesture = swipe.as_ref().map(|(gesture, _)| *gesture);
+    let gesture = swiping.as_ref().map(|(gesture, _, _)| *gesture);
     let state = part.state();
     let title = with_recipe_style(
         text(content.title.clone()),
@@ -258,13 +273,13 @@ fn toast(
         variants,
         move || state.get(),
     );
-    if let Some((gesture, transition)) = swipe {
+    if let Some((gesture, edge, transition)) = swiping {
         let exit = transition.clone();
         let card = card
-            .on_pointer(move |event| gesture.event(event))
-            .style(move || gesture.style(&transition))
+            .part(gesture.control())
+            .style(move || swipe::card_style(edge, gesture.phase().get(), &transition))
             .into_view();
-        (card, Some((gesture, exit)))
+        (card, Some((gesture, edge, exit)))
     } else {
         (card.into_view(), None)
     }
@@ -274,7 +289,7 @@ fn toast(
 fn action_button(
     content: &kivact_interaction::Toast,
     id: ToastId,
-    gesture: Option<Swipe>,
+    gesture: Option<SwipeDismissApi>,
 ) -> Option<crate::Button> {
     content.action.as_ref().map(|(label, _)| {
         let activate = content.clone();
@@ -283,7 +298,7 @@ fn action_button(
             .size(crate::ControlSize::Small)
             .on_press(move || activate.activate(id));
         if let Some(gesture) = gesture {
-            action.on_pointer(move |event| gesture.protect_action(event))
+            action.with_node(|node| node.part(gesture.protect()))
         } else {
             action
         }
@@ -294,7 +309,7 @@ fn action_button(
 fn close_button(
     toaster: ToasterApi,
     id: ToastId,
-    gesture: Option<Swipe>,
+    gesture: Option<SwipeDismissApi>,
     state: Value<kivact_interaction::ToastState>,
     variants: &Variants,
 ) -> kivact_core::view::Node {
@@ -304,7 +319,7 @@ fn close_button(
         .on_press(move || toaster.dismiss(id))
         .child(kivact_core::view::icon("x"));
     let close = if let Some(gesture) = gesture {
-        close.on_pointer(move |event| gesture.protect_action(event))
+        close.part(gesture.protect())
     } else {
         close
     };

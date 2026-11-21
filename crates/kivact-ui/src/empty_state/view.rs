@@ -89,7 +89,7 @@ impl IntoView for EmptyState {
                 );
                 notices.announce(message, LiveRegion::Polite);
             });
-            notices.outlet()
+            crate::announcer_outlet(notices).into_view()
         });
         let variants = &variants;
         let icon = self.icon.map(|icon| {

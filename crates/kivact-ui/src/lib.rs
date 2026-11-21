@@ -237,6 +237,8 @@ pub use toggle_group::{ToggleGroup, toggle_group};
 pub use toolbar::{Toolbar, toolbar};
 
 mod alert;
+mod announcer_outlet;
+pub use announcer_outlet::announcer_outlet;
 mod card;
 mod empty_state;
 mod input_group;

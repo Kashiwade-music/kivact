@@ -111,7 +111,7 @@ pub use crate::text_input::look::{TextAreaTheme, TextInputTheme};
 pub use crate::time_input::look::TimeInputTheme;
 pub use crate::toast::look::ToastGroupState;
 pub use crate::toast::look::ToastTheme;
-pub use crate::toggle::look::{CheckControl, CheckableState, Lift, ThumbDrag, TrackInput};
+pub use crate::toggle::look::{CheckControl, CheckableState};
 pub use crate::toggle::look::{CheckboxTheme, SwitchTheme};
 pub use crate::toggle_button::look::ToggleButtonState;
 pub use crate::toggle_button::look::ToggleButtonTheme;

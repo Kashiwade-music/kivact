@@ -106,7 +106,7 @@ pub(super) fn observe(
         on_mount(move || controller.send(Event::Mounted(initial, observation())));
         effect(move || controller.send(Event::Observe(observation())));
     });
-    (content, notices.outlet()).into_view()
+    (content, crate::announcer_outlet(notices)).into_view()
 }
 fn announcement_text(title: &str, description: Option<&str>) -> String {
     let normalize = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");

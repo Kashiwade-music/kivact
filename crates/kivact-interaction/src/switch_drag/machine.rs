@@ -1,13 +1,11 @@
 //! Role: Decide switch direct manipulation and owner-scoped release timing.
-use super::geometry::Geometry;
-use crate::toggle::look::Lift;
-use crate::toggle::look::ThumbDrag;
-use crate::toggle::look::TrackInput;
+use super::SwitchTrack;
+use super::{Lift, ThumbDrag, TrackInput};
+use crate::DragAxis;
 use kivact_core::geometry::Point;
 use kivact_core::state::Machine as MachineTrait;
 use kivact_core::state::Step;
 use kivact_core::view::{MouseButton, PointerEvent, PointerId, PointerKind, PointerPhase};
-use kivact_interaction::DragAxis;
 use std::time::Duration;
 const SWITCH_SLOP: f64 = 10.0;
 #[derive(Clone, Copy, PartialEq)]
@@ -156,9 +154,11 @@ pub(super) enum Effect {
     Suppress(PointerEvent),
 }
 pub(super) struct Machine {
-    pub value: bool,
-    pub geometry: Geometry,
-    pub now: u64,
+    pub(super) value: bool,
+    pub(super) track: SwitchTrack,
+    /// -1 in a right-to-left subtree, else 1.
+    pub(super) sign: f64,
+    pub(super) now: u64,
 }
 impl MachineTrait for Machine {
     type State = State;
@@ -244,7 +244,7 @@ impl Machine {
     ) -> Step<State, Event, Effect> {
         let touch = event.kind() == PointerKind::Touch;
         let delta = Point::new(
-            (event.window_pos().x - contact.origin.x) * self.geometry.sign,
+            (event.window_pos().x - contact.origin.x) * self.sign,
             event.window_pos().y - contact.origin.y,
         );
         let (mut axis, mut latch) = match state {
@@ -264,11 +264,11 @@ impl Machine {
                 delta.x
             };
             let side = if contact.started_on {
-                self.geometry.on_side
+                self.track.on_side
             } else {
-                self.geometry.off_side
+                self.track.off_side
             };
-            latch = latch.update(toward, toward >= self.geometry.width - side);
+            latch = latch.update(toward, toward >= self.track.width - side);
         }
         let (step, next_value) = if matches!(event.phase(), PointerPhase::Up(_)) {
             self.release(contact, axis, latch, touch)
@@ -276,15 +276,15 @@ impl Machine {
             let axis = match axis {
                 DragAxis::Horizontal => {
                     let start = if contact.started_on {
-                        self.geometry.travel()
+                        self.track.travel()
                     } else {
                         0.0
                     };
                     Axis::Horizontal {
                         offset: self
-                            .geometry
+                            .track
                             .band(start + delta.x, latch.on(contact.started_on))
-                            * self.geometry.sign,
+                            * self.sign,
                     }
                 }
                 DragAxis::Vertical => Axis::Vertical,

@@ -11,12 +11,14 @@ use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
 
+use kivact::geometry::Edge;
 use kivact::interaction::ToastId;
-use kivact::interaction::{ToastOptions, ToasterApi};
+use kivact::interaction::{InteractionPolicy, ToastOptions, ToastPolicy, ToastSwipe, ToasterApi};
+use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
-use kivact::test::Screen;
-use kivact::view::LiveRegion;
-use kivact_public_api_tests::support::mount;
+use kivact::test::{RenderOptions, Screen};
+use kivact::view::{LiveRegion, PointerKind};
+use kivact_public_api_tests::support::{mount, mount_with};
 
 fn ms(n: u64) -> Duration {
     Duration::from_millis(n)
@@ -205,5 +207,85 @@ fn the_action_runs_its_callback_and_dismisses_the_toast() {
     assert_eq!(count.get_untracked(), 1);
     assert!(!shown(&screen, "Deleted"));
     assert!(shown(&screen, "Other toast"));
+    ok(&screen);
+}
+
+fn swipe_options() -> RenderOptions {
+    RenderOptions::with_theme(Theme::light().with(InteractionPolicy {
+        toast: ToastPolicy {
+            swipe: ToastSwipe::Enabled {
+                edge: Edge::Bottom,
+                transition: Transition::tween(150.0, Easing::Linear),
+            },
+            ..ToastPolicy::default()
+        },
+        ..InteractionPolicy::default()
+    }))
+}
+
+#[test]
+fn only_a_touch_or_pen_swipe_toward_the_edge_dismisses_a_toast() {
+    for kind in [PointerKind::Touch, PointerKind::Pen] {
+        let (screen, ()) = mount_with(swipe_options(), || {
+            let queue = use_toaster();
+            queue.push(Toast::new("Saved").duration(None));
+            ((), kivact::ui::toast_region(queue))
+        });
+        screen.advance(ms(150));
+        let card = || screen.get_by_role(Role::Status, "Saved");
+        let rect = card().rect().unwrap();
+        let (x, y) = (rect.x + 25.0, rect.y + 5.0);
+        screen.mouse_move(x, y);
+        screen.mouse_down(MouseButton::Primary);
+        screen.mouse_move(x, y + 52.0);
+        screen.mouse_up(MouseButton::Primary);
+        card();
+        let close = screen.get_by_role(Role::Button, "Close").rect().unwrap();
+        let (close_x, close_y) = (close.x + close.width / 2.0, close.y + close.height / 2.0);
+        let contact = screen.contact_down(kind, close_x, close_y);
+        screen.contact_move(contact, close_x, close_y + 52.0);
+        screen.contact_up(contact);
+        card();
+        let contact = screen.contact_down(kind, x, y);
+        screen.contact_move(contact, x, y - 52.0);
+        screen.contact_up(contact);
+        card();
+        let contact = screen.contact_down(kind, x, y);
+        screen.contact_move(contact, x + 15.0, y + 2.0);
+        screen.contact_move(contact, x, y + 52.0);
+        screen.contact_up(contact);
+        card();
+        let contact = screen.contact_down(kind, x, y);
+        screen.contact_move(contact, x, y + 25.0);
+        screen.contact_up(contact);
+        screen.advance(ms(150));
+        card();
+        let contact = screen.contact_down(kind, x, y);
+        screen.contact_move(contact, x, y + 52.0);
+        screen.contact_up(contact);
+        screen.advance(ms(32));
+        assert!(screen.query_by_role(Role::Status, "Saved").is_none());
+        ok(&screen);
+    }
+}
+
+#[test]
+fn a_pending_touch_holds_only_its_toasts_timer() {
+    let (screen, ()) = mount_with(swipe_options(), || {
+        let queue = use_toaster();
+        for title in ["Held", "Other"] {
+            queue.push(Toast::new(title).duration(Some(ms(350))));
+        }
+        ((), kivact::ui::toast_region(queue))
+    });
+    screen.advance(ms(150));
+    let card = screen.get_by_role(Role::Status, "Held").rect().unwrap();
+    let contact = screen.contact_down(PointerKind::Touch, card.x + 24.0, card.y + 8.0);
+    screen.advance(ms(400));
+    assert!(screen.query_by_role(Role::Status, "Held").is_some());
+    assert!(screen.query_by_role(Role::Status, "Other").is_none());
+    screen.contact_cancel(contact);
+    screen.advance(ms(1200));
+    assert!(screen.query_by_role(Role::Status, "Held").is_none());
     ok(&screen);
 }
