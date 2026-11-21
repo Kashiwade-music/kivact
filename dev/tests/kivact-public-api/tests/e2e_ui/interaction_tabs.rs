@@ -93,7 +93,7 @@ fn the_list_tabs_and_the_panel_publish_roles_and_relations() {
     let controlled = tab_of(&screen, "Beta").controls();
     assert_eq!(controlled.len(), 1);
     assert_eq!(controlled[0].role(), Some(Role::TabPanel));
-    let panel = screen.get_by_role(Role::TabPanel, "");
+    let panel = screen.get_by_role(Role::TabPanel, "Beta");
     let labels: Vec<String> = panel.labelled_by().iter().map(|e| e.name()).collect();
     assert_eq!(labels, ["Beta"]);
     screen.get_by_text("content b");
