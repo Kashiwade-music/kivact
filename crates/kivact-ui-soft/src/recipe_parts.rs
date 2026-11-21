@@ -1,12 +1,16 @@
 //! Role: Share Astryx Neutral transitions, focus rings, field frames and composited control fills between recipes.
 use crate::color as c;
 use crate::metrics as m;
-use crate::motion::{EASE_STANDARD, FAST};
+use crate::motion::{EASE_STANDARD, FAST, FAST_MAX, MEDIUM_MAX};
 use crate::shadows;
-use crate::type_scale::TypeStyle;
+use crate::space as s;
+use crate::type_scale::{self as t, TypeStyle};
 use kivact::custom::PartState;
 use kivact::motion::Transition;
-use kivact::style::{Color, Shadow, Style, Theme, ThemeMode, TransitionProp, style};
+use kivact::style::{Color, Position, Shadow, Style, Theme, ThemeMode, TransitionProp, style};
+
+/// The scale a floating layer starts from when it enters.
+const LAYER_ENTER_SCALE: f64 = 0.95;
 
 /// The standard short transition of a control's state change.
 pub(crate) fn fast(base: Style) -> Style {
@@ -103,4 +107,56 @@ pub(crate) fn flat(theme: &Theme) -> Style {
         .padding(0)
         .hover(clear_edge.clone())
         .focus(clear_edge)
+}
+
+/// The body text of a layer in the primary color, on `base`.
+pub(crate) fn body_text(base: Style) -> Style {
+    text(base, t::BODY, c::TEXT_PRIMARY)
+}
+
+/// The supporting text of a layer in the secondary color, on `base`.
+pub(crate) fn supporting_text(base: Style) -> Style {
+    text(base, t::SUPPORTING, c::TEXT_SECONDARY)
+}
+
+/// `base` with every property transitioning over `ms` with the standard easing.
+pub(crate) fn tween(base: Style, ms: u64) -> Style {
+    base.transition(
+        TransitionProp::All,
+        Transition::tween(ms as f64, EASE_STANDARD),
+    )
+}
+
+/// `base` with the drop shadow `layers`, drawn in order.
+pub(crate) fn shadowed(base: Style, layers: Vec<Shadow>) -> Style {
+    layers.into_iter().fold(base, Style::shadow)
+}
+
+/// The layer that covers the window behind a modal: a blurred scrim.
+pub(crate) fn scrim(theme: &Theme) -> Style {
+    style()
+        .position(Position::Fixed)
+        .inset(0)
+        .background(c::OVERLAY_SCRIM)
+        .backdrop_blur(theme.get(&s::SPACE_S0_5_VAR))
+}
+
+/// An anchored layer: it fades and scales in from its anchor, shifted by (`x`, `y`).
+pub(crate) fn anchored(base: Style, x: f64, y: f64) -> Style {
+    tween(base, FAST_MAX).enter(
+        style()
+            .opacity(0.0)
+            .translate(x, y)
+            .scale_xy(LAYER_ENTER_SCALE, LAYER_ENTER_SCALE),
+    )
+}
+
+/// A modal layer: it fades in and rises a step from the page.
+pub(crate) fn modal(base: Style, theme: &Theme) -> Style {
+    tween(base, MEDIUM_MAX).enter(
+        style()
+            .opacity(0.0)
+            .translate_y(theme.get(&s::SPACE_S4_VAR))
+            .scale_xy(LAYER_ENTER_SCALE, LAYER_ENTER_SCALE),
+    )
 }

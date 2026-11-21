@@ -45,6 +45,7 @@ fn build(mode: ThemeMode) -> Theme {
     let theme = set_ui_layout(theme);
     let theme = set_ui_table(theme, mode);
     let theme = crate::recipes_controls::install(theme);
+    let theme = crate::recipes_overlays::install(theme);
     let theme = settings(theme);
     theme
         .with_focus_ring(m::FOCUS_RING_WIDTH)

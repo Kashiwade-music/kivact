@@ -12,7 +12,7 @@ use kivact::ui::theme::{
 };
 
 /// The height of a text field at `size`.
-fn height(size: ControlSize) -> f64 {
+pub(crate) fn height(size: ControlSize) -> f64 {
     match size {
         ControlSize::ExtraSmall | ControlSize::Small => m::CONTROL_SM,
         ControlSize::Medium => m::CONTROL_MD,
