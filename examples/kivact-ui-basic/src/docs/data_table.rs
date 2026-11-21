@@ -52,7 +52,7 @@ fn payment_rows() -> Vec<Payment> {
     ]
 }
 
-// xtask-allow(state): legacy: sort, page; the table's sort binding, written by the data_table column headers; any sort can be shown on any page, since sorting only reorders the
+// xtask-allow(state): independent: sort is written by the column headers through the data table's sort binding, which also resets page to 0; page is then moved only by the pager, so every sort can be shown on every page
 fn payments() -> impl IntoView {
     let data = payment_rows();
     let query = signal(String::new());

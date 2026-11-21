@@ -23,7 +23,7 @@ pub(crate) fn page() -> Page {
 }
 
 // example: default
-// xtask-allow(state): legacy: open, goal; the drawer's open binding, set by Open Drawer and cleared by Submit or Cancel; the goal keeps its value while the drawer is closed, so
+// xtask-allow(state): independent: open is the drawer binding set by Open Drawer and cleared by Submit or Cancel; goal is changed only by the plus and minus buttons inside the drawer and is kept, not reverted, when it closes
 fn default() -> impl IntoView {
     let open = signal(false);
     let goal = signal(350);

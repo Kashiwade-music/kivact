@@ -53,7 +53,7 @@ fn collapsible() -> impl IntoView {
 // end example
 
 // example: steps
-// xtask-allow(state): legacy: first, second; the open binding of the first trace collapsible, toggled only by its header; the second collapsible has its own binding, so both,
+// xtask-allow(state): independent: first and second are the open bindings of two separate trace collapsibles, each toggled only by its own header
 fn steps() -> impl IntoView {
     let first = signal(true);
     let second = signal(false);

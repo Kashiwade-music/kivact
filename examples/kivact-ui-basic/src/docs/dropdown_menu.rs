@@ -65,7 +65,7 @@ fn basic() -> impl IntoView {
 // end example
 
 // example: checkboxes
-// xtask-allow(state): legacy: status, activity; the Status Bar checkbox, flipped only by its own menu entry; the Activity Bar entry never touches it, so both, either or neither
+// xtask-allow(state): independent: status and activity back the Status Bar and Activity Bar menu checkboxes; on_activate flips only the one whose key was activated
 fn checkboxes() -> impl IntoView {
     let status = signal(true);
     let activity = signal(false);

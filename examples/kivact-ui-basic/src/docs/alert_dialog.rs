@@ -67,7 +67,7 @@ fn default() -> impl IntoView {
 // end example
 
 // example: destructive
-// xtask-allow(state): legacy: open, deleted; "Delete Chat" opens the alert and Cancel or Delete closes it; it opens again after a deletion, so it is true or false with either
+// xtask-allow(state): independent: open is the alert's binding, set by the Delete Chat button and cleared by Cancel or Delete; deleted is set only by Delete; the alert can reopen after a deletion, so all four pairs occur
 fn destructive() -> impl IntoView {
     let open = signal(false);
     let deleted = signal(false);
