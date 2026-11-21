@@ -109,3 +109,5 @@ release build of kivact-example-counter (cold for its own target dir): 295 s
 - K6 kv_startup default 18855936
 - K6 kv_startup no-default-features 11169792
 - K6 kv_startup no-gpu 14224384
+
+> 注（2026-11-22）：この測定は判定に使わない。基点の取り違え（古い `rework/kpi/B0.md` と比べた）。正しい比は `rework/kpi/CP2b-ratio.md`（B0-CP2 と続けて測った）。

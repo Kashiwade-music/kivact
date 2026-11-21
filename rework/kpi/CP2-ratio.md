@@ -23,3 +23,5 @@
 | K6 counter default | 18945536 | 18856448 | 0.995 | ≤ 1.02 | - | ≤ 0.95 | ok |
 | K6 basic-catalog default | - | - | - | ≤ 1.02 | - | ≤ 0.95 | skipped |
 | K6 basic-catalog no-gpu | - | - | - | ≤ 1.02 | ≤ 0.97 | ≤ 0.90 | skipped |
+
+> 注（2026-11-22）：判定に使わない。正しい比は `rework/kpi/CP2b-ratio.md`・`CP2-r2-ratio.md`・`CP2-r3-ratio.md`。
