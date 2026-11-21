@@ -1,14 +1,16 @@
 //! Role: Parts share semantic, input and lifecycle contracts across targets.
 
 use kivact::view::Modifiers;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use kivact::custom::{Part, PartState, part};
 use kivact::draw::RegionId;
 use kivact::prelude::*;
+use kivact::test::render;
 use kivact::view::A11yAction;
 use kivact::view::KeyCode;
+use kivact_public_api_tests::paint::{at, canvas_of};
 use kivact_public_api_tests::support::mount;
 
 #[test]
@@ -387,4 +389,65 @@ fn canvas_attachment() -> Part<PartState> {
             .role(Role::Canvas)
             .name("Parts canvas")
     })
+}
+
+/// A part's state as a recipe holds it: the handle, compared by identity.
+#[derive(Clone, PartialEq)]
+struct Probe {
+    input: PartState,
+}
+
+#[test]
+fn hovering_does_not_run_a_recipe_that_does_not_read_the_input() {
+    let runs = Rc::new(Cell::new(0));
+    let counted = Rc::clone(&runs);
+    let screen = render(move || {
+        let attachment = part(|input| Probe { input });
+        let probe = attachment.state();
+        canvas_of(node().part(attachment).test_id("box").style(move || {
+            counted.set(counted.get() + 1);
+            let _ = probe.get();
+            at(0, 0, 40, 20)
+        }))
+    });
+    let settled = runs.get();
+    let target = screen.get_by_test_id("box");
+    target.hover();
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(
+        runs.get(),
+        settled,
+        "a recipe that never reads the input does not run on hover or press"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_recipe_that_reads_the_input_runs_again_on_hover() {
+    let runs = Rc::new(Cell::new(0));
+    let counted = Rc::clone(&runs);
+    let screen = render(move || {
+        let attachment = part(|input| Probe { input });
+        let probe = attachment.state();
+        canvas_of(node().part(attachment).test_id("box").style(move || {
+            counted.set(counted.get() + 1);
+            let height = if probe.get().input.is_hovered() {
+                60
+            } else {
+                20
+            };
+            at(0, 0, 40, height)
+        }))
+    });
+    let settled = runs.get();
+    screen.get_by_test_id("box").hover();
+    assert_eq!(
+        runs.get(),
+        settled + 1,
+        "a recipe that reads the input runs once when the pointer enters"
+    );
+    let rect = screen.get_by_test_id("box").rect().expect("laid out");
+    assert_eq!(rect.height, 60.0, "the layer read the hovered input");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
