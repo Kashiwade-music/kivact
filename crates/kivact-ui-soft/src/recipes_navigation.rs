@@ -371,6 +371,7 @@ pub(crate) fn install(theme: Theme) -> Theme {
             .item(breadcrumb_item)
             .separator(breadcrumb_separator),
     );
+    let theme = theme.with(crate::recipes_navigation_sidebar::sidebar());
     let theme = crate::recipes_navigation_pagination::install(theme);
     crate::recipes_navigation_stepper::install(theme)
 }

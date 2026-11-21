@@ -10,8 +10,6 @@ use crate::nav_heading::{
 };
 use crate::radius::{RADIUS_CONTAINER, RADIUS_ELEMENT};
 use crate::recipe_parts::ring;
-use crate::side_navigation::items::{logical_row, side_row_style};
-use crate::side_navigation::{SideNavItem, side_nav_item};
 use crate::space::{self as s, Space};
 use crate::stack::rtl;
 use crate::type_scale as t;
@@ -39,6 +37,7 @@ use kivact::state::IntoValue;
 use kivact::state::Signal;
 use kivact::state::Value;
 use kivact::state::provide;
+use kivact::state::signal;
 use kivact::state::try_use_context;
 use kivact::style::Align;
 use kivact::style::FlexDirection;
@@ -46,6 +45,8 @@ use kivact::style::Justify;
 use kivact::style::pct;
 use kivact::style::style;
 use kivact::ui::ControlSize;
+use kivact::ui::sidebar_menu;
+use kivact::ui::sidebar_menu_button;
 use kivact::view::IntoView;
 use kivact::view::NodeRef;
 use kivact::view::OverlayAlign;
@@ -192,6 +193,69 @@ pub fn top_nav_item(
     }
 }
 
+/// The flow of a row: reversed in a right-to-left reading direction.
+fn logical_row() -> FlexDirection {
+    if rtl() {
+        FlexDirection::RowReverse
+    } else {
+        FlexDirection::Row
+    }
+}
+
+/// The row of a top navigation item in the drawer: a full-width row at the control height.
+fn side_row_style(
+    size: ControlSize,
+    depth: usize,
+    rail: bool,
+    selected: bool,
+    disabled: bool,
+) -> kivact::style::Style {
+    let height = match size {
+        ControlSize::Small => m::CONTROL_SM,
+        ControlSize::Large => m::CONTROL_LG,
+        _ => m::CONTROL_MD,
+    };
+    let pad = if size == ControlSize::Small {
+        Space::S1.px()
+    } else {
+        Space::S2.px()
+    };
+    let base = style()
+        .flex_direction(logical_row())
+        .align_items(Align::Center)
+        .gap(s::SPACE_S2)
+        .height(height)
+        .border_radius(RADIUS_ELEMENT)
+        .font_size(t::LABEL.size_px)
+        .line_height(t::LABEL.line_height_px / t::LABEL.size_px)
+        .font_weight(if selected {
+            t::WEIGHT_MEDIUM
+        } else {
+            t::WEIGHT_NORMAL
+        })
+        .color(if disabled {
+            c::TEXT_DISABLED
+        } else {
+            c::TEXT_PRIMARY
+        })
+        .focus_visible(ring(c::ACCENT));
+    let base = if rail {
+        base.width(height).justify_content(Justify::Center)
+    } else {
+        let start = pad + depth as f64 * Space::S6.px();
+        let (left, right) = if rtl() { (pad, start) } else { (start, pad) };
+        base.width(pct(100)).padding_left(left).padding_right(right)
+    };
+    if selected {
+        base.background(c::NEUTRAL)
+    } else if disabled {
+        base
+    } else {
+        base.hover(style().background(c::OVERLAY_HOVER))
+            .active(style().background(c::OVERLAY_PRESSED))
+    }
+}
+
 fn top_item_style(
     icon_only: bool,
     selected: bool,
@@ -254,8 +318,10 @@ pub fn top_nav_menu<I: IntoIterator<Item = NavHeadingMenuItem>>(
         close: close_delay,
     };
     if shell_nav_mode() == ShellNavMode::Drawer {
-        let item = side_nav_item(label)
-            .children(move || items.iter().map(drawer_menu_item).collect::<Vec<_>>());
+        let rows = items.iter().map(drawer_menu_item).collect::<Vec<_>>();
+        let item = sidebar_menu_button(label)
+            .sub(sidebar_menu(rows))
+            .sub_open(signal(true));
         return node().child(item);
     }
     let align = try_use_context::<TopNavCx>().map_or(OverlayAlign::Start, |cx| cx.align);
@@ -285,18 +351,20 @@ fn menu_chevron(open: Value<bool>) -> Node {
     })
 }
 
-fn drawer_menu_item(item: &NavHeadingMenuItem) -> SideNavItem {
-    let mut row = side_nav_item(item.label).disabled(item.disabled);
+fn drawer_menu_item(item: &NavHeadingMenuItem) -> View {
+    // STOP (K42): the central `sidebar_menu_button` has no `disabled`, so `item.disabled` is not
+    // applied to the drawer row. Waiting for the designer's decision.
+    let mut row = sidebar_menu_button(item.label);
     if let Some(icon) = &item.icon {
         row = row.icon(icon.call(()));
     }
     if let Some(description) = item.description {
-        row = row.end_content(text(description).style(supporting));
+        row = row.end(text(description).style(supporting));
     }
     if let Some(action) = item.action {
         row = row.on_press(move || action.call(()));
     }
-    row
+    row.into_view()
 }
 
 /// A wide top navigation flyout with recreated item and featured-content columns.
@@ -395,13 +463,13 @@ impl IntoView for TopNavMegaMenu {
         kivact::custom::scope(move || {
             if shell_nav_mode() == ShellNavMode::Drawer {
                 // The caller's modifiers go on the trigger, as in the flyout shape, not on a wrapper.
-                let disclosure = side_nav_item(label)
-                    .children(move || {
-                        column((
-                            items.as_ref().map(|items| items.call(())),
-                            featured.as_ref().map(|featured| featured.call(())),
-                        ))
-                    })
+                let body = column((
+                    items.as_ref().map(|items| items.call(())),
+                    featured.as_ref().map(|featured| featured.call(())),
+                ));
+                let disclosure = sidebar_menu_button(label)
+                    .sub(body)
+                    .sub_open(signal(true))
                     .with_node(move |node| node.absorb(root));
                 return node().child(disclosure).into_view();
             }

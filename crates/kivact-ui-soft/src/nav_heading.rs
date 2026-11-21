@@ -5,7 +5,6 @@ use crate::motion::{EASE_STANDARD, FAST, FAST_MAX};
 use crate::radius::{RADIUS_CONTAINER, RADIUS_ELEMENT};
 use crate::recipe_parts::{ring, shadowed};
 use crate::shadows;
-use crate::side_navigation::items::logical_row;
 use crate::space::{self as s, Space};
 use crate::stack::rtl;
 use crate::type_scale as t;
@@ -34,6 +33,7 @@ use kivact::state::IntoText;
 use kivact::state::Value;
 use kivact::state::callback;
 use kivact::style::Align;
+use kivact::style::FlexDirection;
 use kivact::style::Justify;
 use kivact::style::ThemeMode;
 use kivact::style::TransitionProp;
@@ -290,6 +290,15 @@ pub fn top_nav_heading(heading: impl IntoText) -> SideNavHeading {
     side_nav_heading(heading.into_text_value())
 }
 
+/// The flow of a row: reversed in a right-to-left reading direction.
+fn logical_row() -> FlexDirection {
+    if rtl() {
+        FlexDirection::RowReverse
+    } else {
+        FlexDirection::Row
+    }
+}
+
 fn heading_content(
     heading: Value<String>,
     superheading: Option<Value<String>>,
@@ -299,7 +308,9 @@ fn heading_content(
     menu: Option<NavHeadingMenu>,
     presses: HeadingPresses,
 ) -> View {
-    let rail = crate::side_navigation::context::nav_is_rail();
+    // The heading collapses to its icon while the sidebar around it is an icon column.
+    let sidebar = kivact::ui::use_sidebar();
+    let rail = kivact::state::memo(move || sidebar.is_some_and(|sidebar| sidebar.icon_only()));
     let has_icon = glyph.is_some();
     let interactive = menu.is_some() || presses.heading.is_some();
     let trigger = move |open: Value<bool>, menu: bool| {

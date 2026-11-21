@@ -72,6 +72,7 @@ mod recipes_input;
 mod recipes_metrics;
 mod recipes_navigation;
 mod recipes_navigation_pagination;
+mod recipes_navigation_sidebar;
 mod recipes_navigation_stepper;
 mod recipes_overlays;
 mod recipes_overlays_command;
@@ -84,7 +85,6 @@ mod rich_text;
 mod scrollable_area;
 mod section;
 mod shadows;
-mod side_navigation;
 mod soft_chat_tools;
 mod soft_overflow;
 mod soft_table;
@@ -194,10 +194,6 @@ pub use radius::{
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor};
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Section, SectionEdges, section};
-pub use side_navigation::{
-    ItemCollapse, SideNav, SideNavCollapse, SideNavCollapseButton, SideNavItem, SideNavResize,
-    SideNavSection, side_nav, side_nav_collapse_button, side_nav_item, side_nav_section,
-};
 pub use soft_chat_tools::{ChatToolCalls, ToolCall, ToolStatus, chat_tool_calls};
 pub use soft_overflow::{CollapseFrom, OverflowList, OverflowMeasure, overflow_list};
 pub use soft_table::{
