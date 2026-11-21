@@ -153,7 +153,7 @@ pub use radius::{
     RADIUS_PAGE,
 };
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
-pub use section::{Section, SectionEdges, SectionVariant, section};
+pub use section::{Section, SectionEdges, section};
 pub use soft_table::{
     RowStatusTone, TableSelectionToolbar, table_row_index, table_row_status,
     table_selection_toolbar,
@@ -181,7 +181,8 @@ pub use variants::{
     DisclosureDensity, DisclosureDividers, DropzoneVariant, Elevation, EmptyStateVariant,
     HeadingDisplay, ItemAlign, ItemDensity, ItemHighlighted, ItemLayout, LabelPosition,
     ListDividers, ListEdge, MetadataColumns, MetadataLabelWidth, MetadataOrientation,
-    PaginationSize, RowStatusDot, SegmentedIconOnly, SegmentedLayout, SkeletonRadius, SpinnerShade,
+    PaginationSize, RowStatusDot, SectionVariant, SegmentedIconOnly, SegmentedLayout,
+    SkeletonRadius, SpinnerShade,
     SpinnerVariant, StepCollapsedVariant, StepDensity, StepIndicatorPosition, SystemMessageVariant,
     TableCellAlign, TableCellDivider, TableRowDividers, TableRowHover, TableRowStriped,
     ToolbarVariant, TreeGuides,

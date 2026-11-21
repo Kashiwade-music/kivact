@@ -6,7 +6,9 @@ use crate::type_scale as t;
 
 use kivact::Prop;
 use kivact::component;
+use kivact::custom::Caller;
 use kivact::state::Value;
+use kivact::ui::theme::Variant;
 use kivact::style::Align;
 use kivact::style::pct;
 use kivact::style::style;
@@ -37,15 +39,20 @@ pub enum FieldStatusVariant {
     Detached,
 }
 
+impl Variant for FieldStatusVariant {}
+
 /// Validation text and icon with optional live-region announcements.
+///
+/// The placement is the element's `.variant(FieldStatusVariant::..)`; attached by default.
 #[component]
 pub fn field_status(
     kind: StatusKind,
     message: Value<String>,
-    #[prop(default = FieldStatusVariant::Attached)] variant: Value<FieldStatusVariant>,
     #[prop(default = 16.0)] overlap: Value<f64>,
     #[prop(default = true)] announce: Value<bool>,
+    #[caller] caller: Caller,
 ) -> impl Element {
+    let variants = caller.variants();
     let mut root = node();
     if announce.get() {
         root = root.live_region(if kind == StatusKind::Error {
@@ -78,7 +85,7 @@ pub fn field_status(
                 .line_height(20.0 / t::SIZE_SM)
                 .color(color);
             let overlap = overlap.get().max(0.0);
-            match variant.get() {
+            match variants.get::<FieldStatusVariant>().unwrap_or_default() {
                 FieldStatusVariant::Attached => base
                     .background(background)
                     .border_radius(r::RADIUS_ELEMENT)

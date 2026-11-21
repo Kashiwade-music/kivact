@@ -23,7 +23,7 @@ pub enum Elevation {
 impl Variant for Elevation {}
 
 /// Background treatment of a Soft section, shared by sections and toolbars.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum SectionVariant {
     #[default]
     /// Use the surface background; the default.
@@ -33,6 +33,8 @@ pub enum SectionVariant {
     /// Use the muted background.
     Muted,
 }
+
+impl Variant for SectionVariant {}
 
 /// Palette of a canonical card.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]

@@ -88,7 +88,14 @@ impl TokenColor {
 
 /// A static, pressable, or removable entity chip.
 ///
-/// `on_press` runs when the main action is activated; `on_remove` adds a remove action.
+/// Where each prop goes:
+/// - `label`: the text of the main part, and its accessible name when the text is hidden.
+/// - `icon` and `end`: the main part, before and after the text.
+/// - `on_press` and `description`: the main part, not the root. A press on the remove button does not run `on_press`.
+/// - `on_remove`: the remove button, a separate part after the main part.
+/// - `size` and `color`: the root and the main part.
+/// - `label_hidden`: the text of the main part.
+/// - `as_link`: the role of the main part.
 #[component]
 pub fn token(
     label: Value<String>,

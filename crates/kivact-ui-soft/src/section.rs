@@ -4,6 +4,7 @@ use crate::layout::LayoutInset;
 use crate::metrics;
 use crate::space::{SPACE_SECTION_PADDING_VAR, Space};
 use crate::stack::{ContainerInset, Padding, rtl};
+use crate::variants::SectionVariant;
 
 use kivact::Prop;
 use kivact::component;
@@ -20,20 +21,6 @@ use kivact::view::Element;
 use kivact::view::View;
 use kivact::view::column;
 use kivact::view::node;
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
-/// Background treatment of a full-bleed section.
-pub enum SectionVariant {
-    #[default]
-    /// Use the surface background; the default.
-    Section,
-    /// Leave the section background transparent.
-    Transparent,
-    /// Use the muted background.
-    Muted,
-}
-
-impl Variant for SectionVariant {}
 
 /// Logical edges of a section, for its dividers.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]

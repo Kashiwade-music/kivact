@@ -519,6 +519,8 @@ allowed_impls = [
   # 理由 (1)：trigger と surface を兄弟で出す builder（soft の more_menu・power_search。設計者の回答、2026-11-22）。
   "kivact_ui_soft::more_menu::MoreMenu crates/kivact-ui-soft/src/more_menu.rs",
   "kivact_ui_soft::power_search::PowerSearch crates/kivact-ui-soft/src/power_search.rs",
+  # 理由 (2)：中に中核の Dialog を持ち、surface を開くたびに作る builder（soft の alert_dialog。設計者の回答、2026-11-22）。
+  "kivact_ui_soft::alert_dialog::AlertDialog crates/kivact-ui-soft/src/alert_dialog.rs",
 ]
 
 [module_rules.arvane-virtual.uses]

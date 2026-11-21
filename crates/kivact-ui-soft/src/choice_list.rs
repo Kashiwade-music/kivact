@@ -83,6 +83,9 @@ pub fn radio_list<K: ItemKey>(
 }
 
 /// A labelled checkbox with supporting text and a row-sized hit area.
+///
+/// `description` is the supporting text under the label: the checkbox's description and
+/// the text in the row, not the root.
 #[component]
 pub fn checkbox_list_item(
     label: Value<String>,
