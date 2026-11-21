@@ -2104,7 +2104,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
      - 束の分解（V4）：`CardLook { size, header_bordered }` → `CardSize` と新しい `pub struct CardHeaderBordered(pub bool);`。`ItemLook { size }` → `ItemSize`。`CodeBlockLook { size }` → `CodeBlockSize`。`InputGroupButtonLook { size }` → `InputGroupButtonSize`。4 つの `*Look` と、その `impl Default`・`impl Variant`・setter を消す。
      - `#[derive(Prop)]`（C09 が付けた）は保つ（V7）。`impl kivact::ui::Variant for X {}` は V6。
      - 移した後、`date_picker.rs`、`disclosure.rs`、`drawer.rs`、`alert_dialog.rs`、`chat_colors.rs` に variant しか残らなければ、その file を消す（`chat_colors.rs` の `pub(crate) fn colors` は K17 で `recipes_chat.rs` に移る）。
-  5. 消す：`src/tokens.rs`、`src/theme_access.rs` の中の `Tokens` を読む helper（file 自体は K16 が `recipe_parts.rs` に移すので、この unit では `mod` 行を書かず残す）、`src/color.rs` の `ColorName` と `impl ThemeColor`。
+  5. 消す：`src/tokens.rs`、（`src/theme_access.rs` は消さず変えない。`mod` 行を書かないので compile されず、K16 の手順 1 が helper の `p: &Tokens` の引数を消して `recipe_parts.rs` に移す。OPEN の 2026-11-22 の回答 (a)）、`src/color.rs` の `ColorName` と `impl ThemeColor`。
   6. `src/lib.rs`：crate doc は今の 1 段落目と使い方の段落を残し、`Tokens`・`ColorName` を説明する文と「# Texts」の節の README への言及を消す。module は `mod color; mod icons; mod theme; mod variants;` だけ。`pub use` は `pub use color::{..};`（手順 2 の全部の `NAME` と `NAME_VAR`。`rg -o 'pub (static|const) ([A-Z0-9_]+)' -r '$2' crates/kivact-ui-basic/src/color.rs | sort | tr '\n' ','` で列を作る）、`pub use icons::ICON_NAMES;`、`pub use theme::theme;`、`pub use variants::{..};`（手順 4 の全部）。
 - **消すもの**：`Tokens`、`CodeColors`、`ColorName`、`AlertLook`、`CardLook`、`ItemLook`、`CodeBlockLook`、`InputGroupButtonLook`、`BubbleVariant`（改名）、`src/tokens.rs`。
 - **状態の閉じ方**：新しい状態の型なし（`CardHeaderBordered` は値）。
@@ -2432,7 +2432,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 - **状態の閉じ方**：C10。
 - **試験**：なし。
 - **確認（tier a）**：3.0.9 の途中の unit。
-- **完了条件**：`rg -n "impl (kivact::view::)?(Element|IntoView) for" crates/kivact-ui-creative/src/{audio,bezier,color_popup,color_wheel,dock,gradient}` と `crates/kivact-ui-creative/src/{controls,curve_preview,dope_sheet,feedback,key_glyph,layout}.rs` が何も出さない。上の command が通る。
+- **完了条件**（`dock/view.rs` の `Dock` は手書きの builder の例外。OPEN の 2026-11-22 の回答 (B4)）：`rg -n "impl (kivact::view::)?(Element|IntoView) for" crates/kivact-ui-creative/src/{audio,bezier,color_popup,color_wheel,dock,gradient} --glob '!dock/view.rs'` と `crates/kivact-ui-creative/src/{controls,curve_preview,dope_sheet,feedback,key_glyph,layout}.rs` が何も出さない。上の command が通る。
 
 ## K24：creative の部品 2（editors）
 
@@ -2456,7 +2456,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 - **状態の閉じ方**：C10。
 - **試験**：なし。
 - **確認（tier a）**：3.0.9 の途中の unit。
-- **完了条件**：`rg -n "impl (kivact::view::)?(Element|IntoView) for" crates/kivact-ui-creative/src` と `rg -n "ColorName|Tokens|UiRecipes" crates/kivact-ui-creative/src` が何も出さない。上の command が通る。
+- **完了条件**：`rg -n "impl (kivact::view::)?(Element|IntoView) for" crates/kivact-ui-creative/src --glob '!dock/view.rs'` と `rg -n "ColorName|Tokens|UiRecipes" crates/kivact-ui-creative/src` が何も出さない。上の command が通る。
 
 ## K38：creative の icon・試験・catalog・README（W10）
 
@@ -2951,7 +2951,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 | `Slant`、`Striped` | 消す → `kivact::ui::{Slant, Striped}`（K39） |
 | `GameInputGroupVariant` | 改名 → `InputGroupVariant` |
 | `GaugeSegments` | 残す（中身を `Value<usize>` から `usize` に） |
-| `GameCellVariant` | 消す → 部品 `IdentifierCell`、`DetailCell`、`UserCell`、`BadgeCell`（OPEN の 2026-11-22 の回答 (7a)） |
+| `GameCellVariant` | 消す → 部品 `IdentifierCell`、`DetailCell`、`UserCell`、`BadgeCell`、`ProgressCell`（OPEN の 2026-11-22 の回答 (7a)・(b)） |
 | `ThemeOptions` | 残す（field に `display_font`、`mono_font` を足す。`Copy` でなくなる） |
 
 #### 4.4.4 creative（K22〜K25）

@@ -3,6 +3,7 @@
 //! Kits can be imported alongside kivact::prelude without ambiguous names.
 //! A core module's name is not reserved: a module is in the type namespace and does not make a
 //! kit's function or value of the same name ambiguous.
+//! Only direct children are compared: a glob import brings in a module's direct names, not the names inside its submodules.
 use crate::check_source::Source;
 use crate::public_surface::{Surface, export_span};
 use std::collections::BTreeSet;
@@ -63,38 +64,39 @@ pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>
         if surface.modules.contains(path) {
             continue;
         }
-        if (path.starts_with("kivact::prelude::") || path.starts_with("kivact::ui::"))
-            && let Some(name) = path.rsplit("::").next()
+        if let Some(name) = path
+            .strip_prefix("kivact::prelude::")
+            .or_else(|| path.strip_prefix("kivact::ui::"))
+            && !name.contains("::")
         {
             reserved.insert(name);
         }
     }
     let prefix = source.identity_root() + "::";
-    for path in surface
-        .exports
-        .keys()
-        .filter(|path| path.starts_with(&prefix))
-    {
-        let name = path.rsplit("::").next().unwrap_or("");
-        if reserved.contains(name) {
-            let span = if let Some((package, module, span)) = surface.origins.get(path) {
-                if *package != source.package || *module != source.module {
-                    continue;
-                }
-                *span
-            } else {
-                if !source.module.is_empty() {
-                    continue;
-                }
-                export_span(source)
-            };
-            source.error(
-                "name-collision",
-                span,
-                &format!("kit export {path} collides with core or std prelude"),
-                errors,
-            );
+    for path in surface.exports.keys() {
+        let Some(name) = path.strip_prefix(&prefix) else {
+            continue;
+        };
+        if name.contains("::") || !reserved.contains(name) {
+            continue;
         }
+        let span = if let Some((package, module, span)) = surface.origins.get(path) {
+            if *package != source.package || *module != source.module {
+                continue;
+            }
+            *span
+        } else {
+            if !source.module.is_empty() {
+                continue;
+            }
+            export_span(source)
+        };
+        source.error(
+            "name-collision",
+            span,
+            &format!("kit export {path} collides with core or std prelude"),
+            errors,
+        );
     }
 }
 #[cfg(test)]
@@ -129,6 +131,36 @@ mod tests {
         let mut errors = Vec::new();
         super::check(&source, &surface, &mut errors);
         assert_eq!(errors.len(), 1);
+    }
+    #[test]
+    fn a_nested_core_name_is_not_reserved() {
+        let mut source = crate::check_source::fixture(
+            "pub const BACKGROUND: u32 = 0; pub struct Button;",
+        );
+        source.module.clear();
+        let mut surface = crate::public_surface::build(std::slice::from_ref(&source));
+        surface.exports.insert(
+            "kivact::ui::toolbar::BACKGROUND".into(),
+            "kivact_ui::toolbar::BACKGROUND".into(),
+        );
+        surface
+            .exports
+            .insert("kivact::ui::Button".into(), "kivact_ui::Button".into());
+        let mut errors = Vec::new();
+        super::check(&source, &surface, &mut errors);
+        assert_eq!(errors.len(), 1);
+    }
+    #[test]
+    fn a_kit_nested_name_is_not_checked() {
+        let mut source = crate::check_source::fixture("pub mod a { pub struct Button; }");
+        source.module.clear();
+        let mut surface = crate::public_surface::build(std::slice::from_ref(&source));
+        surface
+            .exports
+            .insert("kivact::ui::Button".into(), "kivact_ui::Button".into());
+        let mut errors = Vec::new();
+        super::check(&source, &surface, &mut errors);
+        assert_eq!(errors.len(), 0);
     }
     #[test]
     fn includes_module_names_and_respects_inline_markers() {

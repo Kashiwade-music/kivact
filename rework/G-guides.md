@@ -250,6 +250,7 @@ PERL
 | `selection_field(label, value_label).content(f)` | `select(items, value).label(label).trigger(view)` |
 | `input_group_with(label, \|\| children)` | `input_group(label, children)` |
 | `dialog(title, open).mode(DialogMode::Popover)` | `kivact::interaction::use_popup(open)` and its `surface(placement, content)` |
+| `use_dialog(open, DialogMode::Popover).anchor(node)` | `kivact::interaction::use_popup(open).anchor(node)` and its `surface(placement, content)` (a non-modal surface is a popup; `use_dialog` is modal only) |
 | `MenuApi::while_open(f)`, `CommandPaletteApi::while_open(f)` | `api.surface(placement, content)`, or `show(api.is_open(), f)` |
 | `use_menu_with_open(items, open)` | `use_menu(items, open)`; the `open` signal is required by every opening behavior |
 | `api.control_state()`, `api.item_state(key)` and the other `*_state()` getters | `api.control().state()`, `api.item(key).state()`: `Part::state()` |

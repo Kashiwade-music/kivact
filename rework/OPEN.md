@@ -1245,3 +1245,42 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
 - **(7a) game の `GameCellVariant`**：改名をやめる。この enum は表の cell の**中身**の種類で、kivact の `*Variant`（見た目の variant）ではない。また kit は `impl IntoView for` を持てない（3.0.5）。そこで enum を消し、4 つの部品にする：`IdentifierCell`、`DetailCell`、`UserCell`、`BadgeCell`（3.0.5 の `#[component]`。props は今の enum の各 variant の field のまま。本体は今の `cell_view` の各 arm のまま）。`console_cell` も作らない。所有：K27（`table.rs`）。付属書 K の K26 の手順と 4.4.3 の表を直した。example と catalog の呼び出し（`GameCellVariant::User { .. }` など）は、game の catalog の unit（K40）が部品の呼び出しに変える。
 - **(7b) game の recipe の部品**：落とさない（見た目を変えない）。3.0.3 の R1〜R2 のとおり、今 kit が `UiRecipes` で上書きしていた recipe は、**すべて**中核の `<Name>Theme` の同じ名前の setter に移す。付属書の表は group の行き先を示すだけで、setter の一覧ではない。中核には `BreadcrumbTheme::{root, separator}`、`PaginationTheme::{root, ellipsis}`、`StepperTheme::{indicator, label}`、`NavigationMenuTheme::{root, trigger, action, panel, link, link_title, link_description}` がある（`crates/kivact-ui/src/<name>/look.rs` の `recipe_table!`）。中核に同じ名前の setter が無い part があれば、その part の名前と今の recipe の場所の一覧を私に返す（落とさずに止める）。
 - **(8) の後半**：K28 の step 8 を続きの implementer に渡すのは、Orchestrator の判断どおりでよい。
+
+## 設計者の回答（W9 の K5・K3 の判断待ち、2026-11-22）
+
+- **(A) soft の `Elevation::apply` と `Space::px`**：一つの事実に一つの定義にする。今は `Elevation` が `elevation.rs` と `variants.rs` に、`Space` が `stack.rs` と `variants.rs` に二重にある。
+  - `Elevation`：定義は `variants.rs` の一つ（variant だから）。`elevation.rs` は消す。`apply` は `shadows.rs` の `pub(crate) fn elevate(base: Style, elevation: Elevation, dark: bool) -> Style` にする。本体は今の `apply` と同じで、影の列は K28 が作った `shadows::low(dark)`・`med(dark)`・`high(dark)`。`dark` は、他の `shadows::*(dark)` の呼出し側と同じ取り方で渡す。
+  - `Space`：定義は `space.rs` の一つ（`SPACE_*` の変数の隣。公開）。`stack.rs` と `variants.rs` の定義は消す。`lib.rs` は `space::Space` を出す。`px(self) -> f64` は T8 の計算の行の読み方で、`use_theme().get().get(&space::SPACE_<段>_VAR)` を返す（段 = S0、S0_5、…、S10）。`CardPadding(pub Space)` は `variants.rs` に残し、`crate::space::Space` を使う。
+  - 所有：lane K5 の fix の commit（K28 の後、K29 の前）。`elevation.rs`、`shadows.rs`、`space.rs`、`stack.rs`、`variants.rs`、`lib.rs` と、`Elevation::apply` の呼出し側（`rg -n "\.apply\(" crates/kivact-ui-soft/src` のうち `Elevation` のもの）。その後に K29・K30 を進める。
+- **(B1) `editors/time`（`time_editor_builder!`、`TimeEditor`）**：K23 が持つ（dope_sheet が最初の利用者）。K24 の timeline も同じ macro を使う。
+  - `TimeEditor<T>` は crate の中だけの型（`pub(crate)`。Element にしない）のまま残す。
+  - `time_editor_builder!` は、builder の struct と impl の代わりに `#[component]`（3.0.5）の関数を展開する macro にする。props は今の setter と同じ名前・同じ既定。`items` と `state` は位置引数で、`on_edit`、`lanes`、`snap`、`step`、`time_format`、`ruler_ticks`、`zoom_range`、`min_duration` と `lane_extension_methods!` の setter を持つ。本体は `TimeEditor::new(items, state, $height)` に props を入れて view を返す。
+  - macro が展開した `#[component]` が compile しなければ、`DopeSheet` と `Timeline` の 2 つの `#[component]` を手で書く（props の列は同じ）。macro は消す。手書きの builder の例外にはしない。
+  - K24 は `timeline.rs` の呼出しだけを直す。
+- **(B2) K23 と K24・K25 の順序**：3.0.6 の S2 のとおり。K23 が変換する module が、まだ変換していない module（K25 の `number`・`fader`・`knob`、K24 の `editors/shared` の `metrics`・`targets`）を要るなら、その module も K23 が同じ unit で変換して `lib.rs` に足す。K24・K25 は、K23 が変換した module を飛ばす。公開の部品（`Number` などの `#[component]`）にも S2 を当てる。順序は K22 → K23 → K24 → K25 のまま。
+- **(B3) feedback の `tool_window`・`tool_window_button`・`window_layer`**：interaction の非 modal の面は popup（RW-18）。`use_dialog(open, DialogMode::Popover).anchor(node)` は `use_popup(open).anchor(node)` と、その `surface(placement, content)`・`trigger()`・`close_trigger()` の part にする（`use_dialog` は modal だけ）。
+  - `ToolWindowOptions::modal(true)` のときだけ `use_dialog(open, DialogMode::Modal)` を使う。build のときに一度選ぶ（反応する値にしない。`modal` は今も `bool`）。
+  - G-guides の変換表に、この行を足した。旧の版（`8ff48d86`）から feedback.rs に戻して変換する。
+  - `WindowPosition` を popup の `surface` の placement に写せない値があれば、その値の一覧を返す。
+- **(B4) dock の `Dock<K>` と `menu<C, R>`**：手書きの builder の 5 つ目の理由（generic の setter）に当たる。中核の `DataTable`・`Select`・`Combobox` と同じ扱いにする。
+  - `Dock` は builder のまま残し、`dev/xtask/policy/workspace.toml` の `[hand_element] allowed_impls` に `"kivact_ui_creative::dock::view::Dock crates/kivact-ui-creative/src/dock/view.rs"` を足す。理由の comment は他の generic の行と同じ形にする。
+  - 手書きの builder の規則（caller の値は `node_mut().authored()` から読む、診断の位置は `caller.at()`、引数の無い setter は `bool`）は守る。
+  - 付属書 K の K23・K25 の完了条件の `rg` から `dock/view.rs` を外した。
+- **K3 の再開**：K23 の未了の commit `255a7a72` から続ける。(B1)〜(B4) を K23 の unit で行う。完了条件を満たしたら K24 へ進む。見た目の確認は 3.0.9 のとおり。
+
+## 設計者の回答（W9 の K1・K3 の判断待ちと確認 5 点、2026-11-22）
+
+- **(a) basic の `theme_access.rs`**：K16 で変換する（消さない）。K15 の手順 5 の「`Tokens` を読む helper を消す」は誤りで、K16 の手順 1 と食い違っていた。K15 は `theme_access.rs` を変えず、`mod` 行も書かない（compile されない）。K16 が手順 1 のとおり、helper（`focus_ring`、`wide_focus_ring`、`with_focus`、`lit_row`、`field_fill`、`popover_surface` など）の `p: &Tokens` の引数を消して本体で変数を読む形にし、`recipe_parts.rs` に移す。付属書 K の K15 の手順 5 を直した。K15 は `60697ba4` のまま完了として採る。K16 を進めてよい。
+- **(b1) creative の `color_to_hsv` と `Color::components(&Theme)`**：中核の `Color::components(theme)`・`Color::mix(.., theme)` に合わせ、theme を明示の引数にする。
+  - 公開の署名は `pub fn color_to_hsv(color: Color, theme: &Theme) -> (f64, f64, f64)`。本体は `color.components(theme)`。doc に 1 文足す：「A theme color resolves in `theme`; pass `&use_theme().get()` inside a view.」
+  - `color_from_hsv` は theme を要らないので今のまま。
+  - color_wheel・color_popup・gradient の中の呼出しは、反応する closure の中で `let t = use_theme().get();` と書き、`&t` を渡す。geometry・state・fields も同じ形にする。
+  - 付属書の `color.components()` の箇所は、すべて `color.components(&t)` と読む。
+- **(b2) 2 引数の setter**：
+  - mixer_strip の `routes(routes, route)`：二つの props に分ける。`routes: Vec<..>`（選べる送り先の一覧。反応する値で受ける形は 3.0.5 のとおり。既定は空）と `route`（今の 2 つ目の引数の型。既定は今の builder の既定）。React の `<MixerStrip routes={..} route={..} />` と同じ形。
+  - gradient_editor の `color_transform(to_display, from_display)`：二つは互いに逆の関数で、片方だけでは意味が無い。そこで公開の data の型にまとめ、prop は一つにする。`pub struct ColorTransform { .. }`（field は非公開）と `ColorTransform::new(to_display: impl Fn(Color) -> Color + 'static, from_display: impl Fn(Color) -> Color + 'static) -> Self` を作り（関数の型は今の setter の型のまま）、prop は `color_transform: Option<ColorTransform>`（既定 `None` は変換なし）にする。置き場は `gradient/` の中、`lib.rs` で公開する。
+- **確認 1（timecode の step・precision）**：明示した値が呼ぶ順に関係なく勝つ形を採る（props は順序に依らない）。G の移行の文書の「振る舞いの変化」に 1 行足す（W11b）：「`Timecode` の `step` と `precision` は、呼ぶ順に関係なく明示した値が使われる。」
+- **確認 2（`typing.show(())` → `typing.edit(())`）**：採る。K23 の tier a で、creative の numeric の E2E（`3.0.9` の command の試験の filter）を走らせて確かめる。落ちたら返す。
+- **確認 3（K4 の progress_cell）**：採る。元の enum の 5 つ目の variant を落とさないための追加で、正しい。ただし名前と形は他の 4 つとそろえ、`#[component]` の `ProgressCell` にする（関数の `progress_cell` は作らない）。付属書 K の 4.4.3 の表を直した。
+- **確認 4（K4 の stepper の「not reached」の文字色）**：K26 の写し間違い。基点どおり `TEXT_3` に直す（見た目を変えない）。lane K4 の fix の commit にする。
+- **確認 5（K6 の K10 の commit を merge の前にする）**：採る。
