@@ -161,3 +161,10 @@
 - 完了（lane の commit、統合へは未 merge）：E27 `198ec9e5`、E28 `e908b61c`（lane `wt/rw-W7b-E1`）、A15 `08c1371d`（lane `wt/rw-W7b-A1`）、U32 `459b6715`（lane `wt/rw-W7b-U2`）、U34 `ca79381b` と U35 `7869702e`（lane `wt/rw-W7b-U3`）、U36 `288c6f6e`（lane `wt/rw-W7b-U4`）。
 - 停止：U30a（lane `wt/rw-W7b-U1`、commit `fbad507e`、compile が通らない）。設計者の答えを待つ（OPEN「差戻し（W7b・U30a）」）。U30c・U30b・U31・U33 は U30a の後。
 - W7b の merge と tier b は、U1 lane が終わってから。
+
+## W7b 完了（統合 merge 済み・tier b 成功、2026-11-21）
+- 統合の merge：U1（U30a・U30c・U30b・U31・U33）、U2（U32）、U3（U34・U35）、U4（U36）、E1（E27・E28）、A1（A15）。
+- 統合の直し：`drawer_swipe.rs:125` を `crate::DialogKind::Drawer(edge)` に（設計者の (d)）。`interaction_dialog.rs` の `IntoValue` の import。`interaction_toggle.rs` の無効の trigger の試験を `is_disabled()` の assert（harness は無効の node への click を拒むため）。
+- U30b の開閉の一方向（設計者の決め）：注記の event（`Prepare`・`Closing`・`Typed`）で値を先に渡し、開閉は `open.set` だけが決める。注記の残りは、同じ turn の hide で既定に戻す（`52468fd0`、設計者の (d)）。
+- tier b（統合、`V:/kv-target/rw-main`、W6〜W9 の形）：fmt・clippy（workspace、XK と XD を除外、`-D warnings`）・test（1345 件成功、失敗 0、無視 39）・xtask `--only local` は成功。`xtask-allow(state-fields)` は 0 件（grep）。ログは `V:/kv-target/logs-W7b-tierb/`。
+- 次：W8（U 4 lane、E29、A16、lane S は S22b → S22d）。
