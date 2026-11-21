@@ -4,7 +4,7 @@ use crate::Tone;
 use kivact_core::UiError;
 use kivact_core::custom::Generation;
 use kivact_core::state::{MachineHandle, Value};
-use kivact_core::view::{HandlerResult, IntoView};
+use kivact_core::view::HandlerResult;
 use std::rc::Rc;
 use std::time::Duration;
 /// How long a toast stays when [`Toast::duration`] is not set.
@@ -121,18 +121,18 @@ pub struct Toast {
         reason = "a plain owned closure, named where it is read"
     )]
     pub action: Option<(String, kivact_core::state::Callback<()>)>,
-    /// A view a kit draws as the toast's icon instead of the icon of its
-    /// tone, if there is one. It is called once, when the toast is shown.
-    pub icon: Option<kivact_core::view::ViewFn<()>>,
+    /// The name in the theme's icon set of the icon a kit draws instead of
+    /// the icon of its tone, if there is one.
+    pub icon_name: Option<&'static str>,
 }
 
-/// Toasts are equal when their text, tone and duration are, and their action
-/// and icon are the same functions (a closure is equal to a clone of itself),
-/// as for a [`ColumnDef`](crate::ColumnDef).
+/// Toasts are equal when their text, tone and duration are, their icon names
+/// are and their action is the same function (a closure is equal to a clone
+/// of itself), as for a [`ColumnDef`](crate::ColumnDef).
 impl PartialEq for Toast {
     fn eq(&self, other: &Self) -> bool {
         let action = self.action == other.action;
-        let icon = self.icon == other.icon;
+        let icon = self.icon_name == other.icon_name;
         self.title == other.title
             && self.body == other.body
             && self.tone == other.tone
@@ -151,7 +151,7 @@ impl Toast {
             tone: Tone::Neutral,
             duration: Some(DEFAULT_DURATION),
             action: None,
-            icon: None,
+            icon_name: None,
         }
     }
 
@@ -196,11 +196,10 @@ impl Toast {
         self
     }
 
-    /// An icon for this toast, which a kit draws instead of the icon of its
-    /// tone. `icon` is called once, when the toast is shown, in the toast's
-    /// owner.
-    pub fn icon<V: IntoView>(mut self, icon: impl kivact_core::view::IntoViewFn<V>) -> Self {
-        self.icon = Some(icon.into_view_fn());
+    /// The name in the theme's icon set of an icon drawn instead of the icon
+    /// of its tone.
+    pub fn icon_name(mut self, name: &'static str) -> Self {
+        self.icon_name = Some(name);
         self
     }
 }

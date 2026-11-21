@@ -9,6 +9,7 @@ use kivact::ErrorKind;
 use kivact::interaction::use_announcer;
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
+use kivact::ui::announcer_outlet;
 use kivact::view::{LiveRegion, rich_text, span};
 use kivact_public_api_tests::support::mount;
 
@@ -21,7 +22,7 @@ fn announcements_publish_in_separate_persistent_live_regions() {
         column((
             button("Save").on_press(move || notices.announce("Saved", LiveRegion::Polite)),
             button("Retry").on_press(move || notices.announce("Failed", LiveRegion::Assertive)),
-            column(notices.outlet()).test_id("notices"),
+            announcer_outlet(notices).test_id("notices"),
         ))
     });
     let outlet = screen.get_by_test_id("notices");

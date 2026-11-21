@@ -1,73 +1,10 @@
 //! Role: Attach velocity-aware dismissal to a drawer's dedicated drag handle.
 use crate::dialog::look::DialogTheme;
-use kivact_core::geometry::{Edge, Point, Rect};
-use kivact_core::state::Machine as MachineTrait;
-use kivact_core::state::{Signal, Step, Value, machine, memo};
+use kivact_core::geometry::Edge;
+use kivact_core::state::{Signal, Value, memo};
 use kivact_core::style::{style, use_theme};
 use kivact_core::view::{Node, NodeRef, node};
-use kivact_interaction::{DragCoordinates, DragPhase, DragUpdate, InteractionPolicy, use_drag};
-
-/// How far a drawer's handle has pulled the panel away from its edge.
-#[derive(Clone, Copy, PartialEq)]
-enum Swipe {
-    /// The handle is not pulling the panel.
-    Resting,
-    /// The handle pulls the panel by this many logical pixels.
-    Pulling(f64),
-}
-
-/// The four drag events and the release's decision inputs.
-enum Event {
-    Start,
-    Update(f64),
-    End { distance: f64, velocity: Point },
-    Cancel,
-}
-
-enum Effect {
-    Close,
-}
-
-/// The measured panel and the theme's dismissal policy for one handle.
-struct Machine {
-    edge: Edge,
-    rect: Option<Rect>,
-    close_fraction: f64,
-    flick_distance: f64,
-    flick_speed: f64,
-}
-
-impl MachineTrait for Machine {
-    type State = Swipe;
-    type Event = Event;
-    type Effect = Effect;
-    fn transition(&self, _: &Swipe, event: Event) -> Step<Swipe, Event, Effect> {
-        match event {
-            Event::Start => Step::to(Swipe::Pulling(0.0)),
-            Event::Update(distance) => Step::to(Swipe::Pulling(distance.max(0.0))),
-            Event::End { distance, velocity } => {
-                let distance = distance.max(0.0);
-                let far = self.rect.is_some_and(|rect| {
-                    let size = if matches!(self.edge, Edge::Left | Edge::Right) {
-                        rect.width
-                    } else {
-                        rect.height
-                    };
-                    size > 0.0 && distance > size * self.close_fraction
-                });
-                let flick = distance > self.flick_distance
-                    && toward(self.edge, velocity) > self.flick_speed;
-                let step = Step::to(Swipe::Resting);
-                if far || flick {
-                    step.with(Effect::Close)
-                } else {
-                    step
-                }
-            }
-            Event::Cancel => Step::to(Swipe::Resting),
-        }
-    }
-}
+use kivact_interaction::{InteractionPolicy, SwipeDismissPolicy, SwipePhase, use_swipe_dismiss};
 
 pub(crate) fn handle(
     edge: Edge,
@@ -76,41 +13,18 @@ pub(crate) fn handle(
     variants: &kivact_core::view::Variants,
 ) -> (Node, Value<f64>) {
     let policy = use_theme().get().ext::<InteractionPolicy>().drawer.swipe;
-    let rect = panel.rect();
-    let swipe = machine(
-        Swipe::Resting,
-        move || Machine {
-            edge,
-            rect: rect.get(),
-            close_fraction: policy.close_fraction,
-            flick_distance: policy.flick_distance,
-            flick_speed: policy.flick_speed,
-        },
-        move |_, effect| match effect {
-            Effect::Close => open.set(false),
-        },
+    let swipe = use_swipe_dismiss(
+        SwipeDismissPolicy::drawer(edge, policy),
+        panel.rect(),
+        move || open.set(false),
     );
-    let drag = use_drag::<()>(DragCoordinates::Window)
-        .track_velocity()
-        .on_start(move |_| swipe.send(Event::Start))
-        .on_update(move |update: DragUpdate<()>| {
-            swipe.send(Event::Update(toward(edge, update.delta)))
-        })
-        .on_end(move |update: DragUpdate<()>| {
-            swipe.send(if update.phase == DragPhase::Cancel {
-                Event::Cancel
-            } else {
-                Event::End {
-                    distance: toward(edge, update.delta),
-                    velocity: update.velocity,
-                }
-            })
-        });
-    let part = drag.source(());
+    let part = swipe.control();
     let state = part.state();
-    let pulled = memo(move || match swipe.get() {
-        Swipe::Resting => 0.0,
-        Swipe::Pulling(distance) => distance,
+    let phase = swipe.phase();
+    let pulled = memo(move || match phase.get() {
+        SwipePhase::Dragging { offset, .. } => offset,
+        SwipePhase::Dismissed { travel, .. } => travel,
+        SwipePhase::Rest | SwipePhase::Pressed => 0.0,
     });
     let handle =
         crate::layer::with_recipe_style(
@@ -120,7 +34,7 @@ pub(crate) fn handle(
             |r: &DialogTheme| r.drag_handle_recipe(),
             variants,
             move || crate::theme::DialogState {
-                input: state.get().input,
+                input: state.get(),
                 open: open.get(),
                 kind: kivact_interaction::DialogMode::Drawer(edge),
                 media: false,
@@ -136,12 +50,4 @@ pub(crate) fn translation(edge: Edge, distance: f64) -> kivact_core::style::Styl
         Edge::Bottom => (0.0, distance),
     };
     style().translate(x, y)
-}
-fn toward(edge: Edge, point: Point) -> f64 {
-    match edge {
-        Edge::Left => -point.x,
-        Edge::Right => point.x,
-        Edge::Top => -point.y,
-        Edge::Bottom => point.y,
-    }
 }

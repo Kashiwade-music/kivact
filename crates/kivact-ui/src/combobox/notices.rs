@@ -1,6 +1,6 @@
 //! Role: Announce accepted multiple-selection edits without mirroring selection.
 use kivact_core::state::{ItemKey, Signal, Value, signal};
-use kivact_core::view::{LiveRegion, View};
+use kivact_core::view::{IntoView, LiveRegion, View};
 use kivact_interaction::{Announcer, ListItem, use_announcer};
 
 #[derive(Clone, Copy)]
@@ -59,6 +59,6 @@ impl Notices {
         }
     }
     pub(super) fn outlet(self) -> View {
-        self.outlet.outlet()
+        crate::announcer_outlet(self.outlet).into_view()
     }
 }

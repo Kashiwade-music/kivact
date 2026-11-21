@@ -62,6 +62,8 @@ mod roving;
 mod scalar;
 mod sealed;
 mod selection;
+mod swipe_dismiss;
+mod switch_drag;
 pub use selection::{IntoSelection, Selection};
 mod select;
 mod space_pan;
@@ -76,7 +78,7 @@ mod tooltip;
 mod tree;
 mod zoom_pan;
 
-pub use announcer::{Announcer, use_announcer};
+pub use announcer::{Announcement, Announcer, use_announcer};
 pub use calendar::{
     CalendarDayState, CalendarGridApi, CalendarOptions, CalendarSelection, CalendarSpan,
     DaySelection, use_calendar_grid,
@@ -115,6 +117,10 @@ pub use scalar::{ScalarApi, ScalarState, TouchSliderGesture, use_scalar};
 pub use select::{SelectApi, use_select};
 pub use space_pan::{SpacePanApi, use_space_pan};
 pub use splitter::{SplitterApi, SplitterState, use_splitter};
+pub use swipe_dismiss::{
+    SwipeDismissApi, SwipeDismissPolicy, SwipeInputs, SwipePhase, use_swipe_dismiss,
+};
+pub use switch_drag::{Lift, SwitchDragApi, SwitchTrack, ThumbDrag, TrackInput, use_switch_drag};
 pub use table::{
     ColumnDef, DataTableApi, DataTableModelApi, FilterValue, HeaderSort, SortOrder, TableCellState,
     TableFocus, TableHeaderState, TableRowState, use_data_table, use_data_table_model,

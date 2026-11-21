@@ -10,11 +10,11 @@ use kivact::view::{EditPhase, Orientation};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::interaction::ScalarRange;
+use kivact::interaction::{InteractionPolicy, ScalarRange, SwitchDrag, SwitchPolicy};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
 use kivact::ui::{range_slider, splitter};
-use kivact::view::A11yAction;
+use kivact::view::{A11yAction, PointerKind};
 use kivact_public_api_tests::support::mount_with;
 
 use EditPhase::{Begin, Cancel, Commit};
@@ -299,5 +299,61 @@ fn a_toast_region_shows_toasts_and_their_close_action_and_escape_dismiss_them() 
     screen.get_by_role(Role::Button, "Close").focus();
     screen.press_key(Key::Escape);
     assert!(screen.query_by_role(Role::Status, "Saved").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_switch_drag_commits_once_and_vertical_or_cancelled_contacts_do_not_toggle() {
+    let options = RenderOptions::with_theme(Theme::light().with(InteractionPolicy {
+        switch: SwitchPolicy {
+            drag: SwitchDrag(true),
+        },
+        ..InteractionPolicy::default()
+    }));
+    let (screen, (on, writes)) = mount_with(options, || {
+        let on = signal(false);
+        let writes = signal(0);
+        let value = binding(on, move |next| {
+            writes.update(|count| *count += 1);
+            on.set(next);
+        });
+        ((on, writes), kivact::ui::switch("Notifications", value))
+    });
+    let control = screen.get_by_role(Role::Switch, "Notifications");
+    let bounds = control.accessibility_bounds().unwrap();
+    let (x, y) = (bounds.x + 14.0, bounds.y + bounds.height / 2.0);
+    let touch = || screen.contact_down(PointerKind::Touch, x, y);
+    let finger = touch();
+    assert!(!on.get_untracked());
+    screen.contact_up(finger);
+    assert!(on.get_untracked());
+    assert_eq!(writes.get_untracked(), 1);
+    let finger = touch();
+    screen.contact_move(finger, x, y + 24.0);
+    screen.contact_up(finger);
+    assert!(on.get_untracked());
+    assert_eq!(writes.get_untracked(), 1);
+    let finger = touch();
+    screen.contact_move(finger, x + 30.0, y);
+    screen.contact_cancel(finger);
+    assert!(on.get_untracked());
+    assert_eq!(writes.get_untracked(), 1);
+    control.press_key(Key::Space);
+    assert!(!on.get_untracked());
+    assert_eq!(writes.get_untracked(), 2);
+    control.press_key(Key::Enter);
+    assert!(!on.get_untracked());
+    assert_eq!(writes.get_untracked(), 2);
+    let finger = touch();
+    screen.contact_move(finger, x + 28.0, y);
+    screen.contact_move(finger, x + 30.0, y);
+    assert!(!on.get_untracked());
+    screen.contact_move(finger, x - 3.0, y);
+    screen.contact_up(finger);
+    assert!(
+        !on.get_untracked(),
+        "a drag that flips and returns keeps the starting side"
+    );
+    assert_eq!(writes.get_untracked(), 2);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

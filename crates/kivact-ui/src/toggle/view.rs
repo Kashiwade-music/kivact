@@ -1,6 +1,6 @@
 //! Role: The checkbox and switch builders, their rendering and their gestures.
 
-use crate::toggle::switch_drag::switch as switch_gesture;
+use super::{Visual, switch_gesture};
 
 use crate::control_size::ControlSize;
 use crate::layer::with_base_recipe_style;
@@ -144,10 +144,7 @@ fn no_gesture(
     _: Signal<bool>,
     _: Value<ControlSize>,
     _: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
-) -> (
-    kivact_core::custom::Part<ToggleState>,
-    crate::toggle::switch_drag::Visual,
-) {
+) -> (kivact_core::custom::Part<ToggleState>, Visual) {
     (control, None)
 }
 
@@ -176,10 +173,7 @@ fn switch_text(on: Value<bool>) -> Value<String> {
 
 /// A check box's control: its checked state as the behavior reports it,
 /// mixed included.
-fn checkbox_control(
-    _: Signal<bool>,
-    _: crate::toggle::switch_drag::Visual,
-) -> impl Fn(CheckedState) -> CheckControl + 'static {
+fn checkbox_control(_: Signal<bool>, _: Visual) -> impl Fn(CheckedState) -> CheckControl + 'static {
     CheckControl::CheckBox
 }
 
@@ -187,7 +181,7 @@ fn checkbox_control(
 /// setup) and the live visual of its opted-in drag.
 fn switch_control(
     state: Signal<bool>,
-    drag: crate::toggle::switch_drag::Visual,
+    drag: Visual,
 ) -> impl Fn(CheckedState) -> CheckControl + 'static {
     let text = switch_text(state.into_value());
     move |checked| CheckControl::Switch {
