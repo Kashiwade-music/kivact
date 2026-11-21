@@ -8,7 +8,12 @@
 //!     App::new("App").theme(soft::theme(ThemeMode::Light)).run(|| button("Save"))
 //! }
 //! ```
+mod avatar;
+mod banner;
+mod code;
 mod color;
+mod hover_card;
+mod icon;
 mod icons;
 mod metrics;
 mod motion;
@@ -47,7 +52,11 @@ mod theme;
 mod theme_policy;
 mod type_scale;
 mod variants;
+mod visually_hidden;
 
+pub use avatar::{AvatarSilhouette, avatar_silhouette};
+pub use banner::{BannerIcon, banner_icon};
+pub use code::{Code, CodeColor, code};
 pub use color::{
     ACCENT, ACCENT_HOVER, ACCENT_MUTED, BG_BODY, BG_CARD, BG_ERROR_INVERTED, BG_INVERTED, BG_MUTED,
     BG_POPOVER, BG_SURFACE, BORDER_EMPHASIZED, CHOICE_BORDER_HOVER, CHOICE_SURFACE_HOVER,
@@ -78,6 +87,8 @@ pub use color::{
     TEXT_ERROR, TEXT_INFO, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_SUCCESS, TEXT_WARNING, TINT_HOVER,
     TRACK, WARNING, WARNING_MUTED,
 };
+pub use hover_card::{HoverCardText, hover_card_text};
+pub use icon::{IconColor, IconSize, IconView, icon_view};
 pub use icons::ICON_NAMES;
 pub use radius::{
     RADIUS_CHAT, RADIUS_CONTAINER, RADIUS_ELEMENT, RADIUS_FULL, RADIUS_INNER, RADIUS_NONE,
@@ -101,3 +112,4 @@ pub use variants::{
     TableCellAlign, TableCellDivider, TableRowDividers, TableRowHover, TableRowStriped,
     ToolbarVariant, TreeGuides,
 };
+pub use visually_hidden::{VisuallyHidden, visually_hidden};
