@@ -81,6 +81,8 @@ pub(super) enum Event<K> {
     Present(Surface),
     /// The caller's `open` became false: the follow of `open`.
     Closed,
+    /// The list is being hidden: a note noted before the hide must not outlive it.
+    Closing,
     /// Note that the user typed: an open list filters, a closed one opens filtered.
     Typed,
     /// The query changed while the list is open.
@@ -132,6 +134,7 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
             }),
             (Open { .. }, Event::Closed) => Step::to(ComboState::closed()).with(Effect::Closed),
             (Closed { .. }, Event::Closed) => Step::stay(),
+            (Closed { .. }, Event::Closing) => Step::to(ComboState::closed()),
             (Closed { .. }, Event::Typed) => Step::to(Closed {
                 next: Opening {
                     surface: Surface::Popover,

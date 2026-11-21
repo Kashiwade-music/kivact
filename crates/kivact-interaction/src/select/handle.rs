@@ -406,6 +406,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
     /// Hide the options as [`PopupCloseReason::Programmatic`]. Nothing
     /// changes while they are hidden.
     pub fn hide(self) {
+        self.session.send(machine::Event::Closing);
         self.popup.close(PopupCloseReason::Programmatic);
     }
 

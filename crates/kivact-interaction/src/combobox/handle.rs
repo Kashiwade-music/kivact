@@ -455,6 +455,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     /// always shown, so this does nothing for it.
     pub fn hide(self) {
         if !self.inline && self.open.get_untracked() {
+            self.session.send(machine::Event::Closing);
             self.open.set(false);
         }
     }

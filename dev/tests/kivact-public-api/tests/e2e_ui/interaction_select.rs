@@ -373,3 +373,28 @@ fn letters_at_the_trigger_and_in_the_open_list_continue_one_search() {
     assert!(closed(&screen));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_note_does_not_outlive_a_hide_in_the_same_turn() {
+    let (screen, (is_sheet, open)) = mount_with(real_window(), || {
+        let open = signal(false);
+        let selected = signal(None::<&'static str>);
+        let api = use_select(fruit().into_value(), selected, open);
+        let view = column((button("Sheet, hide, reopen").on_press(move || {
+            api.show_sheet();
+            api.hide();
+            open.set(true);
+        }),));
+        ((api.is_sheet_open(), open), view)
+    });
+    screen
+        .get_by_role(Role::Button, "Sheet, hide, reopen")
+        .click();
+    screen.run_until_idle();
+    assert!(open.get_untracked(), "the list is open after the reopen");
+    assert!(
+        !is_sheet.get_untracked(),
+        "a list reopened after a hide in the same turn takes the default popover, not the sheet noted before the hide"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

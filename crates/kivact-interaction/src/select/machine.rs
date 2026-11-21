@@ -63,6 +63,8 @@ pub(super) enum Event<K> {
     Opened,
     /// The caller's `open` became false: the follow of `open`.
     Closed,
+    /// The list is being hidden: a note noted before the hide must not outlive it.
+    Closing,
     Hover(Option<K>),
     Highlight(Option<K>),
     /// The option to report to the caller's preview callback.
@@ -104,6 +106,10 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
             },
             Event::Opened => match state {
                 State::Closed { next: opening } => next = State::open_with(opening.clone()),
+                State::Open { .. } => return Step::stay(),
+            },
+            Event::Closing => match state {
+                State::Closed { .. } => next = State::closed(),
                 State::Open { .. } => return Step::stay(),
             },
             Event::Closed => {

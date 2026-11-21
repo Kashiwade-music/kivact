@@ -333,3 +333,42 @@ fn a_second_input_part_drives_the_same_list() {
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_note_does_not_outlive_a_hide_in_the_same_turn() {
+    let (screen, (open, filtering)) = mount(|| {
+        let open = signal(false);
+        let value = signal(None::<&'static str>);
+        let combo = use_combobox(
+            options(),
+            Selection::Single(value),
+            signal(String::new()),
+            open,
+            ComboboxOptions::default(),
+        );
+        let query = combo.query();
+        let view = column((
+            node()
+                .name("Color")
+                .part(use_text_edit(query).control())
+                .part(combo.input()),
+            button("Type then hide").on_press(move || {
+                query.set(String::from("gr"));
+                combo.hide();
+            }),
+            button("Open").on_press(move || open.set(true)),
+        ));
+        ((open, combo.is_filtering()), view)
+    });
+    screen.get_by_role(Role::Button, "Type then hide").click();
+    screen.run_until_idle();
+    assert!(!open.get_untracked(), "the list is hidden in its turn");
+    screen.get_by_role(Role::Button, "Open").click();
+    screen.run_until_idle();
+    assert!(open.get_untracked());
+    assert!(
+        !filtering.get_untracked(),
+        "a list opened after the hide does not filter by the query typed before it"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
