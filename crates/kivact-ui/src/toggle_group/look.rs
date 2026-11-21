@@ -14,7 +14,7 @@ pub const GAP: Length = Length::var(&GAP_VAR);
 
 pub(crate) fn toggle_root(
     theme: &kivact_core::style::Theme,
-    look: &crate::variants::Look<ToggleGroupState>,
+    look: &crate::recipe::Look<ToggleGroupState>,
 ) -> kivact_core::style::Style {
     style()
         .flex_direction(if look.orientation == Orientation::Vertical {
@@ -33,9 +33,9 @@ pub(crate) fn toggle_root(
 
 pub(crate) fn toggle_item(
     theme: &kivact_core::style::Theme,
-    look: &crate::variants::Look<ToggleGroupItemState>,
+    look: &crate::recipe::Look<ToggleGroupItemState>,
 ) -> kivact_core::style::Style {
-    crate::toggle_button::look::toggle_button(theme, &crate::variants::Look::new(look.toggle))
+    crate::toggle_button::look::toggle_button(theme, &crate::recipe::Look::new(look.toggle))
 }
 
 /// Layout supplied to the group recipe.

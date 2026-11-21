@@ -1,7 +1,6 @@
 //! Role: The AvatarGroup builder, its member overlap and overflow rendering.
 
 use crate::avatar_group::look::AvatarGroupTheme;
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Value, memo};
 use kivact_core::style::style;
 use kivact_core::view::{
@@ -16,7 +15,6 @@ pub struct AvatarGroup {
     overlap: Option<Value<f64>>,
     overflow: Option<Rc<dyn Fn(Value<usize>) -> View>>,
     total: Option<Value<usize>>,
-    variants: Variants,
 }
 #[track_caller]
 pub fn avatar_group(children: impl IntoChildren) -> AvatarGroup {
@@ -30,7 +28,6 @@ pub fn avatar_group(children: impl IntoChildren) -> AvatarGroup {
         overlap: None,
         overflow: None,
         total: None,
-        variants: Variants::default(),
     }
 }
 impl AvatarGroup {
@@ -60,10 +57,6 @@ impl AvatarGroup {
         self.overflow = Some(Rc::new(move |count| content(count).into_view()));
         self
     }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
 }
 impl Element for AvatarGroup {
     fn node_mut(&mut self) -> &mut Node {
@@ -72,6 +65,7 @@ impl Element for AvatarGroup {
 }
 impl IntoView for AvatarGroup {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let max = self.max;
         let count = self.children.len();
         let total = self.total;
@@ -80,9 +74,10 @@ impl IntoView for AvatarGroup {
                 .map_or(count, |total| total.get().max(count))
                 .saturating_sub(count.min(max.get()))
         });
-        let variants = self.variants.clone();
+        let variants = variants.clone();
         let overlap = self.overlap;
         let direction = kivact_core::view::use_direction();
+        let member_variants = variants.clone();
         let children = self
             .children
             .into_iter()
@@ -91,7 +86,7 @@ impl IntoView for AvatarGroup {
                 crate::layer::with_base_recipe_style(
                     node(),
                     |r: &AvatarGroupTheme| r.member_recipe(),
-                    &variants,
+                    &member_variants,
                     move || index,
                 )
                 .base_style(move || member_overlap(index, overlap, direction))
@@ -99,12 +94,12 @@ impl IntoView for AvatarGroup {
                 .child(child)
             })
             .collect::<Vec<_>>();
-        let overflow_variants = self.variants.clone();
+        let overflow_variants = variants.clone();
         let overflow = self.overflow;
         crate::layer::with_base_recipe_style(
             self.root,
             |r: &AvatarGroupTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             || (),
         )
         .child(children)

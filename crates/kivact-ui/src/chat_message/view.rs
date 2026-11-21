@@ -6,8 +6,8 @@ use crate::chat_message::look::{
     ChatAlign, ChatBubbleGroup, ChatMessageStatus, ChatReactionsSide, ChatSender,
 };
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value};
+use kivact_core::view::Variants;
 use kivact_core::view::{Element, IntoView, Node, View, node, text};
 
 // xtask-allow(state): legacy: status, time, content, avatar, header, footer, metadata, media, icon, actions, reactions, align, bubble_width
@@ -31,7 +31,6 @@ pub struct ChatMessage {
     group: ChatBubbleGroup,
     reactions_side: Value<ChatReactionsSide>,
     bubble_width: Option<Value<kivact_core::style::Length>>,
-    variants: Variants,
 }
 /// A message attributed to `author`; put its body in `.content(..)`.
 #[track_caller]
@@ -55,7 +54,6 @@ pub fn chat_message(author: impl IntoText) -> ChatMessage {
         group: ChatBubbleGroup::Single,
         reactions_side: ChatReactionsSide::Bottom.into_value(),
         bubble_width: None,
-        variants: Variants::default(),
     }
 }
 impl ChatMessage {
@@ -98,11 +96,6 @@ impl ChatMessage {
     #[track_caller]
     pub fn status(mut self, status: impl IntoValue<ChatMessageStatus>) -> Self {
         self.status = Some(status.into_value());
-        self
-    }
-    /// Add an appearance read by the theme recipes.
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
     /// Fill the content slot.
@@ -188,6 +181,7 @@ impl ChatMessage {
         }
     }
     fn render_status(&self, state: impl Fn() -> ChatMessageState + Copy + 'static) -> Option<Node> {
+        let variants = self.root.authored().variants();
         let status = self.status?;
         let sending = kivact_core::i18n::message("chat_message.sending", "Sending");
         let sent = kivact_core::i18n::message("chat_message.sent", "Sent");
@@ -203,12 +197,13 @@ impl ChatMessage {
                 ChatMessageStatus::Error => failed.get(),
             }),
             |r: &ChatMessageTheme| r.status_recipe(),
-            &self.variants,
+            &variants,
             state,
         ))
     }
     fn render_body(&mut self, state: impl Fn() -> ChatMessageState + Copy + 'static) -> Node {
-        let variants = &self.variants;
+        let variants = self.root.authored().variants();
+        let variants = &variants;
         let author = with_recipe_style(
             text(self.author).hidden({
                 let author = self.author;
@@ -304,12 +299,13 @@ fn message_slot(
 }
 impl IntoView for ChatMessage {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let state = self.recipe_state();
         let body = self.render_body(state);
         let avatar = message_slot(
             self.avatar.take(),
             |r: &ChatMessageTheme| r.avatar_recipe(),
-            &self.variants,
+            &variants,
             state,
         );
         let mut root = self.root;
@@ -319,7 +315,7 @@ impl IntoView for ChatMessage {
         with_base_recipe_style(
             root,
             |r: &ChatMessageTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             state,
         )
         .child((avatar, body))

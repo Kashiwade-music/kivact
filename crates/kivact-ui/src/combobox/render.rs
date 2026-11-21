@@ -44,9 +44,9 @@ pub(super) fn render<K: ItemKey>(mut field: Combobox<K>) -> View {
         empty,
         clear,
         presentation,
-        variants,
         ..
     } = field;
+    let variants = root.authored().variants();
     let input_ref = node_ref();
     let anchor = node_ref();
     let within = anchor.focus_within();
@@ -110,7 +110,7 @@ fn suggestions<K: ItemKey>(
     source: Value<Vec<ListItem<K>>>,
     name: Value<String>,
     empty: Value<String>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
 ) -> View {
     let rows = for_each(list.visible(), |key| key.clone(), {
         let variants = variants.clone();
@@ -158,7 +158,7 @@ fn selected_chips<K: ItemKey>(
     known: Value<Vec<ListItem<K>>>,
     disabled: Value<bool>,
     input_ref: kivact_core::view::NodeRef,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> Option<View> {
     if chips {
         match selection {
@@ -247,7 +247,7 @@ fn editor_view<K: ItemKey>(
     free_text: bool,
     placeholder: Value<String>,
     presentation: crate::SelectPresentation,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     root: &mut kivact_core::view::Node,
 ) -> View {
     let EditorState {
@@ -401,7 +401,7 @@ fn popup_surface<K: ItemKey>(
     source: Value<Vec<ListItem<K>>>,
     name: Value<String>,
     empty: Value<String>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
     anchor: kivact_core::view::NodeRef,
     inline: bool,
 ) -> View {
@@ -436,7 +436,7 @@ fn sheet_surface<K: ItemKey>(
     source: Value<Vec<ListItem<K>>>,
     name: Value<String>,
     empty: Value<String>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
     disabled: Value<bool>,
     placeholder: Value<String>,
 ) -> View {

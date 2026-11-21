@@ -143,3 +143,9 @@
 - 完了（lane の commit、統合へは未 merge）：U20 `8a96e844`、U21 `6abda8f2`、U25 `e2e0b710`、U22 `485acfee`、U23（WIP `a4e8303b`、設計者の印 `e23f39a8`。完了 commit は未）、E22 `750ad059`、E23 `6b66158b`、E25 `f0ed653b`（ime_select の sync を残す）、A13 `3a719498`、A14 `f5382490`。
 - 残り：U23 の完了、U24（U1 lane）、E26（E1 lane）。W7a の lane の merge（U1 → E1 → A1 → A2）と tier b は、その後。
 - W7b：A15 `08c1371d`（lane `wt/rw-W7b-A1`、W7a の A13 の上）。W7b の他の lane は W7a の完了を待つ。
+
+## U24：Element::variant（2026-11-21、lane U1）
+- 報告の xtask：`cargo xtask check --no-write --strict --only element-shadow,hand-element --crate kivact-ui` は exit 1。`hand-element` 130 件（W8 まで手書きの builder が残るため予定どおり）、`element-shadow` 0 件。通常の `cargo xtask check --no-write --crate kivact-ui` は exit 0（pending は従来どおり）。
+- 残した行（U24 の完了条件に対する例外）：`dialog`・`menu`・`toast`・`hover_card`・`command_palette` の 5 つの builder は `impl Element` が無い（node を持たない）ため `Element::variant` を使えない。`pub fn variant` と `variants: Variants` field を残し、型だけ core の `Variants` にした（STOP を参照）。
+- 内部の struct の `variants: Variants` field は builder の写しではないので残した（`rg "variants: Variants"` は 26 件。RowRender・GroupRender・Level・PanelPresentation・PageOptions など）。
+- `inherited: Variants` field（date_input・time_input・disclosure）は親の group・親の input の look を子へ渡すための field（`Variants::merge` を core で `#[doc(hidden)] pub` にした）。

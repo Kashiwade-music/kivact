@@ -7,8 +7,9 @@
 //! the third argument is the style of the recipe it replaces. A component's
 //! values (heights, colors, durations) are theme variables in the module of
 //! the component's name.
+pub use crate::recipe::Look;
 pub use crate::recipe::Recipe;
-pub use crate::variants::{Look, Variant};
+pub use kivact_core::view::Variant;
 
 pub use crate::alert::look::AlertState;
 pub use crate::alert::look::AlertTheme;

@@ -4,9 +4,9 @@ use crate::control_size::ControlSize;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::radio_group::look::RadioGroupTheme;
 use crate::toggle::look::{CheckControl, CheckableState};
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, binding, callback};
 use kivact_core::style::use_theme;
+use kivact_core::view::Variants;
 use kivact_core::view::{
     EditPhase, Element, HandlerResult, IntoView, Node, Orientation, ReadingDirection, Role, View,
     for_each, icon, node, show, use_direction,
@@ -31,7 +31,6 @@ pub struct RadioGroup<K: kivact_core::state::ItemKey> {
     on_edit: Option<Callback<EditPhase>>,
     item: Option<OptionContent<K>>,
     item_node: Option<ItemNode<K>>,
-    variants: Variants,
 }
 
 /// A themed radio group named `label` over `items` that writes the
@@ -77,26 +76,10 @@ pub fn radio_group<K: kivact_core::state::ItemKey>(
         on_edit: None,
         item: None,
         item_node: None,
-        variants: Variants::default(),
     }
 }
 
-impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
-        self
-    }
-}
+impl<K: kivact_core::state::ItemKey> RadioGroup<K> {}
 
 impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
     /// Lay the options out in a column (the default) or a row; the recipe
@@ -188,8 +171,8 @@ impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
             on_edit,
             item: slot,
             item_node,
-            variants,
         } = self;
+        let variants = root.authored().variants();
         let invalid = root.accessible_invalid();
         let edit = EditSession::new(move |initial: Option<K>| value.set(initial));
         if let Some(on_edit) = on_edit {

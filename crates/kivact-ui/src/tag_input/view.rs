@@ -4,7 +4,6 @@ use crate::helpers::{is_named, report_unnamed};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::tag_input::look::TagInputTheme;
 use crate::text_input::{TextInput, text_input};
-use crate::variants::{Variant, Variants};
 use crate::{ButtonVariant, button};
 use kivact_core::custom::PartState;
 use kivact_core::i18n::message_with;
@@ -13,6 +12,7 @@ use kivact_core::state::{Callback, Signal, Value};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::{Align, Track, auto, style, use_theme};
 use kivact_core::view::NodeRef;
+use kivact_core::view::Variants;
 use kivact_core::view::{Element, Node, grid, icon, row, text};
 use kivact_core::view::{
     Handled, HandlerResult, IntoView, Key, PointerPhase, View, for_index, node_ref,
@@ -27,7 +27,6 @@ pub struct TagInput {
     on_edit: Option<Callback<kivact_core::view::EditPhase>>,
     placeholder: Value<String>,
     input_ref: NodeRef,
-    variants: Variants,
     at: &'static Location<'static>,
 }
 
@@ -62,7 +61,6 @@ pub fn tag_input(tags: Signal<Vec<String>>) -> TagInput {
         on_edit: None,
         placeholder: kivact_core::i18n::message("tags.placeholder", "Add a tag..."),
         input_ref,
-        variants: Variants::default(),
         at: Location::caller(),
     }
 }
@@ -82,19 +80,6 @@ impl TagInput {
         f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
     ) -> Self {
         self.on_edit = Some(callback(f));
-        self
-    }
-
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
         self
     }
 
@@ -121,9 +106,9 @@ impl IntoView for TagInput {
             on_edit,
             placeholder,
             input_ref,
-            variants,
             at,
         } = self;
+        let variants = root.authored().variants();
         let disabled = root
             .accessible_disabled()
             .unwrap_or_else(|| false.into_value());

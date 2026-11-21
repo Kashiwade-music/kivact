@@ -29,8 +29,10 @@ impl Variants {
         self
     }
 
-    /// Merge `later` over these values (a later value of a type wins).
-    pub(crate) fn merge(&mut self, later: &Variants) {
+    /// Merge `later` over these values (a later value of a type wins). A
+    /// standard component uses it to inherit the values of its group.
+    #[doc(hidden)]
+    pub fn merge(&mut self, later: &Variants) {
         let entries = Rc::make_mut(&mut self.0);
         for (ty, value) in later.0.iter() {
             entries.retain(|(existing, _)| existing != ty);

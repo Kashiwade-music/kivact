@@ -1,8 +1,8 @@
 //! Role: Provide immutable direct-child list positions and appearance defaults.
 use crate::item_list::ItemListMarker;
 use crate::item_list::ItemPosition;
-use crate::variants::Variants;
 use kivact_core::state::{IntoValue, Value};
+use kivact_core::view::Variants;
 #[derive(Clone)]
 pub(super) struct ItemContext {
     pub position: Option<ItemPosition>,

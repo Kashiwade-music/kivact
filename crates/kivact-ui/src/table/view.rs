@@ -2,7 +2,6 @@
 
 use crate::layer::with_base_recipe_style;
 use crate::table::look::TableTheme;
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::{Justify, Length, TextAlign, style};
 use kivact_core::view::{Element, IntoChildren, IntoView, Node, Role, View, node};
@@ -11,7 +10,6 @@ use kivact_core::view::{Element, IntoChildren, IntoView, Node, Role, View, node}
 pub struct Table {
     root: Node,
     part: TablePart,
-    variants: Variants,
 }
 #[derive(Clone, Copy)]
 enum TablePart {
@@ -25,7 +23,6 @@ fn section(children: impl IntoChildren, role: Role, part: TablePart) -> Table {
     Table {
         root: node().role(role).child(children.into_views()),
         part,
-        variants: Variants::default(),
     }
 }
 /// A static table; use `data_table` for interactive grids.
@@ -55,12 +52,7 @@ pub fn table_row(children: impl IntoChildren) -> TableRow {
         table: section(children, Role::Row, TablePart::Row),
     }
 }
-impl Table {
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
-}
+impl Table {}
 impl Element for Table {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -68,6 +60,7 @@ impl Element for Table {
 }
 impl IntoView for Table {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let pick: fn(&TableTheme) -> &crate::recipe::Recipe<kivact_core::custom::PartState> =
             match self.part {
                 TablePart::Root => |r: &TableTheme| r.root_recipe(),
@@ -78,10 +71,8 @@ impl IntoView for Table {
             };
         let part = kivact_core::custom::part(|state| state);
         let state = part.state();
-        with_base_recipe_style(self.root.part(part), pick, &self.variants, move || {
-            state.get()
-        })
-        .into_view()
+        with_base_recipe_style(self.root.part(part), pick, &variants, move || state.get())
+            .into_view()
     }
 }
 /// A row of header or data cells, created by [`table_row`].
@@ -89,10 +80,6 @@ pub struct TableRow {
     table: Table,
 }
 impl TableRow {
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.table = self.table.variant(variant);
-        self
-    }
     /// Mark the row selected: the row is `selected` in the accessibility tree, and the theme's row recipe draws its selected look.
     pub fn selected(mut self, selected: impl IntoValue<bool>) -> Self {
         self.table.root = self.table.root.selected(selected);
@@ -117,7 +104,6 @@ pub struct TableCell {
     align: Value<TextAlign>,
     width: Option<Value<Length>>,
     span: Value<usize>,
-    variants: Variants,
 }
 /// A column header.
 #[track_caller]
@@ -142,7 +128,6 @@ fn cell(content: impl IntoView, header: bool) -> TableCell {
         align: TextAlign::Start.into_value(),
         width: None,
         span: 1.into_value(),
-        variants: Variants::default(),
     }
 }
 impl TableCell {
@@ -162,10 +147,6 @@ impl TableCell {
         self.span = span.into_value();
         self
     }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
 }
 impl Element for TableCell {
     fn node_mut(&mut self) -> &mut Node {
@@ -180,8 +161,8 @@ impl IntoView for TableCell {
             align,
             width,
             span,
-            variants,
         } = self;
+        let variants = root.authored().variants();
         let part = kivact_core::custom::part(|state| state);
         let state = part.state();
         let root = with_base_recipe_style(

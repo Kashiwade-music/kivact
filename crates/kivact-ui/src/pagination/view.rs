@@ -27,7 +27,6 @@ pub struct Pagination {
     item: Option<PageSlot>,
     format: Rc<dyn Fn(usize) -> String>,
     summary: Option<SummarySlot>,
-    variants: crate::variants::Variants,
 }
 enum PageCount {
     Pages(Value<usize>),
@@ -54,7 +53,6 @@ pub fn pagination(count: impl IntoValue<usize>, page: Signal<usize>) -> Paginati
         item: None,
         format: Rc::new(|n| n.to_string()),
         summary: None,
-        variants: crate::variants::Variants::default(),
     }
 }
 impl Pagination {
@@ -133,11 +131,6 @@ impl Pagination {
         self.summary = Some(Rc::new(move |facts| summary(facts).into_view()));
         self
     }
-    /// Add a kit-defined visual variant.
-    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
 }
 impl Element for Pagination {
     fn node_mut(&mut self) -> &mut Node {
@@ -187,8 +180,8 @@ impl IntoView for Pagination {
             item,
             format,
             summary,
-            variants,
         } = self;
+        let variants = root.authored().variants();
         let disabled = root
             .accessible_disabled()
             .unwrap_or_else(|| false.into_value());
@@ -248,7 +241,7 @@ struct PageOptions {
     window: PaginationWindow,
     siblings: Value<usize>,
     first_last: Value<bool>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
 }
 fn page_control(
     cell: PageItem,
@@ -433,7 +426,7 @@ fn render_summary(
     slot: Option<SummarySlot>,
     mode: PaginationMode,
     facts: Value<PaginationSummary>,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> Option<View> {
     let content = if let Some(slot) = slot {
         slot(facts)
@@ -772,7 +765,7 @@ fn render_pagination(
 
 fn presentation_part(
     content: impl IntoView,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     facts: Value<PaginationSummary>,
     recipe: fn(&PaginationTheme) -> &crate::recipe::Recipe<PaginationSummary>,
 ) -> Node {

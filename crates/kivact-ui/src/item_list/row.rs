@@ -4,10 +4,10 @@ use crate::item_list::ItemPosition;
 use crate::item_list::look::ItemListTheme;
 use crate::item_list::look::ItemRowState;
 use crate::layer::with_base_recipe_style;
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Part, part};
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::style::{Style, TextOverflow, style};
+use kivact_core::view::Variants;
 use kivact_core::view::{
     Element, IntoChildren, IntoView, Node, NodeRef, Role, View, node, node_ref, text,
 };
@@ -30,7 +30,6 @@ struct RowContents {
     position: Option<(Value<usize>, Value<usize>)>,
     title_lines: Option<Value<Option<u32>>>,
     description_lines: Option<Value<Option<u32>>>,
-    variants: Variants,
 }
 #[track_caller]
 pub fn item_row(title: impl IntoText) -> ItemRow {
@@ -50,7 +49,6 @@ pub fn item_row(title: impl IntoText) -> ItemRow {
             position: None,
             title_lines: None,
             description_lines: None,
-            variants: Variants::default(),
         },
     }
 }
@@ -107,10 +105,6 @@ impl ItemRow {
         self.contents.description_lines = Some(lines.into_value());
         self
     }
-    pub fn variant(mut self, value: impl Variant) -> Self {
-        self.contents.variants.add(value);
-        self
-    }
 }
 impl Element for ItemRow {
     fn node_mut(&mut self) -> &mut Node {
@@ -124,8 +118,9 @@ impl IntoView for ItemRow {
         // is a node of its own, so they are read before the part is made.
         let pressable = root.authored().has_press();
         let description = root.authored().description();
+        let own = root.authored().variants();
         root.part(Part::new(().into_value(), move |root| {
-            contents.render(root, pressable, description)
+            contents.render(root, pressable, description, own)
         }))
         .into_view()
     }
@@ -147,11 +142,12 @@ impl RowRender {
         children: impl IntoChildren,
         pick: fn(&ItemListTheme) -> &crate::theme::Recipe<ItemRowState>,
     ) -> Node {
+        let variants = self.variants.clone();
         let state = self.state;
         with_base_recipe_style(
             node().child(children.into_views()),
             pick,
-            &self.variants,
+            &variants,
             move || state.get(),
         )
     }
@@ -162,9 +158,11 @@ impl RowContents {
         mut root: Node,
         pressable: bool,
         description: Option<Value<String>>,
+        own: Variants,
     ) -> Node {
         let context = crate::item_list::context::current();
-        let variants = self.variants.clone().with_defaults(&context.variants);
+        let mut variants = context.variants.clone();
+        variants.merge(&own);
         let position = self.position;
         let fallback = context.position;
         let position = move || {

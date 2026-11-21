@@ -2,10 +2,10 @@
 use crate::date_input::look::DateInputTheme;
 use crate::layer::with_recipe_style;
 use crate::time_input::look::TimeInputTheme;
-use crate::variants::Variants;
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{TimeOfDay, message};
 use kivact_core::state::{IntoValue, Signal, Value, binding, trigger};
+use kivact_core::view::Variants;
 use kivact_core::view::{
     EditPhase, Element, Handled, Node, Role, WheelEvent, column, node, row, text,
 };

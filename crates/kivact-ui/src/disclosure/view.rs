@@ -3,11 +3,11 @@
 use crate::disclosure::look::DisclosureMotion;
 use crate::disclosure::look::DisclosureTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Easing, Transition};
 use kivact_core::state::IntoText;
 use kivact_core::state::{Signal, Value};
 use kivact_core::style::{TransitionProp, style, use_theme};
+use kivact_core::view::Variants;
 use kivact_core::view::{Element, Node, icon, node, text};
 use kivact_core::view::{IntoView, Orientation, View, show};
 use kivact_interaction::use_disclosure;
@@ -20,7 +20,7 @@ pub struct Disclosure {
     open: Signal<bool>,
     content: kivact_core::view::ViewFn,
     motion: DisclosureMotion,
-    variants: Variants,
+    inherited: Variants,
     always_open: bool,
     keep_mounted: bool,
     heading_level: Option<u32>,
@@ -81,7 +81,7 @@ pub fn disclosure(title: impl IntoText, open: kivact_core::state::Signal<bool>) 
             .ext::<DisclosureTheme>()
             .motion_value()
             .clone(),
-        variants: Variants::default(),
+        inherited: Variants::default(),
         always_open: false,
         keep_mounted: false,
         heading_level: None,
@@ -95,9 +95,18 @@ impl Disclosure {
         self.group = Some(crate::theme::DisclosureGroupPosition { index, count });
         self
     }
+    /// The looks of the group this section is in; the section's own
+    /// `.variant(..)` values win over them.
     pub(crate) fn group_variants(mut self, variants: Variants) -> Self {
-        self.variants = self.variants.inherited(&variants);
+        self.inherited = variants;
         self
+    }
+
+    /// The group's looks with the section's own values over them.
+    fn looks(&self) -> Variants {
+        let mut looks = self.inherited.clone();
+        looks.merge(&self.root.authored().variants());
+        looks
     }
 
     pub(crate) fn heading(mut self, level: u32) -> Self {
@@ -125,6 +134,7 @@ impl Disclosure {
 
     /// Attach disclosure behavior to a caller-owned trigger.
     pub fn attach<T: Element + IntoView>(mut self, trigger: T) -> impl kivact_core::view::Element {
+        let variants = self.looks();
         let open = if self.always_open {
             kivact_core::state::binding(|| true, |_| ())
         } else {
@@ -141,7 +151,6 @@ impl Disclosure {
         let content = self.content;
         let motion = self.motion;
         let animation = self.animation;
-        let variants = self.variants;
         let group = self.group;
         let region =
             move || content_region(details, &content, &motion, animation, &variants, group);
@@ -169,21 +178,6 @@ impl Disclosure {
         self.animation = Some(animated.into_value());
         self
     }
-
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
-        self
-    }
 }
 
 impl Element for Disclosure {
@@ -195,6 +189,7 @@ impl Element for Disclosure {
 
 impl IntoView for Disclosure {
     fn into_view(mut self) -> View {
+        let variants = self.looks();
         let open = if self.always_open {
             kivact_core::state::binding(|| true, |_| ())
         } else {
@@ -211,7 +206,6 @@ impl IntoView for Disclosure {
         let shown = details.is_open();
         let motion = self.motion;
         let animation = self.animation;
-        let variants = self.variants;
         let group = self.group;
         let part = details.trigger();
         let state = part.state();

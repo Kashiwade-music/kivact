@@ -1,7 +1,77 @@
 //! Role: The recipe type and the macro that builds one component's recipe table.
-use crate::theme::Look;
 use kivact_core::style::{Style, Theme};
+use kivact_core::view::{Variant, Variants};
+use std::ops::Deref;
 use std::sync::Arc;
+
+/// What a recipe reads: the part's state and the component's variants
+/// (the values given with `.variant(..)`, read by [`Look::variant`]).
+///
+/// A look beside the meanings a state carries (a button's
+/// [`ButtonVariant`](super::ButtonVariant), a kit's tone, a shape, a
+/// segmented radio group beside a plain one) is a [`Variant`] value: the
+/// caller gives one to any standard component with `.variant(value)` (one
+/// per type, a later one replacing it), and every recipe of that component
+/// reads it with [`variant`](Self::variant). A theme that does not know the
+/// type draws the plain look. The state's fields read through the look
+/// (`look.selected`, `look.input`).
+///
+/// ```
+/// use kivact::style::{Theme, rgb};
+/// use kivact::ui::theme::{ButtonState, ButtonTheme, Look, Variant};
+/// #[derive(Clone, Copy, Debug, PartialEq)]
+/// struct Pill;
+/// impl Variant for Pill {}
+/// let theme = Theme::light().with(ButtonTheme::default().root(|_, look: &Look<ButtonState>, base| {
+///     match look.variant::<Pill>() {
+///         Some(Pill) => base.border_radius(999).background(rgb(0xe8eefc)),
+///         None => base,
+///     }
+/// }));
+/// # let _ = theme;
+/// ```
+#[derive(Clone)]
+pub struct Look<S> {
+    state: S,
+    variants: Variants,
+}
+
+impl<S> Look<S> {
+    /// `state` without variants: for a kit that draws its own part with a
+    /// standard component's recipe, adding its variants with
+    /// [`with_variant`](Self::with_variant).
+    pub fn new(state: S) -> Self {
+        Self {
+            state,
+            variants: Variants::default(),
+        }
+    }
+
+    /// The look of `state` with the component's `variants`.
+    pub(crate) fn of(state: S, variants: Variants) -> Self {
+        Self { state, variants }
+    }
+
+    /// This look with `value`, replacing a value of its type.
+    pub fn with_variant<V: Variant>(mut self, value: V) -> Self {
+        self.variants = std::mem::take(&mut self.variants).with(value);
+        self
+    }
+
+    /// The variant of type `V` the component was given with
+    /// `.variant(..)`, if any (tracked when the value is reactive).
+    pub fn variant<V: Variant>(&self) -> Option<V> {
+        self.variants.get::<V>()
+    }
+}
+
+impl<S> Deref for Look<S> {
+    type Target = S;
+
+    fn deref(&self) -> &S {
+        &self.state
+    }
+}
 
 type RecipeFn<S> = dyn Fn(&Theme, &Look<S>) -> Style + Send + Sync;
 

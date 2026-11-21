@@ -17,7 +17,7 @@ pub(crate) struct Inputs {
     pub max: Value<Option<DateTime>>,
     pub week_start: Option<Value<Weekday>>,
     pub seconds: Value<bool>,
-    pub variants: crate::variants::Variants,
+    pub variants: kivact_core::view::Variants,
 }
 pub(crate) fn render(i: Inputs) -> View {
     let button_ref = node_ref();

@@ -30,7 +30,6 @@ use std::rc::Rc;
 pub struct Calendar {
     root: Node,
     cell_size: Value<f64>,
-    variants: crate::variants::Variants,
     selection: CalendarSelection,
     month: Option<CalendarMonth>,
     disabled: Rc<dyn Fn(CalendarDate) -> bool>,
@@ -59,7 +58,6 @@ pub struct Calendar {
 fn new(selection: CalendarSelection) -> Calendar {
     Calendar {
         root: node().with_node(|root| root.role(Role::Group)),
-        variants: crate::variants::Variants::default(),
         cell_size: kivact_core::state::memo(|| {
             kivact_core::style::use_theme()
                 .get()
@@ -114,12 +112,6 @@ impl Calendar {
     pub(crate) fn touch(mut self) -> Self {
         let size = self.cell_size;
         self.cell_size = kivact_core::state::memo(move || size.get().max(44.0));
-        self
-    }
-
-    /// Pass a kit-defined appearance to every calendar part recipe.
-    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 
@@ -301,6 +293,7 @@ impl Element for Calendar {
 
 impl IntoView for Calendar {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let anchor = match self.selection {
             CalendarSelection::Single(value) => value.get_untracked(),
             CalendarSelection::Range(value) => value.get_untracked().map(|r| r.start()),
@@ -340,7 +333,7 @@ impl IntoView for Calendar {
         crate::layer::with_base_recipe_style(
             self.root,
             |r: &CalendarTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             kivact_core::custom::PartState::default,
         )
         .on_pointer(move |event| {
@@ -552,7 +545,7 @@ fn calendar_body(
     let events = calendar.events;
     let year_navigation = calendar.year_navigation;
     let range = calendar.range;
-    let variants = calendar.variants.clone();
+    let variants = calendar.root.authored().variants();
     let marks = calendar.marks.clone();
     let weekend = calendar.weekend.clone();
     let month_title = calendar.month_title.clone();

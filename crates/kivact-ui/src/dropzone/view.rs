@@ -14,7 +14,6 @@ type FileValidator = Rc<dyn Fn(&FileInfo) -> Option<String>>;
 /// A validated file drop target. Native file metadata stays application-owned.
 pub struct Dropzone {
     root: Node,
-    variants: crate::variants::Variants,
     icon: Option<View>,
     label: Value<String>,
     hint: Value<String>,
@@ -29,7 +28,6 @@ pub struct Dropzone {
 #[track_caller]
 pub fn dropzone(label: impl IntoText) -> Dropzone {
     Dropzone {
-        variants: crate::variants::Variants::default(),
         root: node(),
         icon: None,
         label: label.into_text_value(),
@@ -54,12 +52,6 @@ impl Dropzone {
     /// Add decorative content above the label, mounted once.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
-        self
-    }
-
-    /// Add a setup-only visual variant for every component recipe.
-    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 
@@ -106,7 +98,6 @@ impl IntoView for Dropzone {
     fn into_view(self) -> View {
         let Self {
             mut root,
-            variants,
             label,
             icon,
             hint,
@@ -117,6 +108,7 @@ impl IntoView for Dropzone {
             validate,
             on_files,
         } = self;
+        let variants = root.authored().variants();
         let disabled = root.accessible_disabled();
         let disabled = kivact_core::state::memo(move || disabled.is_some_and(|d| d.get()));
         let mut api = use_dropzone()
@@ -222,7 +214,7 @@ fn pick(
 }
 
 /// Expose validation and picker failures through the alert recipe outlet.
-fn failure_status(state: Value<DropzoneState>, variants: &crate::variants::Variants) -> View {
+fn failure_status(state: Value<DropzoneState>, variants: &kivact_core::view::Variants) -> View {
     kivact_core::view::show_some(
         move || match state.get() {
             DropzoneState::Failed(error) => Some(error.to_string()),
@@ -247,7 +239,7 @@ fn failure_status(state: Value<DropzoneState>, variants: &crate::variants::Varia
 /// Expose current picking and drag-validation feedback through the status outlet.
 fn drag_status(
     state: Value<DropzoneState>,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     status_ref: kivact_core::view::NodeRef,
 ) -> Node {
     crate::layer::with_recipe_style(
@@ -272,7 +264,7 @@ fn captions(
     label: Value<String>,
     hint: Value<String>,
     state: Value<DropzoneState>,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> (Node, Node) {
     let label_view = crate::layer::with_recipe_style(
         text(label),

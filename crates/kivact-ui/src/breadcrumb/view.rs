@@ -24,7 +24,6 @@ pub struct Breadcrumb<K: 'static> {
     activate: Option<Callback<K>>,
     item: Option<ItemSlot<K>>,
     separator: Rc<dyn Fn() -> View>,
-    variants: crate::variants::Variants,
 }
 /// Construct a breadcrumb trail whose last item has `CurrentItem::Page`.
 #[track_caller]
@@ -40,7 +39,6 @@ pub fn breadcrumb<K: Clone + PartialEq + 'static>(
         activate: None,
         item: None,
         separator: Rc::new(|| text("/").into_view()),
-        variants: crate::variants::Variants::default(),
     }
 }
 impl<K: Clone + PartialEq + 'static> Breadcrumb<K> {
@@ -66,11 +64,6 @@ impl<K: Clone + PartialEq + 'static> Breadcrumb<K> {
         self.separator = Rc::new(move || f().into_view());
         self
     }
-    /// Add a kit-defined visual variant.
-    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
 }
 impl<K: Clone + PartialEq + 'static> Element for Breadcrumb<K> {
     fn node_mut(&mut self) -> &mut Node {
@@ -86,8 +79,8 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
             activate,
             item,
             separator,
-            variants,
         } = self;
+        let variants = root.authored().variants();
         let child_variants = variants.clone();
         let source = kivact_core::state::memo(move || {
             let items = items.get();
@@ -149,7 +142,7 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
     current: bool,
     activate: Option<&Callback<K>>,
     item: Option<&ItemSlot<K>>,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> View {
     let label_entry = entry.clone();
     let label = kivact_core::state::memo(move || label_entry.label());

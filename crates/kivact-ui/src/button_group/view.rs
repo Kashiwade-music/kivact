@@ -5,8 +5,8 @@ use crate::button_group::look::ButtonGroupState;
 use crate::button_group::look::ButtonGroupTheme;
 use crate::control_size::ControlSize;
 use crate::layer::with_base_recipe_style;
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value, provide, try_use_context};
+use kivact_core::view::Variants;
 use kivact_core::view::{
     Element, IntoChildren, IntoView, Node, Orientation, ReadingDirection, Role, View, node, row,
     text, use_direction,
@@ -24,7 +24,6 @@ pub struct ButtonGroup<C> {
     children: C,
     orientation: Value<Orientation>,
     size: Value<ControlSize>,
-    variants: Variants,
 }
 /// Join controls under an accessible name. Arrows along the axis move focus;
 /// Home and End reach the first and last eligible controls. Non-control text
@@ -36,7 +35,6 @@ pub fn button_group<C: IntoChildren>(label: impl IntoText, children: C) -> Butto
         children,
         orientation: Orientation::Horizontal.into_value(),
         size: crate::control_size::default_control_size().into_value(),
-        variants: Variants::default(),
     }
 }
 impl<C> ButtonGroup<C> {
@@ -52,11 +50,6 @@ impl<C> ButtonGroup<C> {
         self.size = size.into_value();
         self
     }
-    /// Add a theme presentation variant.
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
 }
 impl<C: IntoChildren> Element for ButtonGroup<C> {
     fn node_mut(&mut self) -> &mut Node {
@@ -65,10 +58,11 @@ impl<C: IntoChildren> Element for ButtonGroup<C> {
 }
 impl<C: IntoChildren> IntoView for ButtonGroup<C> {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let orientation = self.orientation;
         let size = self.size;
         let direction = use_direction();
-        let members = self.variants.clone();
+        let members = variants.clone();
         let children = provide(GroupAxis(orientation), move || {
             crate::provide_control_size(size.get(), move || {
                 let children = self.children.into_views();
@@ -100,7 +94,7 @@ impl<C: IntoChildren> IntoView for ButtonGroup<C> {
         with_base_recipe_style(
             self.root.orientation(orientation).roving_focus(orientation),
             |r: &ButtonGroupTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             move || ButtonGroupState {
                 orientation: orientation.get(),
                 size: size.get(),

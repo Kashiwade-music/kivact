@@ -3,11 +3,11 @@
 use crate::layer::with_recipe_style;
 use crate::tooltip::look::TooltipArrowState;
 use crate::tooltip::look::TooltipTheme;
-use crate::variants::{Variant, Variants};
 use kivact_core::geometry::Edge;
 use kivact_core::geometry::Rect;
 use kivact_core::state::Value;
 use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::view::Variants;
 use kivact_core::view::{Element, Node, node, text};
 use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
 
@@ -22,7 +22,6 @@ pub struct Tooltip<T> {
     align: Option<OverlayAlign>,
     offset: f64,
     content: Option<kivact_core::view::ViewFn>,
-    variants: Variants,
 }
 /// A tooltip that says `label` for `trigger`, shown above it by default.
 /// The trigger stays the element the caller styles: `tooltip("Save",
@@ -42,25 +41,9 @@ pub fn tooltip<T: Element + IntoView>(label: impl IntoText, trigger: T) -> Toolt
         align: None,
         offset: 4.0,
         content: None,
-        variants: Variants::default(),
     }
 }
-impl<T> Tooltip<T> {
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
-        self
-    }
-}
+impl<T> Tooltip<T> {}
 impl<T> Tooltip<T> {
     /// Render rich caller content in a fresh tooltip owner on each opening.
     pub fn content<V: IntoView>(mut self, factory: impl kivact_core::view::IntoViewFn<V>) -> Self {
@@ -106,7 +89,8 @@ impl<T: Element + IntoView> IntoView for Tooltip<T> {
     /// has a description keeps it. The surface is mounted in a fresh owner
     /// while the tooltip is shown. Moving the pointer onto the hint keeps it
     /// shown until the pointer leaves both the trigger and the hint.
-    fn into_view(self) -> View {
+    fn into_view(mut self) -> View {
+        let variants = self.node_mut().authored().variants();
         let behavior = kivact_interaction::use_tooltip().disabled(move || !self.enabled.get());
         let part = behavior.trigger();
         let anchor = node_ref();
@@ -136,9 +120,9 @@ impl<T: Element + IntoView> IntoView for Tooltip<T> {
                             || text(self.label).into_view(),
                             |factory| factory.call(()),
                         ))
-                        .child(arrow(anchor, placed, self.placement, &self.variants)),
+                        .child(arrow(anchor, placed, self.placement, &variants)),
                     |r: &TooltipTheme| r.surface_recipe(),
-                    &self.variants,
+                    &variants,
                     move || state.get(),
                 ),
             )

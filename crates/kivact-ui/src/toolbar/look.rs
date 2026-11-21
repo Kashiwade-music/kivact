@@ -35,7 +35,7 @@ pub const MIN_HEIGHT: Length = Length::var(&MIN_HEIGHT_VAR);
 
 pub(crate) fn root_style(
     _theme: &kivact_core::style::Theme,
-    look: &crate::variants::Look<ToolbarState>,
+    look: &crate::recipe::Look<ToolbarState>,
 ) -> kivact_core::style::Style {
     let vertical = look.orientation == Orientation::Vertical;
     let mut base = style()

@@ -1,7 +1,7 @@
 //! Role: The stat recipe state, recipe table and default looks.
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{FlexDirection, Style, Theme, style};
 use kivact_macros::Prop;
 pub(crate) fn stat_root(t: &Theme, _: &Look<StatState>) -> Style {

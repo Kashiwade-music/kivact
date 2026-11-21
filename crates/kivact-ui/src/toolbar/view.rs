@@ -3,7 +3,6 @@
 use crate::layer::with_base_recipe_style;
 use crate::toolbar::look::ToolbarState;
 use crate::toolbar::look::ToolbarTheme;
-use crate::variants::{Variant, Variants};
 use crate::{ControlSize, provide_control_size};
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::style::{Align, FlexDirection, Justify, style};
@@ -25,7 +24,6 @@ pub struct Toolbar {
     size: Value<ControlSize>,
     gap: Option<Value<f64>>,
     dividers: Vec<ToolbarEdge>,
-    variants: Variants,
 }
 
 /// Group controls under an accessible name. Arrow keys along the configured
@@ -43,7 +41,6 @@ pub fn toolbar(label: impl IntoText) -> Toolbar {
         size: crate::control_size::default_control_size().into_value(),
         gap: None,
         dividers: Vec::new(),
-        variants: Variants::default(),
     }
 }
 impl Toolbar {
@@ -84,11 +81,6 @@ impl Toolbar {
         self.dividers = edges.to_vec();
         self
     }
-    /// Add a theme presentation variant.
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
 }
 impl Element for Toolbar {
     fn node_mut(&mut self) -> &mut Node {
@@ -97,6 +89,7 @@ impl Element for Toolbar {
 }
 impl IntoView for Toolbar {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let orientation = self.orientation;
         let vertical = orientation == Orientation::Vertical;
         let rtl = use_direction() == ReadingDirection::Rtl;
@@ -133,7 +126,7 @@ impl IntoView for Toolbar {
         with_base_recipe_style(
             self.root.orientation(orientation).roving_focus(orientation),
             |r: &ToolbarTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             move || ToolbarState {
                 orientation,
                 size: size.get(),

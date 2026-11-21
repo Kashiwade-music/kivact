@@ -2,7 +2,6 @@
 
 use crate::layer::with_base_recipe_style;
 use crate::sparkline::look::{SparklineFill, SparklineTheme};
-use crate::variants::{Variant, Variants};
 use kivact_core::draw::{Draw, LineCap, LineJoin, Path, Stroke};
 use kivact_core::geometry::Point;
 use kivact_core::i18n::{FractionDigits, Grouping, Locale, NumberStyle, message_with, use_locale};
@@ -16,7 +15,6 @@ pub struct Sparkline {
     root: Node,
     summary: Value<Summary>,
     label: Option<Value<String>>,
-    variants: Variants,
 }
 
 /// A small line chart of `values`, drawn in the theme's sparkline look.
@@ -50,7 +48,6 @@ pub fn sparkline(values: impl IntoValue<Vec<f64>>) -> Sparkline {
             }),
         summary,
         label: None,
-        variants: Variants::default(),
     }
 }
 
@@ -63,15 +60,6 @@ impl Sparkline {
     #[track_caller]
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = Some(label.into_text_value());
-        self
-    }
-
-    /// Give the chart an appearance that its recipe reads with
-    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same type
-    /// replaces the earlier one; a theme that does not know the type draws the
-    /// plain look.
-    pub fn variant(mut self, value: impl Variant) -> Self {
-        self.variants.add(value);
         self
     }
 }
@@ -88,8 +76,8 @@ impl IntoView for Sparkline {
             mut root,
             summary,
             label,
-            variants,
         } = self;
+        let variants = root.authored().variants();
         if let Some(label) = label {
             root = root
                 .role(Role::Image)

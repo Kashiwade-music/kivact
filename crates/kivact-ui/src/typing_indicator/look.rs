@@ -1,7 +1,7 @@
 //! Role: The typing indicator recipe state, recipe table and default looks.
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{Length, ThemeVar};
 use kivact_core::style::{Style, Theme, style};
 

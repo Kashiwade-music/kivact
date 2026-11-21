@@ -6,7 +6,6 @@ use crate::control_size::ControlSize;
 use crate::layer::with_base_recipe_style;
 use crate::toggle::look::CheckControl;
 use crate::toggle::look::{CheckableState, CheckboxTheme, SwitchTheme};
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Signal, Value};
 use kivact_core::view::{CheckedState, Element, Node, node};
@@ -23,7 +22,6 @@ macro_rules! toggle_builder {
             mixed: Option<Value<bool>>,
             hide_label: Option<Value<bool>>,
             size: Value<ControlSize>,
-            variants: Variants,
         }
 
         impl $name {
@@ -45,7 +43,6 @@ macro_rules! toggle_builder {
                     on_edit: None,
                     hide_label: None,
                     size: crate::control_size::default_control_size().into_value(),
-                    variants: Variants::default(),
                 }
             }
 
@@ -67,20 +64,6 @@ macro_rules! toggle_builder {
         }
 
         impl $name {
-            /// Give the component a [`Variant`]: a look beyond the meanings its
-            /// state carries, which every recipe of the component reads with
-            /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
-            /// type replaces the earlier one; a theme that does not know the type
-            /// draws the plain look.
-            ///
-            /// The value is a constant: the recipes read the values given before
-            /// the component is mounted, and a value never changes afterwards. A
-            /// look that changes while the component lives is a state the recipe
-            /// reads, or a reactive `.style(..)` of the caller's.
-            pub fn variant(mut self, v: impl Variant) -> Self {
-                self.variants.add(v);
-                self
-            }
         }
 
         impl Element for $name {
@@ -92,6 +75,7 @@ macro_rules! toggle_builder {
         #[diagnostic::do_not_recommend]
         impl IntoView for $name {
             fn into_view(mut self) -> View {
+                let variants = self.root.authored().variants();
                 let mut behavior = $kind(self.state, self.mixed);
                 if let Some(observer) = self.on_edit {
                     behavior = behavior.on_edit(move |phase| observer.call(phase));
@@ -112,11 +96,11 @@ macro_rules! toggle_builder {
                     invalid: invalid.as_ref().is_some_and(|invalid| invalid.get()),
                 });
                 let check_state = part.state();
-                let indicator = crate::toggle::parts::$parts(&self.variants, check_state);
+                let indicator = crate::toggle::parts::$parts(&variants, check_state);
                 with_base_recipe_style(
                     self.root,
                     |t: &$table| t.root_recipe(),
-                    &self.variants,
+                    &variants,
                     move || check_state.get(),
                 )
                     .part(part)

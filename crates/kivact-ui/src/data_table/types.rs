@@ -1,11 +1,11 @@
 //! Role: The state of a data table: its builder fields, slots and live context.
 
 use crate::data_table::column::DataColumn;
-use crate::variants::Variants;
 use kivact_core::state::{Callback, Signal, Value};
 use kivact_core::style::{Color, Icon};
 use kivact_core::view::{Node, View};
 use kivact_interaction::{DataTableModelApi, ScalarRange, SortOrder, TableFocus, Tone};
+use kivact_macros::Prop;
 use std::rc::Rc;
 /// The sorted column (an index into the columns) and its direction.
 pub(super) type Sort = Signal<Option<(usize, SortOrder)>>;
@@ -115,7 +115,7 @@ impl<R: 'static, K: 'static> Clone for DataTableContext<R, K> {
 }
 
 /// Cell spacing available to data table theme recipes.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum DataTableDensity {
     Compact,
     #[default]
@@ -123,7 +123,7 @@ pub enum DataTableDensity {
     Spacious,
 }
 
-impl crate::variants::Variant for DataTableDensity {}
+impl kivact_core::view::Variant for DataTableDensity {}
 
 pub(super) type StickyEdges = (Vec<usize>, Vec<usize>);
 
@@ -186,7 +186,6 @@ pub struct DataTable<R: 'static, K: 'static> {
     pub(super) row_height: Option<Value<f64>>,
     pub(super) row_status: Option<RowStatusOf<R>>,
     pub(super) row_color: Option<RowColor<R>>,
-    pub(super) variants: Variants,
 }
 
 /// A status announced by name and shown in the table's leading lane.

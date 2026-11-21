@@ -2,7 +2,6 @@
 
 use crate::layer::with_recipe_style;
 use crate::menu::look::MenuTheme;
-use crate::variants::{Variant, Variants};
 use kivact_core::state::Value;
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::view::HandlerResult;
@@ -10,6 +9,7 @@ use kivact_core::view::{Element, Node, column, node, scroll, text};
 use kivact_core::view::{
     IntoView, NodeRef, OverlayAlign, Placement, View, for_each, overlay, overlay_at,
 };
+use kivact_core::view::{Variant, Variants};
 use kivact_interaction::{
     MenuApi as Behavior, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow,
 };
@@ -72,7 +72,7 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
     pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
+        self.variants = std::mem::take(&mut self.variants).with(v);
         self
     }
 }

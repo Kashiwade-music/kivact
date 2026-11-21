@@ -1,7 +1,7 @@
 //! Role: The heading recipe state, recipe table and default looks.
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{Style, Theme, style};
 pub(crate) fn heading(t: &Theme, s: &Look<HeadingState>) -> Style {
     let scale = match s.level {

@@ -73,7 +73,7 @@ pub(crate) fn handle(
     edge: Edge,
     panel: NodeRef,
     open: Signal<bool>,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> (Node, Value<f64>) {
     let policy = use_theme().get().ext::<InteractionPolicy>().drawer.swipe;
     let rect = panel.rect();

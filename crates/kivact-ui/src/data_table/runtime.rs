@@ -115,6 +115,7 @@ where
     R: kivact_core::state::PropValue,
     K: kivact_core::state::ItemKey,
 {
+    let variants = table.root.authored().variants();
     let plan = model_plan(&mut table);
     let navigation = navigation_plan(&table, &plan);
     let paging = plan.paging.public();
@@ -128,7 +129,7 @@ where
         paging,
     };
     let toolbar = table.toolbar.take().map_or_else(
-        || super::chrome::toolbar(context, &table.variants),
+        || super::chrome::toolbar(context, &variants),
         |slot| Some(slot(context)),
     );
     let footer = table.footer.take().map_or_else(
@@ -136,7 +137,7 @@ where
             super::chrome::footer(
                 context,
                 table.page_sizes.map(|(_, options)| options),
-                &table.variants,
+                &variants,
             )
         },
         |slot| Some(slot(context)),
@@ -146,7 +147,7 @@ where
         crate::layer::with_base_recipe_style(
             table.root,
             |r: &DataTableTheme| r.frame_recipe(),
-            &table.variants,
+            &variants,
             kivact_core::custom::PartState::default,
         ),
         toolbar,
@@ -622,7 +623,7 @@ where
         row_height: table.row_height,
         row_status: table.row_status.take(),
         row_color: table.row_color.take(),
-        variants: table.variants.clone(),
+        variants: table.root.authored().variants(),
     }
 }
 fn regions<R, K>(

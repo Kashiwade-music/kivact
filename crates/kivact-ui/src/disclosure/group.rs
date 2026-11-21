@@ -8,7 +8,6 @@ pub struct DisclosureGroup<K: 'static> {
     root: Node,
     group: DisclosureGroupApi<K>,
     panels: Vec<crate::Disclosure>,
-    variants: crate::variants::Variants,
     heading_level: u32,
 }
 /// Create a single-selection or multiple-selection accordion.
@@ -19,7 +18,6 @@ pub fn disclosure_group<K: Clone + PartialEq + 'static>(
         root: column(()),
         group: use_disclosure_group(selected),
         panels: Vec::new(),
-        variants: crate::variants::Variants::default(),
         heading_level: 3,
     }
 }
@@ -27,11 +25,6 @@ impl<K: Clone + PartialEq + 'static> DisclosureGroup<K> {
     /// Set the semantic level of all accordion headings (default 3).
     pub fn heading_level(mut self, level: u32) -> Self {
         self.heading_level = level;
-        self
-    }
-    /// Apply a theme look to every panel, independent of builder call order.
-    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
-        self.variants.add(variant);
         self
     }
     /// Append a labelled panel whose content is rebuilt on every opening.
@@ -53,7 +46,7 @@ impl<K: 'static> Element for DisclosureGroup<K> {
 }
 impl<K: 'static> IntoView for DisclosureGroup<K> {
     fn into_view(self) -> View {
-        let variants = self.variants;
+        let variants = self.root.authored().variants();
         let level = self.heading_level;
         let count = self.panels.len();
         let panels = self

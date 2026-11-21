@@ -28,7 +28,6 @@ pub struct NavigationMenu {
     close_delay: Duration,
     placement: Placement,
     align: OverlayAlign,
-    variants: crate::variants::Variants,
     changed: Option<Callback<bool>>,
 }
 /// Construct a navigation landmark under an accessible label.
@@ -41,7 +40,6 @@ pub fn navigation_menu(label: impl IntoText) -> NavigationMenu {
         close_delay: Duration::from_millis(150),
         placement: Placement::Below,
         align: OverlayAlign::Start,
-        variants: crate::variants::Variants::default(),
         changed: None,
     }
 }
@@ -104,11 +102,6 @@ impl NavigationMenu {
         self.align = align;
         self
     }
-    /// Add a kit-defined visual variant.
-    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
 }
 impl Element for NavigationMenu {
     fn node_mut(&mut self) -> &mut Node {
@@ -124,9 +117,9 @@ impl IntoView for NavigationMenu {
             close_delay,
             placement,
             align,
-            variants,
             changed,
         } = self;
+        let variants = root.authored().variants();
         let api = use_navigation_menu();
         let api = if let Some(changed) = changed {
             api.on_open_change(move |open| changed.call(open))
@@ -186,7 +179,7 @@ impl IntoView for NavigationMenu {
 /// Independent placement, appearance and actual visibility for one mounted panel.
 struct PanelPresentation {
     shown: Value<bool>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
     placement: Placement,
     align: OverlayAlign,
     open_delay: Duration,
@@ -326,7 +319,7 @@ fn navigation_action(
     label: Value<String>,
     press: kivact_core::state::Callback<()>,
     disabled: Value<bool>,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> View {
     let state = api.state();
     crate::layer::with_recipe_style(

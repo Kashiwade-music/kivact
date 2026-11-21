@@ -119,7 +119,6 @@ pub struct Stepper {
     collapsed_steps: CollapsedSteps,
     on_edit: Option<Callback<EditPhase>>,
     min_step_width: Option<Value<f64>>,
-    variants: crate::variants::Variants,
 }
 /// Show progress through an ordered sequence of steps. A press on a step
 /// (or on the collapsed previous and next buttons) writes its index to
@@ -138,7 +137,6 @@ pub fn stepper(items: impl IntoValue<Vec<StepperItem>>, current: Signal<usize>) 
         collapsed_steps: CollapsedSteps::Current,
         on_edit: None,
         min_step_width: None,
-        variants: crate::variants::Variants::default(),
     }
 }
 impl Stepper {
@@ -169,11 +167,6 @@ impl Stepper {
         self.on_edit = Some(callback(f));
         self
     }
-    /// Add kit-defined visual metadata.
-    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
 }
 impl Element for Stepper {
     fn node_mut(&mut self) -> &mut Node {
@@ -190,8 +183,8 @@ impl IntoView for Stepper {
             collapsed_steps,
             on_edit,
             min_step_width,
-            variants,
         } = self;
+        let variants = root.authored().variants();
         let edit = kivact_interaction::EditSession::new(move |initial: usize| current.set(initial));
         let edit = match on_edit {
             Some(on_edit) => edit.on_edit(move |phase| on_edit.call(phase)),
@@ -276,7 +269,7 @@ fn collapsed_navigation(
     items: Value<Vec<StepperItem>>,
     current: Signal<usize>,
     layout: Value<StepperState>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
     previous: bool,
 ) -> View {
     let recipe: fn(&StepperTheme) -> &crate::recipe::Recipe<StepperState> = if previous {
@@ -327,7 +320,7 @@ fn step_row(
     layout: Value<StepperState>,
     collapsed_steps: CollapsedSteps,
     write: Callback<usize>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
 ) -> impl IntoView {
     let state = move || {
         item.with(|item| StepperItemState {
@@ -373,7 +366,7 @@ fn step_contents(
     index: usize,
     current: Signal<usize>,
     state: impl Fn() -> StepperItemState + Copy + 'static,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> Node {
     let indicator = step_indicator(item.indicator.clone(), index, current);
     let indicator = indicator.map(|indicator| {
@@ -449,7 +442,7 @@ fn step_indicator(indicator: StepIndicator, index: usize, current: Signal<usize>
 fn step_details(
     item: StepperItem,
     state: impl Fn() -> StepperItemState + Copy + 'static,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> (Option<View>, Option<View>, Option<View>) {
     let description = item.description.map(|description| {
         crate::layer::with_recipe_style(
@@ -492,7 +485,7 @@ enum StepDecoration {
 }
 /// Mount only decorative geometry; selection and compact layout remain with the existing source.
 fn step_decoration(
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     state: impl Fn() -> StepperItemState + 'static,
     part: StepDecoration,
 ) -> Node {

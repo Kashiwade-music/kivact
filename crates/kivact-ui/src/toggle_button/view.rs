@@ -6,7 +6,6 @@ use crate::toggle_button::look::ToggleLabelReservation;
 use crate::control_size::ControlSize;
 use crate::layer::with_base_recipe_style;
 use crate::toggle_button::look::ToggleButtonState;
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Constraints, primitive};
 use kivact_core::draw::TextFormat;
 use kivact_core::geometry::Size;
@@ -89,7 +88,6 @@ pub struct ToggleButton {
     icon: Option<View>,
     hide_label: Option<Value<bool>>,
     size: Value<ControlSize>,
-    variants: Variants,
 }
 
 /// A toggle_button button named and labelled `label` that edits `pressed`.
@@ -125,7 +123,6 @@ pub fn toggle_button(
         on_edit: None,
         hide_label: None,
         size: crate::control_size::default_control_size().into_value(),
-        variants: Variants::default(),
     }
 }
 
@@ -163,21 +160,6 @@ impl ToggleButton {
         self.hide_label = Some(hide.into_value());
         self
     }
-
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which the recipe reads with
-    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipe reads the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
-        self
-    }
 }
 
 impl Element for ToggleButton {
@@ -189,6 +171,7 @@ impl Element for ToggleButton {
 #[diagnostic::do_not_recommend]
 impl IntoView for ToggleButton {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let mut behavior = use_toggle_button(self.pressed);
         if let Some(observer) = self.on_edit {
             behavior = behavior.on_edit(move |phase| observer.call(phase));
@@ -213,7 +196,7 @@ impl IntoView for ToggleButton {
         with_base_recipe_style(
             root,
             |r: &ToggleButtonTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             move || state.get(),
         )
         .part(part)

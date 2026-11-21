@@ -15,7 +15,6 @@ use kivact_interaction::{Snap, use_carousel};
 /// A slide viewport and previous/next controls.
 pub struct Carousel {
     root: Node,
-    variants: crate::variants::Variants,
     slides: Vec<View>,
     index: Signal<usize>,
     orientation: Value<Orientation>,
@@ -33,7 +32,6 @@ pub struct Carousel {
 #[track_caller]
 pub fn carousel(index: Signal<usize>, slides: impl IntoChildren) -> Carousel {
     Carousel {
-        variants: crate::variants::Variants::default(),
         root: node().name(kivact_core::i18n::message("carousel.label", "Carousel")),
         slides: slides.into_views(),
         index,
@@ -49,12 +47,6 @@ pub fn carousel(index: Signal<usize>, slides: impl IntoChildren) -> Carousel {
     }
 }
 impl Carousel {
-    /// Add a setup-only visual variant for every component recipe.
-    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
-
     /// Wrap previous and next navigation at the endpoints.
     pub fn looping(mut self) -> Self {
         self.looping = true;
@@ -119,6 +111,7 @@ impl Element for Carousel {
 }
 impl IntoView for Carousel {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let c = prepare(&mut self);
         let references = std::rc::Rc::new((0..c.count).map(|_| node_ref()).collect::<Vec<_>>());
         let edges = (references.first().copied(), references.last().copied());
@@ -126,15 +119,15 @@ impl IntoView for Carousel {
             follow_index(c, references.clone());
             follow_scroll(c, references.clone());
         }
-        let items = slide_items(c, &self.variants, self.slides, &references);
-        let content = slide_track(c, &self.variants, items);
-        let viewport = slide_viewport(c, &self.variants, content, edges);
-        let previous = navigation_button(c, &self.variants, references.clone(), edges, false);
-        let next = navigation_button(c, &self.variants, references.clone(), edges, true);
+        let items = slide_items(c, &variants, self.slides, &references);
+        let content = slide_track(c, &variants, items);
+        let viewport = slide_viewport(c, &variants, content, edges);
+        let previous = navigation_button(c, &variants, references.clone(), edges, false);
+        let next = navigation_button(c, &variants, references.clone(), edges, true);
         crate::layer::with_base_recipe_style(
             self.root,
             |r: &CarouselTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             move || c.recipe_state(),
         )
         .with_node(|n| n.role(Role::Group))
@@ -371,7 +364,7 @@ fn nearest_slide(
 /// Size and label each slide using the actual carousel recipe state.
 fn slide_items(
     c: Layout,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     slides: Vec<View>,
     refs: &[kivact_core::view::NodeRef],
 ) -> Vec<View> {
@@ -420,7 +413,7 @@ fn slide_items(
         .collect()
 }
 /// Lay out and translate the shared slide track.
-fn slide_track(c: Layout, variants: &crate::variants::Variants, items: Vec<View>) -> Node {
+fn slide_track(c: Layout, variants: &kivact_core::view::Variants, items: Vec<View>) -> Node {
     crate::layer::with_recipe_style(
         node(),
         |r: &CarouselTheme| r.track_recipe(),
@@ -462,7 +455,7 @@ fn slide_track(c: Layout, variants: &crate::variants::Variants, items: Vec<View>
 /// Wrap slides in the translated or native scrolling viewport.
 fn slide_viewport(
     c: Layout,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     content: Node,
     edges: (
         Option<kivact_core::view::NodeRef>,
@@ -589,7 +582,7 @@ fn keyboard(
 /// Render one previous/next action with the correct directional mark and bounds.
 fn navigation_button(
     c: Layout,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     references: std::rc::Rc<Vec<kivact_core::view::NodeRef>>,
     edges: (
         Option<kivact_core::view::NodeRef>,

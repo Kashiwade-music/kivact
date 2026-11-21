@@ -1,8 +1,8 @@
 //! Role: The chat thread recipe state, recipe table and default looks.
 use crate::look_common::column;
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{Length, ThemeVar};
 use kivact_core::style::{Style, Theme, style};
 

@@ -2,7 +2,7 @@
 
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::list::look::ListTheme;
-use crate::variants::{Variant, Variants};
+use kivact_core::view::Variants;
 
 use kivact_core::state::{Callback, Signal, Value, binding};
 use kivact_core::state::{IntoText, IntoValue, callback};
@@ -22,7 +22,6 @@ pub struct List<K: kivact_core::state::ItemKey> {
     selection: Selection<K>,
     on_edit: Option<Callback<EditPhase>>,
     item: Option<ItemContent<K>>,
-    variants: Variants,
 }
 
 /// A themed list named `label` over `items` that writes the picked key to
@@ -55,33 +54,17 @@ pub fn list<K: kivact_core::state::ItemKey>(
     selected: impl kivact_interaction::IntoSelection<K>,
 ) -> List<K> {
     // The variants are shared: `.variant` adds to them before mount.
-    let variants = Variants::default();
+    let _variants = Variants::default();
     List {
         root: node().name(label),
         items: items.into_value(),
         selection: selected.into_selection(),
         on_edit: None,
         item: None,
-        variants,
     }
 }
 
 impl<K: kivact_core::state::ItemKey> List<K> {
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
-        self
-    }
-
     /// Report each change of the selection as one edit: `Begin`, the write,
     /// `Commit` ([`EditPhase`]). A change writes once, so there is nothing
     /// to cancel.
@@ -154,8 +137,8 @@ impl<K: kivact_core::state::ItemKey> IntoView for List<K> {
             selection,
             on_edit,
             item: slot,
-            variants,
         } = self;
+        let variants = root.authored().variants();
         let selection = match selection {
             Selection::Multiple(keys) => Selection::Multiple(edited(keys, on_edit)),
             Selection::Single(selected) => Selection::Single(edited(selected, on_edit)),

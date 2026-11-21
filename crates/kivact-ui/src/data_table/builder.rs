@@ -4,7 +4,6 @@ use super::types::{
     TreeConfig,
 };
 use crate::data_table::column::DataColumn;
-use crate::variants::{Variant, Variants};
 use kivact_core::state::Value;
 use kivact_core::state::{IntoValue, callback};
 use kivact_core::style::Color;
@@ -133,7 +132,6 @@ where
         row_height: None,
         row_status: None,
         row_color: None,
-        variants: Variants::default(),
     }
 }
 
@@ -188,26 +186,6 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     pub fn expand_all_control(mut self) -> Self {
         self.tree_expand_all = true;
         self
-    }
-
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
-        self
-    }
-
-    /// Select the density used by themes that style data table cells.
-    pub fn density(self, density: super::types::DataTableDensity) -> Self {
-        self.variant(density)
     }
 
     /// Pin visible data columns to the start and end of the horizontal viewport.
@@ -522,5 +500,12 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
 impl<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey> Element for DataTable<R, K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
+    }
+}
+
+impl<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey> DataTable<R, K> {
+    /// Select the density used by themes that style data table cells.
+    pub fn density(self, density: super::types::DataTableDensity) -> Self {
+        self.variant(density)
     }
 }

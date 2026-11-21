@@ -4,7 +4,6 @@ use crate::card::look::CardAction;
 use crate::card::look::CardState;
 use crate::card::look::CardTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Signal, Value};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, KeyEvent, Modifiers, Node, View, node, node_ref,
@@ -20,7 +19,6 @@ pub struct Card {
     media: Option<View>,
     footer: Option<View>,
     action: CardKind,
-    variants: Variants,
 }
 enum CardKind {
     Plain,
@@ -36,7 +34,6 @@ pub fn card(children: impl IntoView) -> Card {
         media: None,
         footer: None,
         action: CardKind::Plain,
-        variants: Variants::default(),
     }
 }
 impl Card {
@@ -60,11 +57,6 @@ impl Card {
         self.action = CardKind::Select(selected);
         self
     }
-    /// Add a theme-defined appearance.
-    pub fn variant(mut self, value: impl Variant) -> Self {
-        self.variants.add(value);
-        self
-    }
 }
 impl Element for Card {
     fn node_mut(&mut self) -> &mut Node {
@@ -73,6 +65,7 @@ impl Element for Card {
 }
 impl IntoView for Card {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         // The press and the disabled state are the root's (`Element::on_press`
         // and `Element::disabled`): a card with a press handler is a button.
         let disabled = self
@@ -98,7 +91,7 @@ impl IntoView for Card {
             has_media,
             has_footer,
         };
-        let variants = &self.variants;
+        let variants = &variants;
         let header = self.header.map(|view| {
             with_recipe_style(
                 node().child(view),

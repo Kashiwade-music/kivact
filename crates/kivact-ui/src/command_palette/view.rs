@@ -2,7 +2,6 @@
 
 use crate::command_palette::look::CommandPaletteTheme;
 use crate::layer::with_recipe_style;
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::PartState;
 use kivact_core::i18n::message;
 use kivact_core::state::{IntoText, IntoValue};
@@ -12,6 +11,7 @@ use kivact_core::view::Element;
 use kivact_core::view::{
     HandlerResult, IntoView, KeyEvent, Placement, View, dynamic, for_each, node_ref, overlay, show,
 };
+use kivact_core::view::{Variant, Variants};
 use kivact_core::view::{column, icon, node, row, scroll, text};
 use kivact_interaction::{Command, use_command_palette, use_text_edit};
 use std::rc::Rc;
@@ -100,7 +100,7 @@ impl<K: kivact_core::state::ItemKey> CommandPalette<K> {
     /// The value is a constant: the recipes read the values given before
     /// the component is mounted, and a value never changes afterwards.
     pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
+        self.variants = std::mem::take(&mut self.variants).with(v);
         self
     }
 

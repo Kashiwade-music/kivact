@@ -9,12 +9,12 @@ use crate::button::look::{
 use crate::button_group::GroupPosition;
 use crate::control_size::ControlSize;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::PartState;
 use kivact_core::motion::{Animated, Easing, FrameRate, Transition, frame_loop};
 use kivact_core::state::try_use_context;
 use kivact_core::state::{IntoText, IntoValue, Machine, Step, Value, machine, memo, signal};
 use kivact_core::style::{Style, style, use_theme};
+use kivact_core::view::Variants;
 use kivact_core::view::{
     Element, IntoChildren, IntoView, Node, Orientation, View, node, row, show,
 };
@@ -87,7 +87,6 @@ pub struct Button {
     trailing: Option<View>,
     children: Vec<View>,
     size: Option<Value<ControlSize>>,
-    variants: Variants,
     busy: Option<Value<bool>>,
     input: Value<PartState>,
     hide_label: Option<Value<bool>>,
@@ -120,7 +119,6 @@ pub fn button(label: impl IntoText) -> Button {
         trailing: None,
         children: Vec::new(),
         size: None,
-        variants: Variants::default(),
         busy: None,
         input,
         hide_label: None,
@@ -172,23 +170,7 @@ impl Button {
         self
     }
 }
-impl Button {
-    /// Give the button a [`Variant`]: its [`ButtonVariant`](crate::button::ButtonVariant)
-    /// (the default is `Primary`), or a look a kit defines beyond it. Every
-    /// recipe of the button reads it with
-    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
-        self
-    }
-}
+impl Button {}
 impl Element for Button {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -204,11 +186,11 @@ impl Button {
             trailing,
             children,
             size,
-            variants,
             busy,
             input,
             hide_label,
         } = self;
+        let variants = root.authored().variants();
         // A popup or disclosure attaches its trigger before the button is
         // finished; the recipe draws the button as that trigger.
         let expanded = root.accessible_expanded();
@@ -235,10 +217,8 @@ impl Button {
         });
         // A button in a button group takes the group's corners and dividers.
         let solid = matches!(
-            variants
-                .look(())
+            crate::recipe::Look::of((), variants.clone())
                 .variant::<ButtonVariant>()
-                .copied()
                 .unwrap_or_default(),
             ButtonVariant::Primary | ButtonVariant::Danger
         );

@@ -6,7 +6,6 @@ use crate::toggle_button::look::ToggleButtonState;
 use crate::toggle_group::look::ToggleGroupItemState;
 use crate::toggle_group::look::ToggleGroupState;
 use crate::toggle_group::look::ToggleGroupTheme;
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{
     Callback, IntoText, IntoValue, ItemKey, Signal, Value, binding, callback, memo,
 };
@@ -30,7 +29,6 @@ pub struct ToggleGroup<K: ItemKey> {
     icon_only: Value<bool>,
     on_edit: Option<Callback<EditPhase>>,
     item: Option<ToggleItemSlot<K>>,
-    variants: Variants,
 }
 
 /// A named group whose toggles edit `selected`. `Option<K>` allows zero or
@@ -53,7 +51,6 @@ pub fn toggle_group<K: ItemKey>(
         icon_only: false.into_value(),
         on_edit: None,
         item: None,
-        variants: Variants::default(),
     }
 }
 impl<K: ItemKey> ToggleGroup<K> {
@@ -97,11 +94,6 @@ impl<K: ItemKey> ToggleGroup<K> {
         self.item = Some(ViewFn::from(move |(item, state)| content(item, state)));
         self
     }
-    /// Add a theme presentation variant shared by the group and its items.
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
 }
 impl<K: ItemKey> Element for ToggleGroup<K> {
     fn node_mut(&mut self) -> &mut Node {
@@ -140,6 +132,7 @@ fn member<K: ItemKey>(selection: Selection<K>, key: K) -> Signal<bool> {
 }
 impl<K: ItemKey> IntoView for ToggleGroup<K> {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let orientation = self.orientation;
         let size = self.size;
         let spacing = self.spacing;
@@ -150,7 +143,8 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
         let slot = self.item;
         let on_edit = self.on_edit;
         let disabled = self.root.accessible_disabled();
-        let variants = self.variants.clone();
+        let variants = variants.clone();
+        let item_variants = variants.clone();
         let rows = for_each(
             self.options,
             |item| item.key().clone(),
@@ -186,7 +180,7 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
                 with_base_recipe_style(
                     node().name(move || item.get().label()),
                     |r: &ToggleGroupTheme| r.item_recipe(),
-                    &variants,
+                    &item_variants,
                     move || ToggleGroupItemState {
                         toggle: state.get(),
                         layout: ToggleGroupState {
@@ -209,7 +203,7 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
         with_base_recipe_style(
             self.root.orientation(orientation).roving_focus(orientation),
             |r: &ToggleGroupTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             move || ToggleGroupState {
                 orientation: orientation.get(),
                 size: size.get(),

@@ -5,7 +5,6 @@ use crate::helpers::{is_named, report_unnamed};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::slider::look::AxisState;
 use crate::slider::look::SliderTheme;
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::PartState;
 use kivact_core::geometry::Rect;
 use kivact_core::motion::Transition;
@@ -13,6 +12,7 @@ use kivact_core::state::{Callback, Signal, Value};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::{Length, Position, Style, TransitionProp, style, use_theme};
 use kivact_core::view::EditPhase;
+use kivact_core::view::Variants;
 use kivact_core::view::{Element, Node, node};
 use kivact_core::view::{
     HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, node_ref, use_direction,
@@ -39,7 +39,6 @@ pub struct Slider {
     orientation: Orientation,
     size: Value<ControlSize>,
     on_edit: Option<Callback<EditPhase>>,
-    variants: Variants,
 }
 
 /// A themed slider that edits `value` in 0 to 100 unless
@@ -87,7 +86,7 @@ pub fn range_slider(
 #[track_caller]
 fn create(values: Values) -> Slider {
     // The variants are shared: `.variant` adds to them before mount.
-    let variants = Variants::default();
+    let _variants = Variants::default();
     Slider {
         root: node().style(style().position(Position::Relative)),
         label: None,
@@ -97,27 +96,11 @@ fn create(values: Values) -> Slider {
         orientation: Orientation::Horizontal,
         size: crate::control_size::default_control_size().into_value(),
         on_edit: None,
-        variants,
         at: Location::caller(),
     }
 }
 
-impl Slider {
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
-        self
-    }
-}
+impl Slider {}
 
 impl Slider {
     /// The accessible name: for a slider, the thumb's name; for a range, the
@@ -311,9 +294,9 @@ impl IntoView for Slider {
             orientation,
             size,
             on_edit,
-            variants,
             at,
         } = self;
+        let variants = root.authored().variants();
         let thumb_name = thumb_label(&mut root, &values, label, at);
         // `.disabled(..)` on the slider ends a drag in progress and ignores
         // input and assistive technology; the track is disabled with its

@@ -2,7 +2,6 @@
 
 use crate::empty_state::look::EmptyStateTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value, on_mount};
 use kivact_core::view::{Element, IntoView, LiveRegion, Node, Role, View, node, text};
 use kivact_interaction::use_announcer;
@@ -25,7 +24,6 @@ pub struct EmptyState {
     actions: Option<View>,
     heading_level: Value<u8>,
     announce: AnnouncePolicy,
-    variants: Variants,
 }
 /// Describe an empty region with a visible heading.
 #[track_caller]
@@ -37,7 +35,6 @@ pub fn empty_state(title: impl IntoText) -> EmptyState {
         actions: None,
         heading_level: 3.into_value(),
         announce: AnnouncePolicy::Silent,
-        variants: Variants::default(),
     }
 }
 impl EmptyState {
@@ -68,11 +65,6 @@ impl EmptyState {
         self.announce = AnnouncePolicy::Changes;
         self
     }
-    /// Add a theme-defined appearance.
-    pub fn variant(mut self, value: impl Variant) -> Self {
-        self.variants.add(value);
-        self
-    }
 }
 impl Element for EmptyState {
     fn node_mut(&mut self) -> &mut Node {
@@ -81,6 +73,7 @@ impl Element for EmptyState {
 }
 impl IntoView for EmptyState {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let heading_level = self.heading_level;
         let state = move || EmptyStateState {
             heading_level: heading_level.get().clamp(1, 6),
@@ -98,7 +91,7 @@ impl IntoView for EmptyState {
             });
             notices.outlet()
         });
-        let variants = &self.variants;
+        let variants = &variants;
         let icon = self.icon.map(|icon| {
             with_recipe_style(
                 node().child(icon),

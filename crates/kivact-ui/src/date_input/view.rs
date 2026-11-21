@@ -40,7 +40,7 @@ impl DatePresentation {
 /// An editable locale-sensitive date, created by [`date_input`].
 pub struct DateInput {
     root: Node,
-    variants: crate::variants::Variants,
+    inherited: kivact_core::view::Variants,
     label: Option<Value<String>>,
     picker_label: Option<Value<String>>,
     value: Signal<Option<CalendarDate>>,
@@ -60,8 +60,8 @@ pub struct DateInput {
 #[track_caller]
 pub fn date_input(value: Signal<Option<CalendarDate>>) -> DateInput {
     DateInput {
+        inherited: kivact_core::view::Variants::default(),
         root: node(),
-        variants: crate::variants::Variants::default(),
         label: None,
         picker_label: None,
         value,
@@ -94,13 +94,8 @@ impl DateInput {
         self
     }
 
-    /// Add a visual variant shared by the field and its picker surface.
-    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
-    pub(crate) fn with_variants(mut self, variants: &crate::variants::Variants) -> Self {
-        self.variants.merge(variants);
+    pub(crate) fn with_variants(mut self, variants: &kivact_core::view::Variants) -> Self {
+        self.inherited = variants.clone();
         self
     }
     /// Date text format, read reactively.
@@ -179,7 +174,6 @@ impl DateInput {
         }
         let Self {
             mut root,
-            variants,
             label,
             picker_label,
             value,
@@ -193,7 +187,9 @@ impl DateInput {
             presentation,
             configure,
             at,
+            inherited,
         } = self;
+        let variants = crate::layer::own_and_inherited(&root, &inherited);
         let named = is_named(&mut root) || label.is_some();
         report_unnamed(named, "date_input", at);
         let label = label.unwrap_or_else(|| String::new().into_value());
@@ -251,7 +247,6 @@ impl DateInput {
     fn render_trigger(self, attach: crate::date_parts::trigger::AttachTrigger) -> View {
         let Self {
             root,
-            variants,
             label,
             value,
             valid,
@@ -260,8 +255,10 @@ impl DateInput {
             week_start,
             presentation,
             configure,
+            inherited,
             ..
         } = self;
+        let variants = crate::layer::own_and_inherited(&root, &inherited);
         let locale = use_locale();
         let (state, _announcement) = date_controller(value, valid, min, max, locale);
         let open = picker_open(state);
@@ -564,7 +561,7 @@ fn date_layout(
     picker: View,
     error: Node,
     announcement: Value<String>,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> View {
     root.child(with_recipe_style(
         row((field, picker)),

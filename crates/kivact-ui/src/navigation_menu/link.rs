@@ -2,7 +2,6 @@
 use crate::layer::with_recipe_style;
 use crate::navigation_menu::look::NavigationLinkState;
 use crate::navigation_menu::look::NavigationMenuTheme;
-use crate::variants::{Variant, Variants};
 use kivact_core::UiError;
 use kivact_core::state::{IntoText, Value};
 use kivact_core::view::{Element, IntoView, Node, Role, View, column, node, node_ref, text};
@@ -11,7 +10,6 @@ pub struct NavigationMenuLink {
     root: Node,
     title: Value<String>,
     icon: Option<View>,
-    variants: Variants,
 }
 /// Construct a navigation link, optionally inside a standard navigation menu panel.
 #[track_caller]
@@ -21,16 +19,11 @@ pub fn navigation_menu_link(title: impl IntoText) -> NavigationMenuLink {
         root: node().role(Role::Link).name(title),
         title,
         icon: None,
-        variants: Variants::default(),
     }
 }
 impl NavigationMenuLink {
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
-        self
-    }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 }
@@ -41,9 +34,12 @@ impl Element for NavigationMenuLink {
 }
 impl IntoView for NavigationMenuLink {
     fn into_view(mut self) -> View {
+        let mut variants = self.root.authored().variants();
         let context = crate::navigation_menu::context::current();
         if let Some(context) = &context {
-            self.variants = self.variants.with_defaults(&context.variants);
+            let mut merged = context.variants.clone();
+            merged.merge(&variants);
+            variants = merged;
         }
         let role = self.root.accessible_role().unwrap_or(Role::Link);
         let description = self.root.authored().description();
@@ -55,7 +51,7 @@ impl IntoView for NavigationMenuLink {
                 has_description,
             });
         let state = behavior.state();
-        let variants = &self.variants;
+        let variants = &variants;
         let title = with_recipe_style(
             text(self.title),
             |r: &NavigationMenuTheme| r.link_title_recipe(),

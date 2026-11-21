@@ -1,9 +1,10 @@
 //! Role: The button recipe state, recipe table and default looks.
 use crate::look_common::{font_size, gap, height};
 use crate::recipe::recipe_table;
+use kivact_macros::Prop;
 
 use crate::control_size::ControlSize;
-use crate::variants::Look;
+use crate::recipe::Look;
 use kivact_core::custom::PartState;
 use kivact_core::draw::{LineCap, Path, Stroke};
 use kivact_core::geometry::Point;
@@ -31,10 +32,7 @@ pub(crate) fn tinted(tint: Color, base: impl Into<Color>) -> Background {
 /// The button recipe: a row of an optional icon and the label.
 pub(crate) fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
     let size = state.size;
-    let variant = state
-        .variant::<ButtonVariant>()
-        .copied()
-        .unwrap_or_default();
+    let variant = state.variant::<ButtonVariant>().unwrap_or_default();
     let s = style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -127,11 +125,7 @@ pub(crate) fn button_icon(_: &Theme, _: &Look<ButtonState>) -> Style {
 
 /// A three-quarter ring the button turns while busy.
 pub(crate) fn button_busy(_: &Theme, state: &Look<ButtonState>) -> Style {
-    let color = match state
-        .variant::<ButtonVariant>()
-        .copied()
-        .unwrap_or_default()
-    {
+    let color = match state.variant::<ButtonVariant>().unwrap_or_default() {
         ButtonVariant::Primary | ButtonVariant::Danger => kivact_core::style::color::ACCENT_TEXT,
         _ => kivact_core::style::color::TEXT,
     };
@@ -205,7 +199,7 @@ impl ButtonState {
 /// alike, and a recipe reads each with
 /// [`Look::variant`](super::Look::variant) (a button without a
 /// `ButtonVariant` is the default, `Primary`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum ButtonVariant {
     /// The main action of its area, filled with the accent.
     #[default]
@@ -224,7 +218,7 @@ pub enum ButtonVariant {
     Link,
 }
 
-impl crate::variants::Variant for ButtonVariant {}
+impl kivact_core::view::Variant for ButtonVariant {}
 
 recipe_table! {
     /// The recipes of a button: its root, its content row, its busy indicator and its icon box.

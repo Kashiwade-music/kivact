@@ -5,13 +5,13 @@ use crate::layer::with_recipe_style;
 use crate::toast::look::ToastGroupState;
 use crate::toast::look::ToastTheme;
 use crate::toast::swipe::Swipe;
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::part;
 use kivact_core::motion::Transition;
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::use_theme;
 use kivact_core::view::Element;
 use kivact_core::view::{IntoView, LiveRegion, View, for_each};
+use kivact_core::view::{Variant, Variants};
 use kivact_core::view::{column, node, text};
 use kivact_interaction::ToastSwipe;
 use kivact_interaction::{ToastId, ToasterApi, Tone};
@@ -33,12 +33,12 @@ use kivact_interaction::{ToastId, ToasterApi, Tone};
 /// toaster. Mount one region near the root of the App.
 ///
 /// ```no_run
-/// use kivact::interaction::{Toast, toaster};
+/// use kivact::interaction::{Toast, use_toaster};
 /// use kivact::prelude::*;
 /// use kivact::ui::toast_region;
 ///
 /// fn app() -> impl IntoView {
-///     let toaster = toaster();
+///     let toaster = use_toaster();
 ///     column((
 ///         button("Save").on_press(move || {
 ///             toaster.push(Toast::new("Saved"));
@@ -75,7 +75,7 @@ impl ToastRegion {
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
     pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
+        self.variants = std::mem::take(&mut self.variants).with(v);
         self
     }
 }

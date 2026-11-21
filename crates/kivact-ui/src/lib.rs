@@ -150,7 +150,6 @@ pub mod theme;
 mod toggle;
 mod toggle_button;
 mod tree;
-mod variants;
 
 pub use crate::button::ButtonVariant;
 pub use crate::radio_group::RadioGroupVariant;

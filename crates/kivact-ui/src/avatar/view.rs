@@ -4,10 +4,10 @@ use crate::ControlSize;
 use crate::avatar::initials::initials;
 use crate::avatar::look::AvatarShape;
 use crate::avatar::look::AvatarTheme;
-use crate::theme::{AvatarState, Variant};
-use crate::variants::Variants;
+use crate::theme::AvatarState;
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::style::{Align, Justify, Position, pct, style};
+use kivact_core::view::Variants;
 use kivact_core::view::{
     Asset, Element, ImageFit, ImageStatus, IntoView, IntoViewFn, Node, Role, View, ViewFn, dynamic,
     node, node_ref, text,
@@ -32,7 +32,6 @@ pub struct Avatar {
     status: Value<Option<Tone>>,
     status_content: Option<View>,
     name_tooltip: Option<Value<bool>>,
-    variants: Variants,
 }
 #[track_caller]
 pub fn avatar(name: impl IntoText) -> Avatar {
@@ -48,7 +47,6 @@ pub fn avatar(name: impl IntoText) -> Avatar {
         status: None::<Tone>.into_value(),
         status_content: None,
         name_tooltip: None,
-        variants: Variants::default(),
     }
 }
 impl Avatar {
@@ -91,10 +89,6 @@ impl Avatar {
     #[track_caller]
     pub fn name_tooltip(mut self, show: impl IntoValue<bool>) -> Self {
         self.name_tooltip = Some(show.into_value());
-        self
-    }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 }
@@ -147,6 +141,7 @@ fn fallback_view(name: Value<String>, content: Option<&ViewFn>) -> View {
 }
 impl IntoView for Avatar {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         if self.root.authored().has_press() {
             self.root = self.root.part(kivact_interaction::use_button().control());
         }
@@ -175,22 +170,22 @@ impl IntoView for Avatar {
         let image = crate::layer::with_recipe_style(
             node().child(content),
             |r: &AvatarTheme| r.image_recipe(),
-            &self.variants,
+            &variants,
             state,
         );
-        let status_badge = status_badge(size, shape, status, &self.variants);
+        let status_badge = status_badge(size, shape, status, &variants);
         let status_content = self.status_content.map(|content| {
             crate::layer::with_recipe_style(
                 node().child(content),
                 |r: &AvatarTheme| r.status_content_recipe(),
-                &self.variants,
+                &variants,
                 state,
             )
         });
         let root = crate::layer::with_base_recipe_style(
             self.root.name(label),
             |r: &AvatarTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             state,
         )
         .base_style(style().position(Position::Relative))

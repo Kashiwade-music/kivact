@@ -1,7 +1,7 @@
 //! Role: Share sizing and look helpers that two or more components recipes use.
 
 use crate::control_size::ControlSize;
-use crate::variants::Look;
+use crate::recipe::Look;
 use kivact_core::custom::PartState;
 use kivact_core::style::Shadow;
 use kivact_core::style::{Align, Color, FlexDirection, Style, Theme, style};

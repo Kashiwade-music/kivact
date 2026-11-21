@@ -1,9 +1,9 @@
 //! Role: Mount persistent themeable indicator parts for checkbox and switch motion.
 use crate::layer::with_recipe_style;
 use crate::toggle::look::{CheckableState, CheckboxTheme, SwitchTheme};
-use crate::variants::Variants;
 use kivact_core::state::Value;
 use kivact_core::style::{Position, style, use_theme};
+use kivact_core::view::Variants;
 use kivact_core::view::{IntoView, show};
 use kivact_core::view::{Node, node};
 

@@ -2,7 +2,6 @@
 
 use crate::skeleton::look::SkeletonTheme;
 use crate::skeleton::look::{SkeletonShape, SkeletonState};
-use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Animated, Easing, Repeat, Stagger, Transition};
 use kivact_core::state::{IntoValue, Value, effect};
 use kivact_core::view::{Element, IntoView, Node, View, column, for_index, node};
@@ -11,7 +10,6 @@ pub struct Skeleton {
     root: Node,
     lines: Value<usize>,
     shape: Value<SkeletonShape>,
-    variants: Variants,
     index: usize,
 }
 #[track_caller]
@@ -20,7 +18,6 @@ pub fn skeleton() -> Skeleton {
         root: column(()),
         lines: 1usize.into_value(),
         shape: SkeletonShape::default().into_value(),
-        variants: Variants::default(),
         index: 0,
     }
 }
@@ -40,10 +37,6 @@ impl Skeleton {
         self.shape = shape.into_value();
         self
     }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
 }
 impl Element for Skeleton {
     fn node_mut(&mut self) -> &mut Node {
@@ -52,6 +45,7 @@ impl Element for Skeleton {
 }
 impl IntoView for Skeleton {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let theme = kivact_core::style::use_theme().get();
         let period = theme.get(&crate::skeleton::look::PERIOD_MS_VAR);
         // The placeholder is the last of the group 0..=index, so a linear stagger
@@ -79,7 +73,7 @@ impl IntoView for Skeleton {
         });
         let lines = self.lines;
         let shape = self.shape;
-        let variants = self.variants;
+        let variants = variants;
         self.root
             .base_style(move || kivact_core::style::style().gap(crate::skeleton::look::GAP))
             .child(for_index(

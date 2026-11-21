@@ -8,12 +8,12 @@ use super::types::{
 use crate::data_table::look::DataTableTheme;
 use crate::layer::with_recipe_style;
 use crate::theme::{DataTableCellState, DataTableCheckState, DataTableRowState};
-use crate::variants::Variants;
 use crate::{DataColumn, checkbox};
 use kivact_core::custom::{NodeRefExt, Part};
 use kivact_core::style::linear_gradient;
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
+use kivact_core::view::Variants;
 
 use kivact_core::geometry::Rect;
 use kivact_core::i18n::message_with;

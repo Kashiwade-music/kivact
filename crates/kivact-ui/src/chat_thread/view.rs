@@ -4,7 +4,6 @@ use crate::chat_message::look::ChatAlign;
 use crate::chat_thread::look::ChatThreadState;
 use crate::chat_thread::look::ChatThreadTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::{FlexDirection, style};
 use kivact_core::view::{
@@ -25,7 +24,6 @@ pub struct ChatThread {
     gap: Option<Value<f64>>,
     align: Value<ChatAlign>,
     scroll_button: Value<bool>,
-    variants: Variants,
 }
 /// Place children in a `Role::Log` with shared scroll-follow behavior.
 #[track_caller]
@@ -42,7 +40,6 @@ pub fn chat_thread(children: impl IntoView) -> ChatThread {
         gap: None,
         align: ChatAlign::Start.into_value(),
         scroll_button: true.into_value(),
-        variants: Variants::default(),
     }
 }
 impl ChatThread {
@@ -99,11 +96,6 @@ impl ChatThread {
         self.scroll_button = shown.into_value();
         self
     }
-    /// Add an appearance read by every thread recipe.
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
 }
 impl Element for ChatThread {
     fn node_mut(&mut self) -> &mut Node {
@@ -117,6 +109,7 @@ fn follow_slack() -> f64 {
 
 impl IntoView for ChatThread {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let viewport = self.viewport.unwrap_or_else(node_ref);
         let content = node_ref();
         let slack = follow_slack();
@@ -138,7 +131,7 @@ impl IntoView for ChatThread {
                 typing,
             )),
             |r: &ChatThreadTheme| r.content_recipe(),
-            &self.variants,
+            &variants,
             state,
         )
         .style(move || {
@@ -161,7 +154,7 @@ impl IntoView for ChatThread {
                 .axes(ScrollAxes::Vertical)
                 .node_ref(viewport),
             |r: &ChatThreadTheme| r.viewport_recipe(),
-            &self.variants,
+            &variants,
             state,
         );
         let shown = self.scroll_button;
@@ -176,21 +169,21 @@ impl IntoView for ChatThread {
             .hidden(move || !shown.get() || distance.get() <= slack)
             .on_press(move || follow.jump_to_end()),
             |r: &ChatThreadTheme| r.scroll_button_recipe(),
-            &self.variants,
+            &variants,
             state,
         );
         let composer = self.composer.map(|v| {
             with_recipe_style(
                 node().child(v),
                 |r: &ChatThreadTheme| r.composer_recipe(),
-                &self.variants,
+                &variants,
                 state,
             )
         });
         with_base_recipe_style(
             self.root,
             |r: &ChatThreadTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             state,
         )
         .child((viewport, jump, composer))

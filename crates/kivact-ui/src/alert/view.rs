@@ -4,13 +4,13 @@ use crate::alert::look::AlertState;
 use crate::alert::look::AlertTheme;
 use crate::alert::look::Expansion;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::{NodeToken, Owner};
 use kivact_core::state::IntoHandler;
 use kivact_core::state::{
     Callback, IntoText, IntoValue, Machine, MachineHandle, Signal, Step, Value, effect, machine,
     signal,
 };
+use kivact_core::view::Variants;
 use kivact_core::view::{
     Element, IntoView, IntoViewFn, LiveRegion, Node, NodeRef, Role, View, ViewFn, node, node_ref,
     show, text,
@@ -52,7 +52,6 @@ pub struct Alert {
     dismiss_content: Option<View>,
     dismiss: Option<Callback<()>>,
     open: Option<Signal<bool>>,
-    variants: Variants,
 }
 /// Display an alert without moving keyboard focus or automatically hiding it.
 #[track_caller]
@@ -74,7 +73,6 @@ pub fn alert(title: impl IntoText) -> Alert {
         dismiss_content: None,
         dismiss: None,
         open: None,
-        variants: Variants::default(),
     }
 }
 impl Alert {
@@ -139,11 +137,6 @@ impl Alert {
         self.open = Some(open);
         self
     }
-    /// Set a structural or theme-defined appearance.
-    pub fn variant(mut self, value: impl Variant) -> Self {
-        self.variants.add(value);
-        self
-    }
 }
 impl Element for Alert {
     fn node_mut(&mut self) -> &mut Node {
@@ -152,6 +145,7 @@ impl Element for Alert {
 }
 impl IntoView for Alert {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let reference = node_ref();
         let tone = self.tone;
         let dismissible = self.dismissible;
@@ -181,7 +175,7 @@ impl IntoView for Alert {
         with_base_recipe_style(
             self.root,
             |r: &AlertTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             state,
         )
         .node_ref(reference)
@@ -199,7 +193,8 @@ impl Alert {
         open: Signal<bool>,
         phase: MachineHandle<BannerMachine>,
     ) -> View {
-        let variants = &self.variants;
+        let variants = self.root.authored().variants();
+        let variants = &variants;
         let icon = self.icon.take().map(|view| {
             with_recipe_style(
                 node().child(view),
@@ -232,7 +227,7 @@ impl Alert {
         });
         let toggle = expansion_toggle(self.content.is_some(), open, collapsible, variants, state);
         let content = self.content.take().map(|content| {
-            let variants = self.variants.clone();
+            let variants = variants.clone();
             show(
                 move || !collapsible.get() || open.get(),
                 move || {

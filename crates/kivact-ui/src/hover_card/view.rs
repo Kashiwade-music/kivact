@@ -35,7 +35,7 @@ enum CardOpen {
 /// A floating preview with shared pointer corridor, focus, and dismissal behavior.
 pub struct HoverCard {
     content: ViewFn,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
     placement: Value<Placement>,
     align: Value<OverlayAlign>,
     timing: HoverCardTiming,
@@ -50,7 +50,7 @@ pub struct HoverCard {
 pub fn hover_card<V: IntoView>(content: impl Fn() -> V + 'static) -> HoverCard {
     HoverCard {
         content: ViewFn::from(move |()| content()),
-        variants: crate::variants::Variants::default(),
+        variants: kivact_core::view::Variants::default(),
         placement: Placement::Below.into_value(),
         align: OverlayAlign::Center.into_value(),
         timing: use_theme().get().ext::<InteractionPolicy>().hover_card,
@@ -64,7 +64,7 @@ pub fn hover_card<V: IntoView>(content: impl Fn() -> V + 'static) -> HoverCard {
 impl HoverCard {
     /// Select a theme-specific visual treatment.
     pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
-        self.variants.add(variant);
+        self.variants = std::mem::take(&mut self.variants).with(variant);
         self
     }
 

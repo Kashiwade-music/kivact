@@ -12,7 +12,6 @@ use kivact_core::view::{Element, IntoView, Node, View, column, node, row};
 /// A Gregorian date and wall-clock time, with no time zone conversion.
 pub struct DateTimeInput {
     root: Node,
-    variants: crate::variants::Variants,
     label: Value<String>,
     picker_label: Option<Value<String>>,
     value: Signal<Option<DateTime>>,
@@ -28,7 +27,6 @@ pub struct DateTimeInput {
 pub fn date_time_input(value: Signal<Option<DateTime>>) -> DateTimeInput {
     DateTimeInput {
         root: node(),
-        variants: crate::variants::Variants::default(),
         label: message("date_time.open", "Choose date and time"),
         picker_label: None,
         value,
@@ -57,11 +55,6 @@ impl DateTimeInput {
         self
     }
 
-    /// Add a visual variant shared by the field and its picker surface.
-    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
     /// Date text format.
     #[track_caller]
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
@@ -106,6 +99,7 @@ impl Element for DateTimeInput {
 }
 impl IntoView for DateTimeInput {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         if self.presentation.sheet() {
             return crate::date_time_input::sheet::render(crate::date_time_input::sheet::Inputs {
                 root: self.root,
@@ -117,12 +111,11 @@ impl IntoView for DateTimeInput {
                 max: self.max,
                 week_start: self.week_start,
                 seconds: self.seconds,
-                variants: self.variants,
+                variants,
             });
         }
         let Self {
             root,
-            variants,
             label,
             picker_label,
             value,
@@ -133,6 +126,7 @@ impl IntoView for DateTimeInput {
             presentation,
             seconds,
         } = self;
+        let variants = root.authored().variants();
         let DateTimeFields { date, time } = field_bindings(value, min, max);
         let editors = desktop_editors(
             DateTimeFields { date, time },
@@ -209,7 +203,7 @@ fn desktop_editors(
     max: Value<Option<DateTime>>,
     week_start: Option<Value<Weekday>>,
     presentation: DatePresentation,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> Node {
     let DateTimeFields { date, time } = fields;
     let (format, seconds) = formats;

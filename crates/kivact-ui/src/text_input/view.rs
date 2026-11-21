@@ -15,7 +15,7 @@ use kivact_interaction::{TextEditApi, use_text_area, use_text_edit};
 use crate::control_size::ControlSize;
 use crate::helpers::{is_named, report_unnamed};
 use crate::text_input::look::TextInputState;
-use crate::variants::{Variant, Variants};
+use kivact_core::view::Variants;
 
 /// A single-line text input with the theme's field look.
 ///
@@ -26,7 +26,6 @@ pub struct TextInput {
     field: Node,
     editing: TextEditApi,
     size: kivact_core::state::Value<ControlSize>,
-    variants: Variants,
     multiline: bool,
     at: &'static Location<'static>,
 }
@@ -71,13 +70,12 @@ fn create(value: Signal<String>, multiline: bool) -> TextInput {
         use_text_edit(value)
     };
     let part = editing.control();
-    let variants = Variants::default();
+    let _variants = Variants::default();
     let field = node().part(part);
     TextInput {
         field,
         editing,
         size,
-        variants,
         multiline,
         at: Location::caller(),
     }
@@ -106,21 +104,6 @@ impl TextInput {
                 .field
                 .style(kivact_core::style::style().height(kivact_core::style::auto()));
         }
-        self
-    }
-
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
         self
     }
 }
@@ -281,14 +264,17 @@ impl IntoView for TextInput {
         let input = self.editing.control_state();
         let multiline = self.multiline;
         let size = self.size;
-        let look = self.variants;
+        let look = self.field.authored().variants();
         self.field = self.field.base_style(move || {
             let theme = use_theme().get();
-            let state = look.look(TextInputState {
-                input: input.get(),
-                size: size.get(),
-                invalid: invalid.get(),
-            });
+            let state = crate::recipe::Look::of(
+                TextInputState {
+                    input: input.get(),
+                    size: size.get(),
+                    invalid: invalid.get(),
+                },
+                look.clone(),
+            );
             if multiline {
                 theme
                     .ext::<TextAreaTheme>()

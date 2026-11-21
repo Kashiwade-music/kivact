@@ -4,10 +4,10 @@ use crate::chat_composer::look::ChatComposerState;
 use crate::chat_composer::look::ChatComposerTheme;
 use crate::chat_composer::look::ComposerStatus;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::NodeRefExt;
 use kivact_core::state::IntoHandler;
 use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, callback};
+use kivact_core::view::Variants;
 use kivact_core::view::{
     Element, Handled, HandlerResult, IntoView, Key, KeyEvent, Modifiers, Node, Role, View, node,
     node_ref, text,
@@ -33,7 +33,6 @@ pub struct ChatComposer {
     send_actions: Option<View>,
     send_icon: Option<View>,
     stop_icon: Option<View>,
-    variants: Variants,
 }
 /// Edit a draft; Enter submits, Shift+Enter inserts a newline, and IME owns composition keys.
 #[track_caller]
@@ -55,7 +54,6 @@ pub fn chat_composer(value: Signal<String>) -> ChatComposer {
         send_actions: None,
         send_icon: None,
         stop_icon: None,
-        variants: Variants::default(),
     }
 }
 impl ChatComposer {
@@ -99,11 +97,6 @@ impl ChatComposer {
     #[track_caller]
     pub fn status_position(mut self, position: impl IntoValue<ComposerStatusPosition>) -> Self {
         self.status_position = position.into_value();
-        self
-    }
-    /// Add an appearance read by every composer recipe.
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
     /// Fill the drawer slot.
@@ -179,6 +172,7 @@ impl ChatComposer {
         disabled: Value<bool>,
         state: impl Fn() -> ChatComposerState + Copy + 'static,
     ) -> (crate::TextInput, Callback<()>) {
+        let variants = self.root.authored().variants();
         let input_ref = node_ref();
         let history = crate::chat_composer::history::use_history(input_ref);
         let send = self.submission(disabled, history);
@@ -197,7 +191,7 @@ impl ChatComposer {
             with_recipe_style(
                 input,
                 |r: &ChatComposerTheme| r.input_recipe(),
-                &self.variants,
+                &variants,
                 state,
             ),
             send,
@@ -209,6 +203,7 @@ impl ChatComposer {
         send: Callback<()>,
         state: impl Fn() -> ChatComposerState + Copy + 'static,
     ) -> crate::Button {
+        let variants = self.root.authored().variants();
         let stopped = self.stop_shown;
         let stop = self.on_stop;
         let submit = self.on_submit;
@@ -248,27 +243,28 @@ impl ChatComposer {
         with_recipe_style(
             control,
             |r: &ChatComposerTheme| r.send_recipe(),
-            &self.variants,
+            &variants,
             state,
         )
     }
     fn header(&mut self, state: impl Fn() -> ChatComposerState + Copy + 'static) -> Node {
+        let variants = self.root.authored().variants();
         let context = composer_slot(
             self.header_context.take(),
             |r: &ChatComposerTheme| r.header_context_recipe(),
-            &self.variants,
+            &variants,
             state,
         );
         let actions = composer_slot(
             self.header_actions.take(),
             |r: &ChatComposerTheme| r.header_actions_recipe(),
-            &self.variants,
+            &variants,
             state,
         );
         with_recipe_style(
             node().child((context, actions)),
             |r: &ChatComposerTheme| r.header_recipe(),
-            &self.variants,
+            &variants,
             state,
         )
     }
@@ -277,22 +273,23 @@ impl ChatComposer {
         control: crate::Button,
         state: impl Fn() -> ChatComposerState + Copy + 'static,
     ) -> Node {
+        let variants = self.root.authored().variants();
         let actions = composer_slot(
             self.footer_actions.take(),
             |r: &ChatComposerTheme| r.footer_actions_recipe(),
-            &self.variants,
+            &variants,
             state,
         );
         let send_actions = composer_slot(
             self.send_actions.take(),
             |r: &ChatComposerTheme| r.send_actions_recipe(),
-            &self.variants,
+            &variants,
             state,
         );
         with_recipe_style(
             node().child((actions, send_actions, control)),
             |r: &ChatComposerTheme| r.footer_recipe(),
-            &self.variants,
+            &variants,
             state,
         )
     }
@@ -301,6 +298,7 @@ impl ChatComposer {
         side: ComposerStatusPosition,
         state: impl Fn() -> ChatComposerState + Copy + 'static,
     ) -> Node {
+        let variants = self.root.authored().variants();
         let status = self.status;
         let position = self.status_position;
         let diagnostic = text(move || {
@@ -314,7 +312,7 @@ impl ChatComposer {
         with_recipe_style(
             diagnostic,
             |r: &ChatComposerTheme| r.status_recipe(),
-            &self.variants,
+            &variants,
             state,
         )
     }
@@ -366,6 +364,7 @@ fn composer_key(
 }
 impl IntoView for ChatComposer {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let stopped = self.stop_shown;
         let status = self.status;
         let state = move || ChatComposerState {
@@ -383,7 +382,7 @@ impl IntoView for ChatComposer {
         let surface = with_recipe_style(
             node().child((header, input, footer)),
             |r: &ChatComposerTheme| r.surface_recipe(),
-            &self.variants,
+            &variants,
             state,
         );
         let top = self.diagnostic(ComposerStatusPosition::Top, state);
@@ -391,13 +390,13 @@ impl IntoView for ChatComposer {
         let drawer = composer_slot(
             self.drawer.take(),
             |r: &ChatComposerTheme| r.drawer_recipe(),
-            &self.variants,
+            &variants,
             state,
         );
         with_base_recipe_style(
             self.root,
             |r: &ChatComposerTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             state,
         )
         .child((top, drawer, surface, bottom))

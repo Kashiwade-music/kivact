@@ -3,7 +3,6 @@
 use crate::layer::with_base_recipe_style;
 use crate::stat::look::StatTheme;
 use crate::stat::look::{StatState, Trend};
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, Role, View, node, text};
 
@@ -19,7 +18,6 @@ pub struct Stat {
     chart: Option<View>,
     label_content: Option<View>,
     value_content: Option<View>,
-    variants: Variants,
 }
 /// Show application-formatted text as a statistic. Reactive text updates in place.
 #[track_caller]
@@ -34,7 +32,6 @@ pub fn stat(label: impl IntoText, value: impl IntoText) -> Stat {
         chart: None,
         label_content: None,
         value_content: None,
-        variants: Variants::default(),
     }
 }
 impl Stat {
@@ -70,11 +67,6 @@ impl Stat {
         self.value_content = Some(value.into_view());
         self
     }
-    /// Add an appearance read by every recipe of the statistic.
-    pub fn variant(mut self, value: impl Variant) -> Self {
-        self.variants.add(value);
-        self
-    }
 }
 impl Element for Stat {
     fn node_mut(&mut self) -> &mut Node {
@@ -83,9 +75,10 @@ impl Element for Stat {
 }
 impl IntoView for Stat {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let trend = self.trend;
         let state = move || StatState { trend: trend.get() };
-        let variants = &self.variants;
+        let variants = &variants;
         let wrap = |view: View, pick: fn(&StatTheme) -> &crate::recipe::Recipe<StatState>| {
             with_base_recipe_style(node().child(view), pick, variants, state)
         };

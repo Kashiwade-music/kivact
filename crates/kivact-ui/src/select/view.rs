@@ -5,14 +5,15 @@ use crate::helpers::{is_named, report_unnamed};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::select::look::SelectTheme;
 use crate::select::look::SelectTriggerState;
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, binding, callback};
 use kivact_core::style::style;
 use kivact_core::view::{
     Element, Handled, HandlerResult, IntoView, Node, NodeRef, Placement, PopupKind, View, column,
     for_each, node, overlay, scroll, show, text,
 };
+use kivact_core::view::{Variant, Variants};
 use kivact_interaction::{ListItem, ListItemState, PopupState};
+use kivact_macros::Prop;
 use std::panic::Location;
 use std::rc::Rc;
 
@@ -20,7 +21,7 @@ use std::rc::Rc;
 type OptionContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<ListItemState>)>;
 
 /// Recipe variant supplied to options mounted in a select's touch sheet.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub struct SelectSheetOption(pub ControlSize);
 
 impl Variant for SelectSheetOption {}
@@ -49,7 +50,6 @@ struct SelectOptions<K: kivact_core::state::ItemKey> {
     size: Value<ControlSize>,
     trigger: Option<View>,
     option: Option<OptionContent<K>>,
-    variants: Variants,
     arrow_open: Value<bool>,
     keep_trigger_focus: Value<bool>,
     touch_sheet: Option<TouchSheet>,
@@ -69,7 +69,6 @@ pub fn select<K: kivact_core::state::ItemKey>(
     items: impl IntoValue<Vec<ListItem<K>>>,
     selected: kivact_core::state::Signal<Option<K>>,
 ) -> Select<K> {
-    let variants = Variants::default();
     Select {
         root: node(),
         settings: SelectOptions {
@@ -83,7 +82,6 @@ pub fn select<K: kivact_core::state::ItemKey>(
             size: crate::control_size::default_control_size().into_value(),
             trigger: None,
             option: None,
-            variants,
             arrow_open: false.into_value(),
             keep_trigger_focus: true.into_value(),
             touch_sheet: None,
@@ -108,21 +106,6 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
         f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
     ) -> Self {
         self.settings.on_edit = Some(kivact_core::state::callback(f));
-        self
-    }
-
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.settings.variants.add(v);
         self
     }
 }
@@ -241,6 +224,7 @@ impl<K: kivact_core::state::ItemKey> Element for Select<K> {
 
 impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let behavior = configure_select(&self.settings);
         let anchor = kivact_core::view::node_ref();
         let shown = behavior.is_open();
@@ -263,7 +247,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
         self.root = with_base_recipe_style(
             self.root,
             |r: &SelectTheme| r.trigger_recipe(),
-            &self.settings.variants,
+            &variants,
             move || trigger_state.get(),
         );
         let named = is_named(&mut self.root) || self.settings.label.is_some();
@@ -275,7 +259,6 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
         let label = kivact_core::state::memo(move || {
             name.as_ref().map(|read| read.get()).unwrap_or_default()
         });
-        let variants = self.settings.variants;
         let indicator = with_recipe_style(
             node(),
             |r: &SelectTheme| r.indicator_recipe(),
@@ -343,12 +326,15 @@ pub(crate) fn with_option_style(
     let variants = variants.clone();
     root.style(move || {
         let variants = if sheet {
-            variants.with(SelectSheetOption(size.get()))
+            variants.clone().with(SelectSheetOption(size.get()))
         } else {
             variants.clone()
         };
         let theme = kivact_core::style::use_theme().get();
-        pick(&theme.ext::<SelectTheme>()).style(&theme, &variants.look(state.get()))
+        pick(&theme.ext::<SelectTheme>()).style(
+            &theme,
+            &crate::recipe::Look::of(state.get(), variants.clone()),
+        )
     })
 }
 

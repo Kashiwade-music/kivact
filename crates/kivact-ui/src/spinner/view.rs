@@ -3,14 +3,12 @@
 use crate::ControlSize;
 use crate::spinner::look::SpinnerTheme;
 use crate::theme::SpinnerState;
-use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Animated, Easing, Repeat, Transition};
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, Role, View, node};
 pub struct Spinner {
     root: Node,
     size: Value<ControlSize>,
-    variants: Variants,
     label: Option<View>,
 }
 #[track_caller]
@@ -20,7 +18,6 @@ pub fn spinner() -> Spinner {
             .role(Role::Status)
             .name(kivact_core::i18n::message("spinner.loading", "Loading")),
         size: crate::control_size::default_control_size().into_value(),
-        variants: Variants::default(),
         label: None,
     }
 }
@@ -28,10 +25,6 @@ impl Spinner {
     #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
-        self
-    }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
     pub fn label_content(mut self, label: impl IntoView) -> Self {
@@ -46,13 +39,14 @@ impl Element for Spinner {
 }
 impl IntoView for Spinner {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let theme = kivact_core::style::use_theme().get();
         let period_ms = theme.get(&crate::spinner::look::PERIOD_MS_VAR);
         let reduced_period = *theme
             .ext::<crate::spinner::look::SpinnerTheme>()
             .reduced_period_value();
         let size = self.size;
-        let variants = self.variants;
+        let variants = variants;
         let glyph = kivact_core::view::dynamic(
             move || {
                 let reduced = kivact_core::platform::is_motion_reduced().get();

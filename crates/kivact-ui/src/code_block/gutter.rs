@@ -32,7 +32,7 @@ pub(super) fn numbers(editor: NodeRef, source: &str) -> String {
 pub(super) fn gutter(
     editor: NodeRef,
     code: kivact_core::state::Value<String>,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     state: kivact_core::state::Value<crate::code_block::look::CodeBlockState>,
 ) -> kivact_core::view::Node {
     use kivact_core::view::text;

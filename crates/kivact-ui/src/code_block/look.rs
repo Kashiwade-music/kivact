@@ -2,8 +2,8 @@
 use crate::chat_thread::look::viewport;
 use crate::look_common::{column, row};
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{Align, FlexDirection, LineHeight, Style, Theme, pct, style};
 use kivact_core::style::{Length, ThemeVar};
 

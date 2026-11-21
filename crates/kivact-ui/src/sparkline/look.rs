@@ -1,7 +1,7 @@
 //! Role: The sparkline recipe state, recipe table and default looks.
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{Color, Length, ThemeVar, color};
 use kivact_core::style::{Style, Theme, pct, style};
 

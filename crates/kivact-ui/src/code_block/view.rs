@@ -4,11 +4,11 @@ use crate::code_block::look::CodeBlockState;
 use crate::code_block::look::CodeBlockTheme;
 use crate::code_block::look::CodeCollapse;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Part, TextEditing, part};
 use kivact_core::state::IntoHandler;
 use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, memo, signal};
 use kivact_core::style::{Length, StyledRange, style};
+use kivact_core::view::Variants;
 use kivact_core::view::{
     Element, IntoView, Node, Orientation, Role, ScrollAxes, View, node, node_ref, scroll, show,
     text,
@@ -37,7 +37,6 @@ pub struct CodeBlock {
     collapsible_threshold: Value<usize>,
     expanded: Option<Signal<bool>>,
     highlight: Option<Highlight>,
-    variants: Variants,
 }
 type Highlight = Box<dyn Fn(TextEditing, Value<Vec<u32>>, Value<bool>) -> TextEditing>;
 /// Display `code` with native selection and a copy button.
@@ -65,7 +64,6 @@ pub fn code_block(code: impl IntoValue<String>) -> CodeBlock {
         collapsible_threshold: 10usize.into_value(),
         expanded: None,
         highlight: None,
-        variants: Variants::default(),
     }
 }
 impl CodeBlock {
@@ -187,11 +185,6 @@ impl CodeBlock {
         self.expanded = Some(expanded);
         self
     }
-    /// Add an appearance read by all code recipes.
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
 }
 impl Element for CodeBlock {
     fn node_mut(&mut self) -> &mut Node {
@@ -268,6 +261,7 @@ impl CodeBlock {
         }
     }
     fn copy_control(&self, presentation: &CodePresentation) -> crate::Button {
+        let variants = self.root.authored().variants();
         let copied = presentation.feedback.is_copied();
         let feedback = presentation.feedback;
         let code = self.code;
@@ -298,18 +292,19 @@ impl CodeBlock {
         with_recipe_style(
             control,
             |r: &CodeBlockTheme| r.copy_recipe(),
-            &self.variants,
+            &variants,
             move || state.get(),
         )
     }
     fn header(&mut self, presentation: &CodePresentation) -> Node {
+        let variants = self.root.authored().variants();
         let name = presentation.name;
         let state = presentation.state;
         let can_collapse = presentation.can_collapse;
         let label = with_recipe_style(
             text(name),
             |r: &CodeBlockTheme| r.title_recipe(),
-            &self.variants,
+            &variants,
             move || state.get(),
         );
         let trigger = with_recipe_style(
@@ -319,7 +314,7 @@ impl CodeBlock {
                 .child(text(name))
                 .hidden(move || !can_collapse.get()),
             |r: &CodeBlockTheme| r.collapse_recipe(),
-            &self.variants,
+            &variants,
             move || state.get(),
         );
         let language_shown = self.language_label;
@@ -327,7 +322,7 @@ impl CodeBlock {
             with_recipe_style(
                 text(language).hidden(move || !language_shown.get()),
                 |r: &CodeBlockTheme| r.language_recipe(),
-                &self.variants,
+                &variants,
                 move || state.get(),
             )
         });
@@ -349,7 +344,7 @@ impl CodeBlock {
             with_recipe_style(
                 node().child(v),
                 |r: &CodeBlockTheme| r.end_content_recipe(),
-                &self.variants,
+                &variants,
                 move || state.get(),
             )
         });
@@ -358,7 +353,7 @@ impl CodeBlock {
                 .child((label, trigger, language, end, copy, status))
                 .hidden(move || !state.get().has_header()),
             |r: &CodeBlockTheme| r.header_recipe(),
-            &self.variants,
+            &variants,
             move || state.get(),
         )
     }
@@ -461,6 +456,7 @@ fn native_editor(
 }
 impl IntoView for CodeBlock {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let presentation = self.presentation();
         let header = self.header(&presentation);
         let state = presentation.state;
@@ -468,7 +464,7 @@ impl IntoView for CodeBlock {
             with_recipe_style(
                 node().child(v),
                 |r: &CodeBlockTheme| r.footer_recipe(),
-                &self.variants,
+                &variants,
                 move || state.get(),
             )
         });
@@ -479,11 +475,11 @@ impl IntoView for CodeBlock {
             diff: self.diff,
             max_height: self.max_height,
         };
-        let viewport = source.render(&presentation, &self.variants);
+        let viewport = source.render(&presentation, &variants);
         with_base_recipe_style(
             self.root,
             |r: &CodeBlockTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             move || state.get(),
         )
         .child((header, viewport, footer))

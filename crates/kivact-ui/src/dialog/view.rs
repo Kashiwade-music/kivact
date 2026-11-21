@@ -5,7 +5,6 @@ use crate::dialog::look::DialogTheme;
 use crate::layer::with_recipe_style;
 use crate::recipe::Recipe;
 use crate::theme::DialogState;
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::Part;
 use kivact_core::geometry::Edge;
 use kivact_core::state::{IntoText, IntoValue};
@@ -13,6 +12,7 @@ use kivact_core::state::{Signal, Value};
 use kivact_core::style::{Length, Position, pct, style, use_theme};
 use kivact_core::view::{Element, Node, column, node, row, scroll, text};
 use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
+use kivact_core::view::{Variant, Variants};
 use kivact_interaction::{DialogMode, DismissOn, PopupState};
 
 /// What a dialog is: a modal dialog, an alert dialog, a drawer from an edge
@@ -111,7 +111,7 @@ impl Dialog {
         self
     }
     pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
+        self.variants = std::mem::take(&mut self.variants).with(v);
         self
     }
 }

@@ -1,8 +1,7 @@
 //! Role: The Badge builder and its icon, label and activation rendering.
 
 use crate::badge::look::BadgeTheme;
-use crate::theme::{BadgeState, Variant};
-use crate::variants::Variants;
+use crate::theme::BadgeState;
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, View, row, text};
 use kivact_interaction::Tone;
@@ -11,7 +10,6 @@ pub struct Badge {
     root: Node,
     label: Value<String>,
     tone: Value<Tone>,
-    variants: Variants,
     icon: Option<View>,
     trailing: Option<View>,
 }
@@ -22,7 +20,6 @@ pub fn badge(label: impl IntoText) -> Badge {
         root: row(()).name(label),
         label,
         tone: Tone::Neutral.into_value(),
-        variants: Variants::default(),
         icon: None,
         trailing: None,
     }
@@ -31,10 +28,6 @@ impl Badge {
     #[track_caller]
     pub fn tone(mut self, tone: impl IntoValue<Tone>) -> Self {
         self.tone = tone.into_value();
-        self
-    }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
     pub fn icon(mut self, icon: impl IntoView) -> Self {
@@ -53,6 +46,7 @@ impl Element for Badge {
 }
 impl IntoView for Badge {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let tone = self.tone;
         let actionable = self.root.authored().has_press();
         let leading_icon = self.icon.is_some();
@@ -72,14 +66,14 @@ impl IntoView for Badge {
         crate::layer::with_base_recipe_style(
             root,
             |r: &BadgeTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             move || state.get(),
         )
         .child(self.icon)
         .child(crate::layer::with_recipe_style(
             text(self.label),
             |r: &BadgeTheme| r.label_recipe(),
-            &self.variants,
+            &variants,
             move || state.get(),
         ))
         .child(self.trailing)

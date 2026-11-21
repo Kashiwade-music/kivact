@@ -2,7 +2,6 @@
 use super::ComboboxMode;
 use super::data::Combobox;
 use crate::SelectPresentation;
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, ItemKey, Signal};
 use kivact_core::view::{Element, IntoView, Node, View, node};
 use kivact_interaction::{IntoSelection, ListItem};
@@ -49,7 +48,6 @@ pub fn combobox<K: ItemKey>(
         debounce: Duration::from_millis(150).into_value(),
         exclude_selected: false,
         presentation: SelectPresentation::Popover,
-        variants: Variants::default(),
         at: std::panic::Location::caller(),
     }
 }
@@ -142,11 +140,6 @@ impl<K: ItemKey> Combobox<K> {
     /// Choose an anchored popup or touch sheet.
     pub fn presentation(mut self, presentation: SelectPresentation) -> Self {
         self.presentation = presentation;
-        self
-    }
-    /// Supply a constant theme recipe variant.
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 }

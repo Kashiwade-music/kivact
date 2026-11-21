@@ -1,7 +1,7 @@
 //! Role: The description list recipe state, recipe table and default looks.
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 pub(crate) fn description_root(t: &Theme, _: &Look<()>) -> Style {
     style()

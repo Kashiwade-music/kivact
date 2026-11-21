@@ -37,7 +37,6 @@ type Constraint = Rc<dyn Fn(CalendarDate) -> bool>;
 pub struct DateRangeInput {
     picker_label: Option<Value<String>>,
     root: Node,
-    variants: crate::variants::Variants,
     label: Value<String>,
     start_label: Value<String>,
     end_label: Value<String>,
@@ -62,7 +61,6 @@ pub fn date_range_input(range: Signal<Option<DateRange>>) -> DateRangeInput {
     DateRangeInput {
         picker_label: None,
         root: node(),
-        variants: crate::variants::Variants::default(),
         label: message("date.range_open", "Choose date range"),
         start_label: message("date.start", "Start date"),
         end_label: message("date.end", "End date"),
@@ -112,11 +110,6 @@ impl DateRangeInput {
         self
     }
 
-    /// Add a visual variant shared by the field and its picker surface.
-    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
     /// Format both endpoints.
     #[track_caller]
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
@@ -211,6 +204,7 @@ impl DateRangeInput {
         ))
     }
     fn render(self, field: crate::date_parts::trigger::FieldPresentation) -> View {
+        let variants = self.root.authored().variants();
         let accept = self.range_validator();
         let draft = range_machine(self.value, self.valid, accept.clone());
         let open = range_open(draft);
@@ -225,7 +219,7 @@ impl DateRangeInput {
                 .child(
                     attach.view(
                         dialog(self.label, open)
-                            .with_variants(&self.variants)
+                            .with_variants(&variants)
                             .mode(self.presentation.mode())
                             .hide_title(true)
                             .content(move || content.call(())),
@@ -239,7 +233,7 @@ impl DateRangeInput {
         let root = crate::layer::with_base_recipe_style(
             self.root,
             |r: &DateRangeInputTheme| r.root_recipe(),
-            &self.variants,
+            &variants,
             kivact_core::custom::PartState::default,
         );
         let trigger = button(
@@ -250,7 +244,7 @@ impl DateRangeInput {
             first,
             last,
             dialog(self.label, open)
-                .with_variants(&self.variants)
+                .with_variants(&variants)
                 .mode(self.presentation.mode())
                 .hide_title(true)
                 .content(move || content.call(()))
@@ -365,6 +359,7 @@ impl DateRangeInput {
         editors: &RangeEditors,
         order_ref: kivact_core::view::NodeRef,
     ) -> (crate::DateInput, crate::DateInput) {
+        let variants = self.root.authored().variants();
         let RangeEditors {
             draft,
             start,
@@ -382,7 +377,7 @@ impl DateRangeInput {
             self.placeholder,
             self.week_start,
         );
-        let variants = &self.variants;
+        let variants = &variants;
         let mut first = date_input(start)
             .label(start_label)
             .format(format)

@@ -4,11 +4,12 @@ use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
 use crate::theme::Look;
 use crate::toggle::look::CheckableState;
-use crate::variants::Variant;
 use kivact_core::style::{Align, FlexDirection, Justify, Style, Theme, style};
 use kivact_core::view::Orientation;
+use kivact_core::view::Variant;
+use kivact_macros::Prop;
 pub(crate) fn group(t: &Theme, look: &Look<Orientation>) -> Style {
-    if look.variant::<RadioGroupVariant>() == Some(&RadioGroupVariant::Segmented) {
+    if look.variant::<RadioGroupVariant>() == Some(RadioGroupVariant::Segmented) {
         style()
             .flex_direction(FlexDirection::Row)
             .gap(0)
@@ -22,7 +23,7 @@ pub(crate) fn group(t: &Theme, look: &Look<Orientation>) -> Style {
 
 pub(crate) fn item(t: &Theme, look: &Look<CheckableState>) -> Style {
     let base = radio_item(t, look);
-    if look.variant::<RadioGroupVariant>() != Some(&RadioGroupVariant::Segmented) {
+    if look.variant::<RadioGroupVariant>() != Some(RadioGroupVariant::Segmented) {
         return base;
     }
     let base = base
@@ -39,7 +40,7 @@ pub(crate) fn item(t: &Theme, look: &Look<CheckableState>) -> Style {
 }
 
 pub(crate) fn indicator(t: &Theme, look: &Look<CheckableState>) -> Style {
-    if look.variant::<RadioGroupVariant>() == Some(&RadioGroupVariant::Segmented) {
+    if look.variant::<RadioGroupVariant>() == Some(RadioGroupVariant::Segmented) {
         style().size(0, 0).opacity(0.0)
     } else {
         radio_indicator(t, look)
@@ -130,7 +131,7 @@ impl RadioGroupTheme {
 }
 
 /// Standard presentation of a radio group.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Prop)]
 pub enum RadioGroupVariant {
     /// Adjacent choices drawn as a segmented control.
     Segmented,

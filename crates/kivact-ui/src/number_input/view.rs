@@ -6,7 +6,6 @@ use crate::number_input::look::NumberInputTheme;
 use crate::helpers::{is_named, report_unnamed};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::text_input::{TextInput, text_input};
-use crate::variants::{Variant, Variants};
 use crate::{ButtonVariant, button};
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{Locale, message, use_locale};
@@ -14,6 +13,7 @@ use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Signal, Value, binding, machine, memo};
 use kivact_core::style::{Track, auto, style};
 use kivact_core::view::EditPhase;
+use kivact_core::view::Variants;
 use kivact_core::view::{Element, Node, grid, icon};
 use kivact_core::view::{IntoView, NodeRef, View, node_ref};
 use kivact_interaction::{ScalarRange, use_scalar};
@@ -26,7 +26,6 @@ pub struct NumberInput {
     value: Signal<f64>,
     range: Value<ScalarRange>,
     on_edit: Option<kivact_core::state::Callback<EditPhase>>,
-    variants: Variants,
     at: &'static Location<'static>,
 }
 
@@ -72,7 +71,6 @@ pub fn number_input(
         value,
         range: range.into_value(),
         on_edit: None,
-        variants: Variants::default(),
         at: Location::caller(),
     }
 }
@@ -83,19 +81,6 @@ impl NumberInput {
     #[track_caller]
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.root = self.root.name(label);
-        self
-    }
-
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
         self
     }
 
@@ -126,9 +111,9 @@ impl IntoView for NumberInput {
             value,
             range,
             on_edit,
-            variants,
             at,
         } = self;
+        let variants = root.authored().variants();
         let disabled = root
             .accessible_disabled()
             .unwrap_or_else(|| false.into_value());
