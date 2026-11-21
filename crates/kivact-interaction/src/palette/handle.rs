@@ -192,6 +192,7 @@ pub struct CommandGroup<K> {
 type CommandFilter<K> = Rc<dyn Fn(&str, &Command<K>) -> bool>;
 type CloseOn = fn(&KeyEvent) -> bool;
 
+// xtask-allow(state): independent: open is the caller's binding, written by the caller, by show, hide and toggle, by a successful run's close and by the input's close_on key; run is set once by on_activate; filter is set once by filter(); close_on is set once by close_on(); the combobox and the dialog follow open one way, each holding its own opening's state
 /// Unstyled behavior and semantics of a command palette, the counterpart of
 /// cmdk's `Command.Dialog`.
 ///

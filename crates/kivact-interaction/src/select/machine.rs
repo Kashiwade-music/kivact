@@ -9,9 +9,26 @@ pub(super) enum OpenedBy {
     Key(Key),
 }
 pub(crate) use crate::surface::Surface;
+
+/// The details of the next opening, noted before the caller's `open` is written.
+#[derive(Clone, PartialEq)]
+pub(super) struct Opening {
+    pub(super) opened_by: OpenedBy,
+    pub(super) surface: Surface,
+}
+impl Default for Opening {
+    fn default() -> Self {
+        Self {
+            opened_by: OpenedBy::Pointer,
+            surface: Surface::Popover,
+        }
+    }
+}
+
 #[derive(Clone, PartialEq)]
 pub(super) enum State<K> {
-    Closed,
+    /// Closed, holding the details the next opening takes.
+    Closed { next: Opening },
     Open {
         highlight: Option<K>,
         hovered: Option<K>,
@@ -21,10 +38,31 @@ pub(super) enum State<K> {
         surface: Surface,
     },
 }
+impl<K> State<K> {
+    /// The state of a closed list, with the default next opening.
+    pub(super) fn closed() -> Self {
+        Self::Closed {
+            next: Opening::default(),
+        }
+    }
+    /// The state of a list opened with `opening`, nothing highlighted or previewed.
+    pub(super) fn open_with(opening: Opening) -> Self {
+        Self::Open {
+            highlight: None,
+            hovered: None,
+            previewed: None,
+            opened_by: opening.opened_by,
+            surface: opening.surface,
+        }
+    }
+}
 pub(super) enum Event<K> {
-    Open(OpenedBy),
-    OpenSheet,
-    Close,
+    /// Note the details of the next opening; an open list moves to a sheet.
+    Prepare(Opening),
+    /// The caller's `open` became true: the follow of `open`.
+    Opened,
+    /// The caller's `open` became false: the follow of `open`.
+    Closed,
     Hover(Option<K>),
     Highlight(Option<K>),
     /// The option to report to the caller's preview callback.
@@ -41,13 +79,10 @@ impl<K> Machine<K> {
 }
 /// The open state of a list shown as a sheet, with nothing highlighted or previewed.
 fn sheet_state<K>() -> State<K> {
-    State::Open {
-        highlight: None,
-        hovered: None,
-        previewed: None,
+    State::open_with(Opening {
         opened_by: OpenedBy::Pointer,
         surface: Surface::Sheet,
-    }
+    })
 }
 impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
     type State = State<K>;
@@ -56,34 +91,30 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
     fn transition(&self, state: &State<K>, event: Event<K>) -> Step<State<K>, Event<K>, Effect<K>> {
         let mut next = state.clone();
         match event {
-            Event::Open(opened_by) if matches!(state, State::Closed) => {
-                next = State::Open {
-                    highlight: None,
-                    hovered: None,
-                    previewed: None,
-                    opened_by,
-                    surface: Surface::Popover,
+            Event::Prepare(opening) => match state {
+                State::Closed { .. } => next = State::Closed { next: opening },
+                State::Open { previewed, .. } if opening.surface == Surface::Sheet => {
+                    let reported = previewed.is_some();
+                    next = sheet_state();
+                    if reported {
+                        return Step::to(next).with(Effect::Preview(None));
+                    }
                 }
-            }
-            Event::OpenSheet => {
-                let reported = matches!(
+                State::Open { .. } => return Step::stay(),
+            },
+            Event::Opened => match state {
+                State::Closed { next: opening } => next = State::open_with(opening.clone()),
+                State::Open { .. } => return Step::stay(),
+            },
+            Event::Closed => {
+                let previewed = matches!(
                     state,
                     State::Open {
                         previewed: Some(_),
                         ..
                     }
                 );
-                next = sheet_state();
-                if reported {
-                    return Step::to(next).with(Effect::Preview(None));
-                }
-            }
-            Event::Close => {
-                let previewed = match state {
-                    State::Open { previewed, .. } => previewed.is_some(),
-                    State::Closed => false,
-                };
-                next = State::Closed;
+                next = State::closed();
                 if previewed {
                     return Step::to(next).with(Effect::Preview(None));
                 }
@@ -101,7 +132,7 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
             Event::Preview(key) => {
                 let changed = match state {
                     State::Open { previewed, .. } => *previewed != key,
-                    State::Closed => false,
+                    State::Closed { .. } => false,
                 };
                 if let State::Open { previewed, .. } = &mut next {
                     *previewed = key.clone();
@@ -110,7 +141,6 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
                     return Step::to(next).with(Effect::Preview(key));
                 }
             }
-            _ => return Step::stay(),
         }
         Step::to(next)
     }

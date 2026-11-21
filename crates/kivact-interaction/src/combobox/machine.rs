@@ -3,10 +3,27 @@ use crate::surface::Surface;
 use kivact_core::state::{Machine as MachineTrait, Step};
 use std::marker::PhantomData;
 
+/// The details of the next opening, noted before the caller's `open` is written.
+#[derive(Clone, PartialEq)]
+pub(super) struct Opening {
+    pub(super) surface: Surface,
+    pub(super) filtering: bool,
+}
+
+impl Default for Opening {
+    fn default() -> Self {
+        Self {
+            surface: Surface::Popover,
+            filtering: false,
+        }
+    }
+}
+
 /// How the current opening presents the list; the caller's `open` says whether it shows.
 #[derive(Clone, PartialEq)]
 pub(super) enum ComboState<K> {
-    Closed,
+    /// Closed, holding the details the next opening takes.
+    Closed { next: Opening },
     Open {
         surface: Surface,
         /// The query was typed, or written by the caller, while open.
@@ -16,10 +33,26 @@ pub(super) enum ComboState<K> {
 }
 
 impl<K> ComboState<K> {
+    /// The state of a closed list, with the default next opening.
+    pub(super) fn closed() -> Self {
+        Self::Closed {
+            next: Opening::default(),
+        }
+    }
+
+    /// The state of a list opened with `opening`, nothing highlighted.
+    pub(super) fn opened(opening: Opening) -> Self {
+        Self::Open {
+            surface: opening.surface,
+            filtering: opening.filtering,
+            highlight: None,
+        }
+    }
+
     pub(super) fn surface(&self) -> Option<Surface> {
         match self {
             Self::Open { surface, .. } => Some(*surface),
-            Self::Closed => None,
+            Self::Closed { .. } => None,
         }
     }
 
@@ -36,19 +69,19 @@ impl<K> ComboState<K> {
     pub(super) fn highlight(&self) -> Option<&K> {
         match self {
             Self::Open { highlight, .. } => highlight.as_ref(),
-            Self::Closed => None,
+            Self::Closed { .. } => None,
         }
     }
 }
 
 pub(super) enum Event<K> {
-    /// The caller's `open` became true.
+    /// The caller's `open` became true: the follow of `open`.
     Opened,
-    /// Show the list in this surface; an open list moves to it.
+    /// Note the surface of the next opening; an open list moves to it.
     Present(Surface),
-    /// The caller's `open` became false.
+    /// The caller's `open` became false: the follow of `open`.
     Closed,
-    /// The user typed into the field.
+    /// Note that the user typed: an open list filters, a closed one opens filtered.
     Typed,
     /// The query changed while the list is open.
     QueryChanged,
@@ -80,26 +113,30 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
     ) -> Step<ComboState<K>, Event<K>, Effect> {
         use ComboState::{Closed, Open};
         match (state, event) {
-            (Closed, Event::Opened) => Step::to(Open {
-                surface: Surface::Popover,
-                filtering: false,
+            (Closed { next }, Event::Opened) => Step::to(Open {
+                surface: next.surface,
+                filtering: next.filtering,
                 highlight: None,
             }),
-            (Closed, Event::Present(surface)) => Step::to(Open {
-                surface,
-                filtering: false,
-                highlight: None,
+            (Open { .. }, Event::Opened) => Step::stay(),
+            (Closed { .. }, Event::Present(surface)) => Step::to(Closed {
+                next: Opening {
+                    surface,
+                    filtering: false,
+                },
             }),
             (Open { highlight, .. }, Event::Present(surface)) => Step::to(Open {
                 surface,
                 filtering: false,
                 highlight: highlight.clone(),
             }),
-            (Open { .. }, Event::Closed) => Step::to(Closed).with(Effect::Closed),
-            (Closed, Event::Typed) => Step::to(Open {
-                surface: Surface::Popover,
-                filtering: true,
-                highlight: None,
+            (Open { .. }, Event::Closed) => Step::to(ComboState::closed()).with(Effect::Closed),
+            (Closed { .. }, Event::Closed) => Step::stay(),
+            (Closed { .. }, Event::Typed) => Step::to(Closed {
+                next: Opening {
+                    surface: Surface::Popover,
+                    filtering: true,
+                },
             }),
             (Open { surface, .. }, Event::Typed | Event::QueryChanged) => Step::to(Open {
                 surface: *surface,

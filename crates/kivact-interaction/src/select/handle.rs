@@ -42,6 +42,7 @@ struct SelectOptions {
     keep_trigger_focus: Value<bool>,
 }
 
+// xtask-allow(state): independent: open is the caller's binding, written by the caller, by open_with (show, show_sheet, trigger and the arrow keys), by the sheet's choice and by the popup's close (hide, dismissal); session is the machine that follows open one way (only the feed of open sends Opened and Closed) and holds the opening's surface, highlight, hovered and previewed, noted by Prepare (open_with and the sheet's attach) and by Highlight, Hover and Preview; selected is the caller's selection binding, written by the list's and the closed trigger's choice; hovered is the pointer's hover over the sheet's rows, written by track_preview; content_state is the mounted surface's drawing slot, written by content_in and emptied by attach_part_state's cleanup; placeholder is set once by placeholder(); preview is set once by on_active_change
 /// A select over keyed [`ListItem`]s, without a look of its own.
 ///
 /// `SelectApi` adds the behavior and semantics of a combo box and its list box
@@ -159,7 +160,11 @@ pub fn use_select<K: kivact_core::state::ItemKey>(
     });
     let preview: Var<Option<kivact_core::state::Callback<Option<K>>>> = var(None);
     let session = machine(
-        machine::State::Closed,
+        if open.get_untracked() {
+            machine::State::open_with(machine::Opening::default())
+        } else {
+            machine::State::closed()
+        },
         || machine::Machine::<K>::new(),
         move |_, effect| match effect {
             machine::Effect::Preview(key) => {
@@ -169,14 +174,11 @@ pub fn use_select<K: kivact_core::state::ItemKey>(
             }
         },
     );
-    if open.get_untracked() {
-        session.send(machine::Event::Open(machine::OpenedBy::Pointer));
-    }
     session.feed(open, |shown| {
         if shown {
-            machine::Event::Open(machine::OpenedBy::Pointer)
+            machine::Event::Opened
         } else {
-            machine::Event::Close
+            machine::Event::Closed
         }
     });
     let highlight = binding(
@@ -363,26 +365,26 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
             )
         });
         if !in_sheet {
-            self.open_with(machine::Event::OpenSheet);
+            self.open_with(machine::Opening {
+                opened_by: machine::OpenedBy::Pointer,
+                surface: machine::Surface::Sheet,
+            });
         }
     }
 
     /// Show the options in the popover. Nothing changes while they show.
     pub fn show(self) {
         if !self.is_open().get_untracked() {
-            self.open_with(machine::Event::Open(machine::OpenedBy::Pointer));
+            self.open_with(machine::Opening::default());
         }
     }
 
-    /// Send `event` to open the machine with its details, then write the open
-    /// state; a rejected write closes the machine again.
-    fn open_with(self, event: machine::Event<K>) {
-        self.session.send(event);
+    /// Note the details of the next opening, then write the open state. The
+    /// machine follows the write; an open list only takes the surface.
+    fn open_with(self, opening: machine::Opening) {
+        self.session.send(machine::Event::Prepare(opening));
         if !self.open.get_untracked() {
             self.open.set(true);
-        }
-        if !self.open.get_untracked() {
-            self.session.send(machine::Event::Close);
         }
     }
 
@@ -462,7 +464,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                     }
                 })
                 .a11y_action(kivact_core::view::A11yAction::Expand, move |_| {
-                    self.open_with(machine::Event::Open(machine::OpenedBy::Pointer))
+                    self.open_with(machine::Opening::default())
                 })
                 .a11y_action(kivact_core::view::A11yAction::Collapse, move |_| {
                     popup.close(PopupCloseReason::Accessibility)
@@ -489,7 +491,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                         && matches!(event.key(), Key::ArrowDown | Key::ArrowUp);
                     let f4 = event.key() == Key::F(4) && !m.ctrl && !m.alt && !m.meta;
                     if alt_arrow || f4 {
-                        self.open_with(machine::Event::Open(machine::OpenedBy::Pointer));
+                        self.open_with(machine::Opening::default());
                         return Handled::Yes;
                     }
                     if m.ctrl || m.alt || m.meta {
@@ -499,7 +501,10 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                         && !m.shift
                         && matches!(event.key(), Key::ArrowDown | Key::ArrowUp)
                     {
-                        self.open_with(machine::Event::Open(machine::OpenedBy::Key(event.key())));
+                        self.open_with(machine::Opening {
+                            opened_by: machine::OpenedBy::Key(event.key()),
+                            surface: machine::Surface::Popover,
+                        });
                         return Handled::Yes;
                     }
                     closed.key_selection(&event)
@@ -631,7 +636,10 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                 })
                 .on_attach(move |_| {
                     if sheet {
-                        session.send(machine::Event::OpenSheet);
+                        session.send(machine::Event::Prepare(machine::Opening {
+                            opened_by: machine::OpenedBy::Pointer,
+                            surface: machine::Surface::Sheet,
+                        }));
                     }
                     if preview.get().is_some() {
                         track_preview(list, hovered, session);

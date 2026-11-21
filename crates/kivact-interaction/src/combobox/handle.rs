@@ -66,6 +66,7 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
     option.label.get().to_lowercase().contains(&query)
 }
 
+// xtask-allow(state): independent: open is the caller's binding, written by the caller and by hide and write_open (show, show_sheet, type_query); query is the caller's binding, written by the caller, by type_query, by choose and by the machine's Closed effect that clears an inline list; session is the machine that follows open one way (only the feed of open sends Opened and Closed) and holds the opening's surface, filter phase and highlight, noted by Present (show, show_sheet), Typed (type_query) and QueryChanged; inline is set once by use_combobox; filter is set once by filter(); rows is written by register_row at each option's mount and cleanup; item_states is written by item_in at each option's mount and cleanup; input_state and content_state are the mounted parts' drawing slots, written by input_for and content_for and emptied by attach_part_state's cleanup
 /// A search field over a filtered list box of keyed [`ListItem`]s, without a
 /// look of its own.
 ///
@@ -187,17 +188,14 @@ pub fn use_combobox<K: kivact_core::state::ItemKey>(
         search_status: (|| kivact_core::task::AsyncState::<()>::Idle).into_value(),
     });
     let options = memo(move || settings.value().with(|settings| settings.source).get());
-    // The machine's state follows the caller's `open`; its effect only clears
-    // the query of an inline list when it closes.
+    // The machine follows the caller's `open` one way: the notes (the next
+    // opening's surface and filter phase) come first, the write of `open`
+    // decides. Its effect only clears the query of an inline list when it closes.
     let session = machine(
         if open.get_untracked() {
-            machine::ComboState::Open {
-                surface: Surface::Popover,
-                filtering: false,
-                highlight: None::<K>,
-            }
+            machine::ComboState::opened(machine::Opening::default())
         } else {
-            machine::ComboState::Closed
+            machine::ComboState::closed()
         },
         || machine::Machine::<K>::new(),
         move |_, machine::Effect::Closed| {
