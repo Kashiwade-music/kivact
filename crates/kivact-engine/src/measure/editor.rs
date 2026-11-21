@@ -8,7 +8,7 @@ pub(crate) enum ControlledValue {
     InSync { at: u64 },
     HeldDuringComposition { value: Rc<str> },
 }
-// xtask-allow(state): legacy: reported_session is written only by EditorNode::report_session; lines, measure_lines; the shaped lines of the input, built on its first layout
+// xtask-allow(state): cache: lines (paint width) and measure_lines (width probes) are separate shaping caches filled lazily by refresh_lines, each on its own path; sync empties both when fonts are added
 #[derive(Clone, Debug)]
 pub(crate) struct EditorNode {
     /// Document and host-only journal controls.

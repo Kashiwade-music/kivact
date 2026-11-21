@@ -75,7 +75,7 @@ impl HostPhase {
     }
 }
 
-// xtask-allow(state): legacy: app_motion is written only by Host::report_app_motion; app, engine, reduced_motion_override, frame_log; absent means the system's reduced-motion preference applies
+// xtask-allow(state): independent: app and engine are the shared models and text engine, set at launch and borrowed per call; frame_log is the benchmark log shared with renderer observers; reduced_motion_override is written only by the reduced-motion request
 pub(crate) struct Host {
     pub(super) client: Client,
     pub(super) phase: HostPhase,

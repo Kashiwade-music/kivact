@@ -128,7 +128,7 @@ pub(crate) enum Geometry {
     LaidOut,
 }
 
-// xtask-allow(state): legacy: paint, restack, fonts; raised by Model::invalidate_paint (host environment and asset events) and by image and layout-motion steps; restack and fonts
+// xtask-allow(state): independent: paint (invalidate_paint, motion ticks), restack (tree edits and motion steps) and fonts (fonts_added) are separate pending flags that dispatch takes together
 /// Pending work; only sync dispatches visual invalidation.
 #[derive(Default)]
 pub(crate) struct Changes {

@@ -14,7 +14,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-// xtask-allow(state): legacy: app, engine
+// xtask-allow(state): independent: app (the window models) and engine (Arvane's text) are shared handles cloned from Writer and never reassigned; each call borrows one for its duration
 /// Read access to the engine's trees (kivact's view of the props and
 /// scenes it wrote): each window's tree is the one store of its node props,
 /// so kivact asks it for a prop's current value instead of keeping a copy.

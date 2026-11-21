@@ -58,7 +58,7 @@ impl Slots {
     }
 }
 
-// xtask-allow(state): legacy: modifiers is written only by Model::report_modifiers; assets, window_request; the modifiers last reported to the client, written only by Model::report_modifiers; origins caches window origins until positions move (forget_origins)
+// xtask-allow(state): independent: assets is the App's shared store; origins caches window origins (filled by Model::rect, cleared by forget_origins); window_request is set by Writer::set_window and taken by the host when the window is finished
 /// The engine's state: the node tree and one field per state group.
 pub(crate) struct Model {
     /// This model's window.

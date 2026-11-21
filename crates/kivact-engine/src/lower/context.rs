@@ -42,7 +42,7 @@ use crate::lower::drawables::{DrawablePlan, DrawableSite};
 use crate::lower::scene_cache::{Dependency, SceneCache};
 use std::sync::Arc;
 
-// xtask-allow(state): legacy: assets, raster, scene_cache, dependencies, dropped, failures, drawables; drop_command counts each undrawable command; succeeded_since compares it to
+// xtask-allow(state): independent: assets and scene_cache are borrowed stores; raster is the scale stack of paint_layers and paint_scene; dependencies, dropped and failures accumulate one operation's report (record, drop_command, fail; restore rewinds the last two); drawables is set by hosting
 /// A UI-local, non-reentrant lowering operation borrowing resources and scale.
 /// Callers must not hold an overlapping resource borrow while invoking it.
 /// It records failures and drops; publishing them remains the caller's policy.

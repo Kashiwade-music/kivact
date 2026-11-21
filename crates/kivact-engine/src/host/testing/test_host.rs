@@ -23,7 +23,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
-// xtask-allow(state): legacy: turns, frame_ticks; turns counted for diagnostics; never used to control scheduling
+// xtask-allow(state): statistic: turns and frame_ticks are counted only by the counted() client wrapper and read by the test driver; they never steer scheduling
 /// Turns and frame ticks the client was given.
 #[derive(Default)]
 struct Counts {
@@ -49,7 +49,7 @@ fn counted(client: Client, counts: Rc<Counts>) -> Client {
     )
 }
 
-// xtask-allow(state): legacy: host, renderer, injected, controls
+// xtask-allow(state): independent: host (the Launch), renderer (the observer's per-window notes), injected and controls (queues drained by SharedHost::event) are separate shared handles made once in ArvaneTestHost::new
 /// The engine driven by a test on the calling thread.
 pub struct ArvaneTestHost {
     pub(super) host: Rc<RefCell<Launch>>,
@@ -105,7 +105,7 @@ impl Observed {
     }
 }
 
-// xtask-allow(state): legacy: host, injected, controls
+// xtask-allow(state): independent: host, injected and controls are handles shared with ArvaneTestHost; event drains controls, then injected, then passes the event to host
 struct SharedHost {
     host: Rc<RefCell<Launch>>,
     injected: Rc<RefCell<Vec<HostEvent>>>,

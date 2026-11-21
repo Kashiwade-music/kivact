@@ -18,7 +18,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-// xtask-allow(state): legacy: app, engine
+// xtask-allow(state): independent: app (the window models) and engine (Arvane's text) are shared handles set by Writer::new and never reassigned; each write borrows them for its duration only
 /// Owned, cloneable write access to the engine's models, given to kivact for
 /// startup. Every write applies at once; [`Writer::commit`] ends a revision.
 #[derive(Clone)]
