@@ -20,6 +20,7 @@ mod bezier;
 mod color;
 mod curve_preview;
 mod dock;
+mod editors;
 mod feedback;
 mod fonts;
 mod icons;
