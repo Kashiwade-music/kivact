@@ -888,3 +888,14 @@ U30b（lane U1、commit `a3b104c7`）は commit されたが、`cargo xtask chec
 判定：条件 2 を満たすには、(a) popup の `reason`・surface・opener・filtering を `open` の書込みに載せる（popup と machine の設計の変更）、または (b) focus の戻り先を `reason` に依らず決める（仕様の変更）、の設計の判断が要る。付属書の形のままでは満たせない。
 
 設計者が決める：(a) か (b)、またはこの 3 型の開閉の重なりの扱いの別の案。印（`// xtask-allow(state): independent: ...`）は、決まるまで書かない。
+
+## 設計者の回答（W7b・U30b の開閉の一方向の条件 2、2026-11-21）
+
+- (a) を採る。ただし `open` の型は変えない（caller の `Signal<bool>` のまま）。その回の値（reason・surface・opener・filtering）は、**開閉を変えない「注記」の event** で machine に先に渡し、開閉そのものは `open.set` だけが決める。条件 2 を次のとおり言い直す：
+  - machine の `Closed` と `Open { .. }` を行き来させる event は、`open` の follow（`open` の変化を受ける一つの effect）だけが送る。
+  - それ以外の経路が machine に送ってよいのは、`Closed`／`Open` を変えない注記の event だけ：次に開く回の値（`Prepare { surface, opener, filtering }` の形）、今の回を閉じる理由（`Closing(reason)` の形）、開いている回の filtering の変更（combobox の `Typed`）。
+  - 手順：`show_sheet` は「`Prepare { surface: Sheet, opener, .. }` を送る → `open.set(true)`」、`arrow_open` は「`Prepare { opener: Key, .. }` → `open.set(true)`」、`type_query` の `Typed` は「開いていれば filtering を立てる注記、閉じていれば `Prepare { filtering: true, .. }`」→ 閉じていれば `open.set(true)`。popup の `close(reason)` は「`Closing(reason)` を送る → `open.set(false)`」。sheet の `on_attach` が開閉を変えているなら同じ形にする（surface の注記だけなら注記の event にする）。
+  - follow は、`open` が true になったとき machine の `Closed` が持つ次の回の値（無ければ既定：surface は今の既定、opener は `Programmatic`、filtering は false）で `Open` に入り、false になったとき `Open` が持つ閉じる理由（無ければ既定 `Reason::Programmatic` など、caller が `open.set(false)` したときの今の扱いと同じもの）で閉じる。今の focus の戻り先の規則（reason ごと）は変えない（(b) は採らない）。
+  - machine の状態の形：`Closed { next: Opening }`（`Opening` はその回の値の struct。既定を持つ）と `Open { .., closing: Option<Reason> }` のように、注記の値は machine の状態の中に置く（新しい Api の field は作らない）。
+- 置き換えは U30b の続きとして lane U1 で行い、U30b の確認（interaction と ui の試験、apg_*）をやり直す。期待値は変えない。満たしたら前の回答の形で印を書く。
+- この形が付属書の他の unit（U31・U33・W8 の U47・U48）の手順と食い違う所が出たら、その unit の時に差し戻してよい。
