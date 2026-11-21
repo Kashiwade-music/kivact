@@ -1,14 +1,13 @@
 //! Role: Paints a plot: grid, axes, labels, series, legend and readout.
 
-use super::data::PlotData;
-use super::decimate::runs;
-use super::heatmap::{Grid, finite_range, paint as paint_heatmap};
-use super::input::{Readout, readout};
-use super::model::{PlotModel, PlotRange, PlotView};
-use super::scale::{Map, maps, plot_area, within};
-use super::series::{LineDash, PlotSeries, PlotSeriesKind};
-use super::ticks::{LogTick, axis_ticks, format_value, tick_spacing};
-use crate::tokens::Tokens;
+use crate::data::PlotData;
+use crate::decimate::runs;
+use crate::heatmap::{Grid, finite_range, paint as paint_heatmap};
+use crate::input::{Readout, readout};
+use crate::model::{PlotModel, PlotRange, PlotView};
+use crate::scale::{Map, maps, plot_area, within};
+use crate::series::{LineDash, PlotSeries, PlotSeriesKind};
+use crate::ticks::{LogTick, axis_ticks, format_value, tick_spacing};
 use kivact::draw::{Draw, Layer, LineCap, Stroke, TextBaseline, TextFormat};
 use kivact::geometry::{Point, Rect, Size};
 use kivact::i18n::Locale;
@@ -31,10 +30,10 @@ const ELLIPSIS: &str = "\u{2026}";
 
 impl PlotModel {
     /// Paint the model over `range` in a canvas of `size` (logical px) of
-    /// `draw`, with no pointer. The colors are the kit's tokens of the theme
-    /// in effect, the numbers are written in `locale`, and the picture is the
-    /// one a plot shows. Pass it to an [`Offscreen`](kivact::draw::Offscreen)
-    /// `render` or `render_svg` to export it.
+    /// `draw`, with no pointer. The colors are the theme variables in effect,
+    /// the numbers are written in `locale`, and the picture is the one a plot
+    /// shows. Pass it to an [`Offscreen`](kivact::draw::Offscreen) `render` or
+    /// `render_svg` to export it.
     ///
     /// The plot is drawn in the rectangle the canvas leaves for it: the
     /// background, grid lines, axes, tick labels, axis titles, the title, the
@@ -45,7 +44,7 @@ impl PlotModel {
 }
 
 /// What one paint reads: the model and its view, the plot area with its
-/// maps and ticks, and the tokens, colormap, size and locale of the frame.
+/// maps and ticks, and the colormap, size and locale of the frame.
 struct Frame<'a> {
     model: &'a PlotModel,
     view: PlotView,
@@ -55,7 +54,6 @@ struct Frame<'a> {
     y: Map,
     x_ticks: Vec<LogTick>,
     y_ticks: Vec<LogTick>,
-    tokens: &'a Tokens,
     stops: &'a [[f64; 4]],
     locale: &'a Locale,
 }
@@ -63,15 +61,15 @@ struct Frame<'a> {
 /// The pointer over the plot: where it is, and the label of a heatmap cell's
 /// value in the readout.
 #[derive(Clone, Copy)]
-pub(super) struct Cursor<'a> {
+pub(crate) struct Cursor<'a> {
     /// The position in logical px.
-    pub(super) at: Point,
-    /// The label of a heatmap cell's value (the `basic.plot.value` message).
-    pub(super) value: &'a str,
+    pub(crate) at: Point,
+    /// The label of a heatmap cell's value (the `plot.value` message).
+    pub(crate) value: &'a str,
 }
 
 /// Paint the plot, with a crosshair and a readout when the cursor is inside it.
-pub(super) fn paint(
+pub(crate) fn paint(
     draw: &mut Draw,
     size: Size,
     model: &PlotModel,
@@ -83,8 +81,7 @@ pub(super) fn paint(
     if area.width <= 0.0 || area.height <= 0.0 {
         return;
     }
-    let tokens = draw.theme().ext::<Tokens>();
-    let stops = colormap_stops(draw, &tokens);
+    let stops = colormap_stops(draw);
     let (x, y) = maps(model, view, area);
     let frame = Frame {
         model,
@@ -105,11 +102,10 @@ pub(super) fn paint(
             view.y_max,
             area.height / Y_TICK_PX,
         ),
-        tokens: &tokens,
         stops: &stops,
         locale,
     };
-    draw.fill_rect(area, tokens.card);
+    draw.fill_rect(area, kivact::style::color::SURFACE);
     paint_grid(draw, &frame);
     paint_axes(draw, &frame);
     paint_title(draw, &frame);
@@ -124,23 +120,22 @@ pub(super) fn paint(
     }
 }
 
+/// The viridis colormap of heatmaps, from the lowest value to the highest.
+const VIRIDIS: [u32; 9] = [
+    0x440154, 0x472d7b, 0x3b528b, 0x2c728e, 0x21918c, 0x28ae80, 0x5ec962, 0xaddc30, 0xfde725,
+];
+
 /// The heatmap colormap as RGBA stops in `0..=1`, from the lowest value to the highest.
-fn colormap_stops(draw: &Draw, tokens: &Tokens) -> Vec<[f64; 4]> {
-    tokens
-        .heatmap
+fn colormap_stops(draw: &Draw) -> Vec<[f64; 4]> {
+    VIRIDIS
         .iter()
-        .map(|color| {
-            let c = color.resolve(draw.theme());
-            [c.r, c.g, c.b, c.a]
-        })
+        .map(|hex| kivact::style::rgb(*hex).components(draw.theme()))
         .collect()
 }
 
 /// The color of the series at `index`: its own color, else the kit's chart color of the index.
-fn series_color(series: &PlotSeries, index: usize, tokens: &Tokens) -> Color {
-    series
-        .color
-        .unwrap_or(tokens.chart[index % tokens.chart.len()])
+fn series_color(series: &PlotSeries, index: usize) -> Color {
+    series.color.unwrap_or(crate::color::SERIES[index % 5])
 }
 
 /// The text style of an axis or legend text.
@@ -163,7 +158,7 @@ fn paint_grid(draw: &mut Draw, f: &Frame) {
                 at,
                 Point::new(x, f.area.bottom()),
                 grid_width(tick),
-                f.tokens.border,
+                crate::color::GRID,
             );
         }
     }
@@ -174,7 +169,7 @@ fn paint_grid(draw: &mut Draw, f: &Frame) {
                 at,
                 Point::new(f.area.right(), y),
                 grid_width(tick),
-                f.tokens.border,
+                crate::color::GRID,
             );
         }
     }
@@ -187,7 +182,7 @@ fn grid_width(tick: &LogTick) -> f64 {
 
 /// The two axis lines, and the tick labels and titles beside them.
 fn paint_axes(draw: &mut Draw, f: &Frame) {
-    let color = f.tokens.muted_foreground;
+    let color = crate::color::AXIS;
     let bottom_left = Point::new(f.area.x, f.area.bottom());
     draw.line(
         bottom_left,
@@ -207,7 +202,7 @@ fn paint_axes(draw: &mut Draw, f: &Frame) {
 
 /// The labels of the major ticks: under the x axis, and left of the y axis.
 fn paint_tick_labels(draw: &mut Draw, f: &Frame) {
-    let color = f.tokens.muted_foreground;
+    let color = crate::color::AXIS;
     let x_step = tick_spacing(&f.x_ticks, f.model.x.scale);
     let below = text_style(TEXT, color, TextAlign::Center, TextBaseline::Top);
     for tick in f.x_ticks.iter().filter(|t| t.major) {
@@ -228,7 +223,7 @@ fn paint_tick_labels(draw: &mut Draw, f: &Frame) {
 
 /// The axis titles: the x title centered under the plot, the y title at its top left.
 fn paint_axis_titles(draw: &mut Draw, f: &Frame) {
-    let color = f.tokens.muted_foreground;
+    let color = crate::color::AXIS;
     if !f.model.x.label.is_empty() {
         let at = Point::new(f.area.x + f.area.width / 2.0, f.area.bottom() + 22.0);
         let style = text_style(TEXT, color, TextAlign::Center, TextBaseline::Top);
@@ -248,7 +243,7 @@ fn paint_title(draw: &mut Draw, f: &Frame) {
     }
     let style = text_style(
         TEXT + 2.0,
-        f.tokens.muted_foreground,
+        crate::color::AXIS,
         TextAlign::Center,
         TextBaseline::Top,
     );
@@ -275,7 +270,7 @@ fn stroke_of(series: &PlotSeries) -> Stroke {
 /// Paint every series in order, each in its color, inside the plot area.
 fn paint_series_all(draw: &mut Draw, f: &Frame) {
     for (index, series) in f.model.series.iter().enumerate() {
-        let color = series_color(series, index, f.tokens);
+        let color = series_color(series, index);
         paint_series(draw, f, series, color);
     }
 }
@@ -382,7 +377,7 @@ fn paint_steps(draw: &mut Draw, f: &Frame, edges: &PlotData, values: &PlotData, 
 fn paint_legend(draw: &mut Draw, f: &Frame) {
     let style = text_style(
         TEXT,
-        f.tokens.foreground,
+        kivact::style::color::TEXT,
         TextAlign::Start,
         TextBaseline::Top,
     );
@@ -404,7 +399,7 @@ fn paint_legend(draw: &mut Draw, f: &Frame) {
     for (index, (series, (name, _))) in f.model.series.iter().zip(&names).enumerate() {
         let y = f.area.y + 8.0 + index as f64 * 16.0;
         let swatch = Rect::new(left, y + 2.0, 10.0, 10.0);
-        draw.fill_rect(swatch, series_color(series, index, f.tokens));
+        draw.fill_rect(swatch, series_color(series, index));
         draw.text(name, Point::new(left + LEGEND_SWATCH, y), style.clone());
     }
 }
@@ -427,7 +422,7 @@ fn fit_name(name: &str, limit: f64, measure: impl Fn(&str) -> f64) -> String {
 /// The crosshair through the pointer, a dot on the nearest point and the readout card.
 fn paint_hover(draw: &mut Draw, f: &Frame, cursor: Cursor<'_>) {
     let at = cursor.at;
-    let ring = f.tokens.ring;
+    let ring = kivact::style::color::FOCUS;
     draw.line(
         Point::new(at.x, f.area.y),
         Point::new(at.x, f.area.bottom()),
@@ -479,7 +474,7 @@ fn paint_card(draw: &mut Draw, f: &Frame, read: &Readout, cursor: Cursor<'_>) {
     let lines = readout_lines(f, read, cursor.value);
     let style = text_style(
         TEXT,
-        f.tokens.popover_foreground,
+        kivact::style::color::TEXT,
         TextAlign::Start,
         TextBaseline::Top,
     );
@@ -495,8 +490,8 @@ fn paint_card(draw: &mut Draw, f: &Frame, read: &Readout, cursor: Cursor<'_>) {
     }
     let y = (at.y + 12.0).min(f.area.bottom() - height).max(f.area.y);
     let card = Rect::new(x, y, card_width, height);
-    draw.fill_rect(card, f.tokens.popover);
-    draw.stroke_rect(card, Stroke::new(1.0), f.tokens.border);
+    draw.fill_rect(card, kivact::style::color::RAISED);
+    draw.stroke_rect(card, Stroke::new(1.0), kivact::style::color::BORDER);
     for (i, text) in lines.iter().enumerate() {
         let at = Point::new(x + 8.0, y + 4.0 + 16.0 * i as f64);
         draw.text(text, at, style.clone());

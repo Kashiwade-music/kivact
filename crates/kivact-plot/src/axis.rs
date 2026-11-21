@@ -27,11 +27,11 @@ pub enum TickFormat {
 #[derive(Clone, PartialEq, Debug)]
 pub struct PlotAxis {
     /// The title drawn beside the axis.
-    pub(super) label: String,
+    pub(crate) label: String,
     /// The scale.
-    pub(super) scale: AxisScale,
+    pub(crate) scale: AxisScale,
     /// How ticks and readouts write values.
-    pub(super) format: TickFormat,
+    pub(crate) format: TickFormat,
 }
 
 impl PlotAxis {

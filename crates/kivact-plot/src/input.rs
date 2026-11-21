@@ -1,10 +1,10 @@
 //! Role: Zoom, pan, key and readout arithmetic of a plot, free of signals.
 
-use super::axis::AxisScale;
-use super::heatmap::{Grid, cell};
-use super::model::{PlotModel, PlotRange, PlotView};
-use super::scale::{Map, inverse, maps, transform, within};
-use super::series::{PlotSeries, PlotSeriesKind};
+use crate::axis::AxisScale;
+use crate::heatmap::{Grid, cell};
+use crate::model::{PlotModel, PlotRange, PlotView};
+use crate::scale::{Map, inverse, maps, transform, within};
+use crate::series::{PlotSeries, PlotSeriesKind};
 use kivact::geometry::{Point, Rect};
 use kivact::view::Key;
 
@@ -18,7 +18,7 @@ const WHEEL_RATE: f64 = 0.001;
 /// The range `lo..hi` zoomed by `factor` about the fraction `anchor` of the
 /// range (0 at `lo`, 1 at `hi`), in the axis's scale. The value under the
 /// anchor stays where it is; a factor above one widens the range.
-pub(super) fn zoom_range(
+pub(crate) fn zoom_range(
     lo: f64,
     hi: f64,
     scale: AxisScale,
@@ -49,7 +49,7 @@ fn span_px(length: f64) -> f64 {
 
 /// The view with its x span moved by `fx` and its y span by `fy`, both as
 /// fractions of the span; a positive shift shows larger values.
-pub(super) fn shift(model: &PlotModel, view: PlotView, fx: f64, fy: f64) -> PlotView {
+pub(crate) fn shift(model: &PlotModel, view: PlotView, fx: f64, fy: f64) -> PlotView {
     let (x_min, x_max) = pan_range(view.x_min, view.x_max, model.x.scale, fx);
     let (y_min, y_max) = pan_range(view.y_min, view.y_max, model.y.scale, fy);
     PlotView {
@@ -63,7 +63,7 @@ pub(super) fn shift(model: &PlotModel, view: PlotView, fx: f64, fy: f64) -> Plot
 /// The view after a drag of `delta` pixels from its start, with the view at
 /// the press as `view`. The content follows the pointer: a drag to the right
 /// shows smaller x, and a drag down shows larger y.
-pub(super) fn drag_view(model: &PlotModel, view: PlotView, area: Rect, delta: Point) -> PlotView {
+pub(crate) fn drag_view(model: &PlotModel, view: PlotView, area: Rect, delta: Point) -> PlotView {
     shift(
         model,
         view,
@@ -74,7 +74,7 @@ pub(super) fn drag_view(model: &PlotModel, view: PlotView, area: Rect, delta: Po
 
 /// The view zoomed by `factor` about the pointer `at`: on the y axis when
 /// `vertical`, else on the x axis.
-pub(super) fn zoom_about(
+pub(crate) fn zoom_about(
     model: &PlotModel,
     view: PlotView,
     area: Rect,
@@ -113,7 +113,7 @@ fn fraction(p: f64, from: f64, to: f64) -> f64 {
 /// The view after one wheel event at `at`: a vertical delta zooms about the
 /// pointer (on the y axis with Ctrl), and a horizontal delta pans x, a
 /// positive one showing larger x.
-pub(super) fn wheel_view(
+pub(crate) fn wheel_view(
     model: &PlotModel,
     view: PlotView,
     area: Rect,
@@ -134,7 +134,7 @@ pub(super) fn wheel_view(
 
 /// One keyboard operation on the view. Each one is one edit.
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub(super) enum Nudge {
+pub(crate) enum Nudge {
     /// Zoom the x axis by the factor about the middle of the view.
     ZoomX(f64),
     /// Zoom the y axis by the factor about the middle of the view.
@@ -151,7 +151,7 @@ impl Nudge {
     /// The operation of `key`, or `None` for a key a plot does not use: `+`
     /// and `-` zoom x, PageUp and PageDown zoom y, the arrows pan, and `0`
     /// and Home fit the data.
-    pub(super) fn of_key(key: Key) -> Option<Self> {
+    pub(crate) fn of_key(key: Key) -> Option<Self> {
         match key {
             Key::Char('+') => Some(Nudge::ZoomX(1.0 / KEY_ZOOM)),
             Key::Char('-') => Some(Nudge::ZoomX(KEY_ZOOM)),
@@ -167,7 +167,7 @@ impl Nudge {
     }
 
     /// The range this operation leaves from `view` of `model`.
-    pub(super) fn apply(self, model: &PlotModel, view: PlotView) -> PlotRange {
+    pub(crate) fn apply(self, model: &PlotModel, view: PlotView) -> PlotRange {
         match self {
             Nudge::ZoomX(factor) => {
                 let (x_min, x_max) = zoom_range(view.x_min, view.x_max, model.x.scale, 0.5, factor);
@@ -194,17 +194,17 @@ impl Nudge {
 
 /// What the pointer reads: the nearest point of a series and its values.
 #[derive(Clone, PartialEq, Debug)]
-pub(super) struct Readout {
+pub(crate) struct Readout {
     /// The series name.
-    pub(super) name: String,
+    pub(crate) name: String,
     /// The data x.
-    pub(super) x: f64,
+    pub(crate) x: f64,
     /// The data y.
-    pub(super) y: f64,
+    pub(crate) y: f64,
     /// The cell value, for a heatmap.
-    pub(super) z: Option<f64>,
+    pub(crate) z: Option<f64>,
     /// The point in plot pixels.
-    pub(super) at: Point,
+    pub(crate) at: Point,
 }
 
 /// The maps and the pointer of one readout.
@@ -220,7 +220,7 @@ struct Probe {
 /// Otherwise it reads the point nearest to the pointer among the line, point
 /// and stem series; a line is searched by binary search for its nearest x,
 /// and only when its x values ascend. `None` when there is nothing to read.
-pub(super) fn readout(model: &PlotModel, view: PlotView, area: Rect, at: Point) -> Option<Readout> {
+pub(crate) fn readout(model: &PlotModel, view: PlotView, area: Rect, at: Point) -> Option<Readout> {
     let (x, y) = maps(model, view, area);
     let probe = Probe {
         x,
@@ -338,7 +338,7 @@ mod tests {
     //! Role: Tests for zoom, pan, keys and readout arithmetic.
 
     use super::*;
-    use crate::plot::axis::PlotAxis;
+    use crate::axis::PlotAxis;
 
     fn area() -> Rect {
         Rect::new(0.0, 0.0, 100.0, 100.0)

@@ -1,162 +1,107 @@
 //! Role: The Plot builder: a canvas whose range the pointer and keys edit.
 
-use super::input::{Nudge, drag_view, wheel_view};
-use super::model::{PlotModel, PlotRange, PlotView};
-use super::paint::{Cursor, paint};
-use super::scale::plot_area;
-use super::ticks::format_value;
+use crate::input::{Nudge, drag_view, wheel_view};
+use crate::model::{PlotModel, PlotRange, PlotView};
+use crate::paint::{Cursor, paint};
+use crate::scale::plot_area;
+use crate::ticks::format_value;
+use kivact::component;
 use kivact::geometry::{Point, Rect, Size};
 use kivact::i18n::{Locale, message, message_with, use_locale};
 use kivact::interaction::{DragApi, DragCoordinates, DragUpdate, EditSession, use_drag};
-use kivact::state::{Callback, IntoText, IntoValue, Signal, Value, callback, signal};
+use kivact::state::{Callback, Signal, Value, signal};
 use kivact::style::{Length, pct, style};
 use kivact::view::{
-    EditPhase, Element, Handled, HandlerResult, IntoView, KeyEvent, MouseButton, Node,
-    PointerEvent, PointerPhase, Role, View, WheelEvent, column, node, node_ref,
+    EditPhase, Handled, KeyEvent, MouseButton, PointerEvent, PointerPhase, Role, WheelEvent, node,
+    node_ref,
 };
 
-/// The accessible description when the App has no `basic.plot.description` message.
+/// The accessible description when the App has no `plot.description` message.
 const DESCRIPTION: &str = "{series}. {x}: {x_min} to {x_max}. {y}: {y_min} to {y_max}.";
 
 /// A plot of a [`PlotModel`]: lines, points, stems, histograms and heatmaps
-/// on zoomable axes. Created by [`plot`].
-pub struct Plot {
-    root: Node,
-    label: Value<String>,
-    model: Value<PlotModel>,
-    range: Option<Signal<PlotRange>>,
-    on_edit: Option<Callback<EditPhase>>,
-    height: Value<Length>,
-}
-
-/// A plot of `model`, named `label`, with the visible range it shows.
+/// on zoomable axes.
 ///
-/// The plot is a focusable canvas of `Role::Image` named `label` and described
-/// by its series and its visible range. Dragging pans, the wheel zooms the x
-/// axis about the pointer (with Ctrl, the y axis; a horizontal wheel pans x),
-/// the keys `+`, `-`, PageUp, PageDown and the arrows zoom and pan, `0` and
-/// Home return to [`PlotRange::Auto`], and a double click does the same. Each
-/// of these is one edit of the range, reported by [`Plot::on_edit`].
+/// The plot is a focusable canvas of `Role::Image`, named with the element's
+/// `.name(..)` and described by its series and its visible range. Dragging
+/// pans, the wheel zooms the x axis about the pointer (with Ctrl, the y axis;
+/// a horizontal wheel pans x), the keys `+`, `-`, PageUp, PageDown and the
+/// arrows zoom and pan, `0` and Home return to [`PlotRange::Auto`], and a
+/// double click does the same. Each of these is one edit of the range,
+/// reported by `on_edit`.
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact::prelude::*;
-/// use kivact_ui_basic::{PlotAxis, PlotModel, PlotSeries, plot};
+/// use kivact_plot::{PlotAxis, PlotModel, PlotSeries, plot};
 ///
 /// fn response() -> impl IntoView {
 ///     let model = PlotModel::new(PlotAxis::new("Frequency"), PlotAxis::new("Gain")).series(
 ///         PlotSeries::line("Gain", vec![10.0, 100.0, 1000.0], vec![0.0, -3.0, -12.0]),
 ///     );
-///     plot("Frequency response", model)
+///     plot(model).name("Frequency response")
 /// }
 /// ```
-#[track_caller]
-pub fn plot(label: impl IntoText, model: impl IntoValue<PlotModel>) -> Plot {
-    Plot {
-        root: column(()).style(style().width(pct(100)).min_width(0)),
-        label: label.into_text_value(),
-        model: model.into_value(),
-        range: None,
-        on_edit: None,
-        height: Length::from(240).into_value(),
-    }
-}
-
-impl Plot {
-    /// Show and edit the visible range through `range`. Each edit writes the
-    /// new `PlotRange::Manual` to the binding at once. Without a binding the
-    /// plot keeps its own range, starting at `PlotRange::Auto`.
-    pub fn range(mut self, range: Signal<PlotRange>) -> Self {
-        self.range = Some(range);
-        self
-    }
-
-    /// Report each edit of the range: `Begin` when it starts, `Commit` when it
-    /// is kept, and `Cancel` when Escape or a pointer cancel restores the range
-    /// it started from. A wheel step, a key or a double click is one edit that
-    /// begins and commits at once. Setup only.
-    pub fn on_edit<R: HandlerResult>(mut self, f: impl Fn(EditPhase) -> R + 'static) -> Self {
-        self.on_edit = Some(callback(f));
-        self
-    }
-
-    /// Set the height of the plot (default 240 logical pixels), constant or
-    /// reactive.
-    #[track_caller]
-    pub fn height(mut self, height: impl IntoValue<Length>) -> Self {
-        self.height = height.into_value();
-        self
-    }
-}
-
-impl Element for Plot {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for Plot {
-    fn into_view(self) -> View {
-        let Plot {
-            root,
-            label,
-            model,
-            range,
-            on_edit,
-            height,
-        } = self;
-        let range = match range {
-            Some(range) => range,
-            None => signal(PlotRange::Auto),
-        };
-        let locale = use_locale();
-        let hover = signal(None::<Point>);
-        let value_label = message("basic.plot.value", "Value");
-        let target = node_ref();
-        let size = target.rect();
-        let edit = session_edit(range, on_edit);
-        let session = use_drag::<PlotView>(DragCoordinates::Local)
-            .edit_on_change(edit, move || range.get_untracked());
-        let drag = session.on_update(move |update: DragUpdate<PlotView>| {
-            apply_drag(session, &update, size, model, range);
-        });
-        let dragging = drag.active_payload();
-        let source = drag.source_with(move || current_view(range, model));
-        let description = message_with("basic.plot.description", DESCRIPTION, move || {
+#[component]
+pub fn plot(
+    model: Value<PlotModel>,
+    range: Option<Signal<PlotRange>>,
+    on_edit: Option<Callback<EditPhase>>,
+    #[prop(default = Length::from(240))] height: Value<Length>,
+) -> impl Element {
+    let range = match range {
+        Some(range) => range,
+        None => signal(PlotRange::Auto),
+    };
+    let locale = use_locale();
+    let hover = signal(None::<Point>);
+    let value_label = message("plot.value", "Value");
+    let target = node_ref();
+    let size = target.rect();
+    let edit = session_edit(range, on_edit);
+    let session = use_drag::<PlotView>(DragCoordinates::Local)
+        .edit_on_change(edit, move || range.get_untracked());
+    let drag = session.on_update(move |update: DragUpdate<PlotView>| {
+        apply_drag(session, &update, size, model, range);
+    });
+    let dragging = drag.active_payload();
+    let source = drag.source_with(move || current_view(range, model));
+    let description = message_with("plot.description", DESCRIPTION, move || {
+        let view = model.with(|m| range.with(|r| m.view_of(*r)));
+        locale.with(|locale| model.with(|m| describe(m, view, locale)))
+    });
+    node()
+        .role(Role::Image)
+        .description(description)
+        .focusable(true)
+        .style(move || {
+            style()
+                .width(pct(100))
+                .min_width(0)
+                .height(height.get())
+                .flex_shrink(0)
+        })
+        .node_ref(target)
+        .draw(move |d, canvas| {
             let view = model.with(|m| range.with(|r| m.view_of(*r)));
-            locale.with(|locale| model.with(|m| describe(m, view, locale)))
-        });
-        let canvas = node()
-            .role(Role::Image)
-            .name(label)
-            .description(description)
-            .focusable(true)
-            .style(move || style().width(pct(100)).height(height.get()).shrink(0))
-            .node_ref(target)
-            .draw(move |d, canvas| {
-                let view = model.with(|m| range.with(|r| m.view_of(*r)));
-                let at = hover.get();
-                value_label.with(|value| {
-                    let cursor = at.map(|at| Cursor {
-                        at,
-                        value: value.as_str(),
-                    });
-                    locale.with(|locale| {
-                        model.with(|m| paint(d, canvas, m, view, cursor, locale));
-                    });
+            let at = hover.get();
+            value_label.with(|value| {
+                let cursor = at.map(|at| Cursor {
+                    at,
+                    value: value.as_str(),
                 });
-            })
-            .on_pointer(pointer_handler(hover, edit, range))
-            .on_wheel(wheel_handler(edit, range, model, size, dragging))
-            .on_key(key_handler(edit, range, model, dragging))
-            .part(source);
-        root.child(canvas).into_view()
-    }
+                locale.with(|locale| {
+                    model.with(|m| paint(d, canvas, m, view, cursor, locale));
+                });
+            });
+        })
+        .on_pointer(pointer_handler(hover, edit, range))
+        .on_wheel(wheel_handler(edit, range, model, size, dragging))
+        .on_key(key_handler(edit, range, model, dragging))
+        .part(source)
 }
 
 /// The edit session of the range: its start is written back on cancel, and
-/// an observer given to [`Plot::on_edit`] hears each phase.
+/// an observer given to `on_edit` hears each phase.
 fn session_edit(
     range: Signal<PlotRange>,
     on_edit: Option<Callback<EditPhase>>,
@@ -312,8 +257,8 @@ mod tests {
     //! Role: Tests for the accessible description arguments.
 
     use super::*;
-    use crate::plot::axis::PlotAxis;
-    use crate::plot::series::PlotSeries;
+    use crate::axis::PlotAxis;
+    use crate::series::PlotSeries;
 
     #[test]
     fn the_description_names_the_series_and_the_range_in_the_locale() {

@@ -1,10 +1,10 @@
 //! Role: Splits a line into runs and keeps one min and max per pixel column.
 
-use super::scale::within;
+use crate::scale::within;
 use kivact::geometry::{Point, Rect};
 
 /// A point in plot pixels; `None` breaks the line (a NaN, or a value the axis cannot show).
-pub(super) type Pixel = Option<Point>;
+pub(crate) type Pixel = Option<Point>;
 
 /// The drawable runs of a line of `points` in the plot area `area`.
 ///
@@ -13,7 +13,7 @@ pub(super) type Pixel = Option<Point>;
 /// the visible area on either side. When the points inside are more than
 /// twice the plot width in logical px, each pixel column keeps the points
 /// of its lowest and highest y, in their original order.
-pub(super) fn runs(points: &[Pixel], area: Rect) -> Vec<Vec<Point>> {
+pub(crate) fn runs(points: &[Pixel], area: Rect) -> Vec<Vec<Point>> {
     let mut out = Vec::new();
     let mut run: Vec<Point> = Vec::new();
     for point in points {

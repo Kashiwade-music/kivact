@@ -1,6 +1,6 @@
 //! Role: Series: what a plot draws, its data, color, line style and heatmap range.
 
-use super::data::PlotData;
+use crate::data::PlotData;
 use kivact::style::Color;
 
 /// The pattern of a line.
@@ -17,7 +17,7 @@ pub enum LineDash {
 /// The shape of a series and its data. The constructors of [`PlotSeries`]
 /// build it, so the shape cannot be written in an inconsistent way.
 #[derive(Clone, PartialEq, Debug)]
-pub(super) enum PlotSeriesKind {
+pub(crate) enum PlotSeriesKind {
     /// A polyline through `(x, y)`. Hover reads the nearest point only when `x` is ascending.
     Line { x: PlotData, y: PlotData },
     /// Circles at `(x, y)`.
@@ -43,17 +43,17 @@ pub(super) enum PlotSeriesKind {
 #[derive(Clone, PartialEq, Debug)]
 pub struct PlotSeries {
     /// The name shown in the legend and in the description.
-    pub(super) name: String,
+    pub(crate) name: String,
     /// The color; `None` takes the kit's chart color of the series' index.
-    pub(super) color: Option<Color>,
+    pub(crate) color: Option<Color>,
     /// The line width in logical px.
-    pub(super) width: f64,
+    pub(crate) width: f64,
     /// The pattern of lines and stems.
-    pub(super) dash: LineDash,
+    pub(crate) dash: LineDash,
     /// The radius of points and of the dots at the top of stems, in logical px.
-    pub(super) radius: f64,
+    pub(crate) radius: f64,
     /// What it draws.
-    pub(super) kind: PlotSeriesKind,
+    pub(crate) kind: PlotSeriesKind,
 }
 
 impl PlotSeries {

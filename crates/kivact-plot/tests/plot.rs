@@ -4,8 +4,7 @@ use kivact::i18n::Locale;
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen};
 use kivact::view::EditPhase;
-use kivact_ui_basic as basic;
-use kivact_ui_basic::{PlotAxis, PlotModel, PlotRange, PlotSeries, PlotView, plot};
+use kivact_plot::{PlotAxis, PlotModel, PlotRange, PlotSeries, PlotView, plot};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -35,7 +34,7 @@ fn view(x_min: f64, x_max: f64, y_min: f64, y_max: f64) -> PlotView {
 /// Mounts the plot named "Frequency" with its range starting at `initial`;
 /// returns the screen and the range binding.
 fn mount(initial: PlotRange, edits: Edits, locale: Option<Locale>) -> (Screen, Signal<PlotRange>) {
-    let mut options = RenderOptions::with_theme(basic::theme(ThemeMode::Light))
+    let mut options = RenderOptions::with_theme(Theme::light())
         .window_size(640.0, 400.0)
         .reduced_motion();
     if let Some(locale) = locale {
@@ -46,7 +45,8 @@ fn mount(initial: PlotRange, edits: Edits, locale: Option<Locale>) -> (Screen, S
         let observed = edits.clone();
         (
             range,
-            plot("Frequency", model())
+            plot(model())
+                .name("Frequency")
                 .range(range)
                 .on_edit(move |phase| observed.borrow_mut().push(phase)),
         )
