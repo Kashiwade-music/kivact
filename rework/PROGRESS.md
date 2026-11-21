@@ -209,3 +209,17 @@
 - xtask の `--strict`：kivact-interaction は成功。kivact-ui は成功（最初の実行は 1 件の error だったが、`labels.rs:54` を指していた。古い xtask の binary（W8-fix の worktree から build されたもの）が、消した file を見ていたため。`cargo clean -p xtask` の後の実行は成功）。
 - `legacy:` の印の残り：58 件（kit の crate と examples の W9〜W10 の範囲と、L12 の範囲）。
 - KPI（`dev/bench/run.sh --no-catalog CP2`）：測定中。結果は `V:/kv-target/logs-CP2/kpi/` に出る。
+
+## W9 の進み（2026-11-22、途中。lane の commit は統合へ未 merge）
+
+- lane の状態（worktree の branch の HEAD）：
+  - K1（`wt/rw-W9-K1`、80f0b425）：K15・K16・K17・K18 完了。K19 が残る（primitives・typography・questionnaire・trace・empty・item）。
+  - K2（`wt/rw-W9-K2`、2650f473）：K20・K21 完了（AvatarDecorations、icons を基点の形に戻した）。W9 の範囲は完了。
+  - K3（`wt/rw-W9-K3`、ced2739e）：K22・K23・K24 完了。K25 の一部（tabs・panel_group・pie・range・property_row）まで。outliner・picker が残る（設計者の判断待ち：PickerColumn・OutlinerCell の新しい公開の型、SearchPicker の opener の形）。
+  - K4（`wt/rw-W9-K4`、0a68e032）：K26・K27 完了。fix（ProgressCell・stepper の TEXT_3）済み。W9 の範囲は完了。
+  - K5（`wt/rw-W9-K5`、8b22a1af）：K28 完了（DisclosureVariant の分解を含む）。K29 完了（toast・banner・avatar・badge・empty・overlays・controls）。K30 は metrics・chat・calendar・code・input・navigation・pagination・breadcrumb まで。残り：collections（list・tree・table・data_table）、groups、carousel、soft_list、soft_tree、card の分解、tag_input（設計者の判断待ち：2b8df5ac から recipes_input.rs へ戻した）。K31〜K33 は K30 の後。
+  - K6（`wt/rw-W9-K6`、d3b1cec2）：K06〜K14 完了。K11 の fix（panel-left の icon、ScrollbarWidth::None）を含む。W9 の範囲は完了。
+  - P1（`wt/rw-P1`、102bddd8）：三つの commit（2ac77244・a6cbb1da・102bddd8）。kv_latency は HEAD より遅い（p50 0.852→1.098）。返す。`cargo fmt --all --check` は dev/xtask/src/name_collision.rs:134 の test の書式 1 件で失敗（P1 の変更ではない。基点の 6f92dede）。
+- 判断の記録は `rework/OPEN.md` の「Orchestrator の判断」と、設計者の回答（W9 の判断待ち、K5・K3、確認 7 点）。
+- K28 の表の漏れ（DisclosureVariant の V4 分解）は K5 の fix（5b81e767）で行った。
+- 残り（W9 の統合の前）：K1 K19、K3 K25 の残り、K5 K30 の残り・K31〜K33。W9 の wave の merge と tier b は、全 lane の完了の後。
