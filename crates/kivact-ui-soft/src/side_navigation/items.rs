@@ -362,6 +362,7 @@ impl ItemContext {
                         open: Duration::from_millis(150),
                         close: Duration::from_millis(200),
                     },
+                    None,
                 )
             });
             ItemBranch::Parent { expansion, flyout }

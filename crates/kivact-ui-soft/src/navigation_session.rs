@@ -19,9 +19,17 @@ pub(crate) struct NavPanel {
     delays: Delays,
 }
 impl NavPanel {
-    pub(crate) fn new(eligible: impl IntoValue<bool>, delays: Delays) -> Self {
-        let api = try_use_context::<NavigationGroup>()
-            .map_or_else(|| use_navigation_menu(signal(false)), |group| group.0);
+    /// `open` is the panel's own open signal when it has no group. A group owns one open
+    /// signal for all its slots, so a panel inside a group uses the group's signal.
+    pub(crate) fn new(
+        eligible: impl IntoValue<bool>,
+        delays: Delays,
+        open: Option<Signal<bool>>,
+    ) -> Self {
+        let api = try_use_context::<NavigationGroup>().map_or_else(
+            || use_navigation_menu(open.unwrap_or_else(|| signal(false))),
+            |group| group.0,
+        );
         let panel = api.panel();
         on_cleanup(move || panel.removed());
         let eligible = eligible.into_value();

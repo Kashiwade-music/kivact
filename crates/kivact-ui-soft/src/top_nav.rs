@@ -36,8 +36,6 @@ use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::Signal;
 use kivact::state::Value;
-use kivact::state::callback;
-use kivact::state::effect_on;
 use kivact::state::provide;
 use kivact::state::try_use_context;
 use kivact::style::Align;
@@ -46,7 +44,6 @@ use kivact::style::Justify;
 use kivact::style::pct;
 use kivact::style::style;
 use kivact::ui::ControlSize;
-use kivact::view::HandlerResult;
 use kivact::view::IntoView;
 use kivact::view::NodeRef;
 use kivact::view::OverlayAlign;
@@ -272,16 +269,17 @@ pub fn top_nav_menu<I: IntoIterator<Item = NavHeadingMenuItem>>(
 }
 
 fn menu_trigger(label: Value<String>, open: Value<bool>) -> Node {
-    row((
-        text(label),
-        icon("chevron-down").style(move || {
-            style()
-                .size(m::ICON_SM, m::ICON_SM)
-                .rotate(if open.get() { 180 } else { 0 })
-        }),
-    ))
-    .name(label)
-    .style(move || top_item_style(false, false, false, open.get()))
+    row((text(label), menu_chevron(open)))
+        .name(label)
+        .style(move || top_item_style(false, false, false, open.get()))
+}
+
+fn menu_chevron(open: Value<bool>) -> Node {
+    icon("chevron-down").style(move || {
+        style()
+            .size(m::ICON_SM, m::ICON_SM)
+            .rotate(if open.get() { 180 } else { 0 })
+    })
 }
 
 fn drawer_menu_item(item: &NavHeadingMenuItem) -> SideNavItem {
@@ -299,13 +297,15 @@ fn drawer_menu_item(item: &NavHeadingMenuItem) -> SideNavItem {
 }
 
 /// A wide top navigation flyout with recreated item and featured-content columns.
+///
+/// The trigger is the element the caller styles; the surface is its sibling.
 pub struct TopNavMegaMenu {
     root: Node,
     label: Value<String>,
     items: Option<ViewFn>,
     featured: Option<ViewFn>,
     delays: Delays,
-    on_change: Option<Callback<bool>>,
+    open: Option<Signal<bool>>,
 }
 
 /// Create a named mega-menu flyout with independently configured content columns.
@@ -319,7 +319,7 @@ pub fn top_nav_mega_menu(label: impl IntoText) -> TopNavMegaMenu {
             open: Duration::from_millis(150),
             close: Duration::from_millis(250),
         },
-        on_change: None,
+        open: None,
     }
 }
 
@@ -344,16 +344,15 @@ impl TopNavMegaMenu {
         self.delays.close = delay;
         self
     }
-    /// Observe changes to the flyout's open state.
-    pub fn on_open_change<R: HandlerResult>(
-        mut self,
-        change: impl Fn(bool) -> R + 'static,
-    ) -> Self {
-        self.on_change = Some(callback(change));
+    /// Give `open` to read or set whether the panel is shown; without it the menu keeps its own.
+    pub fn open(mut self, open: Signal<bool>) -> Self {
+        self.open = Some(open);
         self
     }
 }
 
+/// The trigger and the surface are siblings, so this builder is written by hand: `node_mut` is
+/// the trigger's node, and the caller's modifiers land on the trigger.
 impl Element for TopNavMegaMenu {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
@@ -365,6 +364,8 @@ impl Element for TopNavMegaMenu {
 struct MegaClose(Signal<bool>);
 
 impl IntoView for TopNavMegaMenu {
+    /// The trigger and the surface are siblings: the surface is returned beside the trigger, not
+    /// inside it (a `#[component]` has one root, so this stays hand-written).
     fn into_view(self) -> View {
         let Self {
             root,
@@ -372,7 +373,7 @@ impl IntoView for TopNavMegaMenu {
             items,
             featured,
             delays,
-            on_change,
+            open,
         } = self;
         kivact::custom::scope(move || {
             if shell_nav_mode() == ShellNavMode::Drawer {
@@ -382,20 +383,23 @@ impl IntoView for TopNavMegaMenu {
                         featured.as_ref().map(|featured| featured.call(())),
                     ))
                 });
-                return root.child(disclosure);
+                return root.child(disclosure).into_view();
             }
+            let named = root.authored().name().is_some();
             let trigger_ref = node_ref();
             let surface_ref = node_ref();
-            let nav_panel = crate::navigation_session::NavPanel::new(true, delays);
+            let nav_panel = crate::navigation_session::NavPanel::new(true, delays, open);
             let open = nav_panel.open();
-            if let Some(change) = on_change {
-                effect_on(open, move |open| {
-                    change.call(*open);
-                });
-            }
+            let shown = open.into_value();
             let behavior = use_popup(open).anchor(trigger_ref);
+            let trigger = root
+                .with_node(move |node| {
+                    node.base_style(move || top_item_style(false, false, false, shown.get()))
+                })
+                .child((text(label), menu_chevron(shown)));
+            let trigger = if named { trigger } else { trigger.name(label) };
             let trigger = nav_panel.trigger(
-                menu_trigger(label, open.into_value())
+                trigger
                     .node_ref(trigger_ref)
                     .with_node(move |node| node.role(Role::Button))
                     .focusable(true)
@@ -420,7 +424,7 @@ impl IntoView for TopNavMegaMenu {
                     .with_node(move |node| node.part(behavior.content()))
                     .name(label)
             });
-            root.child((trigger, surface))
+            (trigger, surface).into_view()
         })
     }
 }

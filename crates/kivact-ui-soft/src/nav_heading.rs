@@ -154,7 +154,7 @@ pub(crate) fn nav_menu_view(
     let actions = items.clone();
     let anchor = node_ref();
     let panel_ref = node_ref();
-    let nav_panel = crate::navigation_session::NavPanel::new(true, delays);
+    let nav_panel = crate::navigation_session::NavPanel::new(true, delays, None);
     let behavior = use_menu(options, nav_panel.open())
         .trigger_action(move || nav_panel.toggle())
         .on_activate(move |index| {
