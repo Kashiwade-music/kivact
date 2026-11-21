@@ -31,6 +31,7 @@ mod indicator;
 mod key_hints;
 mod layout;
 mod link;
+mod media_overlay;
 mod media_query;
 mod metrics;
 mod more_menu;
@@ -139,6 +140,7 @@ pub use layout::{
     layout_panel,
 };
 pub use link::{Link, LinkColor, link};
+pub use media_overlay::{MediaOverlay, OverlayPosition, OverlayScrim, ShowOn, media_overlay};
 pub use media_query::Breakpoint;
 pub use more_menu::{MoreMenu, more_menu};
 pub use radius::{
