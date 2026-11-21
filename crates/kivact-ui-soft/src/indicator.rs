@@ -1,8 +1,5 @@
 //! Role: Presentational checkbox, radio, and check marks for caller-owned semantics.
 
-use crate::recipes_controls_choice::{
-    checkbox_check, checkbox_indicator as checkbox_surface, checkbox_mixed,
-};
 
 use kivact::custom::PartState;
 use kivact::state::IntoValue;
@@ -14,6 +11,7 @@ use kivact::style::style;
 use kivact::style::use_theme;
 use kivact::ui::ControlSize;
 use kivact::ui::Look;
+use kivact::ui::theme::CheckboxTheme;
 use kivact::ui::{CheckControl, CheckableState};
 use kivact::view::CheckedState;
 use kivact::view::Element;
@@ -145,7 +143,11 @@ impl IntoView for Indicator {
                         node.base_style(move || {
                             let t = kivact::style::use_tokens::<crate::Tokens>();
                             let look = look();
-                            let mut base = checkbox_surface(&use_theme().get(), &look)
+                            let theme = use_theme().get();
+                            let mut base = theme
+                                .ext::<CheckboxTheme>()
+                                .indicator_recipe()
+                                .style(&theme, &look)
                                 .position(Position::Relative)
                                 .left(0)
                                 .right(0)
@@ -206,8 +208,20 @@ fn indicator_mark(
 ) -> View {
     match kind {
         Kind::Checkbox => (
-            node().style(move || checkbox_check(&use_theme().get(), &look())),
-            node().style(move || checkbox_mixed(&use_theme().get(), &look())),
+            node().style(move || {
+                let theme = use_theme().get();
+                theme
+                    .ext::<CheckboxTheme>()
+                    .check_recipe()
+                    .style(&theme, &look())
+            }),
+            node().style(move || {
+                let theme = use_theme().get();
+                theme
+                    .ext::<CheckboxTheme>()
+                    .mixed_recipe()
+                    .style(&theme, &look())
+            }),
         )
             .into_view(),
         Kind::Radio => show(
