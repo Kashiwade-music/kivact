@@ -314,7 +314,7 @@ pub use crate::code_block::CodeCollapse;
 pub use chat_composer::{ChatComposer, chat_composer};
 pub use chat_message::{ChatMessage, chat_message};
 pub use chat_thread::{ChatThread, chat_thread};
-pub use code_block::{CodeBlock, Highlighter, code_block, highlighter};
+pub use code_block::{CodeBlock, Highlighter, code_block, highlighter, rust_tokens};
 pub use typing_indicator::{TypingIndicator, typing_indicator};
 
 pub use crate::card::CardAction;
@@ -338,9 +338,10 @@ pub use variant_marks::{Slant, Striped};
 
 mod sidebar;
 pub use sidebar::{
-    Sidebar, SidebarCollapsible, SidebarFrame, SidebarGroup, SidebarInput, SidebarMenu,
-    SidebarMenuButton, SidebarMenuButtonSize, SidebarMenuSkeleton, SidebarMenuSubButton,
-    SidebarProvider, SidebarResize, SidebarSeparator, SidebarSide, SidebarTrigger, sidebar,
-    sidebar_group, sidebar_input, sidebar_menu, sidebar_menu_button, sidebar_menu_skeleton,
-    sidebar_menu_sub_button, sidebar_provider, sidebar_separator, sidebar_trigger,
+    Sidebar, SidebarCollapsible, SidebarFrame, SidebarGroup, SidebarHandle, SidebarInput,
+    SidebarMenu, SidebarMenuButton, SidebarMenuButtonSize, SidebarMenuSkeleton,
+    SidebarMenuSubButton, SidebarProvider, SidebarResize, SidebarSeparator, SidebarSide,
+    SidebarTrigger, sidebar, sidebar_group, sidebar_input, sidebar_menu, sidebar_menu_button,
+    sidebar_menu_skeleton, sidebar_menu_sub_button, sidebar_provider, sidebar_separator,
+    sidebar_trigger, use_sidebar,
 };
