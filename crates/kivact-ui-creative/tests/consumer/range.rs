@@ -9,7 +9,7 @@ fn a_range_track_press_moves_the_nearer_end_which_the_keys_then_edit() {
         let span = signal((20.0, 60.0));
         (
             span,
-            ui::range("Selection", span)
+            ui::range(span).name("Selection")
                 .limits(
                     kivact::interaction::ScalarRange::new(0.0, 100.0)
                         .expect("invariant: finite ordered control range"),

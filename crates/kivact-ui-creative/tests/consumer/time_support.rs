@@ -95,7 +95,7 @@ pub(crate) fn time_edits<T: TestTime, R: kivact::view::HandlerResult>(
 pub(crate) fn app_timeline(
     items: kivact::state::Signal<Vec<ui::Clip>>,
     state: ui::TimeState,
-) -> ui::Timeline {
+) -> ui::TimelineEditor {
     ui::timeline_editor(items, state).on_edit(time_edits(items, apply_clips, |_| {}))
 }
 
