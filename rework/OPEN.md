@@ -1356,3 +1356,12 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
   - basic の `rust_source` は消す（一つの item に公開の path は一つ。basic の code_block は中核の `rust_tokens` を使う）。
   - catalog-shell の `page.rs` の code_block は、K34 の後の basic の catalog の unit（K35）で `rust_tokens` を使って色を付ける。
   - 付属書の K34 の手順に、この移動を足すこと（Orchestrator が K34 の brief に書く）。
+
+## 設計者の回答（picker の閉じる理由、K31 の範囲、2026-11-22）
+
+- **picker の `PopupCloseReason::Selection`**：`PopupApi::close(reason)` を公開にする（`pub(crate)` → `pub`）。`PopupCloseReason` はすでに公開で、閉じる理由が focus の戻り先（`FocusReturn`）を決める。理由を選べないのは欠け。新しい名前（`hide_with` など）は作らない。`hide()` は `close(PopupCloseReason::Programmatic)` のまま残す（よく使う形の短い名前）。
+  - doc を直す：「Request closure with `reason`: the reason decides where the focus returns ([`FocusReturn`]), and the focus return follows the caller's `open` write. `hide` is `close(PopupCloseReason::Programmatic)`.」
+  - 所有：lane P の小さな commit（`crates/kivact-interaction/src/popup/api.rs`）。試験は今の popup の試験が通ればよい。
+  - その後、K3 の `SearchPicker::panel` は pick の後に `popup.close(PopupCloseReason::Selection)` を呼ぶ（基点と同じく focus が trigger に戻る）。
+- **K31 の `LayoutInset`・`ContainerInset`**：3.0.6 の S2 のとおり、K31 が同じ unit で変換してよい（`layout.rs`・`stack.rs` の、その 2 つの型と要る helper）。K32 は K31 が変換した所を飛ばす。
+- **K31 の file 名**：読み替えてよい。empty_state・kbd・spinner は、`recipes_feedback.rs` の recipe の関数として変換する（部品の file は作らない）。
