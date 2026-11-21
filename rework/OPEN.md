@@ -1014,3 +1014,21 @@ U43（lane `wt/rw-W8-U3`、作業ツリーに変更、commit なし）。設計�
 - **U49（lane `wt/rw-W8-U3`、未 commit の list・radio_group の変更あり）**：`list` と `radio_group` を `#[component]` にした。xtask の `api-shape`（公開の signature に Rc を禁止）が 3 件 error（`list/view.rs:80`、`radio_group/view.rs:88`・`:89`）。R2 の slot の `Rc<dyn Fn>` の props と両立しない。(a) xtask の規則を変える、(b) slot の形を変える、(c) 別の形。`tree`：`reveal(gap, transition)` の 2 引数の method（呼出し：`e2e_core/presence.rs:166`・examples）を一つの setter に写せない。`tabs`：引数なしの `keep_mounted()`（Disclosure の `(true)` の例外が tabs には無い）と、content 付きの本体が list と panel の兄弟を返すので、caller の modifier が列に付いて振る舞いが変わる。
 - **U54（lane `wt/rw-W8-U4`、commit なし）**：STOP。(1) `calendar` の `touch()`（cell_size の下限 44、`pub(crate)`）：`date_parts/sheet.rs` と `date_range_input/view.rs` が呼ぶ。`cell_size` は prop が無い。(2) `Calendar::sheet_month()` と `range_validator()`（pub(crate)、builder の内部を読む）。(3) `at: &'static Location` を持つ `date_input`・`time_input` は `report_unnamed(named, what, at)`。C2 の表に `Location` の行が無い。(4) `date_input::attach(trigger)`・`date_range_input::attach(trigger)` は trigger と surface の fragment を返す。U47 の手書き builder の例外の一覧（Tooltip・Dialog・HoverCard・Disclosure・DisclosureGroup）に無い。(5) `calendar` の 2 引数の `range_span(min, max)` と `bounds(min, max)` を二つの setter に分ける（名前と bounds の扱い）。
 - **U53 の code_block（`wt/rw-W8-U4`）**：`code_block/view.rs:203`・`:471` に手書きの `impl Element`・`impl IntoView` が残る。U53 の完了条件（code_block を含む）は未達。`allowed_impls` にするか、`#[component]` にするかを決める。
+
+## 設計者の回答（W8・U45・U49・U54・U53 の code_block、2026-11-21）
+
+- **U45**：(b) の変形。`text_input` の `#[component]` に `multiline: bool`（既定 false）の prop を足し、`text_area` は component にせず `#[track_caller] pub fn text_area(value: Signal<String>) -> TextInput { text_input(value).multiline(true) }` の薄い関数にする（呼出しの形も `chat_composer` の型も変わらない。引数の型は今の `text_area` と同じにする）。
+  - **診断の位置（全 W8 の lane で共通）**：マクロの constructor は `#[track_caller]` で `__root: node()` を作るので、root の node の位置は呼出しの位置になる。core の `authored.rs` の `Authored` に `pub fn at(&self) -> &'static Location<'static>`（root の node の `at`。field が `Option` なら呼出しの位置が無いときは `Location::caller()`）を足し、`report_unnamed(named, what, caller.at())` にする。U45 の lane で core の 1 file を直してよい（`described_by` と同じ file）。試験：`report_unnamed` の message が試験の file の名前を含む（既存の試験にあればそれで足りる）。U54 はこの変更が統合に入ってから lane に取り込んで使う（U1 を先に merge し、統合を U4 の lane に merge する）。
+- **U49**：
+  - api-shape：xtask の規則を直す（R2 と矛盾していたのは規則の側）。`#[component]` の関数の `Rc<dyn Fn(..) -> ..>` の引数はマクロが `impl Fn(..)` の setter・引数に変えるので、公開の signature には出ない。`dev/xtask/src/api_shape.rs` で、`#[component]` の属性を持つ関数の引数の `Rc<dyn Fn ..>`（`Option<Rc<dyn Fn ..>>` を含む）は検査しない。試験を 1 つ足す（`#[component] pub fn x(f: Rc<dyn Fn(u32) -> View>)` は error なし、属性の無い `pub fn y(f: Rc<dyn Fn(u32)>)` は error）。U49 の lane で直してよい。
+  - `tree` の `reveal(gap, transition)` → `reveal(t: Transition)`（reveal を有効にする）と `reveal_gap(gap: f64)`（既定は今の builder の既定値。無ければ 0）。呼出し元は `.reveal(t).reveal_gap(gap)` に直す。
+  - `tabs` の `keep_mounted()` → `keep_mounted(v: bool)`（Disclosure と同じ）。
+  - `tabs` の root：本体は list と panel を一つの root の `column` に入れて返す（呼出し側の modifier は tabs 全体に付く。Radix の Tabs.Root と同じ）。今まで list に付いていた見た目が変わる呼出し元（試験・examples）は、style を list の recipe か root に合わせて直してよい。期待値（画面・a11y）が変わる試験があれば STOP。G の移行の文書に 1 行足す（W11b）。
+- **U54**：
+  - `calendar` の `touch()` → 公開の `touch(v: bool)`（doc：「Size the day cells for touch: at least 44 px.」）。内部の呼出しは `.touch(true)`。
+  - `sheet_month()`・`range_validator()`（builder の中を読む `pub(crate)`）：読む側（`date_parts/sheet.rs`・`date_range_input/view.rs`）は、calendar に渡した値を自分で持って使う。calendar の中で計算していた部分は、calendar の module の `pub(crate)` の自由関数にして両方から呼ぶ。
+  - `date_input`・`time_input` の位置は上の `caller.at()`。
+  - `date_input`・`date_range_input` の `attach(trigger)`：trigger と surface を兄弟で出すので、手書きの builder の例外（allowed_impls、理由の型は「trigger と surface を兄弟で出す」）に足す。
+  - `range_span(min, max)` → `min_span(n)`・`max_span(n)`、`bounds(min, max)` → `min_date(d)`・`max_date(d)`（HTML の date の input の `min`・`max` と同じ考え）。呼出し元を直す。
+- **U53 の code_block**：`#[component]` にする。手書きが要る理由が allowed_impls の 4 つの型（trigger と surface を兄弟で出す／surface を開くたびに作る／型付きの項目を積む／呼出し側の press を包む）のどれかに当たる場合だけ allowed_impls に足して OPEN に記録する。どれにも当たらず `#[component]` にもできないなら、その理由を書いて STOP。
+- 上の C1 の例外（setter の形の変更）は、まとめて G の移行の文書に足す（W11b）。
