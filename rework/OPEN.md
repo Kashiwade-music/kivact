@@ -1478,3 +1478,10 @@ lane K5 の K33e（commit `94d1ed25`）の報告による。設計者の答え�
   - `open` の setter の doc に 1 文足す：「Inside a navigation group the group decides which panel is open, and `open` is reported as a mistake.」
 - 試験（soft の試験の file。kit の試験が compile に戻る K43 で走らせる。今は書くだけでよい）：`fn an_open_given_inside_a_navigation_group_is_reported()`。
 - lane K5 の fix の commit で行う。その後は PROGRESS の「次にすること」(2)〜(6) のとおり。
+
+## 設計者の回答（W9 の引継ぎの記録への答え、2026-11-22）
+
+- **avatar_options.rs の削除**：採る（`AvatarSize` は `variants.rs` の一つ）。
+- **lightbox の zoom が開き直しで残る**：残さない（旧は `show` のたびに `Fit` に戻した）。view の signal は、開いている間の surface の中で作る（開くたびに新しい `Fit` の signal。「surface を開くたびに作る」の形）。`LightboxHandle::view()` の道は、今どおり handle の state の `Open { view }` が事実。lane K5 の fix で行う。
+- **TopNavMegaMenu の drawer**：drawer の形でも、caller の modifier は trigger に付ける（`node_mut()` は二つの形で同じ trigger の node）。wrapper には付けない。非 drawer の trigger の見た目は、旧の row の見た目と同じであることを K43 の catalog の確認で見る（違えば返す）。lane K5 の fix で行う。
+- **fix1 の worktree と branch**：merge 済みなので消してよい（`git worktree remove`。submodule の都合で要るなら、clean と merge 済みを確かめてから `--force`）。
