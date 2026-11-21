@@ -487,9 +487,15 @@ allowed_paths = ["crates/arvane-native/", "crates/kivact-gpu-share/", "crates/ar
 allowed_types = ["kivact_ui::button::BusyInput", "kivact_ui::progress::ProgressMotionInput", "kivact_ui::alert::BannerMachine", "kivact_ui::empty_state_changes::Controller"]
 
 [hand_element]
-# kivact-core の view の外で手書きの impl Element / impl IntoView を許す唯一の組（"<定義の path> <file>"）。
-# Tooltip<T> は node が trigger の root で、surface を兄弟として出すので、root が一つの #[component] にできない（設計 5.1）。
-allowed_impls = ["kivact_ui::tooltip::Tooltip crates/kivact-ui/src/tooltip.rs"]
+# kivact-core の view の外で手書きの impl Element / impl IntoView を許す組（"<定義の path> <file>"）。
+# trigger に付いて surface を兄弟で出す builder（Tooltip・Dialog・HoverCard・Disclosure）と、型付きの panel を積む DisclosureGroup。root が一つの #[component] にできない（設計 5.1）。
+allowed_impls = [
+  "kivact_ui::tooltip::view::Tooltip crates/kivact-ui/src/tooltip/view.rs",
+  "kivact_ui::dialog::view::Dialog crates/kivact-ui/src/dialog/view.rs",
+  "kivact_ui::hover_card::view::HoverCard crates/kivact-ui/src/hover_card/view.rs",
+  "kivact_ui::disclosure::view::Disclosure crates/kivact-ui/src/disclosure/view.rs",
+  "kivact_ui::disclosure::group::DisclosureGroup crates/kivact-ui/src/disclosure/group.rs",
+]
 
 [module_rules.arvane-virtual.uses]
 clock = []
