@@ -23,6 +23,7 @@ mod form_layout;
 mod hover_card;
 mod icon;
 mod icons;
+mod indicator;
 mod key_hints;
 mod layout;
 mod media_query;
@@ -115,6 +116,10 @@ pub use form_layout::{
 pub use hover_card::{HoverCardText, hover_card_text};
 pub use icon::{IconColor, IconSize, IconView, icon_view};
 pub use icons::ICON_NAMES;
+pub use indicator::{
+    CheckIndicator, CheckboxIndicator, RadioIndicator, check_indicator, checkbox_indicator,
+    radio_indicator,
+};
 pub use key_hints::{keyboard_hint, with_key_hints};
 pub use layout::{
     Layout, LayoutHeight, LayoutInset, LayoutRegion, layout, layout_content, layout_header,
