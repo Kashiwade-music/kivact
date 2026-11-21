@@ -1192,3 +1192,10 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
   - 行 145 `DateInput`（`crates/kivact-ui/src/date_input/view.rs`）：`independent:`。`label` の句を足した（書き手は `label()` だけ）。
   - 行 146 `DateRangeInput`（`crates/kivact-ui/src/date_range_input/view.rs`）：`independent:`。`constraint`（`Option<Constraint>`）は `date_constraint()` だけが設定し、`range_validator` が読む。無ければ全日を許す。`constraints: Vec` の句は現在の file に該当する field が無かった。
 - 残り：L4 の行 42・43（devtools の `Session::send` の失敗の経路を `report` に通す。印は表の文どおり）と、arvane-native の `windows.rs` の未使用の import（使う cfg の下へ移す）は、`wt/rw-W8fb` で作業中。
+
+## KPI の後退（CP2、統合 `3c48495b` の前、2026-11-22）
+
+- 測定：`rework/kpi/CP2.md`（1 回目。`dev/bench/results/CP2.md` から写した）。比：`rework/kpi/CP2-ratio.md`（`cargo xtask kpi-compare rework/kpi/B0.md rework/kpi/CP2.md`）。INVALID・WARNING は無し。
+- 後退（9 行）：K2 3000 rows idle WS（1.395）、K2 per_item box（1.457）、K2 per_item text（1.668）、K2 per_item button（1.365）、K2 per_item row（1.478）、K4 3000 rows work p95（1.059）、K4 3000 rows work p99（1.151）、K5 wheel p95 n3000（1.079）、K5 counter click p95（1.283）。
+- 改善未達（1 行）：K3 3000 rows continuous CPU（0.917、目標 ≤ 0.85 の改善の必達に届かず）。
+- 判定：CP1 と同じく 3 回中 2 回で判定する（`rework/kpi/CP2-r2.md`・`CP2-r3.md`）。この 1 回目では判定しない。r2・r3 を取るかどうかは設計者の指示を待つ。Orchestrator は直さない。
