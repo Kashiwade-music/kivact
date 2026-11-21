@@ -233,7 +233,7 @@ fn a_disabled_trigger_node_disables_the_disclosure() {
             )),
         )
     });
-    screen.get_by_role(Role::Button, "Details").click();
+    assert!(screen.get_by_role(Role::Button, "Details").is_disabled());
     assert!(!open.get_untracked(), "a disabled trigger ignores a press");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
