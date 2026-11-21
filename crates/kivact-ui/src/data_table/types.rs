@@ -146,7 +146,7 @@ pub enum DataTableTreeIndent {
     Large,
 }
 
-// xtask-allow(state): legacy: grouping, tree, tree_expand_all, column_order, selection, row_selectable, page_sizes, row_index, filter, column_filters, typed_column_filters, sticky, widths, resize_range, row_label, actions, row_context_menu, toolbar, footer, details, expanded_rows, cells, row_height, row_status, row_color; DataTable::group_by key and collapsed binding; absent shows each page's rows without group headers
+// xtask-allow(state): independent: each optional feature and the tree_expand_all flag is set only by its own by-value setter and taken once while into_view consumes the table; a feature whose base is absent (page_sizes without paging, expanded_rows without details, expand_all_control without tree) is ignored
 /// A table of the caller's rows, created by [`data_table`].
 pub struct DataTable<R: 'static, K: 'static> {
     pub(super) root: Node,

@@ -16,7 +16,7 @@ pub struct ItemRow {
     root: Node,
     contents: RowContents,
 }
-// xtask-allow(state): legacy: title_content, description, description_content, media, actions, header, footer, marker, delegate, position, title_lines, description_lines; absent
+// xtask-allow(state): independent: the title, description_content, media, actions, header, footer and marker slots are optional (custom content wins over the text it replaces), delegate is an optional activation target, and position and the line counts optional overrides; the row's by-value setters write them and content only moves slots out while render consumes the row
 struct RowContents {
     title: Value<String>,
     title_content: Option<View>,

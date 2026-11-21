@@ -17,7 +17,7 @@ use kivact_interaction::{IntoSelection, ListItem, Selection};
 
 type ToggleItemSlot<K> = ViewFn<(Value<ListItem<K>>, Value<ToggleButtonState>)>;
 
-// xtask-allow(state): legacy: spacing, item
+// xtask-allow(state): independent: spacing overrides the theme gap and item replaces each toggle's contents; both are set only by their by-value setters
 /// Single or multiple toggles with native roving focus, created by [`toggle_group`].
 pub struct ToggleGroup<K: ItemKey> {
     root: Node,
