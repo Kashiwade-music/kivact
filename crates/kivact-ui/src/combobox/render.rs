@@ -1,7 +1,7 @@
 //! Role: Render one combobox query and selection through themed editor and list parts.
 use super::ComboboxMode;
 use super::data::Combobox;
-use super::labels::{KnownLabels, label};
+use super::labels::label;
 use super::notices::Notices;
 use crate::combobox::look::ComboboxTheme;
 use crate::helpers::{is_named, report_unnamed};
@@ -13,7 +13,9 @@ use kivact_core::view::{
     Element, Handled, IntoView, Key, Placement, PointerKind, PointerPhase, View, column, for_each,
     icon, node, node_ref, overlay, row, scroll, show, text,
 };
-use kivact_interaction::{ComboboxApi, ComboboxOptions, ListItem, Selection, use_combobox};
+use kivact_interaction::{
+    ComboboxApi, ComboboxOptions, ListItem, Selection, known_options, use_combobox,
+};
 
 /// The combobox frame takes no input while the combobox is disabled.
 fn frame_availability(disabled: bool) -> kivact_core::view::Availability {
@@ -497,7 +499,7 @@ fn prepare<K: ItemKey>(field: &mut Combobox<K>) -> Mounted<K> {
     if let Some(observer) = field.on_edit {
         edit.on_edit(move |phase| observer.call(phase));
     }
-    let known = KnownLabels::new(field.options);
+    let known = known_options(field.options);
     let retained_labels = known.values();
     let notices = Notices::new();
     let selection = editable_selection(selection, retained_labels, notices, edit);
@@ -527,7 +529,7 @@ fn prepare<K: ItemKey>(field: &mut Combobox<K>) -> Mounted<K> {
         }
         rows
     });
-    known.observe(label_source, selection);
+    known.follow(label_source, selection);
     let known = known.values();
     list = filter_options(
         list,
