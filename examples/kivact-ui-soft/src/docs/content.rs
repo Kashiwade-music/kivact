@@ -93,7 +93,7 @@ fn example_empty_state() -> Node {
     specimen(
         "Empty project",
         kivact::ui::empty_state("No documents")
-            .announce_changes()
+            .announce_changes(true)
             .description("Create a document to get started.")
             .icon(icon_view("search"))
             .actions(kivact::ui::button("New document")),

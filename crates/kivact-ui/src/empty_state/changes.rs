@@ -1,7 +1,7 @@
 //! Role: Observe actual empty-message eligibility and publish accepted changes.
 use kivact_core::custom::NodeRefExt;
 use kivact_core::state::{Machine, Step, Value, effect, machine, on_mount};
-use kivact_core::view::{IntoView, LiveRegion, Node, View, node_ref};
+use kivact_core::view::{LiveRegion, Node, node_ref};
 
 #[derive(Clone, PartialEq)]
 enum Sent {
@@ -74,12 +74,12 @@ impl Machine for Controller {
         }
     }
 }
-/// Attach one observer to the actual message subtree, leaving its outlet mounted.
+/// Attach one observer to the actual message subtree; its outlet is a child of the message.
 pub(super) fn observe(
     title: Value<String>,
     description: Option<Value<String>>,
     content: Node,
-) -> View {
+) -> Node {
     let notices = kivact_interaction::use_announcer();
     let controller = machine(
         Phase::Mounting,
@@ -106,7 +106,7 @@ pub(super) fn observe(
         on_mount(move || controller.send(Event::Mounted(initial, observation())));
         effect(move || controller.send(Event::Observe(observation())));
     });
-    (content, crate::announcer_outlet(notices)).into_view()
+    content.child(crate::announcer_outlet(notices))
 }
 fn announcement_text(title: &str, description: Option<&str>) -> String {
     let normalize = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");

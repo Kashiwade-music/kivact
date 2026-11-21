@@ -85,8 +85,9 @@ impl<T: Element + IntoView> Element for Tooltip<T> {
 
 impl<T: Element + IntoView> IntoView for Tooltip<T> {
     /// Show the hint for the trigger and return the trigger with it. A trigger
-    /// without a description of its own is described by the label; one that
-    /// has a description keeps it. The surface is mounted in a fresh owner
+    /// without a description of its own is described by the label while the
+    /// tooltip is enabled; one that has a description keeps it, and a disabled
+    /// tooltip adds no description. The surface is mounted in a fresh owner
     /// while the tooltip is shown. Moving the pointer onto the hint keeps it
     /// shown until the pointer leaves both the trigger and the hint.
     fn into_view(mut self) -> View {
@@ -94,9 +95,10 @@ impl<T: Element + IntoView> IntoView for Tooltip<T> {
         let behavior = kivact_interaction::use_tooltip(self.enabled);
         let part = behavior.trigger();
         let anchor = node_ref();
+        let enabled = self.enabled;
         let fallback = kivact_core::custom::Part::new(part.state(), move |mut node| {
             // Earlier parts publish their semantics when the node is resolved.
-            if node.has_description() {
+            if node.has_description() || !enabled.get_untracked() {
                 node
             } else {
                 node.description(self.label)
