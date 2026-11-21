@@ -1284,3 +1284,21 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
 - **確認 3（K4 の progress_cell）**：採る。元の enum の 5 つ目の variant を落とさないための追加で、正しい。ただし名前と形は他の 4 つとそろえ、`#[component]` の `ProgressCell` にする（関数の `progress_cell` は作らない）。付属書 K の 4.4.3 の表を直した。
 - **確認 4（K4 の stepper の「not reached」の文字色）**：K26 の写し間違い。基点どおり `TEXT_3` に直す（見た目を変えない）。lane K4 の fix の commit にする。
 - **確認 5（K6 の K10 の commit を merge の前にする）**：採る。
+
+## 設計者の回答（W9 の確認 7 点：K11・K16・K3・K5、2026-11-22）
+
+- **K11 の menu_tooltip**：採る。interaction の `use_tooltip` の機械を使っていて、暗黙の状態は無い。見た目が `SidebarTheme::menu_tooltip` の part なのは、付属書 K の SidebarTheme の part の表（4.4 の行）と合う。付属書 K の K11 の手順 1a を、この形に書き直した。
+- **K11 の `"panel-left"` の icon**：`"chevrons-left"` にしない（見た目が変わる）。中核の標準の icon に `"panel-left"` を足す。
+  - 置き場は `crates/kivact-style/src/icon.rs`（`CHEVRONS_LEFT` と同じ形の `static PANEL_LEFT`、表に `("panel-left", PANEL_LEFT)`）。
+  - SVG は他の標準の icon と同じ書き方で、私が書いた次のもの（kit の lucide の asset は写さない）：`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>`。
+  - 標準の icon の一覧の試験や doc に名前の表があれば、そこにも足す。所有は lane K6 の fix の commit。
+- **K11 の test_id・style の位置**：採る（部品の root に載るのは C の規則どおり）。W11b の移行の文書に 1 行足す：「`SidebarMenuButton` の `test_id`・`style` は、行の root（list item）に付く。」
+- **K11 の `scrollbar_width(0)`**：削らない。`kivact::style` に `ScrollbarWidth::None`（「Hidden; scrolling still works.」）がある。`.scrollbar_width(ScrollbarWidth::None)` で戻す。lane K6 の fix の commit。
+- **K16 の kbd・spinner**：採る（kbd は今の root の recipe が一つの key の箱を形づくるので `KbdTheme::key` でよい）。
+- **K16 で外した 3 点**（input_group の merge、progress の bar 以外の分岐、disclosure の Trace）：3 点とも K17 が戻す（disclosure の Trace も K17。別の「trace の unit」は付属書に無い）。K17 の完了条件に、3 点が基点と同じ見た目で戻っていることを足す。K17 の tier a の後、Orchestrator が 3 点を戻した commit を PROGRESS に書く。
+- **K3 の numeric の E2E**：creative の試験が compile に戻る K38（creative の catalog と試験の unit）の tier a で確かめる。`typing.edit` の確認はそこまで持ち越す。落ちたら返す。
+- **K5 の `DisclosureVariant`**：V4 の束の分解に当てる（名前は `*Variant` だが、`chevron`・`density`・`dividers` の 3 つの値の束で、`*Look`・`*Appearance` と同じ形だから）。
+  - 各 field を V4 のとおり variant にする。field の型が kit の enum ならその enum に `impl Variant` を付けて使う。`bool` などは `DisclosureChevron(pub ..)`・`DisclosureDensity(pub ..)`・`DisclosureDividers(pub bool)` の newtype にする。
+  - 名前は V4 の `<Component><Field>`。`DisclosureVariant` の struct は消す。
+  - 所有は K5 lane で disclosure を変換する unit。その unit が済んでいれば、K5 lane の fix の commit にする。
+  - 付属書 K の 4.4.5 の表への追加は、Orchestrator が PROGRESS に「K28 の表の漏れ：DisclosureVariant → 分解」と 1 行書けばよい。

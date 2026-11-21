@@ -1720,7 +1720,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   `sidebar` は provider の外で使うと、開いた sidebar として描く（今の basic と同じ）。provider は `SidebarSide`・`SidebarFrame`・`SidebarCollapsible` と `open` を context で `sidebar` と部品に渡す（今の `SidebarCx`）。`Ctrl/Cmd+B` で開閉する（今のまま）。
 - **手順**：
   1. 移す：`git mv crates/kivact-ui-basic/src/sidebar crates/kivact-ui/src/sidebar` と `git mv crates/kivact-ui-basic/src/sidebar.rs crates/kivact-ui/src/sidebar.rs`（`mod.rs` は作らない。annex U 1.4 節）。
-  1a. 移した `sidebar/menu.rs` の `menu_tooltip` の `tooltip(..).attach(..)` は C12 の `tooltip(label, trigger)` にする。
+  1a. 移した `sidebar/menu.rs` の `menu_tooltip` は、interaction の `use_tooltip` と `overlay` の形のまま残し、見た目は `SidebarTheme::menu_tooltip` の part で決める（icon の列のときだけ出す tooltip で、見た目が sidebar の part だから。C12 の対象から外す。OPEN の 2026-11-22 の回答）。trigger の icon は中核の標準の icon `"panel-left"`（`kivact-style/src/icon.rs` に足す）。
   2. path と名前の書換え：
 
      ```
