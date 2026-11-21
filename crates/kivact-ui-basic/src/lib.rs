@@ -6,8 +6,15 @@
 //! boundary: it sets the kit's color variables and the core variables that
 //! draw every standard component of `kivact::ui` in this look.
 
+mod attachment;
+mod card_header;
 mod color;
+mod field;
 mod icons;
+mod input_otp;
+mod marker;
+mod menubar;
+mod native_select;
 mod recipe_parts;
 mod recipes_calendar;
 mod recipes_chat;
@@ -26,9 +33,14 @@ mod recipes_overlays;
 mod recipes_overlays_combobox;
 mod recipes_overlays_command;
 mod recipes_overlays_dialog;
+mod scroll_area;
 mod theme;
 mod variants;
 
+pub use attachment::{
+    Attachment, AttachmentState, attachment, attachment_action, attachment_group,
+};
+pub use card_header::{CardHeader, card_header};
 pub use color::{
     ACCENT, ACCENT_FOREGROUND, ACCENT_FOREGROUND_VAR, ACCENT_VAR, BACKGROUND, BACKGROUND_VAR,
     BORDER, BORDER_VAR, BUBBLE_TINTED, BUBBLE_TINTED_HOVER, BUBBLE_TINTED_HOVER_VAR,
@@ -44,7 +56,13 @@ pub use color::{
     SIDEBAR_PRIMARY_FOREGROUND_VAR, SIDEBAR_PRIMARY_VAR, SIDEBAR_RING, SIDEBAR_RING_VAR,
     SIDEBAR_VAR, SWITCH_THUMB, SWITCH_THUMB_VAR,
 };
+pub use field::{FieldSeparator, FieldSet, field_content, field_group, field_separator, field_set};
 pub use icons::ICON_NAMES;
+pub use input_otp::{InputOtp, OtpPattern, input_otp};
+pub use marker::{Marker, marker};
+pub use menubar::{Menubar, menubar};
+pub use native_select::{NativeSelect, NativeSelectSize, native_select};
+pub use scroll_area::{ScrollArea, scroll_area};
 pub use theme::theme;
 pub use variants::{
     AlertDialogSize, AlertTone, AttachmentMediaVariant, AttachmentSize, BadgeVariant,
