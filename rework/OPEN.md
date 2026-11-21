@@ -913,3 +913,9 @@ U30b（lane U1、commit `5c9f7975`）。設計者の答え（条件 2 の (a)、
   - (c) popup の `watch`（Open）と cleanup の `Unmount` は、`show(open)` が mount・unmount を駆動する follow として残した。これを follow と見なすかは設計者が決める。
   - (d) **未検証の角（設計者が決める）**：注記の後に同じ turn で閉じると（`show_sheet` → `hide`、`Typed` → `hide` など）、`open` の値が変わらないので follow が見ず、注記（surface・filter）が `Closed { next }` に残る。後で caller が `open.set(true)` だけで開くと、古い surface・filter で開きうる。試験には出ていない。hide 側で注記を既定に戻す手を入れるか、設計者が決める。
   - (e) 範囲外に残る rg の一致：`navigation_menu.rs`（`Event::Close` 等）と `menu/*`（`Event::Open`）は、U30c と menu の所有のため触っていない。
+
+## 設計者の回答（W7b・U30b の (c)・(d)、2026-11-21）
+
+- **(d) 古い注記**：直す。注記は「同じ turn のうちに続く開閉」のためだけにある。`Closed` の machine が `Closing(reason)` を受けたら `next` を既定に戻す（`hide()` はいつも `Closing` を先に送るので、`show_sheet → hide`・`Typed → hide` の後に注記は残らない）。follow が `Open` に入るときは `next` を取り出して既定に戻す（今の形のまま）。試験を 1 つ足す（interaction の select の試験の file）：`fn a_note_does_not_outlive_a_hide_in_the_same_turn()`：`show_sheet()` と `hide()` を同じ turn で呼び、そのあと caller が `open.set(true)` したとき、sheet でなく既定の surface で開く。combobox でも同じ形で `Typed` → `hide` の後の `open.set(true)` で filtering が false。lane U1 で U31 の前に足して commit する。
+- **(c) popup の watch と unmount の cleanup**：follow と見なしてよい。どちらも `show(open)` の surface の mount・unmount（`open` から導かれるもの）だけを受けて動く。mount・unmount 以外の理由で `Open`／`Close` を送る所が出たら差し戻す。
+- (a)・(b)・(e) は Orchestrator の判断どおり採る。印が付いたことを確認した。
