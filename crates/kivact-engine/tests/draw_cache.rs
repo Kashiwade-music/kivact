@@ -2,12 +2,15 @@
 //! a stale kept drawing is caught, and scrolling keeps the list bounded.
 
 use kivact_engine::api::Client;
-use kivact_engine::contract::{BoxData, NodeKind, TurnOutput};
+use kivact_engine::contract::{
+    BoxData, DrawableMode, DrawableRole, ExportRequestMode, HostRequest, NodeKind, TurnOutput,
+};
 use kivact_engine::testing::{ArvaneTestHost, MirrorMode, TestHostOptions};
+use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::Fill;
 use kivact_types::{
-    ElementTransform, LayoutProps, Length, NodeId, Overflow, PaintProps, Point, Rgba, WillChange,
-    WindowId,
+    DrawableId, ElementTransform, LayoutProps, Length, NodeId, Overflow, PaintProps, Point, Rgba,
+    WillChange, WindowId,
 };
 
 const ROOT: NodeId = NodeId(1);
@@ -157,4 +160,85 @@ fn rows_scrolled_out_drop_their_kept_drawings() {
             step * 100
         );
     }
+}
+
+const DRAWABLE: NodeId = NodeId(3);
+const DRAWABLE_ID: DrawableId = DrawableId(1);
+
+/// A host with one export drawable (100 × 100) under the root.
+fn start_with_drawable() -> ArvaneTestHost {
+    ArvaneTestHost::new(
+        Client::new(
+            |_, _, writer| {
+                writer.create(WindowId::MAIN, ROOT, NodeKind::Root);
+                writer.create(WindowId::MAIN, DRAWABLE, NodeKind::Box(BoxData::default()));
+                writer.insert(ROOT, DRAWABLE, None);
+                writer.set_layout(DRAWABLE, sized(100.0, 100.0));
+                writer.set_drawable(
+                    DRAWABLE,
+                    Some(DrawableRole {
+                        id: DRAWABLE_ID,
+                        mode: DrawableMode::Export,
+                    }),
+                );
+                writer.commit();
+            },
+            |_, _, _| TurnOutput::default(),
+        ),
+        TestHostOptions {
+            mirror: MirrorMode::Off,
+            ..TestHostOptions::default()
+        },
+    )
+    .expect("the test host starts")
+}
+
+/// The identity moved by `x` logical px along the x axis.
+fn moved_by(x: f64) -> Matrix4 {
+    let mut m = [[0.0; 4]; 4];
+    for (i, row) in m.iter_mut().enumerate() {
+        row[i] = 1.0;
+    }
+    m[0][3] = x;
+    Matrix4 { m }
+}
+
+/// The geometry the app writes for a drawable is applied and reported by
+/// the write's own pass: a wake after the frame syncs nothing, presents no
+/// frame and leaves the paint list the size it was.
+#[test]
+fn a_drawable_geometry_write_leaves_no_report_pending() {
+    let mut host = start_with_drawable();
+    host.writer().set_engine_recording(true, true);
+    host.redraw();
+    host.writer().drawable_request(HostRequest::DrawableExport {
+        id: DRAWABLE_ID,
+        generation: 1,
+        mode: ExportRequestMode::None,
+        scale: None,
+    });
+    host.writer()
+        .drawable_request(HostRequest::SetDrawableGeometry {
+            id: DRAWABLE_ID,
+            generation: 1,
+            geometry: Some(moved_by(10.0)),
+        });
+    host.writer().commit();
+    host.wake();
+    host.redraw();
+    let settled = host.paint_list_sizes(WindowId::MAIN);
+    let _ = host.writer().reader().take_engine_records();
+    host.wake();
+    let after = host.writer().reader().take_engine_records();
+    assert!(
+        after.syncs.is_empty(),
+        "a wake after the write synced again: {:?}",
+        after.syncs
+    );
+    assert!(
+        after.frames.is_empty(),
+        "a wake after the write presented a frame: {:?}",
+        after.frames
+    );
+    assert_eq!(host.paint_list_sizes(WindowId::MAIN), settled);
 }

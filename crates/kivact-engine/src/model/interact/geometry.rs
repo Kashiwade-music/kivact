@@ -596,7 +596,8 @@ impl Model {
             })
     }
 
-    fn report_geometry(&mut self, engine: &mut arvane_text::TextEngine) {
+    /// Queue the geometry reports that are due (the marks taken from `Changes`).
+    pub(crate) fn report_geometry(&mut self, engine: &mut arvane_text::TextEngine) {
         let marks: std::collections::HashSet<NodeId> =
             self.changes.take(Dirty::REPORT).into_iter().collect();
         let scrollers: Vec<NodeId> = self
