@@ -770,3 +770,13 @@ E25（lane E1、作業ツリーの未 commit の 6 file。HEAD は `6b66158b`）
 - **E26（`935ea765`、lane `wt/rw-W7a-E1`）**：採る。`HostNode` の `scroll`・`shift` を `NodeTree` の疎な表へ移した（`size_of <= 280` の assert は通る）。付属書との食い違い 1〜4（`report_geometry` の読む順は `ScrollReport` の値を変えないため、`children_frame` の未使用の引数を消した、CRLF の復元、`scroll_of` は既定値を返す。`?` の所は `self.tree.get(p)?;` で Option の意味を保った）は、配置と同じ形の選択で、振る舞いは変えない。確認（engine の試験 13 件、E2E の e2e_core 10 module と e2e_ui 3 module、fmt、clippy、xtask、check）は通った。
 - **U23（`8270c564`、lane `wt/rw-W7a-U1`）**：採る。設計者の印の commit `e23f39a8` が `stepper/view.rs` を CRLF の blob で入れて、親との diff が全行になっていた。`git add --renormalize` で index を LF に戻した（内容は `e23f39a8^` との 1 行の追加のまま）。clippy は `--no-deps`（arvane-native の既存の warning のため）。xtask（`kivact-ui`・`kivact-interaction`）は error 0。e2e_ui 154・16 件、e2e_core view 11 件は通った。
 - **U23 の完了条件の rg の残り（`TextEditApi::on_draft_commit`、`crates/kivact-interaction/src/text_edit/handle.rs:218`）**：受け入れる（0.5 の「目的・消すものに挙がらない既存の行」）。付属書の手順 1 は ui の `TextInput` の builder だけを改名すると書いており、interaction の method は所有の外。設計者が後で付属書に書くかを決める。
+
+## 差戻し（W7a・U24、2026-11-21）
+
+U24（lane U1、commit `c691dd01`）で、付属書の `Element::variant` に移せない builder が 5 つある。U1 lane はここで止める（W7b の U 側は U24 の後）。
+
+- **対象**：`crates/kivact-ui/src/{dialog/view.rs:Dialog, menu/view.rs:Menu, toast/view.rs:ToastRegion, hover_card/view.rs:HoverCard, command_palette/view.rs:CommandPalette}`。これらには `impl Element for` が無く、node を持たない（付属書 U24 の手順 3 は `Element::variant` に移すと書く）。
+- **いまの形**：inherent の `pub fn variant` と `variants` の field を残し、型だけ core の `Variants` にした（`std::mem::take(..).with(v)`）。
+- **設計者が決める**：(a) この 5 つに node を持たせる（`impl Element` を足す）、(b) W7b の U30a・U30b・U30c で作り直すまで inherent のまま残す、(c) 別の形。
+- 同じ報告の食い違い（判断済み）：1 の `Variants::merge` を `#[doc(hidden)] pub` にした（継承に必要。`Node::authored` と同じ前例）。3 の `Prop` derive の追加（`IntoValue<V>` に要る）。4 の `Look` の derive を `Clone` だけに。5 の tooltip の variants は trigger の node から読む（U47 の注記どおり）。6 の `cargo fix` で unused import を消した。7 の完了条件の `rg "variants: Variants"` は、内部 struct の field 21 件を数える（builder ではないので、0.5 の「目的に挙がらない既存の行」として受け入れる案）。
+- xtask（報告だけ）：`--strict --only element-shadow,hand-element` は exit 1、`hand-element` 130 件（W8 で消す）、`element-shadow` 0 件。結果は PROGRESS に書いた。
