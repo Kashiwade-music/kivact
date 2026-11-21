@@ -1,147 +1,93 @@
 //! Role: Compose alert confirmation with the standard modal behavior.
-use kivact::interaction::DialogMode;
+use crate::media_query::Breakpoint;
+use kivact::component;
 use kivact::state::Callback;
-use kivact::state::IntoText;
-use kivact::state::IntoValue;
+use kivact::state::Signal;
 use kivact::state::Value;
-use kivact::state::{IntoHandler, Signal};
 use kivact::style::Justify;
 use kivact::style::Length;
 use kivact::style::pct;
 use kivact::style::style;
 use kivact::ui::ButtonVariant;
+use kivact::ui::DialogKind;
 use kivact::ui::button;
 use kivact::ui::dialog;
 use kivact::view::Element;
-use kivact::view::IntoView;
-use kivact::view::View;
 use kivact::view::column;
+use kivact::view::node;
 use kivact::view::node_ref;
 use kivact::view::row;
 use kivact::view::show;
-use std::rc::Rc;
 
 /// Confirmation dialog with a cancel button and an optional application action.
-// Immutable canonical Dialog plus its same caller-owned open binding, action/cancel configuration and independent application loading input; no local dialog lifecycle is stored.
-pub struct AlertDialog {
-    dialog: kivact::ui::Dialog,
-    open: Signal<bool>,
-    action: Option<(String, Rc<dyn Fn()>)>,
-    cancel: Option<String>,
-    variant: ButtonVariant,
-    loading: Value<bool>,
-}
-
-/// Create a 400-pixel alert modal with cancel focused initially and no close affordance.
+///
+/// The dialog is 400 pixels wide unless `width` is set, and has no close
+/// affordance. `on_press` runs when the action button is pressed; the
+/// callback decides whether and when to close the dialog.
+#[component]
 pub fn alert_dialog(
-    title: impl IntoText,
-    description: impl IntoText,
+    title: Value<String>,
+    description: Value<String>,
     open: Signal<bool>,
-) -> AlertDialog {
-    AlertDialog {
-        dialog: dialog(title, open)
-            .mode(DialogMode::AlertModal)
-            .description(description)
-            .width(Length::from(400))
-            .closable(false),
-        open,
-        action: None,
-        cancel: None,
-        variant: ButtonVariant::Danger,
-        loading: false.into_value(),
+    action_label: Option<String>,
+    on_press: Option<Callback<()>>,
+    cancel_label: Option<String>,
+    #[prop(default = ButtonVariant::Danger)] action_variant: ButtonVariant,
+    #[prop(default = false)] action_loading: Value<bool>,
+    width: Option<Value<Length>>,
+) -> impl Element {
+    let cancel_ref = node_ref();
+    let mut modal = dialog(title, open)
+        .mode(DialogKind::AlertModal)
+        .description(description)
+        .width(Length::from(400))
+        .closable(false);
+    if let Some(width) = width {
+        modal = modal.width(width);
     }
-}
-
-impl AlertDialog {
-    /// Add the confirmation action; the callback decides whether and when to close the dialog.
-    pub fn action<M>(mut self, label: impl Into<String>, action: impl IntoHandler<(), M>) -> Self {
-        let action: Callback<()> =
-            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
-        self.action = Some((label.into(), Rc::new(move || action.call(()))));
-        self
-    }
-
-    /// Replace the localized cancel-button label.
-    pub fn cancel_label(mut self, label: impl Into<String>) -> Self {
-        self.cancel = Some(label.into());
-        self
-    }
-
-    /// Choose the confirmation-button appearance; danger by default.
-    pub fn action_variant(mut self, variant: ButtonVariant) -> Self {
-        self.variant = variant;
-        self
-    }
-
-    /// Show the confirmation button as busy from a read-only input; false by default.
-    pub fn action_loading(mut self, loading: impl IntoValue<bool>) -> Self {
-        self.loading = loading.into_value();
-        self
-    }
-
-    /// Set the dialog width; defaults to 400 pixels.
-    pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
-        self.dialog = self.dialog.width(width);
-        self
-    }
-}
-
-impl IntoView for AlertDialog {
-    fn into_view(self) -> View {
-        let cancel_ref = node_ref();
-        let open = self.open;
-        let cancel = self.cancel;
-        let action = self.action;
-        let variant = self.variant;
-        let loading = self.loading;
-        self.dialog
-            .initial_focus(cancel_ref)
-            .footer(move || {
-                let actions = {
-                    let cancel = cancel.clone();
-                    let action = action.clone();
-                    move |compact| {
-                        let cancel = button(cancel.clone().unwrap_or_else(|| {
-                            kivact::i18n::message("soft.alert_dialog.cancel", "Cancel").get()
-                        }))
-                        .variant(ButtonVariant::Ghost)
-                        .node_ref(cancel_ref)
-                        .on_press(move || open.set(false));
-                        let action = action.as_ref().map(|(label, action)| {
-                            let action = action.clone();
-                            button(label.clone())
-                                .variant(variant)
-                                .busy(loading)
-                                .on_press(move || action())
-                        });
-                        if compact {
-                            let full = style().width(pct(100));
-                            column((
-                                action.map(|action| action.style(full.clone())),
-                                cancel.style(full),
-                            ))
-                            .style(style().gap(8).width(pct(100)))
-                        } else {
-                            row((cancel, action))
-                                .style(style().gap(8).wrap(true).justify_content(Justify::End))
-                        }
-                    }
-                };
-                let desktop = actions.clone();
-                (
-                    show(
-                        || {
-                            kivact::platform::window_size().get().width
-                                <= crate::Breakpoint::Sm.px()
-                        },
-                        move || actions(true),
-                    ),
-                    show(
-                        || kivact::platform::window_size().get().width > crate::Breakpoint::Sm.px(),
-                        move || desktop(false),
-                    ),
-                )
-            })
-            .into_view()
-    }
+    let footer = move || {
+        let actions = {
+            let cancel_label = cancel_label.clone();
+            let action_label = action_label.clone();
+            move |compact| {
+                let cancel = button(cancel_label.clone().unwrap_or_else(|| {
+                    kivact::i18n::message("soft.alert_dialog.cancel", "Cancel").get()
+                }))
+                .variant(ButtonVariant::Ghost)
+                .node_ref(cancel_ref)
+                .on_press(move || open.set(false));
+                let action = on_press.and_then(|on_press| {
+                    action_label.as_ref().map(|label| {
+                        button(label.clone())
+                            .variant(action_variant)
+                            .busy(action_loading)
+                            .on_press(move || on_press.call(()))
+                    })
+                });
+                if compact {
+                    let full = style().width(pct(100));
+                    column((
+                        action.map(|action| action.style(full.clone())),
+                        cancel.style(full),
+                    ))
+                    .style(style().gap(8).width(pct(100)))
+                } else {
+                    row((cancel, action))
+                        .style(style().gap(8).flex_wrap(true).justify_content(Justify::End))
+                }
+            }
+        };
+        let desktop = actions.clone();
+        (
+            show(
+                || kivact::platform::window_size().get().width <= Breakpoint::Sm.px(),
+                move || actions(true),
+            ),
+            show(
+                || kivact::platform::window_size().get().width > Breakpoint::Sm.px(),
+                move || desktop(false),
+            ),
+        )
+    };
+    node().child(modal.initial_focus(cancel_ref).footer(footer))
 }

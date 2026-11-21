@@ -8,6 +8,7 @@
 //!     App::new("App").theme(soft::theme(ThemeMode::Light)).run(|| button("Save"))
 //! }
 //! ```
+mod alert_dialog;
 mod avatar;
 mod banner;
 mod blockquote;
@@ -15,10 +16,13 @@ mod card;
 mod code;
 mod color;
 mod divider;
+mod feedback;
+mod field_status;
 mod hover_card;
 mod icon;
 mod icons;
 mod layout;
+mod media_query;
 mod metrics;
 mod motion;
 mod radius;
@@ -61,6 +65,7 @@ mod type_scale;
 mod variants;
 mod visually_hidden;
 
+pub use alert_dialog::{AlertDialog, alert_dialog};
 pub use avatar::{AvatarSilhouette, avatar_silhouette};
 pub use banner::{BannerIcon, banner_icon};
 pub use blockquote::{Blockquote, BlockquoteText, blockquote, blockquote_text};
@@ -97,6 +102,8 @@ pub use color::{
     TRACK, WARNING, WARNING_MUTED,
 };
 pub use divider::{Divider, DividerVariant, divider};
+pub use feedback::{StatusDot, StatusDotVariant, status_dot};
+pub use field_status::{FieldStatus, FieldStatusVariant, StatusKind, field_status};
 pub use hover_card::{HoverCardText, hover_card_text};
 pub use icon::{IconColor, IconSize, IconView, icon_view};
 pub use icons::ICON_NAMES;
@@ -104,6 +111,7 @@ pub use layout::{
     Layout, LayoutHeight, LayoutInset, LayoutRegion, layout, layout_content, layout_header,
     layout_panel,
 };
+pub use media_query::Breakpoint;
 pub use radius::{
     RADIUS_CHAT, RADIUS_CONTAINER, RADIUS_ELEMENT, RADIUS_FULL, RADIUS_INNER, RADIUS_NONE,
     RADIUS_PAGE,

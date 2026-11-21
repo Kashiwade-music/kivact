@@ -1,9 +1,7 @@
 //! Role: Read responsive breakpoints from the viewport and measured containers.
 use kivact::platform::window_size;
-use kivact::state::IntoValue;
 use kivact::state::Value;
 use kivact::state::memo;
-use kivact::view::NodeRef;
 
 /// Named viewport-width thresholds, measured in logical pixels.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -37,6 +35,3 @@ impl Breakpoint {
 pub(crate) fn viewport_below(breakpoint: Breakpoint) -> Value<bool> {
     memo(move || window_size().get().width < breakpoint.px())
 }
-
-
-
