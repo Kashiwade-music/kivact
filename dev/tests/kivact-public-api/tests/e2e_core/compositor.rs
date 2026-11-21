@@ -13,7 +13,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use kivact::draw::RegionId;
-use kivact::draw::{Composite, Layer};
+use kivact::draw::{Composite, Layer, Mix};
 use kivact::prelude::*;
 use kivact::style::{BlendMode, Filter, PaintShader};
 use kivact::style::{Isolation, TransformStyle, WillChange, rgba};
@@ -295,9 +295,10 @@ fn destination_out_cuts_a_hole() {
     let screen = render(|| {
         canvas(|d, _| {
             d.fill_rect(Rect::new(0.0, 0.0, 200.0, 200.0), rgb(RED));
-            d.layer(Layer::new().composite(Composite::DestinationOut), |d| {
-                d.circle(Point::new(100.0, 100.0), 40.0, rgb(BLACK))
-            });
+            d.layer(
+                Layer::new().mix(Mix::Composite(Composite::DestinationOut)),
+                |d| d.circle(Point::new(100.0, 100.0), 40.0, rgb(BLACK)),
+            );
         })
         .style(style().size(200, 200).background(Color::WHITE))
     });

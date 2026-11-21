@@ -8,7 +8,7 @@
 //! They compare no pixels of the document (Q-01).
 
 use kivact::ErrorKind;
-use kivact::draw::{Composite, Draw, ImageOptions, Layer, Offscreen, Pixels, TextFormat};
+use kivact::draw::{Composite, Draw, ImageOptions, Layer, Mix, Offscreen, Pixels, TextFormat};
 use kivact::geometry::{Point, Rect, Size};
 use kivact::style::FontFamily;
 use kivact::style::{Color, Theme, rgb};
@@ -183,7 +183,10 @@ fn a_layer_svg_cannot_express_is_an_error() {
     let mut renderer = Offscreen::new();
     let error = renderer
         .render_svg(10.0, 10.0, |draw, _size| {
-            draw.layer(Layer::new().composite(Composite::DestinationOut), |_| {});
+            draw.layer(
+                Layer::new().mix(Mix::Composite(Composite::DestinationOut)),
+                |_| {},
+            );
         })
         .expect_err("a composite operation has no SVG 1.1 form");
     assert_eq!(error.kind(), &ErrorKind::Unsupported);

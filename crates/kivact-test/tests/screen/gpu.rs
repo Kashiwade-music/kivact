@@ -360,7 +360,7 @@ fn gpu_host_state_transition_matches_the_cpu_intermediate_frame() {
 }
 
 fn canvas_vocabulary() -> impl IntoView {
-    use kivact_core::draw::{ImageOptions, Layer, Path, Pixels, TextBaseline, TextFormat};
+    use kivact_core::draw::{ImageOptions, Layer, Mix, Path, Pixels, TextBaseline, TextFormat};
     use kivact_core::draw::{LineCap, Stroke};
     use kivact_style::TextAlign;
     canvas(|d, size| {
@@ -412,7 +412,7 @@ fn canvas_vocabulary() -> impl IntoView {
                 .area(size.to_rect())
                 .opacity(0.7)
                 .filter(Filter::new().brightness(0.8))
-                .blend(BlendMode::Screen)
+                .mix(Mix::Blend(BlendMode::Screen))
                 .mask(Color::WHITE),
             |d| {
                 d.fill_shape(

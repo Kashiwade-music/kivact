@@ -7,6 +7,6 @@
 #[doc(inline)]
 pub use kivact_style::draw::{
     Composite, Draw, FillRule, ImageOptions, InlineBox, InlineBoxPlacement, InlineParagraph, Layer,
-    LineCap, LineJoin, Path, PathContour, Pixels, RegionId, Stroke, TextBaseline, TextFormat,
+    LineCap, LineJoin, Mix, Path, PathContour, Pixels, RegionId, Stroke, TextBaseline, TextFormat,
     TextMetrics, TextParagraph,
 };

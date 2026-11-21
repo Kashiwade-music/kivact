@@ -1,6 +1,6 @@
 //! Role: Tests for canvas pixels, shaping, compositing, and hit regions.
 use kivact::draw::LineCap;
-use kivact::draw::{FillRule, ImageOptions, Layer};
+use kivact::draw::{FillRule, ImageOptions, Layer, Mix};
 use kivact::prelude::*;
 use kivact::style::Transform;
 use kivact::style::{BlendMode, Filter, Shape, radial_gradient};
@@ -155,7 +155,7 @@ fn dashed_round_caps_arcs_glow_and_additive_layers() {
                 );
             });
             d.fill_rect(Rect::new(90., 0., 30., 30.), rgb(RED));
-            d.layer(Layer::new().blend(BlendMode::PlusLighter), |d| {
+            d.layer(Layer::new().mix(Mix::Blend(BlendMode::PlusLighter)), |d| {
                 d.fill_rect(Rect::new(100., 10., 30., 30.), rgb(BLUE));
             });
         })

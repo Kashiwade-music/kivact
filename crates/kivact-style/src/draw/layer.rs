@@ -1,11 +1,10 @@
 //! Role: Closure-scoped canvas groups and the `Draw::layer` command that records them.
 use super::recorder::Draw;
-use crate::effect::{BlendMode, Filter, Shadow, Shape, basic, filter_ops};
+use crate::effect::{Filter, Shadow, Shape, basic, filter_ops};
 use crate::geometry::Rect;
 use crate::paint::Mask;
 use crate::transform::Transform;
 use kivact_types as p;
-use kivact_types::Composite;
 use kivact_types::Mix;
 use kivact_types::{BackfaceVisibility, TransformStyle};
 
@@ -15,7 +14,7 @@ use kivact_types::{BackfaceVisibility, TransformStyle};
 ///
 /// The parts apply from the outside in: the transform first (so the clip,
 /// the area and the mask are in the transformed coordinates), then the
-/// clip, then the group (opacity, blend or composite, filter, mask, shadow),
+/// clip, then the group (opacity, mix, filter, mask, shadow),
 /// which is composited as one image. A clip outside a transform is a layer
 /// around a layer. A transform with a z component or a perspective is a 3D
 /// matrix that the group carries (its `transform_style` and
@@ -114,17 +113,11 @@ impl Layer {
         self.opacity = opacity.into();
         self
     }
-    /// The blend mode with what is beneath (CSS `mix-blend-mode`). It sets
-    /// the composite to source-over, as a blend does.
-    pub fn blend(mut self, blend: BlendMode) -> Self {
-        self.mix = Mix::Blend(blend).normalized();
-        self
-    }
-    /// The Porter–Duff composite with what is beneath (Canvas
-    /// `globalCompositeOperation`). It sets the blend to normal, so the
-    /// last of `blend` and `composite` wins.
-    pub fn composite(mut self, composite: Composite) -> Self {
-        self.mix = Mix::Composite(composite).normalized();
+    /// How the layer combines with what is beneath: `Mix::Blend(mode)`
+    /// (CSS `mix-blend-mode`) or `Mix::Composite(op)` (Canvas
+    /// `globalCompositeOperation`); `Mix::Normal` by default.
+    pub fn mix(mut self, mix: Mix) -> Self {
+        self.mix = mix.normalized();
         self
     }
     pub fn filter(mut self, filter: Filter) -> Self {
