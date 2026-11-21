@@ -1,13 +1,115 @@
-//! Render the catalog application mission model and demo cards.
-use kivact::draw::{Shape, linear_gradient};
+//! Role: The Mission Cards page.
+
 use kivact::prelude::*;
-use kivact::state::IntoHandler;
-use kivact::state::IntoValue;
-use kivact::style::ColorToken;
-use kivact::style::Direction;
+use kivact::style::{Align, Color, GridPlacement, Justify, Track, color, pct, rgb, rgba, style};
 use kivact::view::Node;
-use kivact_ui_pop::{self as ui, Hue, Tokens};
-/// All mission content is public data; fetching, rewards and locking belong to the application.
+use kivact_ui_pop as ui;
+use kivact::draw::{LineCap, LineJoin, Path, Stroke};
+use kivact::geometry::Point;
+use kivact::i18n::{CalendarDate, Weekday};
+use kivact::interaction::{ListItem, MenuEntry, ScalarRange};
+use kivact::motion::{Animated, Easing, Repeat, Transition};
+use kivact::state::{Callback, IntoHandler, IntoText, IntoValue, Machine, MachineHandle, Signal, Step, Value, callback, machine};
+use kivact::style::{Direction, Filter, Shadow, Shape, TextDecorationLine, linear_gradient};
+use kivact::ui::RadioGroup;
+use kivact::view::{Orientation, Placement, rich_text, span as text_span};
+use kivact_ui_pop::Hue;
+use std::time::Duration;
+use catalog_shell::{Example, Page};
+use super::common::*;
+/// The page of the Mission Cards components.
+pub fn page() -> Page {
+    Page::new("cards", "Mission Cards", "Components", include_str!("cards.rs"))
+        .description("Mission cards that summarize a task, its progress and its next action.")
+        .example(Example::new(
+            "cards",
+            "Mission cards",
+            "A mission card shows its state, progress and action together.",
+            cards_demo,
+        ))
+}
+
+fn cards_demo() -> impl IntoView {
+    // example: cards
+    let notify = notify();
+    let items = [
+        super::cards::Mission {
+            code: "AREA 07".into(),
+            title: "外郭地区のパトロール".into(),
+            description: "不審なドローンの目撃情報。周辺の安全を確認してください。".into(),
+            hue: ui::Hue::Blue,
+            rank: "NORMAL".into(),
+            rank_tone: ui::Hue::Blue,
+            banner_icon: "building-community",
+            progress: 66.0,
+            progress_label: None,
+            progress_value: "2 / 3".into(),
+            rewards: vec!["×12,000".into(), "×2".into()],
+            reward_icons: vec!["coin", "ticket"],
+            footer: "残り 2日 4時間".into(),
+            action_label: Some("出撃".into()),
+            action_tone: kivact_ui_pop::ButtonTone::Accent,
+            locked: false,
+        },
+        super::cards::Mission {
+            code: "EVENT".into(),
+            title: "秋のお月見フェスティバル".into(),
+            description: "イベント限定ストーリーと報酬を手に入れよう。".into(),
+            hue: ui::Hue::Pink,
+            rank: "限定".into(),
+            rank_tone: ui::Hue::Yellow,
+            banner_icon: "gift",
+            progress: 43.0,
+            progress_label: Some("イベントポイント".into()),
+            progress_value: "4,280 pt".into(),
+            rewards: vec!["×1,200".into(), "家具セット".into()],
+            reward_icons: vec!["sparkles", "gift"],
+            footer: "10/17 まで".into(),
+            action_label: Some("参加".into()),
+            action_tone: kivact_ui_pop::ButtonTone::Pink,
+            locked: false,
+        },
+        super::cards::Mission {
+            code: "RAID".into(),
+            title: "総力戦：機械仕掛けの大蛇".into(),
+            description: "全部隊で挑む高難度コンテンツ。最強の編成で臨め。".into(),
+            hue: ui::Hue::Gray,
+            rank: "INSANE".into(),
+            rank_tone: ui::Hue::Red,
+            banner_icon: "crosshair",
+            progress: 90.0,
+            progress_label: Some("解放条件".into()),
+            progress_value: "Lv.80".into(),
+            rewards: vec!["称号".into(), "×200,000".into()],
+            reward_icons: vec!["star", "coin"],
+            footer: "あと 8 レベル".into(),
+            action_label: Some("ロック中".into()),
+            action_tone: kivact_ui_pop::ButtonTone::Soft,
+            locked: true,
+        },
+    ];
+    section(
+        "12",
+        "Mission Cards",
+        "ミッションカード — 依頼・イベント・報酬",
+        cards_grid(
+            items
+                .into_iter()
+                .map(|mission| {
+                    third(super::cards::mission_card(mission, move || {
+                        notify.call((
+                            ui::Hue::Yellow,
+                            "報酬を獲得！".into(),
+                            "クレジット ×12,000 / 活動報告書 ×2".into(),
+                        ))
+                    }))
+                })
+                .collect::<Vec<_>>(),
+        ),
+    )
+    // end example
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Mission {
     pub code: String,
@@ -42,9 +144,9 @@ pub(super) fn mission_card<M>(mission: Mission, action: impl IntoHandler<(), M>)
     .style(
         style()
             .padding(0)
-            .clip(true)
+            .overflow(kivact::style::Overflow::Hidden)
             .min_height(348)
-            .hover(style().shadow(kivact::draw::Shadow::new(0, 4, 6, ColorToken::Shadow))),
+            .hover(style().shadow(kivact::style::Shadow::new(0, 4, 6, color::SHADOW))),
     )
 }
 
@@ -58,10 +160,10 @@ fn or_message(text: Option<String>, key: &'static str, default: &'static str) ->
 
 fn progress_labels(label: Value<String>, value: String) -> Node {
     row((
-        text(label).style(style().grow(1)),
-        text(value).style(style().weight(600)),
+        text(label).style(style().flex_grow(1)),
+        text(value).style(style().font_weight(600)),
     ))
-    .style(style().font_size(12).color(ColorToken::TextMuted).gap(8))
+    .style(style().font_size(12).color(color::TEXT_MUTED).gap(8))
 }
 
 fn mission_banner(mission: &Mission) -> Node {
@@ -90,7 +192,7 @@ fn mission_banner(mission: &Mission) -> Node {
                     },
                 ]))
                 .color(Color::WHITE)
-                .filter(kivact::draw::Filter::new().saturate(if locked { 0.6 } else { 1.0 }))
+                .filter(kivact::style::Filter::new().saturate(if locked { 0.6 } else { 1.0 }))
                 .direction(Direction::Row)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
@@ -130,8 +232,8 @@ fn mission_banner(mission: &Mission) -> Node {
                     .left(16)
                     .top(14)
                     .font_family("Barlow, sans-serif")
-                    .italic(true)
-                    .weight(800)
+                    .font_style(kivact::style::FontStyle::Italic)
+                    .font_weight(800)
                     .font_size(13)
                     .color(Color::WHITE),
             ),
@@ -139,7 +241,7 @@ fn mission_banner(mission: &Mission) -> Node {
         .child(icon(mission.banner_icon).style(style().size(40, 40)))
         .child(
             kivact::ui::badge(mission.rank.clone())
-                .variant(ui::BadgeHue::new(mission.rank_tone))
+                .variant(ui::Hue::from_badge(mission.rank_tone))
                 .variant(ui::BadgeVariant::Slant)
                 .style(style().position(Position::Absolute).right(16).top(12)),
         )
@@ -154,11 +256,11 @@ fn mission_details(mission: &Mission) -> Node {
         "Progress",
     );
     column((
-        text(mission.title.clone()).style(style().font_size(15).weight(600)),
+        text(mission.title.clone()).style(style().font_size(15).font_weight(600)),
         text(mission.description.clone()).style(
             style()
                 .font_size(13)
-                .color(ColorToken::TextMuted)
+                .color(color::TEXT_MUTED)
                 .margin_bottom(6),
         ),
         progress_labels(progress_label, mission.progress_value.clone()),
@@ -184,12 +286,12 @@ fn mission_details(mission: &Mission) -> Node {
                         .font_size(12)
                         .gap(4)
                         .align_items(Align::Center)
-                        .radius(6)
-                        .background(ColorToken::SurfaceAlt),
+                        .border_radius(6)
+                        .background(color::SURFACE_ALT),
                 )
             })
             .collect::<Vec<_>>())
-        .style(style().gap(6).wrap(true).margin_top(8)),
+        .style(style().gap(6).flex_wrap(true).margin_top(8)),
     ))
     .style(
         style()
@@ -197,8 +299,8 @@ fn mission_details(mission: &Mission) -> Node {
             .padding_top(8)
             .padding_bottom(16)
             .gap(6)
-            .grow(1)
-            .filter(kivact::draw::Filter::new().saturate(if locked { 0.6 } else { 1.0 })),
+            .flex_grow(1)
+            .filter(kivact::style::Filter::new().saturate(if locked { 0.6 } else { 1.0 })),
     )
 }
 
@@ -208,13 +310,13 @@ fn mission_footer(mission: &Mission, action: Callback<()>) -> Node {
     row((
         row((
             icon(if locked { "lock" } else { "clock" })
-                .style(style().size(14, 14).color(ColorToken::TextMuted)),
-            text(mission.footer.clone()).style(style().font_size(12).color(ColorToken::TextMuted)),
+                .style(style().size(14, 14).color(color::TEXT_MUTED)),
+            text(mission.footer.clone()).style(style().font_size(12).color(color::TEXT_MUTED)),
         ))
-        .style(style().gap(4).grow(1).align_items(Align::Center)),
+        .style(style().gap(4).flex_grow(1).align_items(Align::Center)),
         button(action_label)
             .variant(mission.action_tone)
-            .variant(kivact_ui_pop::Slant)
+            .variant(kivact::ui::Slant)
             .size(kivact::ui::ControlSize::Small)
             .disabled(locked)
             .on_press(action),
@@ -224,7 +326,7 @@ fn mission_footer(mission: &Mission, action: Callback<()>) -> Node {
             .padding_x(20)
             .padding_top(12)
             .padding_bottom(16)
-            .border_top(1, ColorToken::Border)
+            .border_top(1, color::BORDER)
             .align_items(Align::Center),
     )
 }

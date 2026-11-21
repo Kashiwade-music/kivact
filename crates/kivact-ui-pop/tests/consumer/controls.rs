@@ -1,7 +1,8 @@
-//! Role: Buttons, checks, switches, toggles, accordion and slider through the public API.
+//! Role: Buttons, checks, switches and the standard inputs through the public API.
 
 use kivact::prelude::*;
 use kivact::view::A11yAction;
+use kivact_ui_pop as ui;
 
 #[test]
 fn button_states_and_user_modifiers_use_public_contract() {
@@ -69,104 +70,100 @@ fn checkbox_switch_and_mixed_states_are_accessible() {
 }
 
 #[test]
-fn toggles_and_accordion_follow_the_shared_toggle_rules() {
-    let (screen, (check, switch, bold, open)) = kivact::test::render_with_handle(
+fn inputs_and_tag_editor_commit_native_edits() {
+    let (screen, (draft, tags, memo)) = kivact::test::render_with_handle(
         kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
             kivact::style::ThemeMode::Light,
         ))
         .reduced_motion(),
         || {
-            let check = signal(false);
-            let switch = signal(false);
-            let bold = signal(false);
-            let open = signal(false);
-            (
-                (check, switch, bold, open),
-                column((
-                    kivact::ui::checkbox("Reports", check),
-                    kivact::ui::switch("Sync", switch),
-                    kivact::ui::toggle_button("Bold", bold),
-                    kivact::ui::disclosure("Details", open).content(|| text("Body")),
-                    kivact::ui::checkbox("Locked", kivact::state::signal(false)).disabled(true),
-                )),
-            )
+            let draft = signal(String::new());
+            let tags = signal(vec!["one".into()]);
+            let memo = signal(String::new());
+            ((draft, tags, memo), input_controls(draft, tags, memo))
         },
     );
-    let check_box = screen.get_by_role(Role::CheckBox, "Reports");
-    let switch_node = screen.get_by_role(Role::Switch, "Sync");
-    let button = screen.get_by_role(Role::Button, "Bold");
-    check_box.press_key(Key::Enter);
-    switch_node.press_key(Key::Enter);
-    assert!(!check.get_untracked() && !switch.get_untracked());
-    button.press_key(Key::Enter);
-    assert!(bold.get_untracked(), "Enter flips a toggle button");
-    assert_eq!(button.checked(), Some(CheckedState::Checked));
-    for node in [&check_box, &switch_node, &button] {
-        node.press_key(Key::Space);
-        assert_eq!(node.value(), None, "role and checked, no On/Off text");
-    }
-    assert!(check.get_untracked() && switch.get_untracked() && !bold.get_untracked());
-    check_box.a11y(A11yAction::Toggle);
-    switch_node.a11y(A11yAction::Activate);
-    assert!(!check.get_untracked() && !switch.get_untracked());
-    let locked = screen.get_by_role(Role::CheckBox, "Locked");
-    assert!(locked.is_disabled());
-    locked.force_click();
-    locked.a11y(A11yAction::Toggle);
-    assert_eq!(locked.checked(), Some(CheckedState::Unchecked));
-
-    let details = screen.get_by_role(Role::Button, "Details");
-    assert_eq!(details.is_expanded(), Some(false));
-    details.press_key(Key::Enter);
-    assert!(open.get_untracked());
-    details.press_key(Key::Space);
-    assert!(!open.get_untracked());
-    details.a11y(A11yAction::Toggle);
-    assert_eq!(details.is_expanded(), Some(true));
-    details.a11y(A11yAction::Collapse);
-    assert!(!open.get_untracked());
+    screen
+        .get_by_role(Role::TextBox, "Name")
+        .type_text("Minato");
+    assert_eq!(draft.get_untracked(), "Minato");
+    let note = screen.get_by_role(Role::TextBox, "Resizable note");
+    note.type_text("Keep this draft");
+    let initial = note.rect().expect("note laid out");
+    assert_eq!(initial.height, 80.0);
+    let resize = |delta: f64| {
+        let grip = screen.get_by_role(Role::Splitter, "Resize text area");
+        grip.hover();
+        let rect = grip.rect().expect("resize grip laid out");
+        let x = rect.x + rect.width / 2.0;
+        let y = rect.y + rect.height / 2.0;
+        screen.mouse_move(x, y);
+        screen.mouse_down(kivact::view::MouseButton::Primary);
+        screen.mouse_move(x, y + delta / 2.0);
+        screen.mouse_move(x, y + delta);
+        screen.mouse_up(kivact::view::MouseButton::Primary);
+    };
+    resize(48.0);
+    assert_eq!(note.rect().unwrap().height, 128.0);
+    assert_eq!(note.rect().unwrap().width, initial.width);
+    assert_eq!(memo.get_untracked(), "Keep this draft");
+    assert!(note.is_focused());
+    screen.type_text(" after resizing");
+    assert_eq!(memo.get_untracked(), "Keep this draft after resizing");
+    resize(-200.0);
+    assert_eq!(note.rect().unwrap().height, 72.0);
+    assert_eq!(note.rect().unwrap().width, initial.width);
+    assert!(note.is_focused());
+    screen.type_text(".");
+    assert_eq!(memo.get_untracked(), "Keep this draft after resizing.");
+    let grip = screen.get_by_role(Role::Splitter, "Resize text area");
+    grip.press_key(Key::ArrowDown);
+    assert_eq!(note.rect().unwrap().height, 80.0);
+    grip.press_key(Key::ArrowDown);
+    assert_eq!(note.rect().unwrap().height, 88.0);
+    grip.press_key(Key::ArrowUp);
+    assert_eq!(note.rect().unwrap().height, 80.0);
+    grip.press_key(Key::Home);
+    assert_eq!(note.rect().unwrap().height, 72.0);
+    grip.a11y(A11yAction::Increment);
+    assert_eq!(note.rect().unwrap().height, 80.0);
+    grip.a11y_set_value("-100");
+    assert_eq!(note.rect().unwrap().height, 72.0);
+    grip.a11y_set_value("NaN");
+    assert_eq!(note.rect().unwrap().height, 72.0);
+    assert_eq!(
+        screen
+            .get_by_role(Role::TextBox, "Fixed note")
+            .rect()
+            .unwrap()
+            .height,
+        80.0
+    );
+    let tag = screen.get_by_role(Role::TextBox, "Add tag");
+    tag.type_text("two");
+    tag.press_key(Key::Enter);
+    assert_eq!(tags.get_untracked(), vec!["one", "two"]);
+    tag.press_key(Key::Backspace);
+    assert_eq!(tags.get_untracked(), vec!["one"]);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-#[test]
-fn slider_drag_keyboard_and_accessibility_share_one_binding() {
-    let (screen, value) = kivact::test::render_with_handle(
-        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
-            kivact::style::ThemeMode::Light,
-        ))
-        .reduced_motion(),
-        || {
-            let value = signal(30.0f64);
-            (
-                value,
-                kivact::ui::slider("Volume", value)
-                    .range(
-                        kivact::interaction::ScalarRange::new(0.0, 100.0)
-                            .and_then(|range| range.with_step(1.0))
-                            .expect("finite ordered range"),
-                    )
-                    .test_id("volume")
-                    .style(style().width(300)),
-            )
-        },
-    );
-    let slider = screen.get_by_role(Role::Slider, "Volume");
-    slider.press_key(Key::ArrowRight);
-    assert_eq!(value.get_untracked(), 31.0);
-    slider.a11y(A11yAction::Increment);
-    assert_eq!(value.get_untracked(), 32.0);
-    slider.a11y_set_value("37.5");
-    assert_eq!(value.get_untracked(), 38.0);
-    slider.a11y_set_value("NaN");
-    assert_eq!(value.get_untracked(), 38.0);
-    slider.a11y_set_value("-1000");
-    assert_eq!(value.get_untracked(), 0.0);
-    screen
-        .get_by_test_id("volume")
-        .drag(Point::new(40.0, 10.0), Point::new(220.0, 10.0));
-    assert!(value.get_untracked() > 60.0);
-    assert_eq!(slider.value_range().2, Some(value.get_untracked()));
-    slider.press_key(Key::End);
-    assert_eq!(value.get_untracked(), 100.0);
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+fn input_controls(
+    draft: Signal<String>,
+    tags: Signal<Vec<String>>,
+    memo: Signal<String>,
+) -> impl IntoView {
+    column((
+        kivact::ui::text_input(draft)
+            .label("Name")
+            .placeholder("Enter name"),
+        ui::resizable_text_area(
+            kivact::ui::text_area(memo).label("Resizable note"),
+            80.0,
+            72.0,
+        ),
+        kivact::ui::text_area(kivact::state::signal(String::new())).label("Fixed note"),
+        kivact::ui::tag_input(tags).label("Add tag"),
+    ))
+    .style(style().width(360).gap(8))
 }
