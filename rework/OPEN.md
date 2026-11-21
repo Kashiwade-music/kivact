@@ -1595,3 +1595,33 @@ lane K5 の K33e（commit `94d1ed25`）の報告による。設計者の答え�
 - **catalog-shell の title の箱（22px の中に 26px の heading）**：これは layout の問題。catalog-shell の title の行が、中身より低い固定の高さを持っている。catalog-shell の title の行の `height` を外して中身に合わせる（`min_height` にする）。catalog-shell の所有の fix。
 - **demo の hero の line-height**：P4 の後に基点の 0.95 に戻す（見た目を変えない）。
 - 順序：P4 → 統合 → catalog-shell の fix → K2・K4 に取り込み、walker を走らせ直す。
+
+## 設計者の回答（K43 の STOP：catalog の compile と kit の試験、2026-11-22）
+
+### A. catalog の compile
+1. **`heading(..).variant(..)`**：どの部品も `.variant(..)` を持ち、その recipe に variant が届くのが規則。中核の heading がそうなっていなければ、中核の欠け。lane P の commit で、中核の heading が `Element` の variant を受け、`HeadingTheme` の recipe の `Look` に渡す形に直す。soft の heading の recipe が `s.variant::<HeadingDisplay>()` を読む。
+2. **`status_dot(..).variant(..)`**：前の答え（`caller` から読む、既定は `Neutral`）のとおり、`status_dot` は `#[component]`（Element）にして `.variant(..)` を通す。今 Element でなければ、そう直す（lane K5）。
+3. **`Link` の `on_press`**：前の答え（(4) link）のとおり、`on_press` は `Element` の method で root に付く。catalog の file に `Element` の trait が入っているか（`use kivact::prelude::*`）を確かめる。`Link` が Element でなければ、`#[component]` に直す（lane K5）。
+4. **`syntax_theme` の scoped な上書き**：K41 で消した。catalog の例は、中核の theme の scope の上書き（部分木に theme の変数を set する中核の API）で、中核の構文色の変数（K08）を set する形に書き直す。そういう中核の API が無ければ、この例は消す（4.6 の表に 1 行）。
+
+### B. 機械的な追従（Orchestrator の判断どおり）
+5. variant の型への `#[derive(Prop)]`：採る。
+6. `pagination_status` の `pub use`：採る。
+
+### C. kit の試験（13 件）
+- **期待値の意味を変えずに、API と role の名前だけを置き換えたもの**は採る：7a（中核の tabs の role は `Tab`）、7b（role は中核の部品のまま。sidebar の menu button は `Button`）、10（時間の変数を読む）、12（`theme.get` で解決した色で比べる）。
+- **設計で消した振る舞いの試験**は消し（付属書 K の 4.6 の表に 1 行ずつ）、G の移行の文書（W11b）に 1 行ずつ足す：
+  - 7c：rail の hover で子を出す振る舞い。K42 で soft の side navigation を中核の sidebar にした。
+  - 7d：「承認されたときだけ開く」の gating。RW-18 と C5 で `on_open_change` を消し、`open: Signal<bool>` が唯一の事実になった。今の書き換えは `allow` を何にも繋いでおらず、検証にならないので、残さない。
+  - 8：`selection_field` の検索欄と content。U23 で `selection_field` を消した。検索で選ぶのは中核の combobox。
+- **残して直すもの**：
+  - 7e（panel disposal の保留の取消し）：差戻し。期待値は変えない。中核の `use_navigation_menu` の `removed()` が、消えた panel の保留の命令だけを取り消すかを、lane P の implementer が確かめる。中核の誤りなら中核を直す。付属書の決めと食い違うなら返す。
+  - 9（empty_state の description）：期待値の意味（description の文が告知される）を保つ。中核の `EmptyState` の説明文の slot（名前が違えばそれ）を使う。`announce_changes(true)` への置き換えは、description の文の告知を確かめていなければ採らない。説明文の slot が中核に無ければ返す。
+  - 11（chat_composer）：
+    - Shift+Enter で改行が入るのは基本の振る舞いなので、残す。中核が落ちるなら、lane P で中核を直す。
+    - 最後の送信を呼び戻す履歴は、中核に無く、付属書にも無いので、その部分の assert は消す（G の移行の文書に 1 行）。
+  - 13（text truncation tooltip）：包む node で測る対象を変えない。中核の `styled_text` が `node_ref` を受ける（Element の node に付く）形に直す（lane P）。試験は文字の node そのものを測る。
+- **「もう 1 件」**（7 の 6 件目）：上の規則で分類して、commit message に書く。どれにも当たらなければ返す。
+
+### 順序
+lane P（heading の variant、styled_text の node_ref、chat_composer の Shift+Enter、navigation menu の removed の確認）→ 統合 → K43 に取り込み → K43 の残り → L11。
