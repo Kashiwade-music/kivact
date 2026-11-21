@@ -1,11 +1,13 @@
 //! Role: Per-node layout columns: results, measure records, cursors and geometry changes.
 
-use crate::LayoutTree;
 use crate::calcs::{CalcAlloc, Calcs};
 use crate::pass_state::Epoch;
 use crate::style::node::NodeStyle;
+use crate::{LayoutTree, LeafMeasurer};
 use kivact_types::cell::Recent;
-use kivact_types::{Baseline, Edges, LeafSize, MeasureRequest, Orientation, Point, Rect, Size};
+use kivact_types::{
+    Baseline, Edges, LeafSize, MeasureRequest, NodeId, Orientation, Point, Rect, Size,
+};
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
@@ -128,7 +130,8 @@ impl Measured {
 /// covers every request the last computation made (see
 /// [`NodeLayoutColumns::remeasures_same`]). An edit that invalidates the leaf's layout
 /// clears it; nothing else measures a leaf again, frame after frame.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub(crate) struct Record {
     pub(crate) sizes: Vec<(Ask, Measured)>,
     pub(crate) state: RecordState,
@@ -143,7 +146,8 @@ pub(crate) enum RecordState {
 }
 
 /// A disposable filtered index cursor (`None`: never counted); never owns links or child IDs.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub(crate) struct ChildCursor(Cell<Option<Counted>>);
 
 /// Which children of a counted node are in flow, as counted at its epoch.
@@ -205,13 +209,15 @@ impl ChildCursor {
     }
 
     /// Forget the count: the next read counts again.
+    #[cfg(any(test, feature = "reference"))]
     pub(crate) fn forget(&self) {
         self.0.set(None);
     }
 }
 
 /// Derived per-slot measurement records and calc ownership; never authoritative props.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub(crate) struct NodeLayoutState {
     pub(crate) calcs: Vec<u32>,
     pub(crate) measured: Record,
@@ -222,7 +228,8 @@ pub(crate) type SlotMap<V> =
     std::collections::HashMap<u64, V, std::hash::BuildHasherDefault<kivact_types::IdHasher>>;
 
 /// Style, caches and optional geometry borrowed for one root computation.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub(crate) struct NodeLayoutValues {
     /// The style of each slot; slots with equal styles share one `Rc` (`recent_styles`).
     pub(crate) styles: Vec<Rc<NodeStyle>>,
@@ -312,7 +319,8 @@ impl Default for NodeLayoutValues {
 /// Clone columns together with their tree/state to obtain an independent domain
 /// with the same mapping; unrelated trees or reordered slot allocations are not
 /// interchangeable. Slots in this API are zero-based, excluding the viewport.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub(crate) struct NodeLayoutColumns {
     pub(crate) cursors: Vec<ChildCursor>,
     pub(crate) states: Vec<NodeLayoutState>,
@@ -407,6 +415,23 @@ impl NodeLayoutColumns {
         values.scaled.remove(&index);
         values.grid_infos.remove(&index);
         values.never_rounded.insert(index);
+    }
+
+    /// Revalidate every recorded request only when the record is complete.
+    /// No result is copied back.
+    /// `slot` must be live and allocated in this instance's domain, and `id` must
+    /// identify that same node. The measurer must describe its current content.
+    pub(crate) fn remeasures_same(
+        &self,
+        slot: usize,
+        id: NodeId,
+        measure: &mut dyn LeafMeasurer,
+    ) -> bool {
+        let record = &self.states[slot + 1].measured;
+        record.state == RecordState::Complete
+            && record.sizes.iter().all(|(ask, retained)| {
+                Measured::of(&measure.measure(id, ask.request())) == *retained
+            })
     }
 }
 

@@ -21,7 +21,8 @@ impl Epoch {
 
 /// The pending computation: whether one has to run, and the absolute parents
 /// to lay out again before the roots (`tree`).
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub(crate) enum Pending {
     /// Nothing to do: the last computation covered every change.
     Clean,
@@ -34,7 +35,8 @@ pub(crate) enum Pending {
 /// Keep it paired with the same NodeLayoutColumns and authoritative slot mapping.
 /// Cloning all three produces independent derived state; mixing a state from an
 /// unrelated allocation is unsupported. It owns no authoritative links or nodes.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub(crate) struct LayoutState {
     pub(crate) no_grid: TStyle,
     /// The pending work: marked by every invalidation, taken by the computation.
@@ -108,6 +110,7 @@ impl LayoutState {
     }
 
     /// Drop the queued relayouts (a full rebuild lays every parent out anyway).
+    #[cfg(any(test, feature = "reference"))]
     pub(crate) fn clear_relayout(&mut self) {
         if let Pending::Dirty { relayout } = &mut self.pending {
             relayout.clear();

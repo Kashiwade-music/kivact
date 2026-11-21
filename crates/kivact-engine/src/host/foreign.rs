@@ -26,7 +26,7 @@ impl Host {
         if let Some(host_window) = self.app.borrow_mut().host_mut(id) {
             let mut reported = Sent::new();
             reported.update(size);
-            host_window.content = Content::Foreign { child, reported };
+            host_window.content = Content::Foreign { reported };
         }
         Ok((child, size))
     }

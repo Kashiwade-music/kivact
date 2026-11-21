@@ -28,7 +28,7 @@ png = { workspace = true, optional = true }
 doctest = false
 
 [features]
-testing = ["dep:arvane-virtual", "arvane-virtual/mirror", "dep:png", "arvane-native/test", "arvane/test"]
+testing = ["dep:arvane-virtual", "arvane-virtual/mirror", "dep:png", "arvane-native/test", "arvane/test", "kivact-layout/reference"]
 
 [[test]]
 name = "content_version"
