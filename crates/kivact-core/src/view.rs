@@ -12,6 +12,7 @@
     reason = "handler and effect closures are stored as boxed trait objects throughout"
 )]
 
+mod authored;
 pub(crate) mod boundary;
 pub(crate) mod descriptor;
 pub(crate) mod devtools_hook_traits;
@@ -128,7 +129,7 @@ mod children;
 mod edit_phase;
 pub(crate) mod elements;
 
-pub use children::IntoChildren;
+pub use children::{Children, IntoChildren};
 pub use edit_phase::EditPhase;
 pub use elements::{
     ImageFit, Node, Scroll, ScrollAxes, Span, SurfaceSize, Viewport, canvas, column, grid, icon,
@@ -145,5 +146,6 @@ pub use style_layer::RecipeName;
 pub use elements::ViewportTransform;
 
 // xtask-allow(internal-contract): the public path of Variant and Variants is kivact::ui::theme (annex U re-exports them)
+pub use authored::Authored;
 #[doc(hidden)]
 pub use variant::{Variant, Variants};

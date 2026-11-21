@@ -23,6 +23,12 @@ impl Variants {
         entries.push((TypeId::of::<V>(), Rc::new(value)));
     }
 
+    /// These values with `value` set for its type (a constant), replacing an earlier one.
+    pub fn with<V: Variant>(mut self, value: V) -> Self {
+        self.set(Prop::constant(value));
+        self
+    }
+
     /// Merge `later` over these values (a later value of a type wins).
     pub(crate) fn merge(&mut self, later: &Variants) {
         let entries = Rc::make_mut(&mut self.0);
