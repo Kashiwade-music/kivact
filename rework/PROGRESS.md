@@ -185,3 +185,27 @@
   3. U54 の確認：`cargo xtask check --no-write --strict --only interaction-view,ui-machine,unit-machine,hand-element,element-shadow --crate kivact-ui` は ui-machine の 1 件（`combobox/labels.rs:54`、Signal/Var write inside an effect closure）が残る。U54 の所有の file の error は 0。この 1 件の所有 unit は未決定（設計者に確認する）。
 - **次にすること**：(1) 設計者の menu の答え（(a) か (b)）を実施し、menu の試験を通す。(2) W8 の tier b（W6 の形、`V:/kv-target/logs-W8-tierb/run.sh`）を再実行し、test が全部通ることを確かめる。(3) U54 の残りの ui-machine（`combobox/labels.rs:54`）の所有を決める。(4) W8 を完了として PROGRESS に記録する。(5) W8L（L1〜L6）→ CP2（KPI、`--strict`）→ W9（K 5 lane と K6）→ W10（K と L7〜L11）→ W11a → W11b → W11c → CP3。
 - **注意**：stash は使わない（worktree 間で共有されていて取り違えが起きた）。kit（`kivact-ui-*`）は compile しない（W9 の所有）。
+
+## W8 完了（統合 merge 済み・tier b 成功、2026-11-22）
+
+- U1〜U4 の lane は、以前に統合へ merge 済み。W8 の後片付けは次のとおり。
+  - menu の surface の名前：`labelled_by` を試験の driver で解決（`5c3ca2a2`、試験の query の変更は `5414486e`。設計者の (a1)）。
+  - combobox の KnownLabels：`interaction` の `KnownOptions`・`known_options`・`follow` へ（`991c2e8b`、統合 `500c2298`。設計者の (A) の変形）。
+  - 回帰（`style_paint::visibility_hidden_keeps_layout_but_hides_the_node`、`2e90ced7` の fragment）：a11y の差分の伝播を、node tree の子を辿る形へ（`fc1e5044`、統合 `c4b1038d`）。試験（visibility_hidden・a11y_incremental・e2e_core 495・e2e_ui 282）は成功。
+  - W8L の差戻しの行：印の書き直し（`972c4f46`、統合 `3bb9a976`）、devtools の Session の status を report に通す（`d5dbfb42`）、arvane-native の import を cfg の下へ（`426479c4`、統合 `01bc2d58`）。
+- 判断の記録は `rework/OPEN.md` の「Orchestrator の判断（W8・回帰の直しと W8L の印の書き直し）」。
+
+## W8L 完了（統合 merge 済み、2026-11-22）
+
+- lane の merge：L1 `f9b50f2d`（`4f79cc17`）、L4 `2a81d187`（`24e74763`）、L5 `b0754ea0`（`cf185c41`）、L6 `a922e928`（`cf419bbc`）、L3 `8f5b8a23`（`522c6ae5`）、L2 `0afaba14`（`1fb1f609`）。L2 と L3 の e2e は、commit の前に走らせて成功（L2 は 37 件、L3 は 34 件）。
+- 差戻し（台帳の行 36・42・43・63・73・143・145・146）は、設計者の答えどおりに解消（書き直し・code の直し）。
+
+## CP2（統合 `01bc2d58`、2026-11-22）
+
+- fmt：成功。xtask `--only local`：成功。clippy（workspace、all-features、XK を除外、`-D warnings`）：成功。clippy（arvane-native の既定の feature、kivact-devtools）：成功。
+- test（workspace、`--exclude gpu-interop-producer --exclude kivact-docs` と XK を除外、`--no-fail-fast`）：1376 件成功、失敗 0、無視 39。
+- GPU（`KIVACT_TEST_GPU=1`）：e2e_core は 493 件成功、4 件失敗（`app_handle::close_during_setup_exits_after_the_first_turn`・`compositor::idle_window_redraws_whole_after_release`・`frame_sources::incremental_frames_match_a_fresh_render`・`layout_scroll::a_long_list_draws_what_reaches_its_viewport_from_rows_outside_it`。すべて `rework/OPEN.md` の「基点の失敗」の 4 件と同じ）。e2e_native は 46 件成功。kivact-test の `gpu::` は成功。
+- `dev/tools/check-features.sh`：成功。no-default の check（kivact・kivact-offscreen・arvane-render・arvane-compose・kivact-style）：成功。`wgpu`・`naga` が no-default の依存に出ない（0 件）。
+- xtask の `--strict`：kivact-interaction は成功。kivact-ui は成功（最初の実行は 1 件の error だったが、`labels.rs:54` を指していた。古い xtask の binary（W8-fix の worktree から build されたもの）が、消した file を見ていたため。`cargo clean -p xtask` の後の実行は成功）。
+- `legacy:` の印の残り：58 件（kit の crate と examples の W9〜W10 の範囲と、L12 の範囲）。
+- KPI（`dev/bench/run.sh --no-catalog CP2`）：測定中。結果は `V:/kv-target/logs-CP2/kpi/` に出る。
