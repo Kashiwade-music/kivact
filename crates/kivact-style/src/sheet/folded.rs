@@ -12,7 +12,7 @@ use crate::draw::LocalPaint;
 use crate::effect::{BlendMode, BorderStyle, CornerRadius, Filter, Shadow, Shape};
 use crate::grid::GridStyle;
 use crate::paint::{Background, BorderImage, Mask};
-use crate::text::{LineHeight, TextExtras};
+use crate::text::{LineHeight, TextRareFields};
 use crate::transform::Transform;
 use kivact_types::Length;
 
@@ -138,7 +138,7 @@ pub(crate) struct TextFields {
     pub(crate) italic: Option<bool>,
     /// The rarer text properties (letter spacing, decorations, features,
     /// overflow, clamps, case, shadows, input colors: boxed).
-    pub(crate) text: Option<Box<TextExtras>>,
+    pub(crate) text: Option<Box<TextRareFields>>,
 }
 
 // xtask-allow(state): legacy: hover, group, group_hover, group_focus, pressed, focus, focus_visible, disabled, selected, enter, exit; one authored property; absent means the inherited or default value
@@ -440,7 +440,7 @@ fn apply_grid(flow: &mut FlowFields, d: &Decl) {
 }
 
 /// The text declarations: the common text properties, then the rare ones
-/// (and the text shadows) in the boxed `TextExtras`.
+/// (and the text shadows) in the boxed `TextRareFields`.
 fn apply_text(t: &mut TextFields, d: &Decl) {
     match d {
         Decl::FontSize(v) => t.font_size = Some(*v),
@@ -456,7 +456,7 @@ fn apply_text(t: &mut TextFields, d: &Decl) {
 }
 
 /// The rare text properties, which the fold keeps in one boxed record.
-fn apply_text_extras(x: &mut TextExtras, d: &Decl) {
+fn apply_text_extras(x: &mut TextRareFields, d: &Decl) {
     match d {
         Decl::LetterSpacing(v) => x.letter_spacing = Some(*v),
         Decl::WordSpacing(v) => x.word_spacing = Some(*v),

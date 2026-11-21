@@ -24,7 +24,7 @@
 //!   `Normal` (it inherits nothing). A `provide_theme` subtree does not change
 //!   the root's value. The value is checked again at the host boundary
 //!   (not finite or not above zero is `Normal`).
-//! - `letter_spacing` and `word_spacing` are [`TextLength`]s: a number is
+//! - `letter_spacing` and `word_spacing` are `TextLength`s: a number is
 //!   px, `em` a multiple of the font size; word spacing is added at every
 //!   space.
 //! - `font_kerning`: `Auto` is the font's default, `Normal` and `None` put
@@ -46,7 +46,7 @@
 //!   selection background and placeholder colors.
 //! - Case conversion, the ellipsis and the clamp change only what is drawn:
 //!   the name, `Locator::text` and `get_by_text` use the whole text.
-//! - Rare properties live in the boxed `TextExtras`, so an unused style
+//! - Rare properties live in the boxed `TextRareFields`, so an unused style
 //!   pays no size or merge cost for them.
 //! - Rich text (`rich_text`, `IntoValue<Vec<Span>>`) writes one text
 //!   payload of the joined content with byte-range styles; its spans hold
@@ -203,7 +203,7 @@ impl From<&str> for FontFeature {
 /// The text properties of a style that are rare enough to keep out of
 /// line (boxed in `Style`).
 #[derive(Clone, Debug, PartialEq, Default)]
-pub(crate) struct TextExtras {
+pub(crate) struct TextRareFields {
     pub(crate) letter_spacing: Option<Length>,
     pub(crate) word_spacing: Option<Length>,
     pub(crate) kerning: Option<FontKerning>,
@@ -305,7 +305,7 @@ pub(crate) fn wire_variations(list: &[FontVariation]) -> (Vec<p::FontVariation>,
 /// Fill `t` (the engine's text props of a style) with the extras `x` it
 /// sets, and return how many values were dropped (a feature tag that is
 /// not four ASCII characters, a text shadow's spread or inset).
-pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme) -> u32 {
+pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextRareFields, theme: &Theme) -> u32 {
     let mut dropped = 0;
     let features = x.features.as_deref().map(|settings| {
         let (features, bad) = self::features(Some(settings), false);

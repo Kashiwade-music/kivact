@@ -181,7 +181,7 @@ style_props! {
         /// own background, below its other children. Tab order stays the
         /// tree order.
         z_index(v: i32) => ZIndex(i32) = v, Delta, Flow;
-        /// CSS `grid-template-columns`: the grid's columns, a [`Track`] or a
+        /// CSS `grid-template-columns`: the grid's columns, a `Track` or a
         /// tuple of them: `(248, Track::fr(1))`,
         /// `Track::repeat_auto_fill(Track::minmax(330, Track::fr(1)))`,
         /// `(Track::minmax(70, pct(38)), Track::fr(1), 20)`. For a `grid`
@@ -321,7 +321,7 @@ style_props! {
         /// text property is inherited on its own: a descendant that sets
         /// only a `weight` or a `font_size` keeps this color. Without one
         /// on any ancestor, text takes the App theme's
-        /// [`kivact::style::color::TEXT`](kivact::style::color::TEXT); a
+        /// `kivact::style::color::TEXT`; a
         /// `provide_theme` subtree gets its theme's by a
         /// `color(kivact::style::color::TEXT)` on its top node.
         color(v: impl Into<Color>) => Color(Color) = v.into(), Delta, Text;

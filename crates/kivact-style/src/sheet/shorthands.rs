@@ -397,7 +397,7 @@ impl Style {
 
     /// The paint the node starts from when it is mounted (CSS
     /// `@starting-style`, Framer Motion's `initial`): its
-    /// [`TransitionProp::All`] transition moves it from there to its
+    /// `TransitionProp::All` transition moves it from there to its
     /// paint. Only the paint properties the transition animates move; the
     /// others take their value at once.
     ///

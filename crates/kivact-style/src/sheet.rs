@@ -59,35 +59,6 @@
 //!   axes, while `scroll(child)` limits the axis (vertical by default,
 //!   `.axes(ScrollAxes::Horizontal)` or `.axes(ScrollAxes::Both)` otherwise)
 //!   and adds the `ScrollView` role.
-//!
-//! Layout vocabulary:
-//! - `node()` and `column` are vertical flex boxes, `row` horizontal; `gap`
-//!   sets `row_gap` and `column_gap`. Children are aligned with
-//!   `align_items` and `justify_content`; `align_content` is a `Justify`
-//!   (with `Stretch`). There are `aspect_ratio`, the positions `Relative`,
-//!   `Absolute`, `Sticky` and `Fixed` with `top`/`right`/`bottom`/`left`
-//!   and `inset`. A justification left unset is `None` (CSS `normal`: the
-//!   start of a flex box, stretched auto tracks of a grid).
-//! - In a row, `Align::Baseline` aligns first baselines: those of texts,
-//!   native editors and a primitive's `Measurement`; a leaf without one
-//!   uses its box's bottom, a container its first child's baseline.
-//! - `grid(children)` is the one way to make a grid box (`Display` is not
-//!   public); see `crate::grid` for tracks and placement.
-//! - A [`Length`] in px, percent or calc works throughout layout; the
-//!   content sizes work only for widths, heights, the basis and tracks
-//!   (elsewhere they are `auto`, reported once per node as `Unsupported`).
-//!   A component prop taking `IntoValue<Length>` takes a number as logical
-//!   px. `platform::window_size` is tracked, so media queries and `vw`,
-//!   `vh` or `min()` equivalents are computed from it.
-//! - `overlay(anchor, placement, child)` has an `align` (start, center or
-//!   end of the side; `Stretch` and `Baseline` mean start) and an `offset`
-//!   in px; `overlay_at` takes a window point (`PointerEvent::window_pos`).
-//!   A floating part with an anchor, flipping, dismissal or a modal is an
-//!   overlay; a fixed place in the window is `Fixed`.
-//! - Padding and margin take all sides, `x`/`y`, and each side alone
-//!   (`padding_top`, ..., `margin_left`), merged side by side with the same
-//!   `Length` and duplicate diagnostics; one side never sets another, so an
-//!   asymmetric layout needs only the public `Style`.
 
 mod decl;
 mod edit_text;
