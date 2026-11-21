@@ -48,7 +48,7 @@ pub struct Target {
     pub path: Option<PathBuf>,
 }
 
-// xtask-allow(state): legacy: target, connection, windows, inspected, turns, frames, errors, panel, popped, status; the status bar's last RPC failure, set by Session::send when a
+// xtask-allow(state): record: one handle per session fact, each with its own writer: target (Session::new only), connection (listen moves it to Lost), windows and inspected (on_windows, load_window, pick), turns, frames and errors (their notifications), panel and popped (the toolbar), status (report)
 /// The handles of one connected session; made once per `Connected` branch.
 #[derive(Clone, Copy)]
 pub(crate) struct Session {

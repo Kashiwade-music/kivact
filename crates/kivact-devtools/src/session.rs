@@ -12,7 +12,7 @@ use crate::state::{
 };
 
 impl Session {
-    // xtask-allow(state): legacy: target, status; the session's target, written once before any reader exists
+    // xtask-allow(state): record: target and status are handles made here and moved into Session; target is never written after this, status only by Session::report
     /// Make the handles of a connected session; call inside setup only.
     pub(crate) fn new(target: Target, connection: Signal<Connection>) -> Session {
         let source = target.source.clone();
@@ -200,9 +200,7 @@ impl Session {
         spawn(async move {
             match source.call::<M>(params).await {
                 Ok(result) => done(result),
-                Err(error) => self
-                    .status
-                    .set(Some(format!("{}: {}", M::NAME, error.message()))),
+                Err(error) => self.report(format!("{}: {}", M::NAME, error.message())),
             }
         });
     }
