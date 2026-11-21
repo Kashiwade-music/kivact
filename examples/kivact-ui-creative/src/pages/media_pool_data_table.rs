@@ -9,6 +9,7 @@ use kivact::interaction::{
 };
 use kivact::prelude::{IntoView, signal};
 use kivact::state::IntoValue;
+use kivact::style::{pct, style};
 
 pub(crate) fn page() -> Page {
     Page::new(
@@ -86,5 +87,6 @@ fn demo() -> impl IntoView {
         media_table(query, mode, selected, sort, rows, widths),
         media_tiles(mode, selected, tile_size, shown, pick),
     ))
+    .style(style().width(pct(100)))
 }
 // end example
