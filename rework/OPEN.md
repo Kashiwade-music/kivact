@@ -1137,3 +1137,7 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
 - 変えたこと（設計者の (a) に加えて）：`name_of` のほかに、`screen/query.rs` の `role_matches` が、公開済みの name が空のとき labelled_by の先の名前を空白で繋いだものを名前として比べるようにした。役割の query は `name_of` ではなく公開済みの tree の name を見るため、`name_of` だけでは menu の `get_by_role(Menu, "Custom")` が通らなかった。`facts.rs` に `Facts::labelled_by` を足した。menu の `ui_components` は 11/11 通る。e2e_ui は 281 件成功、1 件落ち（上の試験）。e2e_core と kivact-test は未実行。
 - **設計者が決める**：(a1) 上の `role_matches` の変更を採り、tabs の試験の query を `get_by_role(Role::TabPanel, "")` から `get_by_role(Role::TabPanel, "Beta")` に直す（labelled_by の assert は変えない。a11y の名前の期待値の変更なので設計者の判断）。(a2) 別の形（role の query の名前は公開済みの name だけを見る。menu の試験の query を別の形にする）。
 - 作業：(a1) か (a2) の答えを待つ間、W8-fix の menu の変更は未 commit のまま残す。U48b（combobox の KnownLabels の移動）は別の worktree（`wt/rw-W8-fix2`）で進める。
+
+## 設計者の回答（W8・menu の名前の直しで落ちた tabs の試験、2026-11-22）
+
+- (a1) を採る。`role_matches` も `name_of`（`labelled_by` を解決した名前）で比べる。`interaction_tabs::the_list_tabs_and_the_panel_publish_roles_and_relations` の `get_by_role(Role::TabPanel, "")` は `"Beta"` に直す。tab panel が自分の tab で名付けられるのは ARIA の決まり（`aria-labelledby` の先の tab の名前が panel の accessible name）で、支援技術が読む名前も "Beta" になる。前の `""` は、driver が `labelled_by` を解かなかったための値だった。`labelled_by` の関係の assert は変えない。設計者の決まりとして、a11y の名前の期待値を変えてよい（この形の直しだけ：名前が `labelled_by` の先の名前になる所）。他に同じ理由で落ちる試験があれば同じく直し、OPEN に一覧を書く。それ以外の理由で落ちたら STOP。
