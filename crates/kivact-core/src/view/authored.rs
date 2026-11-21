@@ -2,6 +2,7 @@
 
 use crate::view::{Node, NodeRef, Variants};
 use kivact_runtime::{IntoValue, Value};
+use std::panic::Location;
 
 /// What the authors of a node wrote on it so far, folded over its modifier
 /// segments in order (the segments a part or `absorb` closed, then the
@@ -17,7 +18,9 @@ pub struct Authored {
     name: Option<Value<String>>,
     description: Option<Value<String>>,
     labelled_by: Vec<NodeRef>,
+    described_by: Vec<NodeRef>,
     has_press: bool,
+    at: Option<&'static Location<'static>>,
 }
 
 impl Node {
@@ -41,7 +44,9 @@ impl Node {
             name: self.name_source().map(IntoValue::into_value),
             description: self.description_source().map(IntoValue::into_value),
             labelled_by: self.labelled_by_sources(),
+            described_by: self.described_by_sources(),
             has_press,
+            at: self.at,
         }
     }
 
@@ -107,8 +112,21 @@ impl Authored {
     pub fn labelled_by(&self) -> &[NodeRef] {
         &self.labelled_by
     }
+    /// The nodes the authors named as this node's descriptions.
+    pub fn described_by(&self) -> &[NodeRef] {
+        &self.described_by
+    }
     /// Whether an author gave the node a press handler (no handler is copied).
     pub fn has_press(&self) -> bool {
         self.has_press
+    }
+    /// Where the node was created: the call of its constructor (`node()`),
+    /// or the call of this method when the node has no location.
+    #[track_caller]
+    pub fn at(&self) -> &'static Location<'static> {
+        match self.at {
+            Some(at) => at,
+            None => Location::caller(),
+        }
     }
 }
