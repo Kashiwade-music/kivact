@@ -961,3 +961,15 @@ U47（lane `wt/rw-W8-U2`、commit `13432f34`）は部分完了：`announcer_outl
 - `Dialog`・`HoverCard`・`Disclosure`（`attach(trigger)` で trigger と surface を兄弟で出す）と `DisclosureGroup`（型付きの panel を積む）は、`Tooltip` と同じく手書きの builder のまま残し、`[hand_element] allowed_impls` に足す。`Dialog`・`HoverCard` は root の node を持って `impl Element` にする（呼出し側の modifier は surface に付く）。U24 の残りの固有の `variant` はここで消す。
 - `Disclosure` の `always_open`・`keep_mounted` は `bool` を取る setter にする（C1 の例外、呼出し元は `(true)`）。
 - U2 lane を再開し、U47 の残りを済ませてから U48 へ進む。U48 の `Menu`・`CommandPalette`・`ToastRegion` で同じ理由（trigger と surface を兄弟で出す）に当たるものがあれば、同じ扱いにしてよい（allowed_impls に足し、OPEN に記録する）。それ以外の理由で `#[component]` にできないものは差し戻す。
+
+## 差戻し（W8・U40 と U44 の名前の規則、2026-11-21）
+
+U44（lane `wt/rw-W8-U1`、commit `e693a67f`）の確認で、U40 の試験 `ui_components::menu_renders_nested_levels_and_custom_trigger_keeps_its_style` が落ちる（`e2e_ui` 全件で 277 件通過、1 件失敗）。原因：`#[component]` の名前（`accessible_name`）は body の root node に載るので、`menu/view.rs:named` と `attach` が読む `trigger.node_mut().accessible_name()` が None になり、menu が自分の label（"Custom" ではない）を使う。U44 の toggle・toggle_button・toggle_group・button_group・toolbar も同じ形で、今の試験は当たらないが、trigger の名前を読む API で同じ誤りが出る。試験の期待値は変えない。**設計者が決める**：名前の規則（マクロの側で名前を trigger に載せる、または呼出し側の名前を優先する、など）。U1 lane は止める（U45・U46 は後）。
+
+## 差戻し（W8・U43、二度目、2026-11-21）
+
+U43（lane `wt/rw-W8-U3`、作業ツリーに変更、commit なし）。設計者の答え（`503f3fdf`：セルは行の drag を止めない、選択の守りは行の press に移す）を実施したが、試験 `dragging_a_row_reports_one_place_per_step` は、答えの前提と合わずに落ちる：
+- 試験には `.selection(...)` が無く、`checks()` が None なので、data cell の `keep_selection` は掛からない。止めているのは keep_selection ではない。
+- HEAD の `row_drag.rs`・`rows.rs` の `drag_source` に戻しても、同じ試験が同じ失敗（`left: []`）。drag が始まらない（`on_start` が呼ばれない）。`TableFocus::None` で `Role::Cell` を押しても失敗する。
+- 守りを行の press に移せない：`crates/kivact-core/src/client/dispatch/pointer.rs` の `pointer()` は押しを最も近い pointer handler の祖先 1 つに渡す。`TableFocus::Cells` では、セルの part の handler（`crates/kivact-interaction/src/table/cells.rs` の `cell`、`list.select` を呼ぶ）が先に当たる。
+- **設計者が決める**：(a) チェック付きのセルの押しで選択を置き換えない守りを `table/cells.rs` に置く（所有の外）、(b) drag の出どころを行全体でなく drag の取手（handle）に限る。どちらでも、drag が始まらない原因（どの part が押しを取るか）を先に調べる。U3 lane は止める（U49〜U51 は後）。
