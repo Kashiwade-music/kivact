@@ -726,3 +726,11 @@ U23（lane U1、commit `571ec07a`）は未完。次の 3 件は設計の判断�
 - **(3) `NavigationMenuLink::on_press`**（`crates/kivact-ui/src/navigation_menu/link.rs`）：付属書 U23 の手順 5 は固有の method を消すと書く。だが `into_view` が同じ node の `on_press` で閉じる処理（`context.close`）を足し、`Node::on_press` は既存の handler を置き換える（`node_modifiers.rs` の doc）。利用者の押下と閉じる処理を両方載せられない。固有の method を残した。設計者が決める：閉じる処理を別の経路（`Node` の追加の handler、または `Callback` の合成）へ移すか、付属書の形を変えるか。
 
 U23 の報告にある食い違い 1〜15（ComboboxApi::mode が無い、`Stepper::disabled` が無い、TextEditApi の `on_draft_commit` は改名の対象外、`lib.rs` の表は一部だけ更新、Avatar の press、ChatMessage・Card・Badge・ItemRow の押下が root に載る、Stepper の項目は常に押下可能、icon_button の Ghost、button の group の角、input_group、試験の改名と追加、`#[track_caller]` の 53 file、未使用の印の削除）は、Orchestrator が読んだ。判断は U23 の後の確認で見る。ただし、食い違い 6（押下が body でなく root に載る）と 7（Stepper の項目が常に押下可能）は、利用者の挙動が変わるので、設計者の確認が要る。
+
+## 設計者の回答（W7a・U23 の差戻し、2026-11-21）
+
+- **(1) `ColumnDef::with_width`**：付属書どおり builder を `width` にし、getter を `preferred_width` に改名する（使うのは `data_table/column.rs` の 1 箇所）。付属書 U23 の手順 4 に足した。
+- **(2) Stepper の state 印**：印の行は 0.5 の表どおりでよい。ただし Orchestrator の権限の判定で拒否された編集なので、設計者が代わりに入れることはしない。利用者に判断を求めた（利用者の許可が出たら設計者が入れる）。それまで U23 の xtask の 1 件は未解決のまま残し、ほかの直しを先に進める。
+- **(3) `NavigationMenuLink::on_press`**：固有の method は消す（API-13 のとおり。固有の method を残すと、`Element::on_press` で付けた handler が `into_view` で置き換えられて消える）。core に `#[doc(hidden)] Node::take_press` を足し、link は呼出し側の handler を取り出して自分の押下の中で呼んでから閉じる。付属書 U23 の手順 5 に書き、試験を 1 つ足した。
+- **食い違い 6（押下が root に載る）**：採る。`Element` の modifier は root に付く（`element_data.rs` の doc の決まり）。Card・ChatMessage・Badge・ItemRow の全体が押せる面になり、`use_button()` の part も root に付く。G の移行の文書に 1 行足す（W11b）。
+- **食い違い 7（Stepper の項目が常に押せる）**：採る。値は `current` の signal が持ち、利用者の操作はそれを書く。飛ばせない手順の項目は `StepperItem::disabled(true)` にする。`stepper` の doc に 1 文足す（付属書の手順 1）。G の移行の文書に 1 行足す（W11b）。
