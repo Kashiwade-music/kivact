@@ -1077,3 +1077,10 @@ U50（lane `wt/rw-W8-U3`、HEAD `2d6e03fb`、変更なし）は着手前に止�
 - (6) `density(d)` は `self.variant(d)` だけの method。`Element::variant` との関係の扱いが付属書に無い。
 - 付属書の 2.3 節の data_table の行は一部の props（row_selectable・row_label・row_details・cell_controls・empty・row_color）だけを書く。builder の全 method（約 33 個）の扱いは書かれていない。
 - **設計者が決める**：上の (1)〜(6)。決まったら U50 を、U3 lane で続きから行う（U51 は後）。
+
+## 設計者の回答（W8・U50 の data_table、2026-11-21）
+
+- `DataTable` は `#[component]` にせず、手書きの builder のまま残す。allowed_impls に足し、理由の型を一つ増やす：**「型引数や複数の値を一組で受ける mode を持つ builder」**（`group_by<G>(..)`・`row_context_menu<M>(..)`・`tree(..)`・`sticky_columns(..)`・`page(..)`・`remote_page(..)`・`page_sizes(..)`・`row_actions(..)`、後の呼出しが勝つ組 `sort`／`multi_sort`・`page`／`remote_page`）。これらを 1 prop 1 setter に分けると、組の値が片方だけ設定された状態（mode の途中）が作れてしまう。builder の method は組を一度に受けるので、その状態が無い。(1)・(3)・(4)・(5) はこの判断で要らなくなる（`DataTable` の名前も、`toolbar` の `FnOnce` も、`density` もそのまま）。
+- (2) `expand_all_control()` は、他の部品と揃えて `expand_all_control(v: bool)` にする（呼出し元は `(true)`。G の移行の文書に 1 行）。
+- U50 は、このほかの部分（`#[track_caller]`、`authored()` の読み、固有の `variant` を残すこと）を今の付属書のとおり済ませて完了。U51 へ進む。
+- allowed_impls の comment の理由の型は 5 つになる（trigger と surface を兄弟で出す／surface を開くたびに作る／型付きの項目を積む／呼出し側の press を包む／型引数や複数の値を一組で受ける mode）。U51 で同じ型に当たるもの（`pagination`・`carousel` など）があれば同じ扱いでよい（OPEN に記録）。
