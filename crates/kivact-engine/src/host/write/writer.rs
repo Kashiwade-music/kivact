@@ -5,9 +5,9 @@
 //! shared; each window keeps its own model.
 
 use super::reader::Reader;
-use crate::contract::{
-    DevtoolsKeys, DevtoolsOverlay, HostEvent, HostRequest, NodeKind, SceneLayer,
-};
+#[cfg(feature = "devtools")]
+use crate::contract::{DevtoolsKeys, DevtoolsOverlay};
+use crate::contract::{HostEvent, HostRequest, NodeKind, SceneLayer};
 use crate::model::AppModel;
 use crate::mutation::WriteStats;
 use kivact_types::{
@@ -420,6 +420,7 @@ impl Writer {
     }
 
     #[doc(hidden)]
+    #[cfg(feature = "devtools")]
     /// Set the DevTools overlay of `window`; the host applies it after the
     /// turn.
     pub fn set_devtools_overlay(&self, window: WindowId, overlay: DevtoolsOverlay) {
@@ -429,6 +430,7 @@ impl Writer {
     }
 
     #[doc(hidden)]
+    #[cfg(feature = "devtools")]
     /// Set the window in pick mode (`None` leaves it).
     pub fn set_pick(&self, pick: Option<WindowId>) {
         self.app
@@ -437,6 +439,7 @@ impl Writer {
     }
 
     #[doc(hidden)]
+    #[cfg(feature = "devtools")]
     /// Set the keys that open the DevTools and those that open it in pick mode.
     pub fn set_devtools_keys(&self, keys: DevtoolsKeys) {
         self.app

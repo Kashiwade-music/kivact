@@ -27,7 +27,7 @@ tokio = ["kivact-runtime/tokio"]
 embed = []
 gpu-interop = []
 shader-validation = ["kivact-style/shader-validation"]
-devtools = ["dep:kivact-devtools-agent", "dep:kivact-devtools-protocol", "kivact-runtime/devtools"]
+devtools = ["dep:kivact-devtools-agent", "dep:kivact-devtools-protocol", "kivact-runtime/devtools", "kivact-engine/devtools"]
 
 [lints]
 workspace = true

@@ -5,25 +5,28 @@
 //! effects and frames out over Arvane's windows.
 
 use super::client::{Boundary, Client};
-use super::devtools::{
-    DevtoolsHost, append_overlay_layer, apply_emulation, chord_matches, effective_scale,
-    emulated_viewport,
-};
+use super::devtools::{DevtoolsHost, apply_emulation, effective_scale, emulated_viewport};
+#[cfg(feature = "devtools")]
+use super::devtools::{append_overlay_layer, chord_matches};
 use crate::FrameLog;
+#[cfg(feature = "devtools")]
+use crate::contract::{DevtoolsChange, PickPhase};
 use crate::contract::{
-    DevtoolsChange, DrawableTexturesHandle, EngineEmulation, FrameRecord, HostEvent, HostRequest,
-    PickPhase, TurnOutput,
+    DrawableTexturesHandle, EngineEmulation, FrameRecord, HostEvent, HostRequest, TurnOutput,
 };
 use crate::model::AppModel;
 use crate::model::edit::state::ImeUpdate;
 use crate::model::window::{FRAME_STATE_KEEP_NS, LastPresent};
 use arvane::{ExportNotice, Presented, Window, Windows};
-use arvane_shell::{ShellControl, ShellError, ShellEvent, SizeReply};
+#[cfg(feature = "devtools")]
+use arvane_protocol::Composition;
+#[cfg(feature = "devtools")]
+use arvane_shell::ShellEvent;
+use arvane_shell::{ShellControl, ShellError, SizeReply};
 use kivact_types::cell::{ReportOnce, Sent};
-use kivact_types::{
-    DrawableId, Key, KeyInput, KeyPhase, MouseButton, NodeId, PlatformRequest, PlatformResult,
-    Point, PointerPhase, RequestId, WindowId,
-};
+use kivact_types::{DrawableId, PlatformRequest, PlatformResult, RequestId, WindowId};
+#[cfg(feature = "devtools")]
+use kivact_types::{Key, KeyInput, KeyPhase, MouseButton, NodeId, Point, PointerPhase};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
@@ -359,24 +362,15 @@ impl Host {
             model.paint.set_scale(scale);
         }
         let t_scene = Instant::now();
-        let overlay = self.devtools.overlays.get(&id).cloned();
         let composition = {
             let mut app = self.app.borrow_mut();
             let model = app
                 .model_mut(id)
                 .expect("invariant: a presented window has a model");
-            let size = model.window();
-            let mut composition = model.composition(&mut self.engine.borrow_mut());
-            if let Some(overlay) = &overlay {
-                append_overlay_layer(
-                    overlay,
-                    &mut composition,
-                    &mut self.engine.borrow_mut(),
-                    size,
-                );
-            }
-            composition
+            model.composition(&mut self.engine.borrow_mut())
         };
+        #[cfg(feature = "devtools")]
+        let composition = self.with_overlay(id, composition);
         let t_raster = Instant::now();
         let presented = window.present(&composition, plan)?;
         let end_ns = window.now_ns();
@@ -466,6 +460,7 @@ impl Host {
             TurnOutput::Exit => self.phase = HostPhase::Exiting,
         }
         self.apply_window_changes(windows);
+        #[cfg(feature = "devtools")]
         self.apply_devtools_changes();
         self.effects(windows);
         if self.closed() {
@@ -857,8 +852,23 @@ impl Host {
 }
 
 impl Host {
+    /// `composition` with the DevTools overlay of window `id` added, when one is set.
+    #[cfg(feature = "devtools")]
+    fn with_overlay(&self, id: WindowId, composition: Composition) -> Composition {
+        let Some(overlay) = self.devtools.overlays.get(&id) else {
+            return composition;
+        };
+        let app = self.app.borrow();
+        let size = app
+            .model(id)
+            .expect("invariant: a presented window has a model")
+            .window();
+        append_overlay_layer(overlay, composition, &mut self.engine.borrow_mut(), size)
+    }
+
     /// Drop `event` for the DevTools when it is a start key or while `id`
     /// is picking; the DevTools event is queued instead.
+    #[cfg(feature = "devtools")]
     pub(super) fn intercept_devtools(&mut self, id: WindowId, event: &ShellEvent) -> bool {
         if let ShellEvent::Key(input) = event
             && matches!(input.phase, KeyPhase::Down { .. })
@@ -906,6 +916,7 @@ impl Host {
     }
 
     /// Whether the press `input` is a start key; `Some(true)` for a pick key.
+    #[cfg(feature = "devtools")]
     fn start_key(&self, input: &KeyInput) -> Option<bool> {
         let pick = self
             .devtools
@@ -925,6 +936,7 @@ impl Host {
     }
 
     /// The node under `point` for pick mode, ignoring modals.
+    #[cfg(feature = "devtools")]
     fn pick_node(&self, id: WindowId, point: Point) -> Option<NodeId> {
         self.app
             .borrow()
@@ -933,6 +945,7 @@ impl Host {
     }
 
     /// Apply the DevTools changes of the turn to `DevtoolsHost`.
+    #[cfg(feature = "devtools")]
     pub(super) fn apply_devtools_changes(&mut self) {
         let changes = self.app.borrow_mut().take_devtools_changes();
         for change in changes {

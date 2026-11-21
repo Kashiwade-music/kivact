@@ -1,5 +1,6 @@
 //! Role: Values and callbacks exchanged by the engine and its client.
 mod devtools;
+#[cfg(feature = "devtools")]
 pub(crate) use devtools::DevtoolsChange;
 pub use devtools::{
     BoxModelRects, DevtoolsKeys, DevtoolsOverlay, EngineEmulation, EngineRecords, FrameRecord,
