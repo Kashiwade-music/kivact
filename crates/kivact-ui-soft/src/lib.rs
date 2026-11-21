@@ -15,6 +15,8 @@ mod motion;
 mod radius;
 mod recipe_parts;
 mod recipes_controls;
+mod recipes_controls_choice;
+mod recipes_controls_radio;
 mod shadows;
 mod space;
 mod theme;

@@ -166,9 +166,10 @@ fn toggle(theme: &Theme, s_: &Look<ToggleButtonState>, _base: Style) -> Style {
     press(theme, fast(base), bg)
 }
 
-/// Install the kit's recipes of the action controls (button and toggle button).
+/// Install the kit's recipes of the controls group: the action controls here,
+/// and the choice, value, field and panel controls in their own modules.
 pub(crate) fn install(theme: Theme) -> Theme {
-    theme
+    let theme = theme
         .with(
             ButtonTheme::default()
                 .root(button)
@@ -176,5 +177,7 @@ pub(crate) fn install(theme: Theme) -> Theme {
                 .icon(button_icon)
                 .busy(button_busy),
         )
-        .with(ToggleButtonTheme::default().root(toggle))
+        .with(ToggleButtonTheme::default().root(toggle));
+    let theme = crate::recipes_controls_choice::install(theme);
+    crate::recipes_controls_radio::install(theme)
 }
