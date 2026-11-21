@@ -670,3 +670,14 @@ C19 のほかの点は、Orchestrator の判断どおり：shorthand の展開�
 
 - **S18 の `misplaced_lengths`**：8 を採る。報告の数は長さごとに数える（S15 の `Transform` の unsupported と同じ規則）。隅は x と y の 2 つの長さを持つので、4 隅で 8。付属書 S18 の試験の文を 8 に直した。実装と試験はそのままでよい。
 - **S19 の `navigation.rs` の順序**：採る。`report_states` を `focused` の書込みの後に呼ぶのは S19 の目的に要る直しで、W6b のどの lane も所有しない file なので衝突もない。
+
+## Orchestrator の判断（W6b・S20、2026-11-21）
+
+S20（commit `c0904ec4`、subagent の報告の J1〜J5）。
+
+- **J1（`Composite` の型を `kivact::draw` に残した）**：採る（中間状態）。設計書 3 章の `Mix::Composite(Composite)`（`REWORK_DESIGN.md` の 336 行）は型を Mix の payload として残す。`e2e_core/compositor.rs` と `offscreen_svg.rs` がこの path を import しているので、S20 では残し、S21（`Mix` の移動）で Mix と一緒に扱う。S21 の付属書の手順で決める。
+- **J2（`Offscreen`）**：採る。付属書の手順 7 は core の `draw.rs` に再公開を書くが、現状の core の `draw.rs` には無い。`kivact::draw` の `Offscreen` は facade に従来どおり置いた。
+- **J3（facade の `crates/kivact/src/draw.rs`）**：採る（0.5 の「所有の外の 1〜3 ファイル」。W6b のどの lane も所有しない）。
+- **J4（行末）**：採る。変更した 189 file を CRLF にそろえた（前の unit の編集で LF になった file があった）。`git diff --stat` と `--ignore-cr-at-eol` が一致する。
+- **J5（DevTools の override 名の改名：`grow`→`flex_grow`、`shrink`→`flex_shrink`、`weight`→`font_weight`、`radius`→`border_radius` と四隅）**：設計者に確認する。採るが、DevTools の wire に見える名前なので、統一するかは設計者が決める。表示用の label（`kivact-core/src/devtools/node.rs` の "ring"・"radius"・"weight"）は変えていない。
+- S20 の試験の名前：S17 の試験が `radius_top_left` を探していたので `border_top_left_radius` に直した（付属書の試験の文の名前の追従。期待値は変えていない）。採る。
