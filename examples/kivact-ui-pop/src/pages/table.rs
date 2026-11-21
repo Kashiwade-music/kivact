@@ -81,6 +81,7 @@ fn table_demo() -> impl IntoView {
         ),
         student_drawer(drawer_title, sheet, notify),
     ))
+    .style(style().width(pct(100)))
     // end example
 }
 

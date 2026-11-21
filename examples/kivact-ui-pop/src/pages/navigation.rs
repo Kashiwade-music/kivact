@@ -32,7 +32,7 @@ fn navigation_demo() -> impl IntoView {
         "09", "Navigation", "Breadcrumb, stepper, accordion and timeline",
         cards_grid((
             card("Breadcrumb and stepper", column((
-                kivact::ui::breadcrumb(["Home", "Requests", "Central ward, outer district", "REQ-1003"].into_iter().enumerate().map(|(key,label)|kivact::interaction::ListItem::new(key,label)).collect::<Vec<_>>()).separator(||kivact::view::icon("chevron-right")),
+                kivact::ui::breadcrumb(["Requests", "Central ward", "REQ-1003"].into_iter().enumerate().map(|(key,label)|kivact::interaction::ListItem::new(key,label)).collect::<Vec<_>>()).separator(||kivact::view::icon("chevron-right")),
                 kivact::ui::stepper(
                     [("Intake","10/01"),("Team","10/02"),("Execution","In progress"),("Report","—")].into_iter().map(|(label,note)|kivact::ui::StepperItem::new(label).description(note)).collect::<Vec<_>>(),
                     current,

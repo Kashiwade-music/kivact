@@ -17,7 +17,7 @@ pub(crate) fn cards_grid(children: impl IntoView) -> Node {
 pub(crate) fn columns(children: impl IntoView, count: u16) -> Node {
     grid(children).style(
         style()
-            .grid_template_columns(Track::repeat(count, Track::fr(1)))
+            .grid_template_columns(Track::repeat(count, Track::minmax(0, Track::fr(1))))
             .gap(16),
     )
 }
@@ -71,6 +71,7 @@ pub(crate) fn section(number: &str, title: &str, subtitle: &str, content: impl I
         .style(style().gap(16).align_items(Align::Center).margin_bottom(16)),
         content,
     ))
+    .style(style().width(pct(100)))
 }
 
 /// Muted caption text.

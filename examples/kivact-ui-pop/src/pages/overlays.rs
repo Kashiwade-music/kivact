@@ -97,6 +97,7 @@ fn overlays_demo() -> impl IntoView {
     student_drawer(drawer_title, sheet, notify),
     overlay_palette(confirm, form, sheet, command, notify),
     ))
+    .style(style().width(pct(100)))
     // end example
 }
 

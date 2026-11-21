@@ -79,7 +79,10 @@ fn selection_demo() -> impl IntoView {
     let tab_choices = column((
         kivact::ui::tabs("Skills view", tabs, tab)
             .item(ui::tab_label)
-            .content(|key| text(panel(Some(key.as_str()))).style(style().color(color::TEXT_MUTED))),
+            .content(|key| {
+                text(panel(Some(key.as_str())))
+                    .style(style().color(color::TEXT_MUTED).width(pct(100)))
+            }),
         row((
             kivact::ui::button("Reverse the tab order")
                 .on_press(move || tabs.update(|options| options.reverse())),
@@ -96,7 +99,7 @@ fn selection_demo() -> impl IntoView {
                 })
             }),
         ))
-        .style(style().gap(8).margin_top(12)),
+        .style(style().gap(8).margin_top(12).flex_wrap(true)),
         segmented(
             "Filter",
             vec![
@@ -115,7 +118,7 @@ fn selection_demo() -> impl IntoView {
         "Segments, tabs and toggles",
         cards_grid((
             half(card("Segmented control", segments)),
-            half(card("Tabs", tab_choices)),
+            full(card("Tabs", tab_choices)),
         )),
     )
     // end example

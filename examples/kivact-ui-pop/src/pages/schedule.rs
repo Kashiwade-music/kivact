@@ -121,7 +121,10 @@ fn schedule_demo() -> impl IntoView {
         "11",
         "Schedule",
         "Calendar and agenda",
-        cards_grid((calendar_panel(date), agenda_panel(date))),
+        cards_grid((
+            calendar_panel(date).style(style().grid_column(GridPlacement::span(7))),
+            agenda_panel(date).style(style().grid_column(GridPlacement::span(5))),
+        )),
     )
     // end example
 }

@@ -5,7 +5,7 @@ use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact::state::IntoValue;
 use kivact::style::FlexDirection;
-use kivact::style::GridPlacement;
+use kivact::style::{GridPlacement, Track};
 use kivact::view::Node;
 use kivact_ui_pop as ui;
 use std::time::Duration;
@@ -265,7 +265,14 @@ fn request_summary(notify: Callback<(ui::Hue, String, String)>) -> kivact::ui::C
                 .trailing(kivact::view::icon("chevron-right")),
         ))
         .style(style().align_items(Align::Center).margin_bottom(16)),
-        columns((document_rows(), request_metadata(notify)), 2),
+        grid((document_rows(), request_metadata(notify))).style(
+            style()
+                .grid_template_columns((
+                    Track::minmax(0, Track::fr(3)),
+                    Track::minmax(0, Track::fr(2)),
+                ))
+                .gap(16),
+        ),
     ))
 }
 

@@ -93,7 +93,7 @@ fn cards_demo() -> impl IntoView {
             items
                 .into_iter()
                 .map(|mission| {
-                    third(super::cards::mission_card(mission, move || {
+                    half(super::cards::mission_card(mission, move || {
                         notify.call((
                             ui::Hue::Yellow,
                             "Reward earned!".into(),
