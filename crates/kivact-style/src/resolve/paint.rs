@@ -317,8 +317,10 @@ pub(super) fn paint_delta(base: &Style, st: &Style, theme: &Theme) -> PaintDelta
     let mut misplaced = 0;
     let mut cx = Resolve::new(&merged, theme, &mut misplaced);
     let full = paint(&merged, theme, &mut cx);
-    let sets_border = st_paint.border_width.iter().any(Option::is_some)
-        || st_paint.border_color.iter().any(Option::is_some)
+    // A width is a layout property (`Rest`): the base's width applies here
+    // and the state's compiled into the node, so only a color or a line
+    // style is a paint delta.
+    let sets_border = st_paint.border_color.iter().any(Option::is_some)
         || st_paint.border_style.iter().any(Option::is_some);
     let sets_effects = st_paint.filter.is_some()
         || st_paint.backdrop_filter.is_some()

@@ -150,9 +150,9 @@ fn merged_paint_runs_between_caller_draw_and_children_and_clears_independently()
     assert!(screen.errors().is_empty());
 }
 
-/// A state style can change paint only; a layout property or a nested state in it is reported once.
+/// A state style applies every property (ST-05); a state nested in a state is ignored and reported once.
 #[test]
-fn a_property_its_state_cannot_change_is_reported() {
+fn a_state_inside_a_state_is_reported() {
     let screen = render(|| {
         node().style(
             style()
@@ -164,12 +164,12 @@ fn a_property_its_state_cannot_change_is_reported() {
     assert_eq!(errors.len(), 1, "{errors:?}");
     assert_eq!(*errors[0].kind(), ErrorKind::Unsupported);
     assert!(
-        errors[0].message().contains("hover.width"),
+        errors[0].message().contains("hover.hover"),
         "{}",
         errors[0].message()
     );
     assert!(
-        errors[0].message().contains("hover.hover"),
+        !errors[0].message().contains("hover.width"),
         "{}",
         errors[0].message()
     );

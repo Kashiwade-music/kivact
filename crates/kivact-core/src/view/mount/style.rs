@@ -7,9 +7,9 @@ use std::rc::Rc;
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
 use kivact_runtime::driver::EffectKind;
-use kivact_runtime::{UiError, Value};
+use kivact_runtime::{Signal, UiError, Value};
 use kivact_style::{Interactive, Style};
-use kivact_types::{LayoutProps, NodeId};
+use kivact_types::{LayoutProps, NodeId, StateSet};
 
 use super::facts::{LocalPaint, LocalPaintSource, NodeFacts};
 use crate::view::Variants;
@@ -204,6 +204,9 @@ pub(crate) fn bind_style(
         Layers::Direct(layers, variants)
     };
     let weak = cx.weak();
+    // The host states the engine reports for this node, once its style asks
+    // for them (see `track_states`).
+    let reported: std::cell::Cell<Option<Signal<StateSet>>> = std::cell::Cell::new(None);
     cx.effect(EffectKind::Render, at, move || {
         let Some(theme_sig) = theme else { return };
         let Some(rt) = weak.upgrade() else { return };
@@ -218,6 +221,7 @@ pub(crate) fn bind_style(
                         selected: selected.as_ref().is_some_and(|f| f()),
                         root: kind == NodeType::Root,
                         forced: hook.forced(),
+                        active: reported.get().map(|sig| sig.get()).unwrap_or_default(),
                     };
                     let resolved = kivact_style::internal::compile_style(s, theme, state);
                     (resolved, duplicates)
@@ -240,10 +244,35 @@ pub(crate) fn bind_style(
             owner,
             window,
         };
+        track_states(&rt, id, owner, at, &reported, &resolved);
         feed_local_paint(&mcx, id, &local_paint, &resolved, &reports, at);
         reports.report(&rt, owner, id, &resolved, duplicates, at);
         write_props(&rt, id, resolved, fix_layout);
     });
+}
+
+/// Ask the engine for the host states of node `id` once its compiled state
+/// styles set more than paint (ST-05). The style effect then reads them as
+/// `Interactive::active`, and runs again when they change.
+fn track_states(
+    rt: &kivact_runtime::driver::Runtime,
+    id: NodeId,
+    owner: kivact_runtime::Owner,
+    at: &'static Location<'static>,
+    reported: &std::cell::Cell<Option<Signal<StateSet>>>,
+    resolved: &kivact_style::CompiledStyle,
+) {
+    let wants = resolved
+        .states
+        .as_ref()
+        .is_some_and(|s| !s.report.is_empty());
+    if wants && reported.get().is_none() {
+        let sig = crate::view::node_states::source(rt, id, owner, at);
+        // Read it from now on: the effect runs again when the engine reports
+        // a change.
+        let _ = sig.get();
+        reported.set(Some(sig));
+    }
 }
 
 /// Set the props of a resolved style on node `id`; `fix_layout` applies to
@@ -340,14 +369,14 @@ impl StyleReports {
         duplicates: u32,
         at: &'static Location<'static>,
     ) {
-        if !resolved.unsupported_in_states.is_empty() && self.states.note() {
+        if !resolved.nested_in_states.is_empty() && self.states.note() {
             rt.report(
                 Some(owner),
                 UiError::new(
                     kivact_runtime::ErrorKind::Unsupported,
                     format!(
-                        "state styles set properties their state cannot change, ignored: {}; a hover, pressed, focus,                          focus_visible, group_hover, group_focus, enter or exit style changes paint only (background,                          border, ring, radius, opacity, shadow, transform, z_index, scrollbar, cursor, filters, mask,                          clip_path, color), and a paint callback belongs on the base style",
-                        resolved.unsupported_in_states.join(", ")
+                        "state styles set a state or group inside a state, ignored: {}; set each state and group() on the base style",
+                        resolved.nested_in_states.join(", ")
                     ),
                     Some(at),
                 ),

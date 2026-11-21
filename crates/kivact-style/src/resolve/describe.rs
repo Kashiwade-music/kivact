@@ -1,6 +1,6 @@
 //! Role: Describe the properties a `Style` sets, for diagnostics.
 
-use crate::sheet::{Decl, PropClass, Style};
+use crate::sheet::{Decl, Style};
 
 /// The properties `s` sets (not its states), the last value of each,
 /// by name, with its value in the DevTools text form, in the order first set.
@@ -27,16 +27,17 @@ pub fn describe_state_styles(s: &Style) -> Vec<(&'static str, Vec<(&'static str,
         .collect()
 }
 
-/// The properties set in the host states of `s` that a state cannot
-/// change as paint (`CompiledStyle::unsupported_in_states`, until ST-05).
-pub(super) fn unsupported_in_states(s: &Style) -> Vec<String> {
+/// The states and groups set inside the host state styles of `s`
+/// (`CompiledStyle::nested_in_states`): a state style does not nest, so
+/// they are ignored.
+pub(super) fn nested_in_states(s: &Style) -> Vec<String> {
     let mut out = Vec::new();
     for state in kivact_types::StyleState::HOST {
         if let Some(st) = s.state(state) {
             out.extend(
                 st.decls
                     .iter()
-                    .filter(|d| d.class() == PropClass::Rest)
+                    .filter(|d| matches!(d, Decl::State(..) | Decl::Group))
                     .map(|d| format!("{}.{}", state.name(), d.name())),
             );
         }

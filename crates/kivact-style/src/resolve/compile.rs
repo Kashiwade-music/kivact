@@ -6,11 +6,12 @@ use kivact_types::{
     Edges, LayoutProps, PaintProps, ScrollAxes, StateSet, StateStyles, StyleState, TextStyle,
 };
 
-use super::describe::unsupported_in_states;
+use super::describe::nested_in_states;
 use super::paint::{border_widths, paint, paint_delta, paint_transitions, reports};
 use crate::draw::LocalPaint;
 use crate::sheet::{
-    Decl, Direction, Groups, Position, Sides, SizeFields, SpacingFields, Style, TextFields,
+    Decl, Direction, Groups, Position, PropClass, Sides, SizeFields, SpacingFields, Style,
+    TextFields,
 };
 use crate::theme::value::Theme;
 use kivact_types::Length;
@@ -45,10 +46,10 @@ pub struct CompiledStyle {
     /// ASCII characters, a text shadow's spread or inset), dropped and
     /// reported as `Unsupported`.
     pub unsupported_text: u32,
-    /// Properties set in a state style that the state cannot change, as
-    /// `state.property` (`"hover.width"`, `"disabled.hover.font_size"`):
-    /// ignored and reported as `Unsupported`.
-    pub unsupported_in_states: Vec<String>,
+    /// The states and groups set inside the host state styles, as
+    /// `state.name` (`"hover.hover"`, `"hover.group"`): ignored and reported
+    /// as `Unsupported`.
+    pub nested_in_states: Vec<String>,
     /// Problems the style reports on compilation: spring transitions that
     /// cannot run, a layout transition that repeats, shader values and
     /// filter graphs that do not validate, transform functions the form
@@ -283,6 +284,10 @@ pub struct Interactive {
     pub root: bool,
     /// States a tool forces on the node; empty for an App.
     pub forced: StateSet,
+    /// The host states the engine reported active for this node
+    /// (`HostEvent::StatesChanged`): their non-paint declarations are
+    /// compiled into the style.
+    pub active: StateSet,
 }
 
 /// The theme's defaults under a focusable node's style: a ring of
@@ -335,8 +340,58 @@ fn merge_forced(mut s: Style, forced: StateSet) -> Style {
     s
 }
 
-/// The host-evaluated state deltas of `s`, if it sets any state.
-fn state_styles(s: &Style, theme: &Theme) -> Option<StateStyles> {
+impl Style {
+    /// The declarations that are not paint deltas (`PropClass::Rest`),
+    /// without the nested states and groups: what a host state compiles
+    /// into the node's style (ST-05).
+    pub(crate) fn rest(&self) -> Style {
+        Style {
+            decls: self
+                .decls
+                .iter()
+                .filter(|d| {
+                    d.class() == PropClass::Rest && !matches!(d, Decl::State(..) | Decl::Group)
+                })
+                .cloned()
+                .collect(),
+        }
+    }
+}
+
+/// The host states that set more than paint (a paint callback included):
+/// the engine reports them for this node (ST-05). Enter and exit are left
+/// out: they are paint transitions.
+fn report_of(s: &Style) -> StateSet {
+    let mut report = StateSet::EMPTY;
+    for host in StyleState::HOST {
+        if matches!(host, StyleState::Enter | StyleState::Exit) {
+            continue;
+        }
+        if s.state(host).is_some_and(|st| !st.rest().decls.is_empty()) {
+            report.insert(host);
+        }
+    }
+    report
+}
+
+/// Merge the non-paint declarations of the host states the engine reports
+/// active into the base, in the order their deltas stack (ST-05). Enter and
+/// exit are not merged: they are where a paint transition starts and ends.
+fn merge_active(mut s: Style, active: StateSet) -> Style {
+    for host in StyleState::HOST {
+        if active.contains(host)
+            && !matches!(host, StyleState::Enter | StyleState::Exit)
+            && let Some(st) = s.state(host)
+        {
+            s = s.merge(&st.rest());
+        }
+    }
+    s
+}
+
+/// The host-evaluated state deltas of `s`, if it sets any state, or if the
+/// engine has to report one (`report`).
+fn state_styles(s: &Style, theme: &Theme, report: StateSet) -> Option<StateStyles> {
     let hover = s.state(StyleState::Hover);
     let group_hover = s.state(StyleState::GroupHover);
     let group_focus = s.state(StyleState::GroupFocus);
@@ -358,11 +413,12 @@ fn state_styles(s: &Style, theme: &Theme) -> Option<StateStyles> {
     ]
     .iter()
     .any(|state| state.is_some());
-    (any_state || group).then(|| {
+    (any_state || group || !report.is_empty()).then(|| {
         let mut out = StateStyles {
             group,
             ..StateStyles::default()
         };
+        out.report = report;
         let delta = |h: &Style| Some(Box::new(paint_delta(s, h, theme)));
         out.set_delta(StyleState::Hover, hover.as_ref().and_then(delta));
         out.set_delta(StyleState::Active, pressed.as_ref().and_then(delta));
@@ -396,7 +452,7 @@ pub fn compile_style(mut s: Style, theme: &Theme, mut state: Interactive) -> Com
     if state.forced.contains(StyleState::Selected) {
         state.selected = true;
     }
-    let unsupported_in_states = unsupported_in_states(&s);
+    let nested_in_states = nested_in_states(&s);
     if state.focusable {
         interactive_defaults(&mut s, theme, state.disabled);
     }
@@ -411,6 +467,10 @@ pub fn compile_style(mut s: Style, theme: &Theme, mut state: Interactive) -> Com
         s = s.merge(&v);
     }
     s = merge_forced(s, state.forced);
+    // What the host must report: decided from the declarations as written,
+    // paint callbacks included, before anything is stripped.
+    let report = report_of(&s);
+    s = merge_active(s, state.active);
     // The callback is taken after the merge: a selected or disabled
     // style's own callback is the node's (UI-S-02), and the state styles
     // that remain never carry one.
@@ -418,7 +478,7 @@ pub fn compile_style(mut s: Style, theme: &Theme, mut state: Interactive) -> Com
     s.strip_local_paint();
     // The one fold of this compilation: every resolver below reads it.
     let g = s.fold();
-    let states = state_styles(&s, theme);
+    let states = state_styles(&s, theme, report);
     let mut unsupported_text = 0;
     let mut misplaced = misplaced(&g);
     let text = (s.has_text() || state.root).then(|| {
@@ -456,7 +516,7 @@ pub fn compile_style(mut s: Style, theme: &Theme, mut state: Interactive) -> Com
         states,
         misplaced_lengths: misplaced,
         unsupported_text,
-        unsupported_in_states,
+        nested_in_states,
         reports,
     }
 }
@@ -543,5 +603,43 @@ mod tests {
     fn a_variable_font_size_is_the_base_of_em() {
         let theme = Theme::light().set(&font::SIZE_VAR, 20);
         assert_eq!(width_of(&style().width(em(1)), &theme), p::Length::Px(20.0));
+    }
+
+    #[test]
+    fn a_state_paint_callback_asks_for_reports() {
+        let s = style().hover(style().paint(|_, _| {}));
+        let theme = Theme::light();
+        let outside = compile_style(s.clone(), &theme, Interactive::default());
+        assert!(!outside.has_retained_paint());
+        let states = outside.states.expect("a hover style");
+        assert!(states.report.contains(StyleState::Hover));
+        let inside = compile_style(
+            s,
+            &theme,
+            Interactive {
+                active: StateSet::EMPTY.with(StyleState::Hover),
+                ..Interactive::default()
+            },
+        );
+        assert!(inside.has_retained_paint());
+    }
+
+    #[test]
+    fn only_states_with_more_than_paint_ask_for_reports() {
+        let theme = Theme::light();
+        let paint_only = compile_style(
+            style().hover(style().background(crate::rgb(0xff0000))),
+            &theme,
+            Interactive::default(),
+        );
+        let states = paint_only.states.expect("a hover style");
+        assert!(states.report.is_empty());
+        let layout = compile_style(
+            style().hover(style().width(10)),
+            &theme,
+            Interactive::default(),
+        );
+        let states = layout.states.expect("a hover style");
+        assert!(states.report.contains(StyleState::Hover));
     }
 }

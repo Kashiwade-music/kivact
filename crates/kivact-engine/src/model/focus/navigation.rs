@@ -353,7 +353,6 @@ impl Model {
         for n in [old_target, target].into_iter().flatten().map(|t| t.node) {
             self.prepare_state_motion(n);
             self.repaint(n);
-            self.report_states(n);
             if self.tree.get(n).and_then(|x| x.states()).is_some_and(|s| {
                 (s.wants(StyleState::Focus) || s.wants(StyleState::FocusVisible))
                     && crate::tree::states_place(s)
@@ -394,6 +393,10 @@ impl Model {
                 .focus_moved(old_target.map(|t| t.node), target.map(|t| t.node));
         }
         self.focus.focused = new;
+        // The reported states read the new focus, so they follow the assignment.
+        for n in [old_target, target].into_iter().flatten().map(|t| t.node) {
+            self.report_states(n);
+        }
         self.push(HostEvent::FocusChanged {
             window: self.window,
             node: target.map(|t| t.node),

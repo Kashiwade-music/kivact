@@ -140,8 +140,7 @@ impl Style {
     /// children and the text sit inside the border and the padding, and a
     /// width or height is the border box's. A change of its color or style
     /// alone does not lay out again. In a state style (`hover`, `focus`,
-    /// ...) a width is drawn but does not move the content: states change
-    /// the paint only.
+    /// ...) a width lays out again while the state applies, as CSS does.
     pub fn border(self, width: impl Into<f64>, color: impl Into<Color>) -> Self {
         let (w, c) = (width.into(), color.into());
         self.border_top(w, c)
@@ -335,10 +334,7 @@ impl Style {
     /// The style while the pointer is over the node or a node below it
     /// (CSS `:hover`, which a hovered child keeps on its parents).
     ///
-    /// A state style changes paint only (see [`TransitionProp::All`]); a
-    /// layout or text property other than `color` set in it is reported as
-    /// `Unsupported` and ignored. `selected` and `disabled` apply any
-    /// property.
+    /// Every property applies; see the module doc.
     pub fn hover(self, s: Style) -> Self {
         self.push(Decl::State(StyleState::Hover, Box::new(s)))
     }

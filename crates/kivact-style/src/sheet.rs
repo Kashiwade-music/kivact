@@ -14,15 +14,16 @@
 //! remounts nothing.
 //!
 //! Interaction states:
-//! - `hover`, `pressed`, `focus` and `focus_visible` become `StateStyles`
-//!   deltas the host evaluates (`focus_visible` lies over `focus` while the
-//!   focus is visible); `enter` and `exit` are deltas of the same kind, on
-//!   top right after mounting and while leaving (`kivact::motion`).
-//!   `disabled` and `selected` are merged when the style is compiled.
-//!   A state style changes paint only (see [`TransitionProp::All`]); a
-//!   layout or text property other than `color` set in a delta state is
-//!   reported as `Unsupported` and ignored. `selected` and `disabled` apply
-//!   any property.
+//! - `hover`, `pressed`, `focus`, `focus_visible`, `group_hover` and
+//!   `group_focus` accept every property. The paint ones (background, border
+//!   colors and line styles, outline, radii, opacity, shadows, transforms,
+//!   z-index, scrollbar, cursor, filters, mask, clip path, text color) are
+//!   deltas the host draws at once; the others (sizes, spacing, border
+//!   widths, text properties, a paint callback) are compiled into the node's
+//!   style while the host reports the state, so they lay out again like CSS.
+//!   `enter` and `exit` are where a paint transition starts and ends (CSS
+//!   `@starting-style`); properties a transition does not move have no effect
+//!   there. `disabled` and `selected` are merged when the style is compiled.
 //! - Hover is CSS `:hover`: the pointer is over the node or a descendant
 //!   (the node is on the host's hover chain), so a hovered child keeps its
 //!   parent hovered. There is no `hovered` style; `NodeRef::hovered` reads
