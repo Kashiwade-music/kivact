@@ -10,3 +10,8 @@ pub(crate) fn options() -> RenderOptions {
 pub(crate) fn near(a: impl Into<f64>, b: impl Into<f64>, tolerance: f64) -> bool {
     (a.into() - b.into()).abs() < tolerance
 }
+
+/// The Dark theme of the kit, for resolving the colors a test reads back.
+pub(crate) fn dark_theme() -> kivact::style::Theme {
+    ui::theme(kivact::style::ThemeMode::Dark)
+}

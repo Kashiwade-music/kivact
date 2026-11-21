@@ -82,14 +82,14 @@ pub(super) fn shape(
             // The advance across, the line box down: the line's tile of the
             // paragraph, from its top.
             bounds: Rect {
-                x: origin.x + l.rect.x,
-                y: origin.y + l.rect.y,
-                width: l.rect.width,
-                height: l.rect.height,
+                x: origin.x + l.line_box.x,
+                y: origin.y + l.line_box.y,
+                width: l.line_box.width,
+                height: l.line_box.height,
             },
             baseline: origin.y + l.baseline,
             cap_height: l.cap_height,
-            height: l.rect.height,
+            height: l.line_box.height,
             cut: l.cut,
         })
         .collect();

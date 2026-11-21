@@ -731,4 +731,31 @@ mod tests {
             FamilyChoice::Family(_)
         ));
     }
+
+    #[test]
+    fn the_line_boxes_add_up_to_the_measured_height() {
+        let font: Arc<[u8]> = Arc::from(&include_bytes!("../../arvane/assets/fonts/Tuffy.ttf")[..]);
+        let mut engine = TextEngine::isolated(&[font]).expect("the test font is usable");
+        let text = "A paragraph of text that wraps over several lines because it is wide.";
+        for line_height in [
+            kivact_types::LineHeight::Normal,
+            kivact_types::LineHeight::Scale(0.95),
+            kivact_types::LineHeight::Px(40.0),
+        ] {
+            let style = ComputedTextStyle {
+                font_size: 34.0,
+                line_height,
+                ..ComputedTextStyle::default()
+            };
+            let shaped = engine.shape(text, &style, Some(200.0)).expect("shapes");
+            let measured = engine.measure(text, &style, Some(200.0)).expect("measures");
+            assert!(shaped.lines.len() > 1, "{line_height:?}");
+            let sum: f64 = shaped.lines.iter().map(|l| l.line_box.height).sum();
+            assert!(
+                (sum - measured.size.height).abs() < 0.01,
+                "{line_height:?}: {sum} != {}",
+                measured.size.height
+            );
+        }
+    }
 }

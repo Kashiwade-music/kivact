@@ -63,7 +63,8 @@ fn fixture() -> (Screen, Model) {
                     )
                     .lanes(model.lanes)
                     .snap(model.snap)
-                    .step(0.5, 0.25)
+                    .time_step(0.5)
+                    .value_step(0.25)
                     .on_edit(graph_edits(model.curves, move |phase| {
                         model.phases.update(|p| p.push(phase))
                     }))

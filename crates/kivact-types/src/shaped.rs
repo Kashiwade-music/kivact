@@ -161,9 +161,14 @@ pub struct TextLine {
     pub range: Range<usize>,
     /// Where the line's content lies: its advance from the aligned start,
     /// without the trailing white space (a cut line: the kept text and the
-    /// ellipsis), and the line box's height. The line box tiles the
-    /// paragraph from top to bottom.
+    /// ellipsis), and the height of its selection box: the line box, or the
+    /// ascent and descent when they are taller. Selection and the caret use
+    /// it; layout checks use [`TextLine::line_box`].
     pub rect: Rect,
+    /// The line's box as layout stacks it: the line-height down, from the top
+    /// of its slot. Glyphs may reach beyond it. The line boxes tile the
+    /// paragraph from top to bottom, and their heights add up to its height.
+    pub line_box: Rect,
     /// The baseline, from the top of the paragraph.
     pub baseline: f64,
     /// The distance from the baseline up to the top of the tallest font on

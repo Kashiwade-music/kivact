@@ -1,10 +1,10 @@
-//! Creative example application entry point.
+//! Role: Entry point of the Creative kit catalog app.
 
 use kivact::prelude::*;
-use kivact_ui_creative_catalog::{catalog, fonts};
+use kivact_ui_creative_catalog::{START, THEME, pages};
 
 fn main() -> kivact::Result<()> {
-    App::new("Kivact · Official UI · Creative")
-        .theme(kivact::style::Theme::default().with_fonts(fonts().iter().copied()))
-        .run(catalog)
+    App::new("Kivact UI · Creative")
+        .window_size(1440, 900)
+        .run(move || catalog_shell::catalog("Creative", pages(), THEME).start(START))
 }

@@ -35,7 +35,7 @@ use kivact::view::{A11yAction, A11yEvent, A11yRequest, Handled, Key, KeyEvent, R
 /// use kivact::prelude::*;
 /// use kivact_ui_creative::{bezier_curve, CubicBezier};
 /// fn easing() -> impl IntoView {
-///     bezier_curve(signal(CubicBezier::default()), None)
+///     bezier_curve(signal(CubicBezier::default()))
 /// }
 /// ```
 #[component]
