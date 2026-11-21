@@ -8,7 +8,7 @@ use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
 use kivact_runtime::driver::EffectKind;
 use kivact_runtime::{Signal, UiError, Value};
-use kivact_style::{Interactive, Style};
+use kivact_style::{CompiledStyle, Interactive, Style, Theme};
 use kivact_types::{LayoutProps, NodeId, StateSet};
 
 use super::facts::{LocalPaint, LocalPaintSource, NodeFacts};
@@ -87,14 +87,76 @@ impl PartialEq for Merged {
 
 /// The merged layers of a node, as its style effect reads them.
 enum Layers {
-    /// A node whose disabled, selected or forced states can change: the
-    /// layers' closures run again only when what they read changes, not
-    /// when a state does.
+    /// A node whose states can change (disabled, selected, forced, or host
+    /// states it reports): the layers' closures run again only when what
+    /// they read changes, not when a state does.
     Memo(Value<Merged>),
     /// A node without such states: its style effect runs again only when
     /// the layers' reads or the theme change, so the effect merges the
     /// layers itself and no merged copy is kept per node.
     Direct(Vec<StyleLayer>, Variants),
+}
+
+/// The last two compiled styles of a node, by merged style, theme and
+/// interactive state. Pressing and releasing alternate between two states,
+/// and compiling is a pure function of these three.
+#[derive(Default)]
+struct CompileCache(RefCell<[Option<CompileEntry>; 2]>);
+
+/// One entry of [`CompileCache`]. It holds the merged style, so its address
+/// cannot be reused while the entry lives.
+struct CompileEntry {
+    merged: Rc<(Style, u32)>,
+    theme: Theme,
+    state: Interactive,
+    compiled: CompiledStyle,
+}
+
+impl CompileCache {
+    /// The compiled style of `merged` in `theme` and `state`, compiled now
+    /// only when no entry has them.
+    fn compile(
+        &self,
+        theme: &Theme,
+        merged: &Rc<(Style, u32)>,
+        state: Interactive,
+    ) -> CompiledStyle {
+        let mut slots = self.0.borrow_mut();
+        let hit = slots
+            .iter()
+            .flatten()
+            .find(|e| Rc::ptr_eq(&e.merged, merged) && e.state == state && e.theme == *theme);
+        if let Some(hit) = hit {
+            return hit.compiled.clone();
+        }
+        let compiled = kivact_style::internal::compile_style(merged.0.clone(), theme, state);
+        slots.swap(0, 1);
+        slots[0] = Some(CompileEntry {
+            merged: merged.clone(),
+            theme: theme.clone(),
+            state,
+            compiled: compiled.clone(),
+        });
+        compiled
+    }
+}
+
+/// From now on the merged layers of a node that reports host states are
+/// kept in a memo: its style effect runs again on every state change, and
+/// the layers need to run again only when what they read changes.
+fn keep_merged(source: &RefCell<Layers>, owner: kivact_runtime::Owner, hook: &StyleHook) {
+    let next = match &*source.borrow() {
+        Layers::Direct(layers, variants) => {
+            let (layers, variants) = (layers.clone(), variants.clone());
+            Some(Layers::Memo(
+                owner.with_setup(|| merged_memo(hook.clone(), layers, variants)),
+            ))
+        }
+        Layers::Memo(_) => None,
+    };
+    if let Some(next) = next {
+        *source.borrow_mut() = next;
+    }
 }
 
 /// The style inputs of a host node, as [`bind_node_style`] takes them.
@@ -195,14 +257,15 @@ pub(crate) fn bind_style(
     let theme = cx.theme();
     // The layers' closures run again only when what they read changes, not
     // when the disabled or selected state or the forced states change.
-    let source = if states_change || hooked {
+    let source = RefCell::new(if states_change || hooked {
         Layers::Memo(
             cx.owner
                 .with_setup(|| merged_memo(hook.clone(), layers, variants)),
         )
     } else {
         Layers::Direct(layers, variants)
-    };
+    });
+    let cache = CompileCache::default();
     let weak = cx.weak();
     // The host states the engine reports for this node, once its style asks
     // for them (see `track_states`).
@@ -214,27 +277,25 @@ pub(crate) fn bind_style(
         // an Internal effect feeding a paint transition.
         let (resolved, duplicates) = kivact_runtime::pure(|| {
             theme_sig.with(|theme| {
-                let compile = |s: Style, duplicates: u32| {
-                    let state = Interactive {
-                        focusable,
-                        disabled: disabled.as_ref().is_some_and(|f| f()),
-                        selected: selected.as_ref().is_some_and(|f| f()),
-                        root: kind == NodeType::Root,
-                        forced: hook.forced(),
-                        active: reported.get().map(|sig| sig.get()).unwrap_or_default(),
-                    };
-                    let resolved = kivact_style::internal::compile_style(s, theme, state);
-                    (resolved, duplicates)
+                let state = Interactive {
+                    focusable,
+                    disabled: disabled.as_ref().is_some_and(|f| f()),
+                    selected: selected.as_ref().is_some_and(|f| f()),
+                    root: kind == NodeType::Root,
+                    forced: hook.forced(),
+                    active: reported.get().map(|sig| sig.get()).unwrap_or_default(),
                 };
-                match &source {
+                match &*source.borrow() {
                     Layers::Memo(merged) => {
                         let merged = merged.with(|m| m.0.clone());
-                        let (style, duplicates) = &*merged;
-                        compile(style.clone(), *duplicates)
+                        let duplicates = merged.1;
+                        (cache.compile(theme, &merged, state), duplicates)
                     }
                     Layers::Direct(layers, variants) => {
                         let (style, duplicates) = merge_layers(layers, variants);
-                        compile(hook.apply(style), duplicates)
+                        let style = hook.apply(style);
+                        let resolved = kivact_style::internal::compile_style(style, theme, state);
+                        (resolved, duplicates)
                     }
                 }
             })
@@ -245,6 +306,9 @@ pub(crate) fn bind_style(
             window,
         };
         track_states(&rt, id, owner, at, &reported, &resolved);
+        if reported.get().is_some() {
+            keep_merged(&source, owner, &hook);
+        }
         feed_local_paint(&mcx, id, &local_paint, &resolved, &reports, at);
         reports.report(&rt, owner, id, &resolved, duplicates, at);
         write_props(&rt, id, resolved, fix_layout);
