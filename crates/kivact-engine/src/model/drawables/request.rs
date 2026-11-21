@@ -40,7 +40,7 @@ pub(crate) fn apply_request(m: &mut Model, request: HostRequest) {
             // accessibility transform follow the geometry.
             if let Some(root) = m.drawables.get(id).map(|entry| entry.root) {
                 m.a11y.moved(root);
-                m.changes.moved();
+                m.changes.moved_node(root);
             }
         }
         _ => debug_assert!(false, "only drawable requests reach the drawables"),

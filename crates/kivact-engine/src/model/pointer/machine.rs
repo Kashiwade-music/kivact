@@ -209,7 +209,7 @@ impl Model {
                     self.changes
                         .layout
                         .insert(crate::model::changes::LayoutReasons::PASS);
-                    self.changes.moved();
+                    self.changes.moved_node(id);
                 }
             }
         }

@@ -59,6 +59,8 @@ impl Dirty {
     pub(crate) const STUCK: Self = Self(1 << 6);
     /// A text input's caret, text, size or style changed: it is scrolled to keep the caret in view (`Model::scroll_inputs`). Kept by `dispatch` until taken.
     pub(crate) const CARET: Self = Self(1 << 8);
+    /// The geometry reports at or below it are due (`Model::report_geometry`). Kept by `dispatch` until taken.
+    pub(crate) const REPORT: Self = Self(1 << 9);
 
     /// Whether every bit of `bits` is set.
     pub(crate) const fn contains(self, bits: Self) -> bool {
@@ -206,6 +208,13 @@ impl Changes {
         self.geometry = self.geometry.max(Geometry::Moved);
     }
 
+    /// `id` moved without a layout computation (a transform, a placement,
+    /// a scroll offset): positions are redrawn and its reports are due.
+    pub(crate) fn moved_node(&mut self, id: NodeId) {
+        self.moved();
+        self.mark(id, Dirty::REPORT);
+    }
+
     /// The list of children of `parent`, or how one of them is drawn among its
     /// siblings, changed: it is written, and its child index is dropped.
     pub(crate) fn regroup(&mut self, parent: NodeId) {
@@ -220,7 +229,7 @@ impl Changes {
     /// Take what one sync dispatches. Measurement bits and layout reasons stay.
     pub(super) fn dispatch(&mut self) -> Dispatched {
         let mut dirty = std::mem::take(&mut self.dirty);
-        let kept_bits = Dirty::MEASURE.union(Dirty::CARET);
+        let kept_bits = Dirty::MEASURE.union(Dirty::CARET).union(Dirty::REPORT);
         dirty.retain(|id, d| {
             let kept = Dirty(d.0 & kept_bits.0);
             if !kept.is_empty() {
@@ -264,13 +273,17 @@ impl Changes {
         self.dirty.remove(&id);
     }
 
-    /// Start a layout pass: the nodes to measure again, or `None` when the
-    /// pass has nothing to do.
+    /// Start a layout pass: the nodes to measure again (their reports are
+    /// due), or `None` when the pass has nothing to do.
     pub(crate) fn begin_layout(&mut self) -> Option<Vec<NodeId>> {
         if !self.layout.take(LayoutReasons::PASS) {
             return None;
         }
-        Some(self.take(Dirty::MEASURE))
+        let measured = self.take(Dirty::MEASURE);
+        for id in &measured {
+            self.mark(*id, Dirty::REPORT);
+        }
+        Some(measured)
     }
 
     /// The layout pass computed the tree: any box may have moved.
@@ -284,7 +297,7 @@ impl Changes {
     /// The scroll container `id` moved its content.
     pub(crate) fn scrolled(&mut self, id: NodeId) {
         self.layout.insert(LayoutReasons::PASS);
-        self.mark(id, Dirty::SCROLLED);
+        self.mark(id, Dirty::SCROLLED.union(Dirty::REPORT));
     }
 
     /// Settling scroll offsets left nothing for another pass.
@@ -295,7 +308,7 @@ impl Changes {
     /// The sticky box `id` moved with its scrollport.
     pub(crate) fn stuck(&mut self, id: NodeId) {
         self.moved();
-        self.mark(id, Dirty::STUCK);
+        self.mark(id, Dirty::STUCK.union(Dirty::REPORT));
     }
 
     /// Whether the last layout pass computed the tree (read by the debug layout lint).

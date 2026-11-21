@@ -63,6 +63,9 @@ impl Model {
             for id in self.input_ids() {
                 self.changes.mark(id, Dirty::CARET);
             }
+            if let Some(root) = self.tree.root() {
+                self.changes.mark(root, Dirty::REPORT);
+            }
         }
     }
 
@@ -355,6 +358,11 @@ impl Model {
             self.report_images(&images);
             Settled::Updated
         } else {
+            // Without a pass, the reports a write made due (a drawable's
+            // geometry moved) are still taken here, not kept for the next sync.
+            if self.changes.marked(Dirty::REPORT).next().is_some() {
+                self.report_geometry(engine);
+            }
             Settled::Kept
         };
         // The carets that moved are kept in view once the boxes are laid out.

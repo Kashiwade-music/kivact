@@ -27,7 +27,7 @@ impl Model {
         // Placement reads anchor bounds from the model. Give it the fresh
         // geometry during the second pass, then restore the retained owners.
         std::mem::swap(&mut self.layout, &mut columns);
-        self.refit_tooltips(engine, false);
+        self.refit_tooltips(engine, false, &std::collections::HashSet::new());
         std::mem::swap(&mut self.layout, &mut columns);
         differences.extend(self.layout.compare(&columns, &self.tree));
         differences

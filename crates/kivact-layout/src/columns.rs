@@ -244,7 +244,8 @@ pub(crate) struct NodeLayoutValues {
     pub(crate) relative: Vec<bool>,
     pub(crate) presence_scale: Vec<Option<(Orientation, f64)>>,
     pub(crate) natural_size: Vec<Option<taffy::Size<f32>>>,
-    pub(crate) caches: Vec<taffy::Cache>,
+    /// The taffy cache of each slot, made when a pass first stores into it.
+    pub(crate) caches: Vec<Option<Box<taffy::Cache>>>,
     pub(crate) unrounded: Vec<taffy::Layout>,
     pub(crate) final_layout: Vec<Option<taffy::Layout>>,
     /// Rounded geometry changes awaiting consumption by the integration.
@@ -286,7 +287,7 @@ impl Default for NodeLayoutValues {
             relative: vec![false],
             presence_scale: vec![None],
             natural_size: vec![None],
-            caches: vec![taffy::Cache::new()],
+            caches: vec![None],
             unrounded: vec![taffy::Layout::new()],
             final_layout: vec![None],
             geometry_changed: Vec::new(),
@@ -376,7 +377,7 @@ impl NodeLayoutColumns {
         values.relative.push(false);
         values.presence_scale.push(None);
         values.natural_size.push(None);
-        values.caches.push(taffy::Cache::new());
+        values.caches.push(None);
         values.unrounded.push(taffy::Layout::new());
         values.final_layout.push(None);
         values.touched.push(0);
@@ -405,7 +406,7 @@ impl NodeLayoutColumns {
         values.relative[index] = false;
         values.presence_scale[index] = None;
         values.natural_size[index] = None;
-        values.caches[index] = taffy::Cache::new();
+        values.caches[index] = None;
         values.unrounded[index] = taffy::Layout::new();
         values.final_layout[index] = None;
         values.performed.remove(&(index as u64));
