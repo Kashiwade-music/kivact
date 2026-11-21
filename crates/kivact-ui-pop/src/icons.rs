@@ -321,12 +321,15 @@ fn bytes(name: &str) -> Option<&'static [u8]> {
 /// The set is built once and shared, so two themes of the kit compare their
 /// icons by identity instead of name by name.
 pub(crate) fn set() -> kivact::style::IconSet {
-    #[expect(
-        clippy::disallowed_types,
-        reason = "Process-wide immutable icon identity cache, not deferred instance state"
-    )]
-    static SET: std::sync::OnceLock<kivact::style::IconSet> = std::sync::OnceLock::new();
-    SET.get_or_init(|| {
+    thread_local! {
+        /// The kit's icon set, built once per UI thread and shared by its themes.
+        static SET: kivact::style::IconSet = build();
+    }
+    SET.with(kivact::style::IconSet::clone)
+}
+
+fn build() -> kivact::style::IconSet {
+    {
         let mut set = kivact::style::IconSet::standard();
         set.extend(
             NAMES
@@ -357,6 +360,5 @@ pub(crate) fn set() -> kivact::style::IconSet {
             ),
         ]);
         set
-    })
-    .clone()
+    }
 }
