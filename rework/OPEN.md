@@ -1199,3 +1199,15 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
 - 後退（9 行）：K2 3000 rows idle WS（1.395）、K2 per_item box（1.457）、K2 per_item text（1.668）、K2 per_item button（1.365）、K2 per_item row（1.478）、K4 3000 rows work p95（1.059）、K4 3000 rows work p99（1.151）、K5 wheel p95 n3000（1.079）、K5 counter click p95（1.283）。
 - 改善未達（1 行）：K3 3000 rows continuous CPU（0.917、目標 ≤ 0.85 の改善の必達に届かず）。
 - 判定：CP1 と同じく 3 回中 2 回で判定する（`rework/kpi/CP2-r2.md`・`CP2-r3.md`）。この 1 回目では判定しない。r2・r3 を取るかどうかは設計者の指示を待つ。Orchestrator は直さない。
+
+## 設計者の回答（KPI の後退（CP2）、2026-11-22）
+
+- **1 回目は判定に使わない（手順の誤り）**。作業指示書 5.1 節の 2 は、基点 `c9518946` の worktree で `B0-CP2` を測り、続けて checkpoint の commit で `CP2` を測り、`kpi-compare rework/kpi/B0-CP2.md rework/kpi/CP2.md` で比べると決めている。1 回目は CP1 より前の `rework/kpi/B0.md` と比べた。K2 の診断の `arvane_shell::a11y::state::AcceptedTree` は `CP2.md` に 4 件、`B0.md` に 0 件で、5.1 節の 2 の「片方にだけあれば測り直す」に当たる。K2 の 1.3〜1.7 倍は CP1 で見た UI Automation の環境差と同じ形で、改修の後退とはまだ言えない。
+- **測り直しの手順**（5.1 節の 2・3 のとおり。設計の変更はない）：
+  1. 測る間は他の作業をしない。W9 の subagent の build・試験も止める（走っている unit は区切りまで終えてから測り始める）。
+  2. 基点の worktree（`c9518946`）で `dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh --no-catalog B0-CP2`、続けて CP2 の gate を通した commit（`01bc2d58` の統合、または同じ code の `895802fa`）の checkout で `dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh --no-catalog CP2b`。`CARGO_TARGET_DIR` は設定しない。
+  3. 両方の K2 の診断に `AcceptedTree` があるか（または両方に無いか）を確かめ、片方だけなら 2 からやり直す。
+  4. `rework/kpi/B0-CP2.md`・`rework/kpi/CP2b.md` に写し、`cargo xtask kpi-compare rework/kpi/B0-CP2.md rework/kpi/CP2b.md > rework/kpi/CP2b-ratio.md`。
+  5. ここで必達を満たさない行だけ、基点と一緒に 2 回測り直し（`B0-CP2-r2`/`CP2-r2`、`B0-CP2-r3`/`CP2-r3`）、3 回中 2 回で判定する。K6 は 1 回で判定する。
+  6. 3 回中 2 回で後退の行だけを「KPI の後退（CP2）」に書き直して設計者に返す。改善の必達の未達（K3 continuous CPU など）は「KPI の未達」に書くだけで返さない（5.1 節の 3）。1 回目の `CP2.md`・`CP2-ratio.md` は消さずに残し、この節から「判定に使わない」と分かるようにする。
+- **W9 との順序**：KPI の測り直しを先に済ませてから W9 の unit を起動する。測り直しの後退を待つ必要はない（後退の行は設計者が答えるまで W9 と並べて進めてよい）。
