@@ -832,3 +832,14 @@ U34・U35（W7b の U3）は完了、U32（U2）は完了、U36（U4）は ui �
 - 付属書 S に **S22b**（span が運べない text の宣言を `compile_span` の数に足す、ST-31）と **S22d**（DevTools の computed の名前を style の名前に揃える、J5）を足した（`## S23` の後）。W8 に lane S を一つ足し、S22b → S22d の順で行う。所有は他の W8 の lane と重ならない（`kivact-style/src/internal.rs`、`kivact-core/src/devtools/node.rs`）。W8 の merge の順では lane S を最後にする。
 - **S22c**：paragraph の `tabular_nums` は効いている（`resolve_extras` → computed の継承 → `arvane-text` の `tnum`）。S22 の食い違い 9 は閉じる。unit は無い。
 - W11c の「表示用の label」の項（J5）は S22d に移した。
+
+## 差戻し（W7b・U30b、2026-11-21）
+
+U30b（lane U1、commit `a3b104c7`）は commit されたが、`cargo xtask check --no-write` の state 検査（interaction）が 3 件 error のまま。U1 lane はここで止める（U31・U33 は U30b の後）。印は Orchestrator が勝手に入れない（先の Stepper の印は権限の判定で拒否され、設計者が利用者の許可で入れた）。
+
+- **(1) `ComboboxApi`**（`crates/kivact-interaction/src/combobox/handle.rs`）：新しい `Signal` の field `open`・`query` を持ち、`show`・`hide` 等が `self.open.set` を書く。付属書は接尾辞 `Api` を理由に対象外と読める書き方。xtask は対象にする。
+- **(2) `CommandPaletteApi`**（`palette/handle.rs`）：新しい `show`・`hide`・`toggle` が `self.open.set` を書く。同じ扱い。
+- **(3) `SelectApi`**（`select/handle.rs`）：新しい field `open`、`open_with` が `open.set` を書く。同じ扱い。
+- **設計者が決める**：(a) 0.5 の印の 3 条件（書き手の列挙・他 field の値を見てから読まない・同じ事実を二つの field が持たない）を満たすとして、各型に `// xtask-allow(state): independent: ...` の印を付ける（印は Orchestrator が書く。権限の判定で拒否されたら、設計者が利用者の許可を得て入れる）、(b) xtask の対象から `Api` の handle（`open` を Signal で持つだけ）を外す規則の変更、(c) 型を enum にする（設計の変更）。
+- 付属書との食い違い（判断済み）：`menu_show_twice_stays_open` は、付属書の「Show twice の後に Toggle twice で open が true のまま」が、ボタンの押下が menu の外なので先に outside press で閉じるため成立しない。Toggle twice を閉じた状態から先に押す形に変え、期待値の強さは保った。`use_combobox` の仮引数 `options` と memo `options` の名前衝突は `let inline = options.inline;` で解いた（挙動は同じ）。menu の `Level::item` は `key.get()` を `register_item_anchor` に渡した。
+- U30b の試験（interaction_combobox・interaction_show_hide・interaction_menu・interaction_palette・interaction_select・apg_*・ui_combobox・ui_command_palette・ui_components・ui_collections・interaction_dialog）は、window-lock で 68 件、追加の 13 件が通った（0 件ではない）。
