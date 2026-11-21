@@ -1171,3 +1171,4 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
 
 - L2（`wt/rw-W8L-L2`）と L3（`wt/rw-W8L-L3`）は、e2e の結果を読んでから commit する（未 commit）。L3 の e2e は `V:/kv-target/rw-W8L-L3/e2e-l3.txt`、L2 の e2e は L3 の window lock の後ろで待っている。
 - 各 lane の `cargo clippy -p <crate> --all-targets -- -D warnings` は、`crates/arvane-native/src/native_input/windows.rs` の未使用の import で失敗する（56 行目の `RECT`、68〜71 行目の `GetWindowRect`・`RegisterWindowMessageW`・`SendMessageW`・`WM_DPICHANGED`）。統合の workspace の clippy（`--all-features`）は通る。既定の feature の build だけで出る警告。この unit の所有の外のため直していない。判断を求める。
+- **二分探索の結果（2026-11-22）**：`2e90ced7`（設計者の fragment の commit）で落ちる（同じ試験、1 件失敗）。`b20e2ef3` では通る。回帰は `2e90ced7` が入れた「fragment を a11y に出さない」の変更による。`f3a67c1a`（menu の WIP）と、その後の commit（menu の名前・U48b）は、この試験の単独の実行で落ちる前提の上にある。
