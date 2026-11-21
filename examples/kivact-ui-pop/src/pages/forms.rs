@@ -37,11 +37,12 @@ fn forms_demo() -> impl IntoView {
         cards_grid((
             half(text_inputs()),
             half(selection_editors()),
-            third(check_controls()),
-            third(switch_controls()),
-            third(upload_controls()),
+            half(check_controls()),
+            half(switch_controls()),
+            full(upload_controls()),
         )),
     )
+    .style(style().width(pct(100)))
     // end example
 }
 
@@ -373,7 +374,7 @@ fn selection_editors() -> kivact::ui::Card {
                 .on_press(move || schools.update(|options| options.reverse())),
             column((
                 row((
-                    text("Tags").style(style().flex_grow(1).font_weight(500).line_height(1.0)),
+                    text("Tags").style(style().flex_grow(1).font_weight(500)),
                     text("Press Enter to add")
                         .style(style().font_size(12).color(color::TEXT_MUTED)),
                 )),
@@ -382,8 +383,7 @@ fn selection_editors() -> kivact::ui::Card {
             .style(style().gap(8)),
             column((
                 row((
-                    text("Request note")
-                        .style(style().flex_grow(1).font_weight(500).line_height(1.0)),
+                    text("Request note").style(style().flex_grow(1).font_weight(500)),
                     text(move || format!("{} / 140", memo.get().chars().count()))
                         .style(style().font_size(12).color(color::TEXT_MUTED)),
                 )),
@@ -529,6 +529,7 @@ fn reward_editor() -> impl kivact::view::Element {
                 ),
             row((text("/ item"),)).style(
                 style()
+                    .flex_shrink(0)
                     .height(36)
                     .padding_x(12)
                     .align_items(Align::Center)

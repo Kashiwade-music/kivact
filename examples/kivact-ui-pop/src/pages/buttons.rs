@@ -122,7 +122,7 @@ fn buttons_demo() -> impl IntoView {
             )),
             half(button_sizes()),
             half(button_groups(notify)),
-            half(card(
+            full(card(
                 "Standard components (kivact::ui): the theme's recipes give them this kit's look",
                 column((
                     wrap((
@@ -143,6 +143,7 @@ fn buttons_demo() -> impl IntoView {
             )),
         )),
     )
+    .style(style().width(pct(100)))
     // end example
 }
 

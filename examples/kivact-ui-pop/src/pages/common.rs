@@ -8,7 +8,7 @@ use kivact_ui_pop as ui;
 pub(crate) fn cards_grid(children: impl IntoView) -> Node {
     grid(children).style(
         style()
-            .grid_template_columns(Track::repeat(12, Track::fr(1)))
+            .grid_template_columns(Track::repeat(12, Track::minmax(0, Track::fr(1))))
             .gap(16),
     )
 }
@@ -41,6 +41,11 @@ pub(crate) fn card(title: &str, content: impl IntoView) -> kivact::ui::Card {
 /// Half of the twelve-column grid.
 pub(crate) fn half<C: Element>(element: C) -> C {
     element.style(style().grid_column(GridPlacement::span(6)))
+}
+
+/// The whole twelve-column grid, for a card whose heading is wider than half of it.
+pub(crate) fn full<C: Element>(element: C) -> C {
+    element.style(style().grid_column(GridPlacement::span(12)))
 }
 
 /// A third of the twelve-column grid.

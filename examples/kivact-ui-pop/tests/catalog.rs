@@ -133,6 +133,7 @@ fn edit_and_resize_memo(screen: &Screen) {
         screen.mouse_move(x, y + delta);
         screen.mouse_up(MouseButton::Primary);
     };
+    screen.get_by_test_id("catalog-page").scroll(0., 300.);
     resize(48.0);
     assert_eq!(memo.rect().unwrap().height, 128.0);
     assert_eq!(memo.rect().unwrap().width, initial_memo.width);
@@ -156,6 +157,7 @@ fn edit_and_resize_memo(screen: &Screen) {
         Some("Check the safety of the area first. Keep going.".into())
     );
     screen.evidence("pop-state-textarea-minimum");
+    screen.get_by_test_id("catalog-page").scroll(0., -300.);
 }
 
 #[test]

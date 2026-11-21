@@ -210,7 +210,7 @@ fn hero_stats() -> Vec<Node> {
                     .font_weight(800)
                     .font_size(28)
                     .color(Color::WHITE)
-                    .line_height(1.1),
+                    .line_height(1.25),
             ),
             text(delta).style(style().font_size(12).color(rgb(0xffdc3c))),
         ))
