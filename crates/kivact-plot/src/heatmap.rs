@@ -1,13 +1,13 @@
 //! Role: Heatmap painting: the cell of each pixel, and its color on the colormap.
 
-use super::scale::Map;
+use crate::scale::Map;
 use kivact::draw::{Draw, ImageOptions, Pixels};
 use kivact::geometry::Rect;
 
 /// The cell of `value` among `edges` (ascending or descending): the index
 /// `i` with `edges[i]` and `edges[i + 1]` on either side of it. A value on
 /// the last edge is in the last cell. `None` outside the edges or for NaN.
-pub(super) fn cell(edges: &[f64], value: f64) -> Option<usize> {
+pub(crate) fn cell(edges: &[f64], value: f64) -> Option<usize> {
     let n = edges.len();
     if n < 2 || value.is_nan() {
         return None;
@@ -32,23 +32,23 @@ pub(super) fn cell(edges: &[f64], value: f64) -> Option<usize> {
 /// The cells of a heatmap: the edges, and the values row by row. Its shape
 /// is derived from the edges, so it exists only when `z` holds exactly one
 /// value per cell.
-pub(super) struct Grid<'a> {
+pub(crate) struct Grid<'a> {
     /// The column edges (`cols + 1`).
-    pub(super) x_edges: &'a [f64],
+    pub(crate) x_edges: &'a [f64],
     /// The row edges (`rows + 1`).
-    pub(super) y_edges: &'a [f64],
+    pub(crate) y_edges: &'a [f64],
     /// The values, row by row.
-    pub(super) z: &'a [f64],
+    pub(crate) z: &'a [f64],
     /// The number of rows.
-    pub(super) rows: usize,
+    pub(crate) rows: usize,
     /// The number of columns.
-    pub(super) cols: usize,
+    pub(crate) cols: usize,
 }
 
 impl<'a> Grid<'a> {
     /// The grid of `z` between `x_edges` and `y_edges`. `None` when there is
     /// no cell, or when `z` does not hold `rows × cols` values.
-    pub(super) fn of(x_edges: &'a [f64], y_edges: &'a [f64], z: &'a [f64]) -> Option<Self> {
+    pub(crate) fn of(x_edges: &'a [f64], y_edges: &'a [f64], z: &'a [f64]) -> Option<Self> {
         let cols = x_edges.len().saturating_sub(1);
         let rows = y_edges.len().saturating_sub(1);
         if cols == 0 || rows == 0 || z.len() != rows * cols {
@@ -65,7 +65,7 @@ impl<'a> Grid<'a> {
 }
 
 /// The smallest and largest finite value of `z`, or `(0, 0)` when it has none.
-pub(super) fn finite_range(z: &[f64]) -> (f64, f64) {
+pub(crate) fn finite_range(z: &[f64]) -> (f64, f64) {
     z.iter()
         .copied()
         .filter(|v| v.is_finite())
@@ -115,7 +115,7 @@ fn color(z: f64, z_min: f64, z_max: f64, stops: &[[f64; 4]]) -> [u8; 4] {
 /// Paint `grid` into `rect` on the colormap `stops`, with `range` (`z_min`,
 /// `z_max`) mapped onto the colors: one image with a pixel per logical px,
 /// each pixel taking the color of the cell under its center.
-pub(super) fn paint(
+pub(crate) fn paint(
     d: &mut Draw,
     rect: Rect,
     x: &Map,

@@ -768,6 +768,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "catalog-shell"
+version = "0.1.0"
+dependencies = [
+ "kivact",
+]
+
+[[package]]
 name = "cc"
 version = "1.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2524,6 +2531,13 @@ dependencies = [
  "kivact-style",
  "kivact-svg",
  "kivact-types",
+]
+
+[[package]]
+name = "kivact-plot"
+version = "0.1.0"
+dependencies = [
+ "kivact",
 ]
 
 [[package]]

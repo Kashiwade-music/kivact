@@ -1,6 +1,6 @@
 //! Role: Tick positions and the label format of plot axes and readouts.
 
-use super::axis::{AxisScale, TickFormat};
+use crate::axis::{AxisScale, TickFormat};
 use crate::nice::round_step;
 use kivact::i18n::{FractionDigits, Grouping, Locale, NumberStyle};
 
@@ -9,16 +9,16 @@ const MAX_TICKS: usize = 1000;
 
 /// A tick of an axis: its value and whether it is labeled (a major tick).
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub(super) struct LogTick {
+pub(crate) struct LogTick {
     /// The value; a log axis places it at `log10(value)`.
-    pub(super) value: f64,
+    pub(crate) value: f64,
     /// Whether it has a label and a strong grid line.
-    pub(super) major: bool,
+    pub(crate) major: bool,
 }
 
 /// The ticks of one axis over `lo..hi` at about `target` ticks: evenly spaced
 /// ticks on a linear axis, decade ticks on a log axis.
-pub(super) fn axis_ticks(scale: AxisScale, lo: f64, hi: f64, target: f64) -> Vec<LogTick> {
+pub(crate) fn axis_ticks(scale: AxisScale, lo: f64, hi: f64, target: f64) -> Vec<LogTick> {
     let target = target.floor().max(1.0) as usize;
     match scale {
         AxisScale::Linear => linear_ticks(lo, hi, target)
@@ -90,7 +90,7 @@ fn log_ticks(lo: f64, hi: f64, target: usize) -> Vec<LogTick> {
 
 /// The spacing of the linear ticks of an axis, which decides the decimals of
 /// a decibel label. Zero for a log axis and for fewer than two ticks.
-pub(super) fn tick_spacing(ticks: &[LogTick], scale: AxisScale) -> f64 {
+pub(crate) fn tick_spacing(ticks: &[LogTick], scale: AxisScale) -> f64 {
     match (scale, ticks) {
         (AxisScale::Linear, [a, b, ..]) => (b.value - a.value).abs(),
         _ => 0.0,
@@ -101,7 +101,7 @@ pub(super) fn tick_spacing(ticks: &[LogTick], scale: AxisScale) -> f64 {
 /// separator of `locale`. `step` is the tick spacing (zero for a readout),
 /// which decides how many decimals a decibel label shows. A value that is not
 /// finite is `-`.
-pub(super) fn format_value(value: f64, format: &TickFormat, step: f64, locale: &Locale) -> String {
+pub(crate) fn format_value(value: f64, format: &TickFormat, step: f64, locale: &Locale) -> String {
     if !value.is_finite() {
         return "-".to_owned();
     }

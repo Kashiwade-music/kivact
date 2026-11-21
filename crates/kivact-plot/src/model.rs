@@ -1,7 +1,7 @@
 //! Role: The plot model: axes, series and legend, and the range they fit.
 
-use super::axis::{AxisScale, PlotAxis};
-use super::series::{PlotSeries, PlotSeriesKind};
+use crate::axis::{AxisScale, PlotAxis};
+use crate::series::{PlotSeries, PlotSeriesKind};
 use kivact::Prop;
 
 /// Everything a plot draws: title, axes, series and legend. Build it with
@@ -9,15 +9,15 @@ use kivact::Prop;
 #[derive(Clone, PartialEq, Debug, Prop)]
 pub struct PlotModel {
     /// The title; empty for none.
-    pub(super) title: String,
+    pub(crate) title: String,
     /// The horizontal axis.
-    pub(super) x: PlotAxis,
+    pub(crate) x: PlotAxis,
     /// The vertical axis.
-    pub(super) y: PlotAxis,
+    pub(crate) y: PlotAxis,
     /// The series, drawn in order.
-    pub(super) series: Vec<PlotSeries>,
+    pub(crate) series: Vec<PlotSeries>,
     /// Whether the legend is drawn in the top right corner.
-    pub(super) legend: bool,
+    pub(crate) legend: bool,
 }
 
 impl PlotModel {
@@ -64,7 +64,7 @@ impl PlotModel {
 
     /// The visible range of this model under `range`: the fit of its data
     /// for [`PlotRange::Auto`], else the range given.
-    pub(super) fn view_of(&self, range: PlotRange) -> PlotView {
+    pub(crate) fn view_of(&self, range: PlotRange) -> PlotView {
         match range {
             PlotRange::Auto => self.auto_view(),
             PlotRange::Manual(view) => view,

@@ -1,7 +1,7 @@
 //! Role: Plot area and axis mapping between data values and pixels.
 
-use super::axis::AxisScale;
-use super::model::{PlotModel, PlotView};
+use crate::axis::AxisScale;
+use crate::model::{PlotModel, PlotView};
 use kivact::geometry::{Point, Rect, Size};
 
 /// The space the axes and the title take around the plot, in logical px.
@@ -14,7 +14,7 @@ const TOP: f64 = 8.0;
 /// The plot area of a canvas of `size` for `model`: the rectangle the grid,
 /// the series and the readouts are drawn in. Its width or height is not
 /// positive when the canvas leaves no room.
-pub(super) fn plot_area(size: Size, model: &PlotModel) -> Rect {
+pub(crate) fn plot_area(size: Size, model: &PlotModel) -> Rect {
     let top = if model.title.is_empty() {
         TOP
     } else {
@@ -29,12 +29,12 @@ pub(super) fn plot_area(size: Size, model: &PlotModel) -> Rect {
 }
 
 /// Whether `at` lies inside `area`, edges included.
-pub(super) fn within(area: Rect, at: Point) -> bool {
+pub(crate) fn within(area: Rect, at: Point) -> bool {
     at.x >= area.x && at.x <= area.right() && at.y >= area.y && at.y <= area.bottom()
 }
 
 /// The axis transform: the identity, or log10.
-pub(super) fn transform(scale: AxisScale, value: f64) -> f64 {
+pub(crate) fn transform(scale: AxisScale, value: f64) -> f64 {
     match scale {
         AxisScale::Linear => value,
         AxisScale::Log10 => value.log10(),
@@ -42,7 +42,7 @@ pub(super) fn transform(scale: AxisScale, value: f64) -> f64 {
 }
 
 /// The inverse of [`transform`].
-pub(super) fn inverse(scale: AxisScale, value: f64) -> f64 {
+pub(crate) fn inverse(scale: AxisScale, value: f64) -> f64 {
     match scale {
         AxisScale::Linear => value,
         AxisScale::Log10 => 10f64.powf(value),
@@ -50,7 +50,7 @@ pub(super) fn inverse(scale: AxisScale, value: f64) -> f64 {
 }
 
 /// The maps of a view over `area`: x from left to right, y from bottom to top.
-pub(super) fn maps(model: &PlotModel, view: PlotView, area: Rect) -> (Map, Map) {
+pub(crate) fn maps(model: &PlotModel, view: PlotView, area: Rect) -> (Map, Map) {
     let x = Map::new(model.x.scale, view.x_min, view.x_max, area.x, area.width);
     let y = Map::new(
         model.y.scale,
@@ -65,7 +65,7 @@ pub(super) fn maps(model: &PlotModel, view: PlotView, area: Rect) -> (Map, Map) 
 /// A visible range `lo..hi` of one axis, mapped onto `start..start + span`
 /// pixels. A negative span runs the axis upward (the y axis).
 #[derive(Clone, Copy, Debug)]
-pub(super) struct Map {
+pub(crate) struct Map {
     scale: AxisScale,
     lo: f64,
     hi: f64,
@@ -75,7 +75,7 @@ pub(super) struct Map {
 
 impl Map {
     /// The map of `lo..hi` onto pixels from `start` by `span`.
-    pub(super) fn new(scale: AxisScale, lo: f64, hi: f64, start: f64, span: f64) -> Self {
+    pub(crate) fn new(scale: AxisScale, lo: f64, hi: f64, start: f64, span: f64) -> Self {
         Self {
             scale,
             lo,
@@ -97,7 +97,7 @@ impl Map {
     /// `None`. Infinities sit one pixel beyond the visible edge on their side
     /// (`-inf` before the start, `+inf` beyond the end); a log axis draws no
     /// `-inf`.
-    pub(super) fn px(&self, value: f64) -> Option<f64> {
+    pub(crate) fn px(&self, value: f64) -> Option<f64> {
         if value.is_nan() {
             return None;
         }
@@ -118,7 +118,7 @@ impl Map {
     }
 
     /// The value at pixel `px`.
-    pub(super) fn value(&self, px: f64) -> f64 {
+    pub(crate) fn value(&self, px: f64) -> f64 {
         let (a, b) = self.ends();
         inverse(self.scale, a + (px - self.start) / self.span * (b - a))
     }
@@ -139,8 +139,8 @@ impl Map {
 mod tests {
     //! Role: Tests for the plot area and axis mapping.
 
-    use super::super::axis::PlotAxis;
     use super::*;
+    use crate::axis::PlotAxis;
 
     fn model(title: &str) -> PlotModel {
         PlotModel::new(PlotAxis::new("x"), PlotAxis::new("y")).title(title)

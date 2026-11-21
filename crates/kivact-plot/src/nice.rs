@@ -1,4 +1,4 @@
-//! Role: The round tick step shared by charts and plots.
+//! Role: The round tick step shared by plots and charts.
 
 /// The step of round tick values over `lo..=hi` at about `target` ticks: a
 /// step of `10^k × {1, 2, 5, 10}`, the smallest one whose multiples inside the
@@ -7,7 +7,7 @@
 /// `lo` must not be above `hi`. `None` for a zero `target`, a range of zero
 /// width, a reversed range and a range that is not finite (or whose width
 /// overflows).
-pub(crate) fn round_step(lo: f64, hi: f64, target: usize) -> Option<f64> {
+pub fn round_step(lo: f64, hi: f64, target: usize) -> Option<f64> {
     let range = hi - lo;
     if target == 0 || !range.is_finite() || range <= 0.0 {
         return None;
