@@ -1,197 +1,165 @@
-//! Role: The table builder, its sections, rows and cells.
+//! Role: The table components: their sections, rows and cells.
 
 use crate::layer::with_base_recipe_style;
+use crate::recipe::Recipe;
 use crate::table::look::TableTheme;
-use kivact_core::state::{IntoValue, Value};
+use kivact_core::custom::{Caller, PartState};
+use kivact_core::state::Value;
 use kivact_core::style::{Justify, Length, TextAlign, style};
-use kivact_core::view::{Element, IntoChildren, IntoView, Node, Role, View, node};
+use kivact_core::view::{Children, Node, Role, Variants, View, node};
+use kivact_macros::component;
 
-/// A structural part of a static table.
-pub struct Table {
-    root: Node,
-    part: TablePart,
-}
-#[derive(Clone, Copy)]
-enum TablePart {
-    Root,
-    Header,
-    Body,
-    Footer,
-    Row,
-}
-fn section(children: impl IntoChildren, role: Role, part: TablePart) -> Table {
-    Table {
-        root: node().role(role).child(children.into_views()),
-        part,
-    }
-}
 /// A static table; use `data_table` for interactive grids.
-#[track_caller]
-pub fn table(children: impl IntoChildren) -> Table {
-    section(children, Role::Table, TablePart::Root)
+#[component]
+pub fn table(children: Children, #[caller] caller: Caller) -> impl Element {
+    section(
+        children,
+        Role::Table,
+        |r: &TableTheme| r.root_recipe(),
+        &caller.variants(),
+    )
 }
+
 /// A group of column-header rows.
-#[track_caller]
-pub fn table_header(children: impl IntoChildren) -> Table {
-    section(children, Role::RowGroup, TablePart::Header)
+#[component]
+pub fn table_header(children: Children, #[caller] caller: Caller) -> impl Element {
+    section(
+        children,
+        Role::RowGroup,
+        |r: &TableTheme| r.header_recipe(),
+        &caller.variants(),
+    )
 }
+
 /// A group of data rows.
-#[track_caller]
-pub fn table_body(children: impl IntoChildren) -> Table {
-    section(children, Role::RowGroup, TablePart::Body)
+#[component]
+pub fn table_body(children: Children, #[caller] caller: Caller) -> impl Element {
+    section(
+        children,
+        Role::RowGroup,
+        |r: &TableTheme| r.body_recipe(),
+        &caller.variants(),
+    )
 }
+
 /// A group of summary rows.
-#[track_caller]
-pub fn table_footer(children: impl IntoChildren) -> Table {
-    section(children, Role::RowGroup, TablePart::Footer)
+#[component]
+pub fn table_footer(children: Children, #[caller] caller: Caller) -> impl Element {
+    section(
+        children,
+        Role::RowGroup,
+        |r: &TableTheme| r.footer_recipe(),
+        &caller.variants(),
+    )
 }
-/// A row of header or data cells.
-#[track_caller]
-pub fn table_row(children: impl IntoChildren) -> TableRow {
-    TableRow {
-        table: section(children, Role::Row, TablePart::Row),
+
+/// A row of header or data cells. `selected(v)` marks the row selected: the
+/// row is `selected` in the accessibility tree, and the theme's row recipe
+/// draws its selected look.
+#[component]
+pub fn table_row(
+    children: Children,
+    selected: Option<Value<bool>>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let row = section(
+        children,
+        Role::Row,
+        |r: &TableTheme| r.row_recipe(),
+        &caller.variants(),
+    );
+    match selected {
+        Some(selected) => row.selected(selected),
+        None => row,
     }
 }
-impl Table {}
-impl Element for Table {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
+
+/// A column header with proportional or fixed width, spanning `col_span`
+/// columns (at least one).
+#[component]
+pub fn table_head(
+    content: View,
+    #[prop(default = TextAlign::Start)] align: Value<TextAlign>,
+    width: Option<Value<Length>>,
+    #[prop(default = 1)] col_span: Value<usize>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    cell(content, true, align, width, col_span, &caller.variants())
 }
-impl IntoView for Table {
-    fn into_view(self) -> View {
-        let variants = self.root.authored().variants();
-        let pick: fn(&TableTheme) -> &crate::recipe::Recipe<kivact_core::custom::PartState> =
-            match self.part {
-                TablePart::Root => |r: &TableTheme| r.root_recipe(),
-                TablePart::Header => |r: &TableTheme| r.header_recipe(),
-                TablePart::Body => |r: &TableTheme| r.body_recipe(),
-                TablePart::Footer => |r: &TableTheme| r.footer_recipe(),
-                TablePart::Row => |r: &TableTheme| r.row_recipe(),
-            };
-        let part = kivact_core::custom::part(|state| state);
-        let state = part.state();
-        with_base_recipe_style(self.root.part(part), pick, &variants, move || state.get())
-            .into_view()
-    }
+
+/// A data cell with proportional or fixed width, spanning `col_span` columns
+/// (at least one).
+#[component]
+pub fn table_cell(
+    content: View,
+    #[prop(default = TextAlign::Start)] align: Value<TextAlign>,
+    width: Option<Value<Length>>,
+    #[prop(default = 1)] col_span: Value<usize>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    cell(content, false, align, width, col_span, &caller.variants())
 }
-/// A row of header or data cells, created by [`table_row`].
-pub struct TableRow {
-    table: Table,
+
+/// One section node: its role, its children and its part, styled by the recipe `pick`.
+fn section(
+    children: Children,
+    role: Role,
+    pick: fn(&TableTheme) -> &Recipe<PartState>,
+    variants: &Variants,
+) -> Node {
+    let part = kivact_core::custom::part(|state| state);
+    let state = part.state();
+    with_base_recipe_style(
+        node().role(role).child(children.into_views()).part(part),
+        pick,
+        variants,
+        move || state.get(),
+    )
 }
-impl TableRow {
-    /// Mark the row selected: the row is `selected` in the accessibility tree, and the theme's row recipe draws its selected look.
-    pub fn selected(mut self, selected: impl IntoValue<bool>) -> Self {
-        self.table.root = self.table.root.selected(selected);
-        self
-    }
-}
-impl Element for TableRow {
-    fn node_mut(&mut self) -> &mut Node {
-        self.table.node_mut()
-    }
-}
-impl IntoView for TableRow {
-    fn into_view(self) -> View {
-        self.table.into_view()
-    }
-}
-// xtask-allow(state): legacy: header, width
-/// A header or data cell with proportional or fixed width.
-pub struct TableCell {
-    root: Node,
+
+/// One header or data cell node, styled by the head or the cell recipe.
+fn cell(
+    content: View,
     header: bool,
     align: Value<TextAlign>,
     width: Option<Value<Length>>,
     span: Value<usize>,
-}
-/// A column header.
-#[track_caller]
-pub fn table_head(content: impl IntoView) -> TableCell {
-    cell(content, true)
-}
-/// A data cell.
-#[track_caller]
-pub fn table_cell(content: impl IntoView) -> TableCell {
-    cell(content, false)
-}
-fn cell(content: impl IntoView, header: bool) -> TableCell {
-    TableCell {
-        root: node()
-            .role(if header {
-                Role::ColumnHeader
-            } else {
-                Role::Cell
-            })
-            .child(content),
-        header,
-        align: TextAlign::Start.into_value(),
-        width: None,
-        span: 1.into_value(),
-    }
-}
-impl TableCell {
-    #[track_caller]
-    pub fn align(mut self, align: impl IntoValue<TextAlign>) -> Self {
-        self.align = align.into_value();
-        self
-    }
-    #[track_caller]
-    pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
-        self.width = Some(width.into_value());
-        self
-    }
-    /// Allocate the proportional width of this many columns, with a minimum of one.
-    #[track_caller]
-    pub fn col_span(mut self, span: impl IntoValue<usize>) -> Self {
-        self.span = span.into_value();
-        self
-    }
-}
-impl Element for TableCell {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for TableCell {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            header,
-            align,
-            width,
-            span,
-        } = self;
-        let variants = root.authored().variants();
-        let part = kivact_core::custom::part(|state| state);
-        let state = part.state();
-        let root = with_base_recipe_style(
-            root.part(part),
-            if header {
-                |r: &TableTheme| r.head_recipe()
-            } else {
-                |r: &TableTheme| r.cell_recipe()
-            },
-            &variants,
-            move || state.get(),
-        );
-        root.column_span(move || u32::try_from(span.get().max(1)).unwrap_or(u32::MAX))
-            .base_style(move || {
-                let s = style()
-                    .text_align(align.get())
-                    .justify_content(match align.get() {
-                        TextAlign::Center => Justify::Center,
-                        TextAlign::End => Justify::End,
-                        _ => Justify::Start,
-                    });
-                match width {
-                    Some(width) => s.width(width.get()).flex_shrink(0),
-                    None => s
-                        .flex_grow(span.get().max(1) as f64)
-                        .flex_basis(0)
-                        .flex_shrink(1),
-                }
-            })
-            .into_view()
-    }
+    variants: &Variants,
+) -> Node {
+    let root = node()
+        .role(if header {
+            Role::ColumnHeader
+        } else {
+            Role::Cell
+        })
+        .child(content);
+    let part = kivact_core::custom::part(|state| state);
+    let state = part.state();
+    let root = with_base_recipe_style(
+        root.part(part),
+        if header {
+            |r: &TableTheme| r.head_recipe()
+        } else {
+            |r: &TableTheme| r.cell_recipe()
+        },
+        variants,
+        move || state.get(),
+    );
+    root.column_span(move || u32::try_from(span.get().max(1)).unwrap_or(u32::MAX))
+        .base_style(move || {
+            let s = style()
+                .text_align(align.get())
+                .justify_content(match align.get() {
+                    TextAlign::Center => Justify::Center,
+                    TextAlign::End => Justify::End,
+                    _ => Justify::Start,
+                });
+            match width {
+                Some(width) => s.width(width.get()).flex_shrink(0),
+                None => s
+                    .flex_grow(span.get().max(1) as f64)
+                    .flex_basis(0)
+                    .flex_shrink(1),
+            }
+        })
 }

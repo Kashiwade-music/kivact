@@ -5,7 +5,7 @@
 //! and footer slots and the controls that stay mounted in rows, through the
 //! public API.
 
-use kivact::interaction::{ScalarRange, SortOrder, TableFocus};
+use kivact::interaction::{Reorder, ScalarRange, SortOrder, TableFocus};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, Screen};
 use kivact::ui::{DataColumn, data_table};
@@ -694,5 +694,36 @@ fn a_later_sort_replaces_multi_sort() {
     assert_eq!(single.get_untracked(), Some((0, SortOrder::Ascending)));
     assert_eq!(keys.get_untracked(), [(1, SortOrder::Ascending)]);
     assert_eq!(names(&screen), ["Ada", "Alan", "Edsger", "Grace", "Linus"]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn dragging_a_row_reports_one_place_per_step() {
+    let (screen, moves) = mount_with(options(), || {
+        let moves = signal(Vec::<(u32, usize)>::new());
+        (
+            moves,
+            data_table(people(), |p: &Person| p.id, columns())
+                .name("People")
+                .on_reorder(move |request: Reorder<u32>| {
+                    moves.update(|m| m.push((request.key, request.to)));
+                }),
+        )
+    });
+    let cell = screen
+        .get_by_role(Role::GridCell, "Ada")
+        .rect()
+        .expect("laid out");
+    let (x, y) = (cell.x + cell.width / 2.0, cell.y + cell.height / 2.0);
+    screen.mouse_move(x, y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(x, y + 30.0);
+    screen.mouse_move(x, y + 45.0);
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(
+        moves.get_untracked(),
+        [(1, 1)],
+        "a step past 28 px moves one place, a shorter one does not"
+    );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

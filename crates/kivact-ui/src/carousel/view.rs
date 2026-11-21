@@ -2,154 +2,111 @@
 
 use crate::carousel::look::CarouselSurfaceState;
 use crate::carousel::look::CarouselTheme;
+use kivact_core::custom::Caller;
 use kivact_core::geometry::Point;
-use kivact_core::state::{IntoValue, Signal, Value, effect, memo};
-use kivact_core::style::{FlexDirection, Overflow, pct, style};
+use kivact_core::state::{Signal, Value, memo};
+use kivact_core::style::{FlexDirection, Overflow, pct, style, use_theme};
 use kivact_core::view::{
-    Element, Handled, IntoChildren, IntoView, Key, Node, Orientation, ReadingDirection, Role,
+    Children, Element, Handled, IntoView, Key, Node, NodeRef, Orientation, ReadingDirection, Role,
     ScrollBehavior, View, node, node_ref, use_direction,
 };
-use kivact_interaction::{Snap, use_carousel};
+use kivact_interaction::{CarouselApi, CarouselState, Snap, use_carousel};
+use kivact_macros::component;
+use std::rc::Rc;
 
-// xtask-allow(state): legacy: looping, per_view, gap, padding
 /// A slide viewport and previous/next controls.
-pub struct Carousel {
-    root: Node,
-    slides: Vec<View>,
+///
+/// Show slides in caller-owned index order. Arrow keys follow orientation and reading direction.
+/// Its name is the message `carousel.label` ("Carousel"), its buttons `carousel.previous` and `carousel.next`, and each slide `carousel.slide` ("Slide {index} / {count}").
+#[component]
+pub fn carousel(
     index: Signal<usize>,
+    slides: Children,
+    #[prop(default = Orientation::Horizontal)] orientation: Value<Orientation>,
+    #[prop(default = Snap::Mandatory)] snap: Value<Snap>,
+    #[prop(default = CarouselMode::Translate)] mode: CarouselMode,
+    #[prop(default = false)] looping: bool,
+    items_per_view: Option<Value<f64>>,
+    gap: Option<Value<f64>>,
+    padding: Option<Value<f64>>,
+    #[prop(default = true)] buttons: Value<bool>,
+    #[prop(default = true)] edge_fade: Value<bool>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let variants = caller.variants();
+    let slides = slides.into_views();
+    let references = Rc::new((0..slides.len()).map(|_| node_ref()).collect::<Vec<_>>());
+    let edges = (references.first().copied(), references.last().copied());
+    let setup = Setup {
+        index,
+        count: slides.len(),
+        orientation,
+        snap,
+        mode,
+        looping,
+        items_per_view,
+        gap,
+        padding,
+        buttons,
+        edge_fade,
+    };
+    let c = prepare(setup, references.clone(), caller.disabled());
+    if c.mode == CarouselMode::Scroll {
+        follow_scroll(c, references.clone());
+    }
+    let items = slide_items(c, &variants, slides, &references);
+    let content = slide_track(c, &variants, items);
+    let viewport = slide_viewport(c, &variants, content, edges);
+    let previous = navigation_button(c, &variants, references.clone(), edges, false);
+    let next = navigation_button(c, &variants, references.clone(), edges, true);
+    crate::layer::with_base_recipe_style(
+        node().name(kivact_core::i18n::message("carousel.label", "Carousel")),
+        |r: &CarouselTheme| r.root_recipe(),
+        &variants,
+        move || c.recipe_state(),
+    )
+    .with_node(|n| n.role(Role::Group))
+    .focusable(move || !c.disabled.get())
+    .on_key(move |event| keyboard(c, &references, event))
+    .child(viewport)
+    .child((previous, next))
+}
+
+/// The props the body reads once, before the layout is built.
+struct Setup {
+    index: Signal<usize>,
+    count: usize,
     orientation: Value<Orientation>,
     snap: Value<Snap>,
     mode: CarouselMode,
     looping: bool,
-    per_view: Option<Value<f64>>,
+    items_per_view: Option<Value<f64>>,
     gap: Option<Value<f64>>,
     padding: Option<Value<f64>>,
     buttons: Value<bool>,
     edge_fade: Value<bool>,
 }
-/// Show slides in caller-owned index order. Arrow keys follow orientation and reading direction.
-/// Its name is the message `carousel.label` ("Carousel"), its buttons `carousel.previous` and `carousel.next`, and each slide `carousel.slide` ("Slide {index} / {count}").
-#[track_caller]
-pub fn carousel(index: Signal<usize>, slides: impl IntoChildren) -> Carousel {
-    Carousel {
-        root: node().name(kivact_core::i18n::message("carousel.label", "Carousel")),
-        slides: slides.into_views(),
-        index,
-        orientation: Orientation::Horizontal.into_value(),
-        snap: Snap::Mandatory.into_value(),
-        mode: CarouselMode::Translate,
-        looping: false,
-        per_view: None,
-        gap: None,
-        padding: None,
-        buttons: true.into_value(),
-        edge_fade: true.into_value(),
-    }
+
+/// What the scroll follow and the machine's scroll read: the viewport, the
+/// axis, the reading direction, the snap and the padding.
+#[derive(Clone, Copy)]
+struct SlideView {
+    viewport: NodeRef,
+    vertical: Value<bool>,
+    rtl: ReadingDirection,
+    snap: Value<Snap>,
+    padding: Value<f64>,
 }
-impl Carousel {
-    /// Wrap previous and next navigation at the endpoints.
-    pub fn looping(mut self) -> Self {
-        self.looping = true;
-        self
-    }
-    /// Choose scroll settling behavior.
-    #[track_caller]
-    pub fn snap(mut self, snap: impl IntoValue<Snap>) -> Self {
-        self.snap = snap.into_value();
-        self
-    }
-    /// Choose the slide axis.
-    #[track_caller]
-    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
-        self.orientation = orientation.into_value();
-        self
-    }
-    /// Choose translated slides or a native scrolling viewport. Setup only.
-    pub fn mode(mut self, mode: CarouselMode) -> Self {
-        self.mode = mode;
-        self
-    }
-    /// Number of slides visible, including fractional peeks.
-    #[track_caller]
-    pub fn items_per_view(mut self, count: impl IntoValue<f64>) -> Self {
-        let count = count.into_value();
-        self.per_view = Some(memo(move || {
-            let n = count.get();
-            if n.is_finite() { n.max(1.0) } else { 1.0 }
-        }));
-        self
-    }
-    /// Space between slides in logical pixels.
-    #[track_caller]
-    pub fn gap(mut self, gap: impl IntoValue<f64>) -> Self {
-        self.gap = Some(gap.into_value());
-        self
-    }
-    /// Viewport inset in logical pixels.
-    #[track_caller]
-    pub fn padding(mut self, padding: impl IntoValue<f64>) -> Self {
-        self.padding = Some(padding.into_value());
-        self
-    }
-    /// Show previous and next controls.
-    #[track_caller]
-    pub fn buttons(mut self, buttons: impl IntoValue<bool>) -> Self {
-        self.buttons = buttons.into_value();
-        self
-    }
-    /// Fade overflowing viewport edges.
-    #[track_caller]
-    pub fn edge_fade(mut self, fade: impl IntoValue<bool>) -> Self {
-        self.edge_fade = fade.into_value();
-        self
-    }
-}
-impl Element for Carousel {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for Carousel {
-    fn into_view(mut self) -> View {
-        let variants = self.root.authored().variants();
-        let c = prepare(&mut self);
-        let references = std::rc::Rc::new((0..c.count).map(|_| node_ref()).collect::<Vec<_>>());
-        let edges = (references.first().copied(), references.last().copied());
-        if c.mode == CarouselMode::Scroll {
-            follow_index(c, references.clone());
-            follow_scroll(c, references.clone());
-        }
-        let items = slide_items(c, &variants, self.slides, &references);
-        let content = slide_track(c, &variants, items);
-        let viewport = slide_viewport(c, &variants, content, edges);
-        let previous = navigation_button(c, &variants, references.clone(), edges, false);
-        let next = navigation_button(c, &variants, references.clone(), edges, true);
-        crate::layer::with_base_recipe_style(
-            self.root,
-            |r: &CarouselTheme| r.root_recipe(),
-            &variants,
-            move || c.recipe_state(),
-        )
-        .with_node(|n| n.role(Role::Group))
-        .focusable(move || !c.disabled.get())
-        .on_key(move |event| keyboard(c, &references, event))
-        .child(viewport)
-        .child((previous, next))
-        .into_view()
-    }
-}
+
 #[derive(Clone, Copy)]
 struct Layout {
-    api: kivact_interaction::CarouselApi,
-    navigation: Value<kivact_interaction::CarouselState>,
+    api: CarouselApi,
+    navigation: Value<CarouselState>,
     mode: CarouselMode,
     looping: bool,
-    snap: Value<Snap>,
-    vertical: Value<bool>,
+    view: SlideView,
     orientation: Value<Orientation>,
-    rtl: ReadingDirection,
-    viewport: kivact_core::view::NodeRef,
-    track: kivact_core::view::NodeRef,
+    track: NodeRef,
     count: usize,
     last: Value<usize>,
     shown: Value<usize>,
@@ -158,14 +115,11 @@ struct Layout {
     edge_fade: Value<bool>,
     per_view: Option<Value<f64>>,
     gap: Option<Value<f64>>,
-    padding: Option<Value<f64>>,
 }
+
 impl Layout {
     fn padding(self) -> f64 {
-        self.padding.map_or_else(
-            || crate::carousel::look::carousel_padding(&kivact_core::style::use_theme().get()),
-            |v| v.get(),
-        )
+        self.view.padding.get()
     }
     fn gap(self) -> f64 {
         self.gap.map_or_else(
@@ -180,59 +134,76 @@ impl Layout {
         CarouselSurfaceState {
             state: self.navigation.get(),
             orientation: self.orientation.get(),
-            direction: self.rtl,
+            direction: self.view.rtl,
         }
     }
 }
+
 /// Prepare immutable layout inputs and authoritative navigation handles.
-fn prepare(carousel: &mut Carousel) -> Layout {
-    let disabled = carousel.root.accessible_disabled();
+fn prepare(setup: Setup, references: Rc<Vec<NodeRef>>, disabled: Option<Value<bool>>) -> Layout {
     let disabled = memo(move || disabled.is_some_and(|v| v.get()));
-    let count = carousel.slides.len();
-    let api = use_carousel(carousel.index, count);
-    let orientation = carousel.orientation;
+    let count = setup.count;
+    let orientation = setup.orientation;
     let vertical = memo(move || orientation.get() == Orientation::Vertical);
-    let per_view = carousel.per_view;
+    let padding = setup.padding;
+    let view = SlideView {
+        viewport: node_ref(),
+        vertical,
+        rtl: use_direction(),
+        snap: setup.snap,
+        padding: memo(move || {
+            padding.map_or_else(
+                || crate::carousel::look::carousel_padding(&use_theme().get()),
+                |v| v.get(),
+            )
+        }),
+    };
+    let api = use_carousel(setup.index, count, move |at| {
+        scroll_to_slide(view, &references, at)
+    });
+    let per_view = setup.items_per_view.map(|count| {
+        memo(move || {
+            let n = count.get();
+            if n.is_finite() { n.max(1.0) } else { 1.0 }
+        })
+    });
     let last =
         memo(move || count.saturating_sub(per_view.map_or(1.0, |v| v.get()).ceil() as usize));
     let shown = memo(move || api.index().get().min(last.get()));
     Layout {
         api,
         navigation: api.state(),
-        mode: carousel.mode,
-        looping: carousel.looping,
-        snap: carousel.snap,
-        vertical,
+        mode: setup.mode,
+        looping: setup.looping,
+        view,
         orientation,
-        rtl: use_direction(),
-        viewport: node_ref(),
         track: node_ref(),
         count,
         last,
         shown,
         disabled,
-        buttons: carousel.buttons,
-        edge_fade: carousel.edge_fade,
+        buttons: setup.buttons,
+        edge_fade: setup.edge_fade,
         per_view,
-        gap: carousel.gap,
-        padding: carousel.padding,
+        gap: setup.gap,
     }
 }
+
 /// Navigate one page using measured scrolling or the translated slide index.
-fn navigate(c: Layout, references: &[kivact_core::view::NodeRef], delta: isize) {
+fn navigate(c: Layout, references: &[NodeRef], delta: isize) {
     if c.disabled.get_untracked() {
         return;
     }
     if c.mode == CarouselMode::Scroll {
         if let Some(target) = crate::carousel::geometry::page(
-            c.viewport,
+            c.view.viewport,
             references,
             crate::carousel::geometry::PageRequest {
-                vertical: c.vertical.get_untracked(),
-                rtl: c.rtl == ReadingDirection::Rtl,
+                vertical: c.view.vertical.get_untracked(),
+                rtl: c.view.rtl == ReadingDirection::Rtl,
                 next: delta > 0,
                 looping: c.looping,
-                snap: c.snap.get_untracked(),
+                snap: c.view.snap.get_untracked(),
                 padding: c.padding(),
             },
         ) {
@@ -248,92 +219,84 @@ fn navigate(c: Layout, references: &[kivact_core::view::NodeRef], delta: isize) 
         (at + delta).clamp(0, period - 1)
     } as usize);
 }
-/// Scroll the selected slide into view when the interaction authority is idle.
-fn follow_index(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::NodeRef>>) {
-    effect(move || {
-        let at = c.shown.get();
-        if !matches!(
-            c.navigation.get(),
-            kivact_interaction::CarouselState::Idle { .. }
-        ) {
+
+/// Scroll the viewport so slide `at` starts at its padding edge. The carousel
+/// machine calls it for each command and each outside write of the index.
+fn scroll_to_slide(view: SlideView, references: &[NodeRef], at: usize) {
+    let (Some(viewport), Some(slide)) = (
+        view.viewport.rect().get_untracked(),
+        references.get(at).and_then(|r| r.rect().get_untracked()),
+    ) else {
+        return;
+    };
+    let old = view.viewport.scroll_offset().get_untracked();
+    let rtl = view.rtl == ReadingDirection::Rtl;
+    let padding = view.padding.get_untracked();
+    let point = if view.vertical.get_untracked() {
+        Point {
+            x: old.x,
+            y: old.y + slide.y - viewport.y - padding,
+        }
+    } else {
+        Point {
+            x: old.x
+                + if rtl {
+                    slide.right() - viewport.right() + padding
+                } else {
+                    slide.x - viewport.x - padding
+                },
+            y: old.y,
+        }
+    };
+    if view.snap.get_untracked() == Snap::None {
+        let nearest = nearest_slide(
+            &slide_rects(references),
+            viewport,
+            view.vertical.get_untracked(),
+            rtl,
+        );
+        if nearest == Some(at) {
             return;
         }
-        if let (Some(view), Some(slide)) = (
-            c.viewport.rect().get(),
-            navigation_refs
-                .get(at)
-                .and_then(|r| r.rect().get_untracked()),
-        ) {
-            let old = c.viewport.scroll_offset().get_untracked();
-            let point = if c.vertical.get() {
-                Point {
-                    x: old.x,
-                    y: old.y + slide.y - view.y - c.padding(),
-                }
-            } else {
-                Point {
-                    x: old.x
-                        + if c.rtl == ReadingDirection::Rtl {
-                            slide.right() - view.right() + c.padding()
-                        } else {
-                            slide.x - view.x - c.padding()
-                        },
-                    y: old.y,
-                }
-            };
-            if c.snap.get() == Snap::None {
-                let nearest = nearest_slide(
-                    &slide_rects(&navigation_refs),
-                    view,
-                    c.vertical.get(),
-                    c.rtl == ReadingDirection::Rtl,
-                );
-                if nearest == Some(at) {
-                    return;
-                }
-            }
-            c.viewport.scroll_to(
-                point,
-                if kivact_core::platform::is_motion_reduced().get_untracked() {
-                    ScrollBehavior::Instant
-                } else {
-                    ScrollBehavior::Smooth(kivact_core::motion::Easing::EaseOut)
-                },
-            );
-        }
-    });
+    }
+    view.viewport.scroll_to(
+        point,
+        if kivact_core::platform::is_motion_reduced().get_untracked() {
+            ScrollBehavior::Instant
+        } else {
+            ScrollBehavior::Smooth(kivact_core::motion::Easing::EaseOut)
+        },
+    );
 }
+
 /// Report the slide nearest the viewport's start to the carousel each time
 /// the native scroll offset changes. The viewport's and the slides' rects are
 /// taken here, at setup: taking a rect asks the host for the node's layout,
 /// and the first scroll must find it reported.
-fn follow_scroll(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::NodeRef>>) {
-    let viewport = c.viewport.rect();
+fn follow_scroll(c: Layout, navigation_refs: Rc<Vec<NodeRef>>) {
+    let viewport = c.view.viewport.rect();
     let slides = slide_rects(&navigation_refs);
-    kivact_core::state::effect_on(c.viewport.scroll_offset(), move |_: &Point| {
+    kivact_core::state::effect_on(c.view.viewport.scroll_offset(), move |_: &Point| {
         let Some(view) = viewport.get_untracked() else {
             return;
         };
         let nearest = nearest_slide(
             &slides,
             view,
-            c.vertical.get_untracked(),
-            c.rtl == ReadingDirection::Rtl,
+            c.view.vertical.get_untracked(),
+            c.view.rtl == ReadingDirection::Rtl,
         );
         if let Some(at) = nearest {
             c.api.scrolling(at);
         }
     });
 }
+
 /// The layout rects of the slides behind `references`.
-fn slide_rects(
-    references: &[kivact_core::view::NodeRef],
-) -> Vec<Value<Option<kivact_core::geometry::Rect>>> {
-    references
-        .iter()
-        .map(kivact_core::view::NodeRef::rect)
-        .collect()
+fn slide_rects(references: &[NodeRef]) -> Vec<Value<Option<kivact_core::geometry::Rect>>> {
+    references.iter().map(NodeRef::rect).collect()
 }
+
 /// Locate the closest measured slide along the actual reading axis.
 fn nearest_slide(
     slides: &[Value<Option<kivact_core::geometry::Rect>>],
@@ -361,12 +324,13 @@ fn nearest_slide(
         .min_by(|a, b| a.1.total_cmp(&b.1))
         .map(|p| p.0)
 }
+
 /// Size and label each slide using the actual carousel recipe state.
 fn slide_items(
     c: Layout,
     variants: &kivact_core::view::Variants,
     slides: Vec<View>,
-    refs: &[kivact_core::view::NodeRef],
+    refs: &[NodeRef],
 ) -> Vec<View> {
     slides
         .into_iter()
@@ -412,6 +376,7 @@ fn slide_items(
         })
         .collect()
 }
+
 /// Lay out and translate the shared slide track.
 fn slide_track(c: Layout, variants: &kivact_core::view::Variants, items: Vec<View>) -> Node {
     crate::layer::with_recipe_style(
@@ -422,9 +387,9 @@ fn slide_track(c: Layout, variants: &kivact_core::view::Variants, items: Vec<Vie
     )
     .node_ref(c.track)
     .style(move || {
-        let mut s = style().flex_direction(if c.vertical.get() {
+        let mut s = style().flex_direction(if c.view.vertical.get() {
             FlexDirection::Column
-        } else if c.rtl == ReadingDirection::Rtl {
+        } else if c.view.rtl == ReadingDirection::Rtl {
             FlexDirection::RowReverse
         } else {
             FlexDirection::Row
@@ -435,11 +400,11 @@ fn slide_track(c: Layout, variants: &kivact_core::view::Variants, items: Vec<Vie
         if c.mode == CarouselMode::Translate {
             let along = -(c.shown.get() as f64) * 100.0 / c.visible();
             let offset = pct(along) - (c.shown.get() as f64) * c.gap() / c.visible();
-            s = if c.vertical.get() {
+            s = if c.view.vertical.get() {
                 s.translate(0, offset)
             } else {
                 s.translate(
-                    if c.rtl == ReadingDirection::Rtl {
+                    if c.view.rtl == ReadingDirection::Rtl {
                         pct(-along) + (c.shown.get() as f64) * c.gap() / c.visible()
                     } else {
                         offset
@@ -452,15 +417,13 @@ fn slide_track(c: Layout, variants: &kivact_core::view::Variants, items: Vec<Vie
     })
     .child(items)
 }
+
 /// Wrap slides in the translated or native scrolling viewport.
 fn slide_viewport(
     c: Layout,
     variants: &kivact_core::view::Variants,
     content: Node,
-    edges: (
-        Option<kivact_core::view::NodeRef>,
-        Option<kivact_core::view::NodeRef>,
-    ),
+    edges: (Option<NodeRef>, Option<NodeRef>),
 ) -> Node {
     crate::layer::with_recipe_style(
         node(),
@@ -468,7 +431,7 @@ fn slide_viewport(
         variants,
         move || c.recipe_state(),
     )
-    .node_ref(c.viewport)
+    .node_ref(c.view.viewport)
     .style(move || {
         style()
             .min_width(0)
@@ -484,13 +447,20 @@ fn slide_viewport(
     .on_wheel(move |event| {
         if !c.disabled.get_untracked()
             && c.mode == CarouselMode::Scroll
-            && !c.vertical.get_untracked()
+            && !c.view.vertical.get_untracked()
             && event.modifiers().shift
             && event.delta().x == 0.0
             && event.delta().y != 0.0
-            && (crate::carousel::geometry::can_scroll(c.viewport, edges, false, false, true, true))
+            && (crate::carousel::geometry::can_scroll(
+                c.view.viewport,
+                edges,
+                false,
+                false,
+                true,
+                true,
+            ))
         {
-            c.viewport.scroll_by(
+            c.view.viewport.scroll_by(
                 Point {
                     x: event.delta().y,
                     y: 0.0,
@@ -504,20 +474,16 @@ fn slide_viewport(
     })
     .child(content)
 }
+
 /// Project overflow edge fades from current measured slide geometry.
-fn edge_mask(
-    c: Layout,
-    edges: (
-        Option<kivact_core::view::NodeRef>,
-        Option<kivact_core::view::NodeRef>,
-    ),
-) -> kivact_core::style::Style {
+fn edge_mask(c: Layout, edges: (Option<NodeRef>, Option<NodeRef>)) -> kivact_core::style::Style {
     if !c.edge_fade.get() || c.mode != CarouselMode::Scroll {
         return style();
     }
     let t = kivact_core::style::use_theme().get();
     let fade = crate::carousel::look::carousel_fade_width(&t);
-    let Some(overflow) = crate::carousel::geometry::bounds(c.viewport, edges, c.vertical.get())
+    let Some(overflow) =
+        crate::carousel::geometry::bounds(c.view.viewport, edges, c.view.vertical.get())
     else {
         return style();
     };
@@ -526,7 +492,7 @@ fn edge_mask(
     }
     let start = c.looping || overflow.0 > 1.0;
     let end = c.looping || overflow.0 < overflow.1 - 1.0;
-    let mask = kivact_core::style::linear_gradient(if c.vertical.get() { 180 } else { 90 })
+    let mask = kivact_core::style::linear_gradient(if c.view.vertical.get() { 180 } else { 90 })
         .stop(
             if start {
                 kivact_core::style::Color::TRANSPARENT
@@ -547,28 +513,26 @@ fn edge_mask(
         );
     style().mask(mask)
 }
+
 /// Route unmodified axis arrow keys through the same page navigation command.
-fn keyboard(
-    c: Layout,
-    references: &[kivact_core::view::NodeRef],
-    e: kivact_core::view::KeyEvent,
-) -> Handled {
+fn keyboard(c: Layout, references: &[NodeRef], e: kivact_core::view::KeyEvent) -> Handled {
     let m = e.modifiers();
     if m.ctrl || m.alt || m.meta || m.shift {
         return Handled::No;
     }
-    let delta = match (c.vertical.get_untracked(), e.key()) {
+    let rtl = c.view.rtl == ReadingDirection::Rtl;
+    let delta = match (c.view.vertical.get_untracked(), e.key()) {
         (true, Key::ArrowDown) => 1,
         (true, Key::ArrowUp) => -1,
         (false, Key::ArrowRight) => {
-            if c.rtl == ReadingDirection::Rtl {
+            if rtl {
                 -1
             } else {
                 1
             }
         }
         (false, Key::ArrowLeft) => {
-            if c.rtl == ReadingDirection::Rtl {
+            if rtl {
                 1
             } else {
                 -1
@@ -579,15 +543,13 @@ fn keyboard(
     navigate(c, references, delta);
     Handled::Yes
 }
+
 /// Render one previous/next action with the correct directional mark and bounds.
 fn navigation_button(
     c: Layout,
     variants: &kivact_core::view::Variants,
-    references: std::rc::Rc<Vec<kivact_core::view::NodeRef>>,
-    edges: (
-        Option<kivact_core::view::NodeRef>,
-        Option<kivact_core::view::NodeRef>,
-    ),
+    references: Rc<Vec<NodeRef>>,
+    edges: (Option<NodeRef>, Option<NodeRef>),
     next: bool,
 ) -> View {
     let button = crate::button(if next {
@@ -598,7 +560,11 @@ fn navigation_button(
     .hide_label(true)
     .icon(kivact_core::view::icon(move || {
         kivact_core::style::Icon::named(
-            match (c.vertical.get(), c.rtl == ReadingDirection::Rtl, next) {
+            match (
+                c.view.vertical.get(),
+                c.view.rtl == ReadingDirection::Rtl,
+                next,
+            ) {
                 (true, _, true) => "chevron-down",
                 (true, _, false) => "chevron-up",
                 (false, true, true) | (false, false, false) => "chevron-left",
@@ -611,10 +577,10 @@ fn navigation_button(
         c.disabled.get()
             || if c.mode == CarouselMode::Scroll {
                 !crate::carousel::geometry::can_scroll(
-                    c.viewport,
+                    c.view.viewport,
                     edges,
-                    c.vertical.get(),
-                    c.rtl == ReadingDirection::Rtl,
+                    c.view.vertical.get(),
+                    c.view.rtl == ReadingDirection::Rtl,
                     next,
                     c.looping,
                 )

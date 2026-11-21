@@ -163,7 +163,8 @@ fn tree_row_reveal_expands_with_enter_size() {
                     .style(style().size(100, 40))
             },
         )
-        .reveal(0.0, Transition::tween(200, Easing::Linear));
+        .reveal(Transition::tween(200, Easing::Linear))
+        .reveal_gap(0.0);
         (expanded, column(rows).part(tree.list()))
     });
     advance(&screen, 300);

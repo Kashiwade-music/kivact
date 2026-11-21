@@ -1,37 +1,26 @@
-//! Role: The radio group builder and its option rendering over the keyed list parts.
+//! Role: The radio group component and its option rendering over the keyed list parts.
 
-use crate::control_size::ControlSize;
+use crate::control_size::{ControlSize, default_control_size};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::radio_group::look::RadioGroupTheme;
 use crate::toggle::look::{CheckControl, CheckableState};
-use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, binding, callback};
+use kivact_core::custom::Caller;
+use kivact_core::state::{Callback, IntoValue, Signal, Value, binding};
 use kivact_core::style::use_theme;
 use kivact_core::view::Variants;
 use kivact_core::view::{
-    EditPhase, Element, HandlerResult, IntoView, Node, Orientation, ReadingDirection, Role, View,
-    for_each, icon, node, show, use_direction,
+    EditPhase, IntoView, Node, Orientation, ReadingDirection, Role, View, for_each, icon, node,
+    show, use_direction,
 };
 use kivact_interaction::{EditSession, ListItem, ListOptions, Selection, use_list};
+use kivact_macros::component;
 use std::rc::Rc;
 
 /// What an option shows, from its item and its state.
+type OptionFn<K> = Rc<dyn Fn(Value<ListItem<K>>, Value<CheckableState>) -> View>;
+
+/// Adds modifiers to the complete canonical target of an option.
 type ItemNode<K> = Rc<dyn Fn(Node, Value<ListItem<K>>, Value<CheckableState>) -> Node>;
-
-type OptionContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<CheckableState>)>;
-
-// xtask-allow(state): legacy: item, item_node
-/// A set of mutually exclusive choices (`Role::RadioGroup`), created by
-/// [`radio_group`].
-pub struct RadioGroup<K: kivact_core::state::ItemKey> {
-    root: Node,
-    options: Value<Vec<ListItem<K>>>,
-    value: Signal<Option<K>>,
-    orientation: Orientation,
-    size: Value<ControlSize>,
-    on_edit: Option<Callback<EditPhase>>,
-    item: Option<OptionContent<K>>,
-    item_node: Option<ItemNode<K>>,
-}
 
 /// A themed radio group named `label` over `items` that writes the
 /// chosen key to `selected`.
@@ -41,10 +30,18 @@ pub struct RadioGroup<K: kivact_core::state::ItemKey> {
 /// over its description. The arrow keys move the focus and choose (from the
 /// right in a right-to-left subtree), Tab enters at the chosen option, a
 /// press or Space chooses, and a disabled option is skipped. Each choice is
-/// one edit ([`on_edit`](RadioGroup::on_edit)). The label is the group's
+/// one edit (`.on_edit(..)`, [`EditPhase`]). The label is the group's
 /// accessible name; a group always has one, as the options alone do not say
-/// what is being chosen. [`item`](RadioGroup::item) replaces what an option
-/// shows beside its indicator.
+/// what is being chosen.
+///
+/// `.item(..)` replaces what an option shows beside its indicator, built
+/// once per option from its item and its state (both reactive). The option
+/// itself, its keys, its semantics, its indicator and its recipes stay the
+/// component's; a look without an indicator gives it no size. `.item_node(..)`
+/// adds modifiers to the complete canonical target. `.size(..)` gives the
+/// size (default `ControlSize::Medium`) to the item and indicator recipes in
+/// `CheckableState::size`. `.orientation(..)` lays the options out in a
+/// column (the default) or a row.
 ///
 /// ```no_run
 /// use kivact::prelude::*;
@@ -61,160 +58,82 @@ pub struct RadioGroup<K: kivact_core::state::ItemKey> {
 ///     )
 /// }
 /// ```
-#[track_caller]
+///
+/// ```no_run
+/// use kivact::prelude::*;
+///
+/// fn periods() -> impl IntoView {
+///     let value = signal(Some("week"));
+///     radio_group(
+///         "Period",
+///         vec![ListItem::new("week", "Week"), ListItem::new("month", "Month")],
+///         value,
+///     )
+///     .item(|item, state| {
+///         text(move || {
+///             let mark = if state.get().is_checked() { "* " } else { "" };
+///             format!("{mark}{}", item.get().label())
+///         })
+///     })
+/// }
+/// ```
+#[component]
 pub fn radio_group<K: kivact_core::state::ItemKey>(
-    label: impl IntoText,
-    items: impl IntoValue<Vec<ListItem<K>>>,
-    selected: kivact_core::state::Signal<Option<K>>,
-) -> RadioGroup<K> {
-    RadioGroup {
-        root: node().role(Role::RadioGroup).name(label),
-        options: items.into_value(),
-        value: selected,
-        orientation: Orientation::Vertical,
-        size: crate::control_size::default_control_size().into_value(),
-        on_edit: None,
-        item: None,
-        item_node: None,
+    label: Value<String>,
+    items: Value<Vec<ListItem<K>>>,
+    selected: Signal<Option<K>>,
+    #[prop(default = Orientation::Vertical)] orientation: Orientation,
+    size: Option<Value<ControlSize>>,
+    on_edit: Option<Callback<EditPhase>>,
+    item: Option<Rc<dyn Fn(Value<ListItem<K>>, Value<CheckableState>) -> View>>,
+    item_node: Option<Rc<dyn Fn(Node, Value<ListItem<K>>, Value<CheckableState>) -> Node>>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let root = node().role(Role::RadioGroup).name(label);
+    let variants = caller.variants();
+    let invalid = caller.invalid();
+    let size = size.unwrap_or_else(|| default_control_size().into_value());
+    let edit = EditSession::new(move |initial: Option<K>| selected.set(initial));
+    if let Some(on_edit) = on_edit {
+        edit.on_edit(move |phase| on_edit.call(phase));
     }
-}
-
-impl<K: kivact_core::state::ItemKey> RadioGroup<K> {}
-
-impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
-    /// Lay the options out in a column (the default) or a row; the recipe
-    /// reads it. A constant: the orientation is the shape of the layout.
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
-        self
-    }
-
-    /// The size (default [`ControlSize::Medium`]), given to the item and
-    /// indicator recipes in [`CheckableState::size`].
-    #[track_caller]
-    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
-        self.size = size.into_value();
-        self
-    }
-
-    /// Report each choice as one edit: `Begin`, the write, `Commit`
-    /// ([`EditPhase`]). A choice writes once, so there is nothing to cancel.
-    pub fn on_edit<R: HandlerResult>(mut self, f: impl Fn(EditPhase) -> R + 'static) -> Self {
-        self.on_edit = Some(callback(f));
-        self
-    }
-
-    /// What each option shows beside its indicator, built once per option
-    /// from its item and its state (both reactive: a renamed item or a
-    /// chosen option updates the view). The option itself, its keys, its
-    /// semantics, its indicator and its recipes stay the component's; a
-    /// look without an indicator gives it no size. Without a slot an option
-    /// shows its icon, its label and its description.
-    ///
-    /// ```no_run
-    /// use kivact::prelude::*;
-    ///
-    /// fn periods() -> impl IntoView {
-    ///     let value = signal(Some("week"));
-    ///     radio_group(
-    ///         "Period",
-    ///         vec![ListItem::new("week", "Week"), ListItem::new("month", "Month")],
-    ///         value,
-    ///     )
-    ///     .item(|item, state| {
-    ///         text(move || {
-    ///             let mark = if state.get().is_checked() { "* " } else { "" };
-    ///             format!("{mark}{}", item.get().label())
-    ///         })
-    ///     })
-    /// }
-    /// ```
-    pub fn item<V: IntoView>(
-        mut self,
-        content: impl Fn(Value<ListItem<K>>, Value<CheckableState>) -> V + 'static,
-    ) -> Self {
-        self.item = Some(kivact_core::view::ViewFn::from(move |(item, state)| {
-            content(item, state)
-        }));
-        self
-    }
-}
-
-impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
-    /// Add modifiers to the complete canonical radio target, after its name,
-    /// behavior and content have been installed. Return the supplied target
-    /// with modifiers; do not create a second native focus or selection owner.
-    /// This composes with [`Self::item`], which only replaces inner content.
-    pub fn item_node(
-        mut self,
-        modify: impl Fn(Node, Value<ListItem<K>>, Value<CheckableState>) -> Node + 'static,
-    ) -> Self {
-        self.item_node = Some(Rc::new(modify));
-        self
-    }
-}
-
-impl<K: kivact_core::state::ItemKey> Element for RadioGroup<K> {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
-    fn into_view(self) -> View {
-        let RadioGroup {
-            mut root,
-            options,
-            value,
-            orientation,
-            size,
-            on_edit,
-            item: slot,
-            item_node,
-        } = self;
-        let variants = root.authored().variants();
-        let invalid = root.accessible_invalid();
-        let edit = EditSession::new(move |initial: Option<K>| value.set(initial));
-        if let Some(on_edit) = on_edit {
-            edit.on_edit(move |phase| on_edit.call(phase));
-        }
-        let chosen = binding(value.into_value(), move |next: Option<K>| {
-            edit.once(value.get(), || value.set(next));
-        });
-        let group = use_list(options, Selection::Single(chosen), ListOptions::radio());
-        let looks = variants.clone();
-        let rows = for_each(
-            options,
-            |item| item.key().clone(),
-            move |item| {
-                radio_option(
-                    group,
-                    item,
-                    size,
-                    invalid,
-                    &looks,
-                    slot.as_ref(),
-                    item_node.as_ref(),
-                )
-            },
-        );
-        let reversed =
-            orientation == Orientation::Horizontal && use_direction() == ReadingDirection::Rtl;
-        // The recipe, then the row direction: base layers below the caller's styles.
-        let root = with_base_recipe_style(
-            root,
-            |r: &RadioGroupTheme| r.group_recipe(),
-            &variants,
-            move || orientation,
-        )
-        .base_style(if reversed {
-            kivact_core::style::style()
-                .flex_direction(kivact_core::style::FlexDirection::RowReverse)
-        } else {
-            kivact_core::style::style()
-        });
-        root.orientation(orientation).child(rows).into_view()
-    }
+    let chosen = binding(selected.into_value(), move |next: Option<K>| {
+        edit.once(selected.get(), || selected.set(next));
+    });
+    let group = use_list(items, Selection::Single(chosen), ListOptions::radio());
+    let looks = variants.clone();
+    let slot = item;
+    let modify = item_node;
+    let rows = for_each(
+        items,
+        |item| item.key().clone(),
+        move |item| {
+            radio_option(
+                group,
+                item,
+                size,
+                invalid,
+                &looks,
+                slot.as_ref(),
+                modify.as_ref(),
+            )
+        },
+    );
+    let reversed =
+        orientation == Orientation::Horizontal && use_direction() == ReadingDirection::Rtl;
+    // The recipe, then the row direction: base layers below the caller's styles.
+    let root = with_base_recipe_style(
+        root,
+        |r: &RadioGroupTheme| r.group_recipe(),
+        &variants,
+        move || orientation,
+    )
+    .base_style(if reversed {
+        kivact_core::style::style().flex_direction(kivact_core::style::FlexDirection::RowReverse)
+    } else {
+        kivact_core::style::style()
+    });
+    root.orientation(orientation).child(rows)
 }
 
 /// Render one radio option from its shared navigation and selection part.
@@ -224,7 +143,7 @@ fn radio_option<K: kivact_core::state::ItemKey>(
     size: Value<ControlSize>,
     invalid: Option<Value<bool>>,
     looks: &Variants,
-    slot: Option<&OptionContent<K>>,
+    slot: Option<&OptionFn<K>>,
     modify: Option<&ItemNode<K>>,
 ) -> View {
     let key = item.with_untracked(|item| item.key().clone());
@@ -263,7 +182,7 @@ fn radio_option<K: kivact_core::state::ItemKey>(
         },
     ));
     let content = match slot {
-        Some(slot) => slot.call((item, check)),
+        Some(slot) => slot(item, check),
         None => (
             crate::helpers::item_icon(move || item.get().icon().cloned()),
             crate::helpers::label_and_description(

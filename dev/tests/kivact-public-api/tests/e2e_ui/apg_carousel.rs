@@ -25,7 +25,7 @@ fn carousel_group_adds_arrows_and_buttons_keep_focus() {
         (
             index,
             carousel(index, (text("First"), text("Second"), text("Third")))
-                .looping()
+                .looping(true)
                 .style(style().width(240).height(180)),
         )
     });

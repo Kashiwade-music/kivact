@@ -284,15 +284,13 @@ fn example_tree_list() -> Node {
             signal(None),
         )
         .expanded(signal(vec!["src"]))
-        .reveal(
-            2.0,
-            kivact::motion::Transition::tween(
-                734.77,
-                kivact::motion::Easing::CubicBezier(0.327, 0.694, 0.116, 1.0),
-            ),
-        )
+        .reveal(kivact::motion::Transition::tween(
+            734.77,
+            kivact::motion::Easing::CubicBezier(0.327, 0.694, 0.116, 1.0),
+        ))
+        .reveal_gap(2.0)
         .style(style().width(240)),
-        "kivact::ui::tree(\"Files\", files, selected).expanded(expanded).reveal(2.0, transition)",
+        "kivact::ui::tree(\"Files\", files, selected).expanded(expanded).reveal(transition).reveal_gap(2.0)",
     )
 }
 

@@ -17,7 +17,6 @@ mod filters;
 mod grouped;
 mod metadata;
 mod navigation;
-mod row_drag;
 mod row_status;
 mod rows;
 mod runtime;

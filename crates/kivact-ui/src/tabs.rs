@@ -4,7 +4,7 @@
 //! `.content(factory)` it also draws the panel of the selected valid key in a
 //! new owner each time the selection changes: beside the list when vertical,
 //! under it otherwise, with the recipes laying the tabs out by orientation
-//! (`TabListState` and `TabState`). With `keep_mounted()` each option's
+//! (`TabListState` and `TabState`). With `keep_mounted(true)` each option's
 //! panel is built once and the tab panel part hides it while it is not
 //! selected. A selected key that is not among the options stays in the
 //! binding, but the factory is not called for it. A kit's domain tab bar

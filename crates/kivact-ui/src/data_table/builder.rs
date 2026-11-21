@@ -180,11 +180,11 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
         self
     }
 
-    /// Show the expand/collapse-all control in the tree column header. It
-    /// does not change which rows start expanded: the `expanded` binding of
-    /// [`tree`](Self::tree) decides that.
-    pub fn expand_all_control(mut self) -> Self {
-        self.tree_expand_all = true;
+    /// Show (`true`) or hide (`false`) the expand/collapse-all control in the
+    /// tree column header. It does not change which rows start expanded: the
+    /// `expanded` binding of [`tree`](Self::tree) decides that.
+    pub fn expand_all_control(mut self, v: bool) -> Self {
+        self.tree_expand_all = v;
         self
     }
 

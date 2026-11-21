@@ -1,5 +1,4 @@
 //! Role: Render keyed header and body cells with the table's actual part states.
-use super::row_drag::{RowDrag, RowDragEvent, RowPlace};
 use super::sticky_paint::surface;
 use super::types::{
     CellSlot, Key, RowColor, RowContextMenu, RowName, RowSelectable, RowSlot, RowStatusOf, Sort,
@@ -17,7 +16,7 @@ use kivact_core::view::Variants;
 
 use kivact_core::geometry::Rect;
 use kivact_core::i18n::message_with;
-use kivact_core::state::{Callback, Signal, Value, binding, machine, memo};
+use kivact_core::state::{Callback, Signal, Value, binding, memo};
 use kivact_core::style::{
     Color, Cursor, FlexDirection, Justify, Position, Style, TransitionProp, pct, style, use_theme,
 };
@@ -27,8 +26,8 @@ use kivact_core::view::{
 };
 use kivact_core::view::{Node, column, icon, node, row, text};
 use kivact_interaction::{
-    DataTableApi, DragCoordinates, DragPhase, DragState, DragUpdate, ListGesture, TableCellState,
-    TableFocus, TableRowState, use_disclosure, use_drag,
+    DataTableApi, ListGesture, ReorderDragApi, ReorderPlace, TableCellState, TableFocus,
+    TableRowState, use_disclosure, use_reorder_drag,
 };
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -634,13 +633,18 @@ where
         .checks()
         .map(|selection| row_check(grid, selection, id.clone(), item));
     let checked = grid.checks().is_some();
+    // The row's drag: its parts go on the row and on each cell, so a press on
+    // a cell (which covers the row) starts it too.
+    let drag = grid
+        .reorder
+        .map(|reorder| row_drag(grid, id.clone(), reorder));
     let cells = {
         let grid = grid.clone();
         let id = id.clone();
         dynamic(grid.visible, move |indexes: Vec<usize>| {
             indexes
                 .into_iter()
-                .map(|index| cell(&grid, &id, index, item, checked, state))
+                .map(|index| cell(&grid, &id, index, item, checked, state, drag))
                 .collect::<Vec<_>>()
         })
     };
@@ -681,8 +685,8 @@ where
         },
     )
     .style(grid.direction());
-    let line = match grid.reorder {
-        Some(reorder) => line.part(drag_source(grid, id, reorder)),
+    let line = match drag {
+        Some(drag) => line.part(drag.source()),
         None => line,
     };
     let line = match &grid.row_context_menu {
@@ -802,6 +806,7 @@ fn cell<R, K>(
     item: Value<R>,
     checked: bool,
     row: Value<TableRowState>,
+    drag: Option<ReorderDragApi<K>>,
 ) -> View
 where
     R: kivact_core::state::PropValue,
@@ -844,6 +849,10 @@ where
         let state = part.state();
         (node().part(part), state)
     };
+    let node = match drag {
+        Some(drag) => node.part(drag.source()),
+        None => node,
+    };
     let tint = grid
         .sticky
         .as_ref()
@@ -872,46 +881,32 @@ where
     }
 }
 
-/// The drag part of a row that reports moves of one row in the caller's
-/// order and clears the sort.
-fn drag_source<R, K>(
+/// The drag of a row that reports moves of one row in the caller's order and
+/// clears the sort.
+fn row_drag<R, K>(
     grid: &Grid<R, K>,
     id: K,
     reorder: Callback<kivact_interaction::Reorder<K>>,
-) -> Part<DragState>
+) -> ReorderDragApi<K>
 where
     R: kivact_core::state::PropValue,
     K: kivact_core::state::ItemKey,
 {
     let (source, key, sort) = (grid.source, grid.key.clone(), grid.sort);
     let place = id.clone();
-    let row_drag = machine(
-        RowDrag::Idle,
+    use_reorder_drag(
+        id,
+        28.0,
         move || {
             let (at, len) =
                 source.with(|rows| (rows.iter().position(|row| key(row) == place), rows.len()));
-            RowPlace { at, len }
+            ReorderPlace { at, len }
         },
-        move |_, to: usize| {
-            reorder.call(kivact_interaction::Reorder {
-                key: id.clone(),
-                to,
-            });
+        move |request: kivact_interaction::Reorder<K>| {
+            reorder.call(request);
             sort.set(None);
         },
-    );
-    let drag = use_drag::<()>(DragCoordinates::Window)
-        .on_start(move |_| row_drag.send(RowDragEvent::Start))
-        .on_update(move |update: DragUpdate<()>| {
-            row_drag.send(RowDragEvent::Update(update.delta.y))
-        })
-        .on_end(move |update: DragUpdate<()>| {
-            row_drag.send(match update.phase {
-                DragPhase::Cancel => RowDragEvent::Cancel,
-                _ => RowDragEvent::End,
-            })
-        });
-    drag.source(())
+    )
 }
 
 /// Attach the resize part only for resizable columns with caller-owned widths.
