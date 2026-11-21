@@ -3090,7 +3090,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
 - **手順**：
   1. **handler と値（UI-13）**
      - `text_input.rs`：`pub fn on_draft_commit` を `pub fn on_commit` に改名。`rg -l "on_draft_commit" ... | xargs perl -pi -e 's/\bon_draft_commit\b/on_commit/g'`（対象の木は所有の欄の木）。
-     - `stepper.rs`（UI-13、12 章 UI-U-03）：`pub fn stepper(items: impl IntoValue<Vec<StepperItem>>, current: Signal<usize>) -> Stepper`。`pub fn on_step_press` を消し、`pub fn on_edit<R: HandlerResult>(mut self, f: impl Fn(EditPhase) -> R + 'static) -> Self`（field `on_edit: Option<Callback<EditPhase>>`、`callback(f)` で持つ）を足す。`into_view` の先頭で `let edit = kivact_interaction::EditSession::new(move |initial: usize| current.set(initial));` を作り、`on_edit` が `Some(cb)` なら `edit.on_edit(move |phase| cb.call(phase))` にする。利用者の操作で値を書く所（項目の押下、前・次の button、項目の key 操作、項目の a11y の Activate）は、すべて次の一つの関数を通す：
+     - `stepper.rs`（UI-13、12 章 UI-U-03）：`pub fn stepper(items: impl IntoValue<Vec<StepperItem>>, current: Signal<usize>) -> Stepper`。利用者が届く項目はすべて押せる（2026-11-21 の設計者の回答で確認）。`stepper` の doc に「Every step is pressable; give `StepperItem::disabled(true)` to the steps the user may not jump to (a linear flow).」を足す。`pub fn on_step_press` を消し、`pub fn on_edit<R: HandlerResult>(mut self, f: impl Fn(EditPhase) -> R + 'static) -> Self`（field `on_edit: Option<Callback<EditPhase>>`、`callback(f)` で持つ）を足す。`into_view` の先頭で `let edit = kivact_interaction::EditSession::new(move |initial: usize| current.set(initial));` を作り、`on_edit` が `Some(cb)` なら `edit.on_edit(move |phase| cb.call(phase))` にする。利用者の操作で値を書く所（項目の押下、前・次の button、項目の key 操作、項目の a11y の Activate）は、すべて次の一つの関数を通す：
        ```rust
        let write = move |index: usize| {
            let index = index.min(items.with_untracked(|items| items.len().saturating_sub(1)));
@@ -3116,7 +3116,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
   4. **型の置き場（UI-19、UI-04 規則 3）**：
      - `crates/kivact-ui/src/lib.rs` の `pub use kivact_interaction::ComboboxMode;` を消す。`crates/kivact-interaction/src/combobox.rs`・`combobox/handle.rs` の `pub enum ComboboxMode` を ui の `combobox.rs` に移す（interaction の `use_combobox` は mode を取らない形にする：interaction の中で `ComboboxMode` を読んでいる行は、ui が渡す `bool`（`inline`）の引数にする。今の `ComboboxApi::mode(..)` の setter を `pub(crate)` ではなく `pub fn inline(self, inline: bool) -> Self` に改名する）。
      - `carousel.rs` の `pub use kivact_interaction::Snap;` を消す。ui の中の `Snap` は `kivact_interaction::Snap` と書く。`lib.rs` の `pub use carousel::{Carousel, Snap, carousel};` から `Snap` を消す。
-     - `crates/kivact-interaction/src/table/model.rs`：`ColumnDef::with_width` を `width` に改名（呼出し元を直す）。`data_table/column.rs` は U13 で一つになっている。
+     - `crates/kivact-interaction/src/table/model.rs`：`ColumnDef::with_width` を `width` に改名（呼出し元を直す）。同じ型の getter `pub fn width(&self) -> Option<f64>` は `pub fn preferred_width(&self) -> Option<f64>` に改名し、doc を「The width the column asked for (`width(..)`), before the user resizes it.」にする（呼出し元は `data_table/column.rs` の 1 箇所。2026-11-21 の設計者の回答）。`data_table/column.rs` は U13 で一つになっている。
   5. **`Element` の method を隠す固有 method を消す（API-13）**：`Element` trait の method の名前（今の HEAD では `description disabled draw exit_layout focusable focusable_when_disabled hidden hit_testable intrinsic_size invalid layout_id name node_mut node_ref on_exit_complete on_press recipe_style roving_focus style test_id with_node`。W5 の後の一覧は `rg -o "^\s+fn (\w+)\(" crates/kivact-core/src/view/element_data.rs -r '$1'` で取る）と同じ名前の、`Element` を実装する builder の固有 method を消す。今の HEAD の該当：
      - `disabled`：`card.rs`（`Card`）、`stepper.rs`（`Stepper`。`StepperItem::disabled` は `Element` を実装しない値の型なので残す）
      - `on_press`：`avatar.rs`、`badge.rs`、`card.rs`、`chat_message.rs`、`item_row.rs`、`navigation_link.rs`（U12 の後は `navigation_menu/link.rs`）
@@ -3125,7 +3125,20 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
      - disabled：`root.accessible_disabled()`（今ある）。
      - 押下：`self.root.authored().has_press()`（U25 の `Node::authored`。handler を複写しない）。押下で `use_button()` の part を付ける builder は、`true` のときだけ一度付ける。
      - 見える説明：`self.root.authored().description()`（`Option<Value<String>>`）。builder は、その値を今 `description` の field から描いていた node に描く。値はそのまま root の accessible description でもある（見える説明と支援技術の説明が同じになる）。
-     呼出し元は変わらない（`.description("..")`・`.on_press(..)`・`.disabled(..)` は `Element` の method に解決される）。`Card` の `.on_press` が `CardKind::Press` を選んでいた所は、`authored().has_press()` で選ぶ。`variant` はこの unit では消さない（U24）。
+     呼出し元は変わらない（`.description("..")`・`.on_press(..)`・`.disabled(..)` は `Element` の method に解決される）。
+     - **自分の押下も持つ builder（`navigation_menu/link.rs`。2026-11-21 の設計者の回答）**：`Node::on_press` は前の handler を置き換えるので、link は呼出し側の handler を取り出して、自分の押下の中で呼ぶ。core に一つ足す（`crates/kivact-core/src/view/authored.rs` の `impl Node`。この unit の所有に含める）：
+       ```rust
+       /// Take the press handler the authors gave this node so far (the one
+       /// press resolves to: the last), leaving the node without one, so a
+       /// component that must also act on press runs it inside its own:
+       /// `let caller = root.take_press(); root.on_press(move || { /* call caller */ close() })`.
+       #[doc(hidden)]
+       pub fn take_press(&mut self) -> Option<kivact_runtime::Handler<Option<kivact_style::draw::RegionId>>> {
+           // Take `handlers.activate` from every `Modifier::Caller` segment in order, then from
+           // `self.common`; return the last `Some` (later wins, as the fold of the segments does).
+       }
+       ```
+       `link.rs` は `pub fn on_press` と field `press` を消し、`into_view` で `let caller = root.take_press();`（`root.part(..)` の前）とし、`on_press` の closure の中で `caller` を、core の dispatch が `activate` を呼ぶのと同じ形（region は `None`）で呼んでから `context.close.call(())` を呼ぶ。試験（e2e_ui の navigation menu の試験の file）：`fn a_navigation_link_runs_the_callers_press_and_closes_its_panel()`：panel を開き、link（`.on_press(move || count.update(|n| *n += 1))`）を押すと count が 1 で、panel が閉じる。`Card` の `.on_press` が `CardKind::Press` を選んでいた所は、`authored().has_press()` で選ぶ。`variant` はこの unit では消さない（U24）。
   6. **`#[track_caller]`（API-14）**：`crates/kivact-ui/src` の `pub fn` のうち、本体で `into_value`・`into_text_value`・`into_text`・`into_prop` を呼ぶものすべてに `#[track_caller]` を付ける（`text_area` を含む）。一覧：`rg -n -B3 "into_(text_)?value\(\)|into_text\(\)|into_prop\(\)" crates/kivact-ui/src | rg "pub fn"`。
   7. **改名（API-19、UI-04）**：`crates/kivact-interaction/src/toaster/api.rs` の `pub fn toaster()` → `pub fn use_toaster()`、`announcer.rs` の `pub fn announcer()` → `pub fn use_announcer()`。`rg -l "\btoaster\(\)|\bannouncer\(\)" <所有の木> | xargs perl -pi -e 's/\btoaster\(\)/use_toaster()/g; s/\bannouncer\(\)/use_announcer()/g'`。`crates/kivact/src/prelude.rs` の `toaster` を `use_toaster` にする（W5 で済んでいれば確かめるだけ）。
   8. **`DialogKind`（UI-12 の ui 側。W7b の U30a が interaction の `DialogMode::Popover` を消せるように、ui の呼出しの形を先に変える）**：`dialog.rs` に
