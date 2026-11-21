@@ -30,7 +30,7 @@ impl DateRangePreset {
     }
 }
 type Constraint = Rc<dyn Fn(CalendarDate) -> bool>;
-// xtask-allow(state): legacy: picker_label, placeholder, valid, week_start, presets
+// xtask-allow(state): independent: picker_label, placeholder (else derived from the format), valid (a caller output binding), week_start, presets and constraint (a caller rule each date must pass, absent when none is given) are optional inputs, each set only by its by-value setter
 /// A range field whose endpoints always form an ordered [`DateRange`].
 pub struct DateRangeInput {
     picker_label: Option<Value<String>>,

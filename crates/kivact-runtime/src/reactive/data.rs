@@ -57,7 +57,7 @@ pub struct LiveCounts {
     pub slots: usize,
 }
 
-// xtask-allow(state): legacy: graph, owners, objects, consts, frames, collectors, sched, scratch, seq, write_epoch, unstamped, awaiting, state, exit, clock, diag, later; identity: allocates effect creation-order ids; app is written once inside Runtime::new before it returns and only read afterwards
+// xtask-allow(state): record: graph, owners, objects and consts are the arenas; frames, collectors, sched, scratch, dep_pool and pass_touched are the stack, scheduler and scratch tables of stabilize; diag, later, graveyard, unsubscribed, unstamped and awaiting are separate queues and tables; deferred is the queue that Runtime::defer adds to and run_deferred takes from; seq and write_epoch only allocate creation and source-write identities; state (turn scheduling), exit (the exit drain) and clock (the latest host time) are independent facts; app is written once inside Runtime::new before it returns and only read afterwards
 /// The reactive runtime of one App: arenas, frame stack, scheduler, trace
 /// ring, its driver and the extensions of the higher crates.
 pub struct Runtime {
