@@ -734,3 +734,12 @@ U23 の報告にある食い違い 1〜15（ComboboxApi::mode が無い、`Stepp
 - **(3) `NavigationMenuLink::on_press`**：固有の method は消す（API-13 のとおり。固有の method を残すと、`Element::on_press` で付けた handler が `into_view` で置き換えられて消える）。core に `#[doc(hidden)] Node::take_press` を足し、link は呼出し側の handler を取り出して自分の押下の中で呼んでから閉じる。付属書 U23 の手順 5 に書き、試験を 1 つ足した。
 - **食い違い 6（押下が root に載る）**：採る。`Element` の modifier は root に付く（`element_data.rs` の doc の決まり）。Card・ChatMessage・Badge・ItemRow の全体が押せる面になり、`use_button()` の part も root に付く。G の移行の文書に 1 行足す（W11b）。
 - **食い違い 7（Stepper の項目が常に押せる）**：採る。値は `current` の signal が持ち、利用者の操作はそれを書く。飛ばせない手順の項目は `StepperItem::disabled(true)` にする。`stepper` の doc に 1 文足す（付属書の手順 1）。G の移行の文書に 1 行足す（W11b）。
+
+## 差戻し（W7a・E25、2026-11-21）
+
+E25（lane E1、作業ツリーの未 commit の 6 file。HEAD は `6b66158b`）は、確認で 1 件が落ちた。lane E1 はここで止める（E26 は E25 の後）。
+
+- **落ちた試験**：`dev/tests/kivact-public-api/tests/e2e_core/custom_text_field.rs:285`（`custom_text_field_accessibility_publishes_text_and_selection`）。`field.reconvert(1..3)` の直後の `assert_eq!(field.text_selection(), Some((1, 3)))` が、`Some((14, 14))` になる。a11y の選択範囲が、操作の直後に publish されない。
+- **原因（見立て）**：付属書 E25 の EN-27（「文字入力の入口は sync せず、続く pump の settle に任せる」）に従い、`model/keys.rs`（`key`・`paste`）と `model/edit/ime.rs`（`preedit`・`commit`・`ime_select`）から `sync()` を外した。`reconvert` の経路がその `sync()` に依っていた。試験は pump を挟まず a11y を読む。
+- **設計者が決める**（0.5 の表に当たらない。a11y の期待値は差戻し対象）：(a) `ime_select`（または `reconvert` の経路）の `sync()` を残す（E25 の手順 3 の一部を取り消す。試験の期待値は変えない）、(b) 試験の前に pump を挟む（試験の期待値を変える。設計者の承認が要る）、(c) EN-27 の文を直す。
+- 作業ツリーの変更は reset せず残してある（lane E1 の `W:/w/kv-wt/rw-W7a-E1`）。E25 の他の確認（engine の試験 13 件、E2E の他の 11 module、fmt、clippy、xtask）は通った（`V:/kv-target/logs-W7a-verify/e1-*.log`）。
