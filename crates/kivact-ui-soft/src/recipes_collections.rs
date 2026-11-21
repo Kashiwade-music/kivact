@@ -1,21 +1,26 @@
-//! Role: Install Astryx Neutral's recipes of the collection group: lists, trees and item lists, and the table, group and carousel recipes.
+//! Role: Install Astryx Neutral's recipes of the collection group: lists, trees, item lists and cards, and the table, group and carousel recipes.
 use crate::color as c;
 use crate::metrics as m;
 use crate::motion::{FAST, FAST_MIN};
 use crate::radius as r;
-use crate::recipe_parts::{body_text, ring, supporting_text, tween};
+use crate::recipe_parts::{body_text, fast, ring, supporting_text, tween};
+use crate::shadows;
 use crate::space as s;
 use crate::variants::{
-    ItemAlign, ItemDensity, ItemHighlighted, ItemLayout, ListDividers, ListEdge, TreeGuides,
+    CardPadding, CardVariant, Elevation, ItemAlign, ItemDensity, ItemHighlighted, ItemLayout,
+    ListDividers, ListEdge, TreeGuides,
 };
 use kivact::custom::PartState;
 use kivact::draw::{LineCap, Stroke};
 use kivact::geometry::{Point, Rect};
 use kivact::interaction::ListItemState;
-use kivact::style::{Align, Color, Cursor, FlexDirection, Justify, Position, Style, Theme, style};
+use kivact::style::{
+    Align, Color, Cursor, FlexDirection, Justify, Position, Shadow, Style, Theme, ThemeMode, style,
+};
 use kivact::ui::ItemListMarker;
 use kivact::ui::theme::{
-    ItemListTheme, ItemRowState, ListTheme, Look, TreeRowRecipeState, TreeTheme,
+    CardState, CardTheme, ItemListTheme, ItemRowState, ListTheme, Look, Selectable,
+    TreeRowRecipeState, TreeTheme,
 };
 use kivact::view::{Orientation, ReadingDirection, use_direction};
 
@@ -279,7 +284,122 @@ fn marker(_: &Theme, look: &Look<ItemRowState>, _base: Style) -> Style {
     }
 }
 
-/// Install the kit's recipes of the collection group: lists, trees and item lists, then the table, group and carousel recipes.
+/// The fills of a card for its variant: the surface and the ring of a selected card.
+fn card_palette(variant: CardVariant) -> (Color, Color) {
+    match variant {
+        CardVariant::Default => (c::BG_CARD, c::ACCENT),
+        CardVariant::Transparent => (Color::TRANSPARENT, c::ACCENT),
+        CardVariant::Muted => (c::BG_MUTED, c::ACCENT),
+        CardVariant::Blue => (c::HUE_BLUE_BG, c::HUE_BLUE_BORDER),
+        CardVariant::Cyan => (c::HUE_CYAN_BG, c::HUE_CYAN_BORDER),
+        CardVariant::Gray => (c::HUE_GRAY_BG, c::HUE_GRAY_BORDER),
+        CardVariant::Green => (c::HUE_GREEN_BG, c::HUE_GREEN_BORDER),
+        CardVariant::Orange => (c::HUE_ORANGE_BG, c::HUE_ORANGE_BORDER),
+        CardVariant::Pink => (c::HUE_PINK_BG, c::HUE_PINK_BORDER),
+        CardVariant::Purple => (c::HUE_PURPLE_BG, c::HUE_PURPLE_BORDER),
+        CardVariant::Red => (c::HUE_RED_BG, c::HUE_RED_BORDER),
+        CardVariant::Teal => (c::HUE_TEAL_BG, c::HUE_TEAL_BORDER),
+        CardVariant::Yellow => (c::HUE_YELLOW_BG, c::HUE_YELLOW_BORDER),
+    }
+}
+
+/// The surface of a card: its fill, its border when it is the bordered default, its selection ring, and its elevation.
+fn card_root(theme: &Theme, look: &Look<CardState>, _base: Style) -> Style {
+    let variant = look.variant::<CardVariant>().unwrap_or_default();
+    let bordered = variant == CardVariant::Default;
+    let (fill, ring_color) = card_palette(variant);
+    let selection = look.selection();
+    let selected = selection == Selectable::Selected;
+    let mut base = style()
+        .flex_direction(FlexDirection::Column)
+        .position(Position::Relative)
+        .min_width(0)
+        .border_radius(r::RADIUS_CONTAINER)
+        .clip(true)
+        .background(fill);
+    if bordered {
+        base = base.border(
+            m::BORDER_WIDTH,
+            if selected { ring_color } else { c::BORDER },
+        );
+    }
+    if selection != Selectable::NotSelectable {
+        base = base.shadow(
+            Shadow::new(
+                0,
+                0,
+                0,
+                if selected {
+                    ring_color
+                } else {
+                    Color::TRANSPARENT
+                },
+            )
+            .spread(2)
+            .inset(),
+        );
+    }
+    if look.is_interactive() {
+        base = fast(base.focus_visible(ring(c::ACCENT)));
+        if look.disabled {
+            base = base.opacity(m::DISABLED_OPACITY);
+        } else if selection == Selectable::NotSelectable && bordered {
+            base = base.hover(style().border_color(c::BORDER_EMPHASIZED));
+        }
+    }
+    shadows::elevate(
+        base,
+        look.variant::<Elevation>().unwrap_or_default(),
+        theme.mode() == ThemeMode::Dark,
+    )
+}
+
+/// The card's content inset: the card padding, less the border of the bordered default.
+fn card_padding(theme: &Theme, look: &Look<CardState>) -> f64 {
+    let variant = look.variant::<CardVariant>().unwrap_or_default();
+    let logical = look.variant::<CardPadding>().map_or_else(
+        || theme.get(&s::SPACE_CARD_PADDING_VAR),
+        |padding| padding.0.px(),
+    );
+    let border = if variant == CardVariant::Default {
+        m::BORDER_WIDTH
+    } else {
+        0.0
+    };
+    (logical - border).max(0.0)
+}
+
+/// The content of a card: a column with the card's inset.
+fn card_content(theme: &Theme, look: &Look<CardState>, _base: Style) -> Style {
+    style()
+        .flex_direction(FlexDirection::Column)
+        .padding(card_padding(theme, look))
+        .min_width(0)
+}
+
+/// A card region that takes no style of its own: the header, the media and the footer.
+fn card_empty(_: &Theme, _: &Look<CardState>, _base: Style) -> Style {
+    style()
+}
+
+/// The hover and pressed fill over a card that has an input.
+fn card_overlay(_: &Theme, look: &Look<CardState>, _base: Style) -> Style {
+    let color =
+        look.input()
+            .filter(|input| !input.is_disabled())
+            .map_or(Color::TRANSPARENT, |input| {
+                if input.is_pressed() {
+                    c::OVERLAY_PRESSED
+                } else if input.is_hovered() {
+                    c::OVERLAY_HOVER
+                } else {
+                    Color::TRANSPARENT
+                }
+            });
+    fast(style().border_radius(r::RADIUS_CONTAINER).background(color))
+}
+
+/// Install the kit's recipes of the collection group: lists, trees, item lists and cards, then the table, group and carousel recipes.
 pub(crate) fn install(theme: Theme) -> Theme {
     let theme = theme.with(
         ListTheme::default()
@@ -305,6 +425,15 @@ pub(crate) fn install(theme: Theme) -> Theme {
             .media(media)
             .actions(media)
             .marker(marker),
+    );
+    let theme = theme.with(
+        CardTheme::default()
+            .root(card_root)
+            .header(card_empty)
+            .media(card_empty)
+            .content(card_content)
+            .footer(card_empty)
+            .overlay(card_overlay),
     );
     let theme = crate::recipes_collections_table::install(theme);
     let theme = crate::recipes_groups::install(theme);
