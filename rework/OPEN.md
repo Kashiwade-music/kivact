@@ -919,3 +919,13 @@ U30b（lane U1、commit `5c9f7975`）。設計者の答え（条件 2 の (a)、
 - **(d) 古い注記**：直す。注記は「同じ turn のうちに続く開閉」のためだけにある。`Closed` の machine が `Closing(reason)` を受けたら `next` を既定に戻す（`hide()` はいつも `Closing` を先に送るので、`show_sheet → hide`・`Typed → hide` の後に注記は残らない）。follow が `Open` に入るときは `next` を取り出して既定に戻す（今の形のまま）。試験を 1 つ足す（interaction の select の試験の file）：`fn a_note_does_not_outlive_a_hide_in_the_same_turn()`：`show_sheet()` と `hide()` を同じ turn で呼び、そのあと caller が `open.set(true)` したとき、sheet でなく既定の surface で開く。combobox でも同じ形で `Typed` → `hide` の後の `open.set(true)` で filtering が false。lane U1 で U31 の前に足して commit する。
 - **(c) popup の watch と unmount の cleanup**：follow と見なしてよい。どちらも `show(open)` の surface の mount・unmount（`open` から導かれるもの）だけを受けて動く。mount・unmount 以外の理由で `Open`／`Close` を送る所が出たら差し戻す。
 - (a)・(b)・(e) は Orchestrator の判断どおり採る。印が付いたことを確認した。
+
+## 差戻し（W8・U43 と U52、2026-11-21）
+
+- **U43（lane `wt/rw-W8-U3`、commit なし・作業ツリーに変更）**：付属書の試験 `dragging_a_row_reports_one_place_per_step`（`ui_data_table.rs`）は、Ada の GridCell の中心を押すと `moves` が空（`left: []`、`right: [(1, 1)]`）。セルがドラッグを奪うことが原因で、HEAD の `drag_source` でも同じ失敗。行の余白（Row の矩形の上端 2 px）を押すと期待値どおり通る。**設計者が決める**：セルがドラッグを止めるかどうか（セルの仕様）。U3 lane は止める（U49〜U51 は後）。
+- **U52（lane `wt/rw-W8-U4`、commit `fb826ec6`）**：11 module（alert・card・badge・kbd・avatar_group・spinner・skeleton・heading・stat・description_list・sparkline）は完了。残り 3 件で止まる：
+  1. `empty_state`：`.announce()` と `.announce_changes()` が引数を取らない setter。`#[component]` の props の setter はすべて引数を取るので、C1（呼出しの形を変えない）を保てない。呼出しは `feedback.rs`・`kivact-ui-soft`・examples。
+  2. `avatar`：`name_tooltip` が Some のとき `Tooltip<T>`（into_view が trigger と surface の二つの fragment）を返し、None のとき Node を返す。`impl Element` の本体は一つの型しか返せない。enabled(false) では、fallback の description part が trigger に付くため同じにならない。
+  3. `progress(None)`：不確定の判定が `Prop::fixed()` に依るが、component の body は mount 済みの `Value` しか受けず、`Value::constant_value` は `kivact-runtime` の pub(crate) で読めない。`metrics_and_description.rs:25-43` の期待値を読んで判断したが、実装して確かめてはいない。
+  **設計者が決める**：(a) 三つの形を付属書で直す（props の setter の形、tooltip の戻り型、progress の None の扱い）、(b) 別の形。U4 lane は止める（U53・U54 は後）。
+- E29（lane `wt/rw-W8-E1`、作業ツリーに変更、commit なし）：確認の残り（check-features、window-lock の engine・E2E `devtools::`・`layout_check::`、fmt、CRLF、commit）を続きでやる。止めはしない。
