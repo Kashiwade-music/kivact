@@ -97,7 +97,6 @@ pub(in crate::port) fn open(
     }
     // Initialize UIA before visibility: showing a window can ask for its provider.
     show_if_visible(hwnd, options.visibility);
-    state.session.opened();
     // Post start-time work without entering a host callback; SAFETY: live child HWND on this thread.
     unsafe {
         PostMessageW(hwnd, COMMAND, 0, 0);

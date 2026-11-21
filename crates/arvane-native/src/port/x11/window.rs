@@ -30,9 +30,6 @@ pub(super) struct Window {
     pub(super) shared: Arc<Shared>,
     pub(super) backend: Arc<Notifier>,
     pub(super) session: Rc<Session>,
-    pub(super) width: u32,
-    pub(super) height: u32,
-    pub(super) scale: f64,
     /// The frame period (ns) of the display the window's center is on.
     frame_period_ns: u64,
     on_resize_request: Option<Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>>,
@@ -63,7 +60,7 @@ impl Window {
         on_resize_request: Option<
             Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>,
         >,
-        waker: arvane_shell::ShellWaker,
+        session: Rc<Session>,
     ) -> Result<Self, ShellError> {
         let (width, height) = size;
         shared.update(width, height, scale, visibility);
@@ -72,19 +69,16 @@ impl Window {
         let frame_period_ns = randr_frame_period(&native, (width, height));
         Ok(Self {
             native,
-            session: Rc::new(Session::new(shared.clone(), waker.clone())),
+            accessibility: super::a11y::Bridge::new(scale, session.waker()),
+            session,
             shared,
             backend,
-            width,
-            height,
-            scale,
             frame_period_ns,
             on_resize_request,
             unhandled_keys,
             redraw: Cell::new(ChildRedraw::Needed),
             started: Instant::now(),
             cpu: CpuSurface::Released,
-            accessibility: super::a11y::Bridge::new(scale, waker),
             services: super::services::Services::default(),
             ime,
             ime_driver: RefCell::default(),
@@ -109,7 +103,7 @@ impl Window {
         self.ime_driver.borrow_mut().set_allowed(
             &mut super::ime::Port {
                 ime: &mut self.ime.borrow_mut(),
-                scale: self.scale,
+                scale: self.shared.scale(),
             },
             allowed,
         );
@@ -119,7 +113,7 @@ impl Window {
 
     fn ime_cursor_area(&self, area: Rect) {
         // Native pixels keep a scale change visible to the shared output cache.
-        let scale = self.scale;
+        let scale = self.shared.scale();
         let area = Rect {
             x: area.x * scale,
             y: area.y * scale,
@@ -139,31 +133,32 @@ impl Window {
         self.ime_driver.borrow_mut().set_text(
             &mut super::ime::Port {
                 ime: &mut self.ime.borrow_mut(),
-                scale: self.scale,
+                scale: self.shared.scale(),
             },
             text,
         );
     }
 
     pub(super) fn resized(&mut self, width: u32, height: u32) {
-        self.width = width;
-        self.height = height;
-        let visibility = self.shared.applied().visibility;
-        self.shared.update(width, height, self.scale, visibility);
+        let applied = self.shared.applied();
+        self.shared
+            .update(width, height, applied.scale, applied.visibility);
         self.redraw.set(ChildRedraw::Needed);
     }
     /// Apply a show/hide on the UI thread; `true` when the visibility changed.
     pub(super) fn set_visibility(&mut self, visibility: EmbedVisibility) -> bool {
-        let changed = self.shared.applied().visibility != visibility;
+        let applied = self.shared.applied();
+        let changed = applied.visibility != visibility;
         if changed {
             self.shared
-                .update(self.width, self.height, self.scale, visibility);
+                .update(applied.width, applied.height, applied.scale, visibility);
         }
         changed
     }
     /// Read the frame period again after a configure; `true` when it changed.
     pub(super) fn refresh_frame_period(&mut self) -> bool {
-        let period = randr_frame_period(&self.native, (self.width, self.height));
+        let applied = self.shared.applied();
+        let period = randr_frame_period(&self.native, (applied.width, applied.height));
         let changed = period != self.frame_period_ns;
         self.frame_period_ns = period;
         changed
@@ -246,16 +241,17 @@ impl ShellWindow for Window {
         self.accessibility.tree.request_action(node, request)
     }
     fn size(&self) -> Size {
+        let applied = self.shared.applied();
         Size {
-            width: self.width as f64 / self.scale,
-            height: self.height as f64 / self.scale,
+            width: applied.width as f64 / applied.scale,
+            height: applied.height as f64 / applied.scale,
         }
     }
     fn physical_size(&self) -> (u32, u32) {
-        (self.width, self.height)
+        self.shared.size()
     }
     fn scale(&self) -> f64 {
-        self.scale
+        self.shared.scale()
     }
     fn request_size(&mut self, size: Size, request: kivact_types::RequestId) -> SizeReply {
         debug_assert!(!self.session.opening());
@@ -264,7 +260,7 @@ impl ShellWindow for Window {
         session.settle_resize(self.now_ns());
         session.request_size(
             size,
-            self.scale,
+            self.shared.scale(),
             MAX_DIMENSION,
             self.on_resize_request.as_deref(),
             request,
@@ -317,7 +313,7 @@ impl ShellWindow for Window {
     fn set_resizable(&self, _: bool) {}
     fn environment(&self) -> Environment {
         Environment {
-            scale_factor: self.scale,
+            scale_factor: self.shared.scale(),
             window_size: self.size(),
             locale: sys_locale::get_locale(),
             frame_period_ns: self.frame_period_ns,
@@ -367,7 +363,7 @@ impl WindowSurface for Window {
         let (Some(w), Some(h)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {
             return Ok(false);
         };
-        if (width, height) != (self.width, self.height) {
+        if (width, height) != self.shared.size() {
             return Err(super::error::platform(
                 "CPU frame dimensions differ from the window",
             ));

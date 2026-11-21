@@ -3,30 +3,250 @@ use super::child::Shared;
 use super::keys::KeyLedger;
 use super::resize::{self, ResizeWait};
 use arvane_shell::{
-    EventTarget, InjectedInput, MakeHandler, ShellControl, ShellError, ShellEvent, ShellHandler,
-    ShellLoop, ShellWaker, ShellWindow,
+    ChildStop, EventTarget, InjectedInput, MakeHandler, ShellControl, ShellError, ShellEvent,
+    ShellHandler, ShellLoop, ShellWaker, ShellWindow,
 };
 use kivact_types::{Capabilities, KeyCode, RequestId, WindowId, WindowRequest};
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-enum HandlerSlot {
-    Unstarted,
-    Running {
-        handler: Box<dyn ShellHandler>,
+/// The embedded child's life on its UI thread (AR-15): whether App code
+/// may run, whether its handler is lent to a callback, and what is left
+/// to clean up once it stopped.
+pub(in crate::port) enum Child {
+    /// The window is being made; the handler is made at start.
+    Opening { make: MakeHandler },
+    /// The App runs. Its handler is in its slot or lent to a callback.
+    Live {
+        handler: HandlerSlot,
         control: ShellControl,
     },
-}
-enum ChildLifecycle {
-    Opening(HandlerSlot),
-    Live(HandlerSlot),
-    Disposed,
+    /// The App stopped (`cause`, as `Shared` records it); the handler is
+    /// still to be closed, and the native resources released, once.
+    Stopped { cause: ChildStop, cleanup: Cleanup },
+    /// A callback panicked: the handler was forgotten (never dropped)
+    /// and the native resources are left as the panic left them.
     Leaked,
 }
-// xtask-allow(state): legacy: state, keys, resize, answers; injected_input normalizes DevTools input apart from the platform's input and pairs with no other field
+
+/// Where a live child's handler is.
+pub(in crate::port) enum HandlerSlot {
+    /// In the slot, between callbacks.
+    Idle(Box<dyn ShellHandler>),
+    /// Lent to the callback running now (`Lent` gives it back).
+    Calling,
+}
+
+/// What a stopped child still has to release.
+pub(in crate::port) enum Cleanup {
+    /// The handler's `close` and the native resources (exactly once).
+    /// `None` when the handler was never made.
+    Pending(Option<Box<dyn ShellHandler>>),
+    /// Released.
+    Done,
+}
+
+impl Child {
+    pub(in crate::port) fn opening(&self) -> bool {
+        matches!(self, Self::Opening { .. })
+    }
+    #[cfg(windows)]
+    pub(in crate::port) fn live(&self) -> bool {
+        matches!(self, Self::Live { .. })
+    }
+    /// Whether App code may run now: the handler is idle in its slot.
+    pub(in crate::port) fn accepts_callbacks(&self) -> bool {
+        matches!(
+            self,
+            Self::Live {
+                handler: HandlerSlot::Idle(_),
+                ..
+            }
+        )
+    }
+    /// Whether the handler or the native resources still wait for `dispose`.
+    #[cfg(any(windows, test))]
+    pub(in crate::port) fn needs_cleanup(&self) -> bool {
+        matches!(
+            self,
+            Self::Opening { .. }
+                | Self::Live { .. }
+                | Self::Stopped {
+                    cleanup: Cleanup::Pending(_),
+                    ..
+                }
+        )
+    }
+    /// Make the handler: `Opening` becomes `Live`. `false` in any other state.
+    pub(in crate::port) fn start(&mut self) -> bool {
+        match std::mem::replace(self, Self::Leaked) {
+            Self::Opening { make } => {
+                *self = Self::Live {
+                    handler: HandlerSlot::Idle(make()),
+                    control: ShellControl::Wait,
+                };
+                true
+            }
+            other => {
+                *self = other;
+                false
+            }
+        }
+    }
+    /// Lend the idle handler to one callback; `None` when App code may not run.
+    pub(in crate::port) fn lend(&mut self) -> Option<Box<dyn ShellHandler>> {
+        if !self.accepts_callbacks() {
+            return None;
+        }
+        let Self::Live { handler, .. } = self else {
+            return None;
+        };
+        match std::mem::replace(handler, HandlerSlot::Calling) {
+            HandlerSlot::Idle(handler) => Some(handler),
+            HandlerSlot::Calling => None,
+        }
+    }
+    /// Take back the lent handler: live again, or stopped with the shared
+    /// stop the callback recorded (`stop`).
+    pub(in crate::port) fn give_back(
+        &mut self,
+        handler: Box<dyn ShellHandler>,
+        stop: Option<ChildStop>,
+    ) {
+        match std::mem::replace(self, Self::Leaked) {
+            Self::Live {
+                handler: HandlerSlot::Calling,
+                control,
+            } => {
+                *self = match stop {
+                    None => Self::Live {
+                        handler: HandlerSlot::Idle(handler),
+                        control,
+                    },
+                    Some(cause) => Self::Stopped {
+                        cause,
+                        cleanup: Cleanup::Pending(Some(handler)),
+                    },
+                };
+            }
+            other => {
+                *self = other;
+                debug_assert!(false, "invariant: a lent handler returns to a live child");
+                std::mem::forget(handler);
+            }
+        }
+    }
+    /// Forget a handler after its panic: `Leaked`, and the handler is never dropped.
+    pub(in crate::port) fn leak(&mut self, handler: Box<dyn ShellHandler>) {
+        *self = Self::Leaked;
+        std::mem::forget(handler);
+    }
+    /// The shared stop reached a child that no callback holds. A lent handler
+    /// is left alone: its callback records the stop when it gives the handler back.
+    pub(in crate::port) fn stop_idle(&mut self, cause: ChildStop) {
+        match std::mem::replace(self, Self::Leaked) {
+            Self::Opening { .. } => {
+                *self = Self::Stopped {
+                    cause,
+                    cleanup: Cleanup::Pending(None),
+                };
+            }
+            Self::Live {
+                handler: HandlerSlot::Idle(handler),
+                ..
+            } => {
+                *self = Self::Stopped {
+                    cause,
+                    cleanup: Cleanup::Pending(Some(handler)),
+                };
+            }
+            other => *self = other,
+        }
+    }
+    pub(in crate::port) fn set_control(&mut self, next: ShellControl) {
+        if let Self::Live { control, .. } = self {
+            *control = next;
+        }
+    }
+    /// Hand out the cleanup once: `Some(handler)` (the handler, or `None` when
+    /// it was never made). `None` when nothing is left, or when a callback runs.
+    pub(in crate::port) fn take_cleanup(&mut self) -> Option<Option<Box<dyn ShellHandler>>> {
+        match std::mem::replace(self, Self::Leaked) {
+            Self::Opening { .. } => {
+                *self = Self::Stopped {
+                    cause: ChildStop::Closed,
+                    cleanup: Cleanup::Done,
+                };
+                Some(None)
+            }
+            Self::Live {
+                handler: HandlerSlot::Idle(handler),
+                ..
+            } => {
+                *self = Self::Stopped {
+                    cause: ChildStop::Closed,
+                    cleanup: Cleanup::Done,
+                };
+                Some(Some(handler))
+            }
+            Self::Stopped {
+                cause,
+                cleanup: Cleanup::Pending(handler),
+            } => {
+                *self = Self::Stopped {
+                    cause,
+                    cleanup: Cleanup::Done,
+                };
+                Some(handler)
+            }
+            other => {
+                let calling = matches!(
+                    other,
+                    Self::Live {
+                        handler: HandlerSlot::Calling,
+                        ..
+                    }
+                );
+                *self = other;
+                debug_assert!(
+                    !calling,
+                    "invariant: disposal is deferred while a callback runs"
+                );
+                None
+            }
+        }
+    }
+    /// The handler a panic must forget: the idle one, or the one awaiting
+    /// cleanup. A lent handler stays with its callback.
+    #[cfg(windows)]
+    pub(in crate::port) fn take_idle(&mut self) -> Option<Box<dyn ShellHandler>> {
+        if matches!(
+            self,
+            Self::Live {
+                handler: HandlerSlot::Calling,
+                ..
+            }
+        ) {
+            return None;
+        }
+        match std::mem::replace(self, Self::Leaked) {
+            Self::Live {
+                handler: HandlerSlot::Idle(handler),
+                ..
+            } => Some(handler),
+            Self::Stopped {
+                cleanup: Cleanup::Pending(handler),
+                ..
+            } => handler,
+            _ => None,
+        }
+    }
+}
+
+// xtask-allow(state): legacy: child, keys, resize, answers; injected_input normalizes DevTools input apart from the platform's input and pairs with no other field
 pub(in crate::port) struct Session {
-    state: RefCell<ChildLifecycle>,
+    child: RefCell<Child>,
     shared: Arc<Shared>,
     waker: ShellWaker,
     /// The synchronous verdict of the native key being delivered.
@@ -89,26 +309,33 @@ impl ShellLoop for EmbedLoop<'_> {
         }
     }
 }
-// Temporarily lend the handler to a callback while leaving its lifecycle observable on reentry.
-struct Callback<'a> {
+/// A handler lent to one callback; dropping it gives the handler back, so
+/// unwinding restores the child too. A panicked handler stays in its slot
+/// until `dispose` forgets it (the platform boundary records the panic first).
+struct Lent<'a> {
     session: &'a Session,
-    slot: HandlerSlot,
+    handler: Option<Box<dyn ShellHandler>>,
 }
-impl Drop for Callback<'_> {
+impl Lent<'_> {
+    fn handler(&mut self) -> &mut dyn ShellHandler {
+        self.handler
+            .as_deref_mut()
+            .expect("invariant: lent until dropped")
+    }
+}
+impl Drop for Lent<'_> {
     fn drop(&mut self) {
-        let slot = std::mem::replace(&mut self.slot, HandlerSlot::Unstarted);
-        match &mut *self.session.state.borrow_mut() {
-            ChildLifecycle::Opening(current) | ChildLifecycle::Live(current) => *current = slot,
-            ChildLifecycle::Disposed | ChildLifecycle::Leaked => {
-                unreachable!("invariant: callbacks defer disposal")
-            }
-        }
+        let Some(handler) = self.handler.take() else {
+            return;
+        };
+        let stop = self.session.shared.stop();
+        self.session.child.borrow_mut().give_back(handler, stop);
     }
 }
 impl Session {
-    pub(in crate::port) fn new(shared: Arc<Shared>, waker: ShellWaker) -> Self {
+    pub(in crate::port) fn new(shared: Arc<Shared>, waker: ShellWaker, make: MakeHandler) -> Self {
         Self {
-            state: RefCell::new(ChildLifecycle::Opening(HandlerSlot::Unstarted)),
+            child: RefCell::new(Child::Opening { make }),
             shared,
             waker,
             keys: RefCell::new(KeyLedger::default()),
@@ -125,76 +352,49 @@ impl Session {
         self.waker.clone()
     }
     pub(in crate::port) fn opening(&self) -> bool {
-        matches!(*self.state.borrow(), ChildLifecycle::Opening(_))
+        self.child.borrow().opening()
     }
     #[cfg(windows)]
     pub(in crate::port) fn live(&self) -> bool {
-        matches!(*self.state.borrow(), ChildLifecycle::Live(_))
+        self.child.borrow().live()
     }
     #[cfg(windows)]
-    pub(in crate::port) fn active(&self) -> bool {
-        matches!(
-            *self.state.borrow(),
-            ChildLifecycle::Opening(_) | ChildLifecycle::Live(_)
-        )
+    pub(in crate::port) fn needs_cleanup(&self) -> bool {
+        self.child.borrow().needs_cleanup()
     }
-    pub(in crate::port) fn opened(&self) {
-        let mut state = self.state.borrow_mut();
-        if let ChildLifecycle::Opening(slot) =
-            std::mem::replace(&mut *state, ChildLifecycle::Disposed)
-        {
-            *state = ChildLifecycle::Live(slot);
-        } else {
-            unreachable!("invariant: only opening sessions become live");
-        }
+    fn callback(&self) -> Option<Lent<'_>> {
+        let handler = self.child.borrow_mut().lend()?;
+        Some(Lent {
+            session: self,
+            handler: Some(handler),
+        })
     }
-    fn callback(&self) -> Option<Callback<'_>> {
-        match &mut *self.state.borrow_mut() {
-            ChildLifecycle::Opening(slot) | ChildLifecycle::Live(slot) => Some(Callback {
-                session: self,
-                slot: std::mem::replace(slot, HandlerSlot::Unstarted),
-            }),
-            ChildLifecycle::Disposed | ChildLifecycle::Leaked => None,
-        }
-    }
-    pub(in crate::port) fn start(&self, make: MakeHandler, window: &mut dyn ShellWindow) {
-        if self.shared.stopped() {
+    /// Start the App once: only a session that is still opening starts it.
+    pub(in crate::port) fn start(&self, window: &mut dyn ShellWindow) {
+        if self.shared.stopped() || !self.child.borrow_mut().start() {
             return;
         }
-        let mut callback = self
-            .callback()
-            .expect("invariant: start owns an opening session");
-        debug_assert!(matches!(callback.slot, HandlerSlot::Unstarted));
-        callback.slot = HandlerSlot::Running {
-            handler: make(),
-            control: ShellControl::Wait,
+        let Some(mut lent) = self.callback() else {
+            return;
         };
         let mut lp = EmbedLoop {
             window,
             waker: self.waker.clone(),
             injected: Vec::new(),
         };
-        let result = {
-            let HandlerSlot::Running { handler, .. } = &mut callback.slot else {
-                unreachable!("invariant: handler just installed");
-            };
-            if self.shared.stopped() {
-                Ok(ShellControl::Wait)
-            } else {
-                handler.start(&mut lp, self.waker.clone())
-            }
+        let result = if self.shared.stopped() {
+            Ok(ShellControl::Wait)
+        } else {
+            lent.handler().start(&mut lp, self.waker.clone())
         };
-        self.deliver_injected(&mut callback.slot, &mut lp);
-        self.accept(&mut callback.slot, result);
+        self.deliver_injected(&mut lent, &mut lp);
+        self.accept(result);
     }
     pub(in crate::port) fn deliver(&self, event: ShellEvent, window: &mut dyn ShellWindow) {
         if self.shared.stopped() {
             return;
         }
-        let Some(mut callback) = self.callback() else {
-            return;
-        };
-        let HandlerSlot::Running { handler, .. } = &mut callback.slot else {
+        let Some(mut lent) = self.callback() else {
             return;
         };
         let target = EventTarget::of(&event, WindowId::MAIN);
@@ -203,21 +403,21 @@ impl Session {
             waker: self.waker.clone(),
             injected: Vec::new(),
         };
-        let result = handler.event(target, event, &mut lp);
-        self.deliver_injected(&mut callback.slot, &mut lp);
-        self.accept(&mut callback.slot, result);
+        let result = lent.handler().event(target, event, &mut lp);
+        self.deliver_injected(&mut lent, &mut lp);
+        self.accept(result);
     }
     /// Deliver the injected input the callback queued, then the `Injected`
     /// event of each request.
-    fn deliver_injected(&self, slot: &mut HandlerSlot, lp: &mut EmbedLoop<'_>) {
+    fn deliver_injected(&self, lent: &mut Lent<'_>, lp: &mut EmbedLoop<'_>) {
         while !lp.injected.is_empty() && !self.shared.stopped() {
             for (inputs, request) in std::mem::take(&mut lp.injected) {
                 for event in self.injected_events(lp, inputs) {
-                    if !self.deliver_one(slot, lp, event) {
+                    if !self.deliver_one(lent, lp, event) {
                         return;
                     }
                 }
-                if !self.deliver_one(slot, lp, ShellEvent::Injected { request }) {
+                if !self.deliver_one(lent, lp, ShellEvent::Injected { request }) {
                     return;
                 }
             }
@@ -247,38 +447,30 @@ impl Session {
         events
     }
 
-    /// Deliver one event to the running handler; `false` once it stopped.
-    fn deliver_one(
-        &self,
-        slot: &mut HandlerSlot,
-        lp: &mut EmbedLoop<'_>,
-        event: ShellEvent,
-    ) -> bool {
-        let HandlerSlot::Running { handler, .. } = slot else {
-            return false;
-        };
-        let result = handler.event(EventTarget::of(&event, WindowId::MAIN), event, lp);
-        self.accept(slot, result);
+    /// Deliver one event to the lent handler; `false` once it stopped.
+    fn deliver_one(&self, lent: &mut Lent<'_>, lp: &mut EmbedLoop<'_>, event: ShellEvent) -> bool {
+        let result = lent
+            .handler()
+            .event(EventTarget::of(&event, WindowId::MAIN), event, lp);
+        self.accept(result);
         !self.shared.stopped()
     }
-    fn accept(&self, slot: &mut HandlerSlot, result: Result<ShellControl, ShellError>) {
+    fn accept(&self, result: Result<ShellControl, ShellError>) {
         match result {
             Err(error) => self.shared.fail(error),
             Ok(_) if self.shared.stopped() => {}
             Ok(ShellControl::Exit) => self.shared.fail(ShellError::new(
                 "the App asked to exit; an embedded App cannot exit by itself",
             )),
-            Ok(next) => {
-                if let HandlerSlot::Running { control, .. } = slot {
-                    *control = next;
-                }
-            }
+            Ok(next) => self.child.borrow_mut().set_control(next),
         }
     }
     pub(in crate::port) fn deadline(&self) -> Option<u64> {
-        let control = match &*self.state.borrow() {
-            ChildLifecycle::Opening(HandlerSlot::Running { control, .. })
-            | ChildLifecycle::Live(HandlerSlot::Running { control, .. }) => control.deadline(),
+        let control = match &*self.child.borrow() {
+            Child::Live {
+                handler: HandlerSlot::Idle(_),
+                control,
+            } => control.deadline(),
             _ => None,
         };
         let wait = resize::deadline(&self.resize);
@@ -331,34 +523,38 @@ impl Session {
     pub(in crate::port) fn take_answers(&self) -> Vec<ShellEvent> {
         self.answers.borrow_mut().drain(..).collect()
     }
-    pub(in crate::port) fn close(&self, window: &mut dyn ShellWindow) -> bool {
-        self.shared.request_close();
-        let state = self.state.replace(ChildLifecycle::Disposed);
-        let slot = match state {
-            ChildLifecycle::Opening(slot) | ChildLifecycle::Live(slot) => slot,
-            ChildLifecycle::Disposed => return true,
-            ChildLifecycle::Leaked => {
-                self.state.replace(ChildLifecycle::Leaked);
-                return false;
-            }
-        };
-        if let HandlerSlot::Running { handler, .. } = slot {
-            if self.shared.panicked() {
-                self.forget(handler);
-                return false;
-            }
-            // Held in a `ManuallyDrop`: if `close` panics, the handler is forgotten rather than
-            // dropped during the unwind.
-            let mut handler = std::mem::ManuallyDrop::new(handler);
-            let mut lp = EmbedLoop {
-                window,
-                waker: self.waker.clone(),
-                injected: Vec::new(),
-            };
-            handler.close(&mut lp);
-            drop(std::mem::ManuallyDrop::into_inner(handler));
-            self.retention.retain();
+    /// The shared stop reached a child that no callback holds (the host's
+    /// drop, the window's destruction, the UI thread's end).
+    pub(in crate::port) fn stopped_outside_callback(&self) {
+        if let Some(cause) = self.shared.stop() {
+            self.child.borrow_mut().stop_idle(cause);
         }
+    }
+    /// Close the handler and release the child's resources, once. Returns
+    /// `true` when the caller releases its native resources now.
+    pub(in crate::port) fn dispose(&self, window: &mut dyn ShellWindow) -> bool {
+        self.shared.request_close();
+        let Some(cleanup) = self.child.borrow_mut().take_cleanup() else {
+            return false;
+        };
+        let Some(handler) = cleanup else {
+            return true;
+        };
+        if self.shared.panicked() {
+            self.forget(handler);
+            return false;
+        }
+        // Held in a `ManuallyDrop`: if `close` panics, the handler is forgotten rather than
+        // dropped during the unwind.
+        let mut handler = std::mem::ManuallyDrop::new(handler);
+        let mut lp = EmbedLoop {
+            window,
+            waker: self.waker.clone(),
+            injected: Vec::new(),
+        };
+        handler.close(&mut lp);
+        drop(std::mem::ManuallyDrop::into_inner(handler));
+        self.retention.retain();
         true
     }
     /// Forget the App after a panic that reached the platform boundary and
@@ -366,19 +562,16 @@ impl Session {
     /// cannot run a queued command). The handler is never dropped or closed.
     #[cfg(windows)]
     pub(in crate::port) fn leak(&self) {
-        let previous = self.state.replace(ChildLifecycle::Leaked);
-        if let ChildLifecycle::Opening(HandlerSlot::Running { handler, .. })
-        | ChildLifecycle::Live(HandlerSlot::Running { handler, .. }) = previous
-        {
-            self.forget(handler);
+        let idle = self.child.borrow_mut().take_idle();
+        match idle {
+            Some(handler) => self.forget(handler),
+            None => crate::module::retain_module(),
         }
-        crate::module::retain_module();
     }
     /// Keep a handler that must never be dropped or closed again, and its module loaded.
     fn forget(&self, handler: Box<dyn ShellHandler>) {
-        self.state.replace(ChildLifecycle::Leaked);
+        self.child.borrow_mut().leak(handler);
         crate::module::retain_module();
-        std::mem::forget(handler);
     }
 }
 // The session's last field: it drops after the handler state, whose drop may detach threads.
@@ -393,5 +586,99 @@ impl ModuleRetention {
 impl Drop for ModuleRetention {
     fn drop(&mut self) {
         self.retain();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of the embedded child's lifecycle transitions (AR-15, TV-09).
+    use super::*;
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    /// A handler that counts its closes (see `dispose`).
+    struct Counted(Rc<Cell<u32>>);
+    impl ShellHandler for Counted {
+        fn start(
+            &mut self,
+            _: &mut dyn ShellLoop,
+            _: ShellWaker,
+        ) -> Result<ShellControl, ShellError> {
+            Ok(ShellControl::Wait)
+        }
+        fn event(
+            &mut self,
+            _: arvane_shell::EventTarget,
+            _: ShellEvent,
+            _: &mut dyn ShellLoop,
+        ) -> Result<ShellControl, ShellError> {
+            Ok(ShellControl::Wait)
+        }
+        fn close(&mut self, _: &mut dyn ShellLoop) {
+            self.0.set(self.0.get() + 1);
+        }
+    }
+
+    fn opening() -> Child {
+        Child::Opening {
+            make: Box::new(|| Box::new(Counted(Rc::new(Cell::new(0))))),
+        }
+    }
+
+    #[test]
+    fn a_child_stopped_before_start_cleans_up_natively_once() {
+        let mut child = opening();
+        child.stop_idle(ChildStop::Closed);
+        assert!(matches!(child.take_cleanup(), Some(None)));
+        assert!(child.take_cleanup().is_none());
+    }
+
+    #[test]
+    fn an_error_in_a_callback_keeps_the_handler_for_one_close() {
+        let mut child = opening();
+        assert!(child.start());
+        let handler = child.lend().expect("a started child lends its handler");
+        child.give_back(handler, Some(ChildStop::Failed(ShellError::new("failed"))));
+        assert!(!child.accepts_callbacks());
+        assert!(child.needs_cleanup());
+        assert!(matches!(child.take_cleanup(), Some(Some(_))));
+        assert!(child.take_cleanup().is_none());
+    }
+
+    #[test]
+    fn exit_from_a_callback_stops_and_closes_once() {
+        let mut child = opening();
+        assert!(child.start());
+        let handler = child.lend().expect("a started child lends its handler");
+        child.give_back(handler, Some(ChildStop::Closed));
+        assert!(matches!(child.take_cleanup(), Some(Some(_))));
+        assert!(child.take_cleanup().is_none());
+    }
+
+    #[test]
+    fn a_host_side_close_of_an_idle_child_closes_once() {
+        let mut child = opening();
+        assert!(child.start());
+        child.stop_idle(ChildStop::Closed);
+        assert!(matches!(child.take_cleanup(), Some(Some(_))));
+        assert!(child.take_cleanup().is_none());
+    }
+
+    #[test]
+    fn a_panic_in_a_callback_leaks_the_handler() {
+        let mut child = opening();
+        assert!(child.start());
+        let handler = child.lend().expect("a started child lends its handler");
+        child.leak(handler);
+        assert!(child.take_cleanup().is_none());
+        assert!(!child.needs_cleanup());
+    }
+
+    #[test]
+    fn no_callback_starts_after_the_window_is_gone() {
+        let mut child = opening();
+        assert!(child.start());
+        child.stop_idle(ChildStop::Closed);
+        assert!(child.lend().is_none());
     }
 }
