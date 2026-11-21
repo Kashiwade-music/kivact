@@ -1,32 +1,29 @@
 //! Role: The overview page: a gradient hero with the headline, its actions and the key statistics.
 
+use super::common::*;
+use catalog_shell::{Example, Page};
+use kivact::draw::{LineCap, LineJoin};
 use kivact::prelude::*;
-use kivact::style::{Align, Color, GridPlacement, Justify, Track, color, pct, rgb, rgba, style};
+use kivact::state::IntoText;
+use kivact::style::linear_gradient;
+use kivact::style::rgba;
 use kivact::view::Node;
 use kivact_ui_pop as ui;
-use kivact::draw::{LineCap, LineJoin, Path, Stroke};
-use kivact::geometry::Point;
-use kivact::i18n::{CalendarDate, Weekday};
-use kivact::interaction::{ListItem, MenuEntry, ScalarRange};
-use kivact::motion::{Animated, Easing, Repeat, Transition};
-use kivact::state::{Callback, IntoHandler, IntoText, IntoValue, Machine, MachineHandle, Signal, Step, Value, callback, machine};
-use kivact::style::{Direction, Filter, Shadow, Shape, TextDecorationLine, linear_gradient};
-use kivact::ui::RadioGroup;
-use kivact::view::{Orientation, Placement, rich_text, span as text_span};
-use kivact_ui_pop::Hue;
-use std::time::Duration;
-use catalog_shell::{Example, Page};
-use super::common::*;
 /// The page of the overview.
 pub fn page() -> Page {
-    Page::new("overview", "Dashboard", "Overview", include_str!("overview.rs"))
-        .description("A dashboard header with the headline, the main action and the key figures.")
-        .example(Example::new(
-            "overview",
-            "Dashboard hero",
-            "A gradient hero with a headline, two actions and four statistics.",
-            overview_demo,
-        ))
+    Page::new(
+        "overview",
+        "Dashboard",
+        "Overview",
+        include_str!("overview.rs"),
+    )
+    .description("A dashboard header with the headline, the main action and the key figures.")
+    .example(Example::new(
+        "overview",
+        "Dashboard hero",
+        "A gradient hero with a headline, two actions and four statistics.",
+        overview_demo,
+    ))
 }
 
 fn overview_demo() -> impl IntoView {
@@ -146,15 +143,17 @@ fn hero(
     row((
         column((
             node().child(heading).style(style().margin_bottom(8)),
-            text(subtitle).style(
-                style()
-                    .max_width(520)
-                    .color(rgba(0xffffff, 0.88)),
-            ),
+            text(subtitle).style(style().max_width(520).color(rgba(0xffffff, 0.88))),
             row(actions).style(style().gap(10).flex_wrap(true).margin_top(20)),
         ))
         .style(style().flex_grow(1.0).flex_basis(540).min_width(0)),
-        row(statistics).style(style().gap(10).flex_grow(0.0).flex_basis(440).align_items(Align::End)),
+        row(statistics).style(
+            style()
+                .gap(10)
+                .flex_grow(0.0)
+                .flex_basis(440)
+                .align_items(Align::End),
+        ),
     ))
     .style(move || {
         style()

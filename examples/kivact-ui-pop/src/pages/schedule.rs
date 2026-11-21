@@ -1,113 +1,114 @@
 //! Role: The Schedule page.
 
-use kivact::prelude::*;
-use kivact::style::{Align, Color, GridPlacement, Justify, Track, color, pct, rgb, rgba, style};
-use kivact::view::Node;
-use kivact_ui_pop as ui;
-use kivact::draw::{LineCap, LineJoin, Path, Stroke};
-use kivact::geometry::Point;
-use kivact::i18n::{CalendarDate, Weekday};
-use kivact::interaction::{ListItem, MenuEntry, ScalarRange};
-use kivact::motion::{Animated, Easing, Repeat, Transition};
-use kivact::state::{Callback, IntoHandler, IntoText, IntoValue, Machine, MachineHandle, Signal, Step, Value, callback, machine};
-use kivact::style::{Direction, Filter, Shadow, Shape, TextDecorationLine, linear_gradient};
-use kivact::ui::RadioGroup;
-use kivact::view::{Orientation, Placement, rich_text, span as text_span};
-use kivact_ui_pop::Hue;
-use std::time::Duration;
-use catalog_shell::{Example, Page};
 use super::common::*;
+use catalog_shell::{Example, Page};
+use kivact::i18n::{CalendarDate, Weekday};
+use kivact::prelude::*;
+use kivact::style::GridPlacement;
+use kivact_ui_pop as ui;
 /// The page of the Schedule components.
 pub fn page() -> Page {
-    Page::new("schedule", "Schedule", "Components", include_str!("schedule.rs"))
-        .description("A weekly agenda and a calendar, with each event in its hue.")
-        .example(Example::new(
-            "schedule",
-            "Agenda and calendar",
-            "The agenda lists the day's events; the calendar picks the day.",
-            schedule_demo,
-        ))
+    Page::new(
+        "schedule",
+        "Schedule",
+        "Components",
+        include_str!("schedule.rs"),
+    )
+    .description("A weekly agenda and a calendar, with each event in its hue.")
+    .example(Example::new(
+        "schedule",
+        "Agenda and calendar",
+        "The agenda lists the day's events; the calendar picks the day.",
+        schedule_demo,
+    ))
 }
 
 const SCHEDULE_EVENTS: [(u8, &str, &str, &str, u32, ui::Hue); 11] = [
     (
         1,
         "09:00",
-        "朝の定例ミーティング",
-        "会議室A · 全員",
+        "Morning stand-up",
+        "Meeting room A · everyone",
         0x1f9bff,
         ui::Hue::Blue,
     ),
     (
         3,
         "10:00",
-        "外郭地区パトロール",
-        "ミナト・アリサ・セナ",
+        "Outer district patrol",
+        "Minato, Arisa, Sena",
         0x1f9bff,
         ui::Hue::Blue,
     ),
     (
         3,
         "12:30",
-        "ランチ（ミナト）",
-        "カフェテリア",
+        "Lunch (Minato)",
+        "Cafeteria",
         0xff7cb0,
         ui::Hue::Pink,
     ),
     (
         3,
         "16:00",
-        "予算レビュー",
-        "ユズ · オンライン",
+        "Budget review",
+        "Yuzu · online",
         0xf2bf0a,
         ui::Hue::Yellow,
     ),
     (
         7,
         "13:00",
-        "救護訓練",
-        "ハルカ · 体育館",
+        "Rescue drill",
+        "Haruka · gymnasium",
         0x2fcfa6,
         ui::Hue::Mint,
     ),
     (
         10,
         "18:00",
-        "REQ-1003 期限",
-        "報告書提出",
+        "REQ-1003 deadline",
+        "Submit report",
         0xff5a6e,
         ui::Hue::Red,
     ),
-    (10, "19:00", "打ち上げ", "給食部", 0xff7cb0, ui::Hue::Pink),
+    (
+        10,
+        "19:00",
+        "After-party",
+        "Lunch Club",
+        0xff7cb0,
+        ui::Hue::Pink,
+    ),
     (
         15,
         "14:00",
-        "総力戦 作戦会議",
-        "作戦室",
+        "All-out battle planning",
+        "Operations room",
         0x9d86ff,
         ui::Hue::Blue,
     ),
     (
         17,
         "23:59",
-        "お月見フェス 終了",
-        "イベント",
+        "Moon-viewing festival ends",
+        "Event",
         0xff7cb0,
         ui::Hue::Pink,
     ),
     (
         22,
         "11:00",
-        "新入部員 面談",
-        "コハル",
+        "New member interview",
+        "Koharu",
         0x2fcfa6,
         ui::Hue::Mint,
     ),
     (
         28,
         "15:00",
-        "月次レポート",
-        "全学園",
+        "Monthly report",
+        "All academies",
         0x1f9bff,
         ui::Hue::Blue,
     ),
@@ -119,7 +120,7 @@ fn schedule_demo() -> impl IntoView {
     section(
         "11",
         "Schedule",
-        "カレンダー・予定リスト",
+        "Calendar and agenda",
         cards_grid((calendar_panel(date), agenda_panel(date))),
     )
     // end example
@@ -132,15 +133,15 @@ fn agenda_panel(date: Signal<CalendarDate>) -> impl kivact::view::Element {
                 text(move || {
                     let d = date.get();
                     format!(
-                        "{}月{}日（{}）の予定",
+                        "Agenda for {}/{} ({})",
                         d.month(),
                         d.day(),
-                        ["月", "火", "水", "木", "金", "土", "日"]
+                        ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
                             [d.weekday().days_since(Weekday::Monday)]
                     )
                 })
                 .style(style().font_size(15).font_weight(600).flex_grow(1)),
-                kivact::ui::button("予定を追加")
+                kivact::ui::button("Add event")
                     .icon(kivact::view::icon("plus"))
                     .size(kivact::ui::ControlSize::Small)
                     .variant(kivact_ui_pop::ButtonTone::Soft),
@@ -174,7 +175,7 @@ fn agenda_panel(date: Signal<CalendarDate>) -> impl kivact::view::Element {
                 } else {
                     row((
                         kivact::view::icon("calendar"),
-                        muted("予定はありません。ゆっくり休みましょう。"),
+                        muted("No events. Take a rest."),
                     ))
                     .style(
                         style()
@@ -209,11 +210,15 @@ fn calendar_panel(date: Signal<CalendarDate>) -> impl kivact::view::Element {
                 .today(CalendarDate::new(2026, 10, 3))
                 .month_title(|date| format!("{}.{:02}", date.year(), date.month()))
         }
-        .variant(ui::WeekendHue::new(|day| match day {
-            kivact::i18n::Weekday::Sunday => Some(ui::Hue::Red),
-            kivact::i18n::Weekday::Saturday => Some(ui::Hue::Blue),
-            _ => None,
-        }))
+        .variant(ui::CalendarWeekdayHues([
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(ui::Hue::Blue),
+            Some(ui::Hue::Red),
+        ]))
         .events(
             SCHEDULE_EVENTS
                 .into_iter()

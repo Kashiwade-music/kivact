@@ -1,22 +1,13 @@
 //! Role: The forms page: text inputs, selection editors, checks, switches, sliders and uploads.
 
+use super::common::*;
+use catalog_shell::{Example, Page};
+use kivact::i18n::CalendarDate;
+use kivact::interaction::ScalarRange;
 use kivact::prelude::*;
-use kivact::style::{Align, Color, GridPlacement, Justify, Track, color, pct, rgb, rgba, style};
 use kivact::view::Node;
 use kivact_ui_pop as ui;
-use kivact::draw::{LineCap, LineJoin, Path, Stroke};
-use kivact::geometry::Point;
-use kivact::i18n::{CalendarDate, Weekday};
-use kivact::interaction::{ListItem, MenuEntry, ScalarRange};
-use kivact::motion::{Animated, Easing, Repeat, Transition};
-use kivact::state::{Callback, IntoHandler, IntoText, IntoValue, Machine, MachineHandle, Signal, Step, Value, callback, machine};
-use kivact::style::{Direction, Filter, Shadow, Shape, TextDecorationLine, linear_gradient};
-use kivact::ui::RadioGroup;
-use kivact::view::{Orientation, Placement, rich_text, span as text_span};
-use kivact_ui_pop::Hue;
 use std::time::Duration;
-use catalog_shell::{Example, Page};
-use super::common::*;
 /// The page of the form controls.
 pub fn page() -> Page {
     Page::new("forms", "Forms", "Components", include_str!("forms.rs"))
@@ -42,7 +33,7 @@ fn forms_demo() -> impl IntoView {
     section(
         "03",
         "Form Controls",
-        "フォーム — 入力・選択・アップロード",
+        "Forms: inputs, selection and uploads",
         cards_grid((
             half(text_inputs()),
             half(selection_editors()),
@@ -53,7 +44,6 @@ fn forms_demo() -> impl IntoView {
     )
     // end example
 }
-
 
 struct IconInput {
     root: Node,
@@ -129,20 +119,18 @@ fn input_with_icon(
                 .border_radius(8),
         )
         .style(move || {
-            let theme = &use_theme().get();
-            let p = theme.ext::<ui::Tokens>();
             style()
                 .border(
                     1,
                     if focused.get() {
-                        p.blue
+                        ui::Hue::Blue.accent()
                     } else if invalid {
-                        p.red
+                        ui::Hue::Red.accent()
                     } else {
-                        p.line
+                        color::BORDER
                     },
                 )
-                .ring(if focused.get() { 3 } else { 0 }, color::FOCUS)
+                .outline(if focused.get() { 3 } else { 0 }, color::FOCUS)
         });
     IconInput {
         root,
@@ -174,14 +162,9 @@ fn toned<V: IntoView>(hue: ui::Hue, child: impl FnOnce() -> V + 'static) -> View
     let inherited = memo(|| kivact::style::use_theme().get());
     kivact::style::provide_theme(
         move || {
-            let theme = inherited.get();
-            let mut tokens = (*theme.ext::<ui::Tokens>()).clone();
-            tokens.blue = tokens.accent(hue);
-            let colors = kivact::style::theme::Palette {
-                accent: tokens.blue,
-                ..theme.colors().clone()
-            };
-            theme.with_colors(colors).with(tokens)
+            inherited
+                .get()
+                .set(&kivact::style::color::ACCENT_VAR, hue.accent())
         },
         child,
     )
@@ -190,15 +173,15 @@ fn toned<V: IntoView>(hue: ui::Hue, child: impl FnOnce() -> V + 'static) -> View
 fn upload_controls() -> kivact::ui::Card {
     let files = signal(vec![UploadEntry {
         id: 0,
-        name: "作戦報告書_第3章.pdf".into(),
+        name: "Mission report ch3.pdf".into(),
         bytes: Some(2_516_582),
         progress: 100.0,
     }]);
     let file_serial = signal(1u64);
     card(
-        "ファイルアップロード",
+        "File upload",
         column((
-            kivact::ui::dropzone("ここにファイルをドロップ")
+            kivact::ui::dropzone("Drop files here")
                 .multiple(true)
                 .pick_on_press(true)
                 .icon(kivact::view::icon("cloud-upload").style(style().size(24, 24)))
@@ -261,17 +244,23 @@ fn switch_controls() -> kivact::ui::Card {
     let volume = signal(64.0f64);
     let difficulty = signal(2.0f64);
     card(
-        "スイッチ・スライダー",
+        "Switches and sliders",
         column((
-            switch_row("オートバトル", "戦闘を自動で進行", true, ui::Hue::Blue),
-            switch_row("倍速モード", "演出を短縮", false, ui::Hue::Blue),
-            switch_row("ボイス", "生徒のボイスを再生", true, ui::Hue::Pink),
+            switch_row(
+                "Auto battle",
+                "Advance battles automatically",
+                true,
+                ui::Hue::Blue,
+            ),
+            switch_row("Fast mode", "Shorten the effects", false, ui::Hue::Blue),
+            switch_row("Voice", "Play student voices", true, ui::Hue::Pink),
             column((
                 row((
-                    text("BGM 音量"),
+                    text("BGM volume"),
                     text(move || volume.get().to_string()).style(style().color(color::ACCENT)),
                 )),
-                kivact::ui::slider("BGM音量", volume)
+                kivact::ui::slider(volume)
+                    .label("BGM volume")
                     .range(
                         ScalarRange::new(0.0, 100.0)
                             .and_then(|range| range.with_step(1.0))
@@ -279,23 +268,20 @@ fn switch_controls() -> kivact::ui::Card {
                     )
                     .test_id("pop-volume"),
             ))
-            .style(
-                style()
-                    .gap(6)
-                    .padding_top(12)
-                    .border_top(1, color::BORDER),
-            ),
+            .style(style().gap(6).padding_top(12).border_top(1, color::BORDER)),
             column((
                 row((
-                    text("難易度補正"),
+                    text("Difficulty adjustment"),
                     text(move || difficulty.get().to_string()).style(style().color(rgb(0xe8b90f))),
                 )),
                 toned(ui::Hue::Yellow, move || {
-                    kivact::ui::slider("難易度補正", difficulty).range(
-                        ScalarRange::new(0.0, 5.0)
-                            .and_then(|range| range.with_step(1.0))
-                            .expect("finite ordered range"),
-                    )
+                    kivact::ui::slider(difficulty)
+                        .label("Difficulty adjustment")
+                        .range(
+                            ScalarRange::new(0.0, 5.0)
+                                .and_then(|range| range.with_step(1.0))
+                                .expect("finite ordered range"),
+                        )
                 }),
                 row((
                     muted("0"),
@@ -319,38 +305,42 @@ fn check_controls() -> kivact::ui::Card {
     let reports = signal(false);
     let mode = signal(Some("normal".to_owned()));
     let modes = signal(vec![
-        ListItem::new("normal".to_owned(), "ノーマル"),
-        ListItem::new("hard".to_owned(), "ハード"),
-        ListItem::new("extreme".to_owned(), "エクストリーム").disabled(true),
+        ListItem::new("normal".to_owned(), "Normal"),
+        ListItem::new("hard".to_owned(), "Hard"),
+        ListItem::new("extreme".to_owned(), "Extreme").disabled(true),
     ]);
     card(
-        "チェック・ラジオ",
+        "Checks and radios",
         column((
             column((
-                kivact::ui::checkbox("通知を受け取る", notifications),
-                muted("依頼の更新をお知らせします").style(style().font_size(13).margin_left(28)),
+                kivact::ui::checkbox("Receive notifications", notifications),
+                muted("We tell you when a request is updated")
+                    .style(style().font_size(13).margin_left(28)),
             ))
             .style(style().gap(2)),
             column((
-                kivact::ui::checkbox("週次レポート", reports),
-                muted("毎週月曜 9:00 に送信").style(style().font_size(13).margin_left(28)),
+                kivact::ui::checkbox("Weekly report", reports),
+                muted("Sent every Monday at 9:00").style(style().font_size(13).margin_left(28)),
             ))
             .style(style().gap(2)),
             column((
-                kivact::ui::checkbox("部分選択（indeterminate）", kivact::state::signal(false))
-                    .indeterminate(true),
-                muted("子項目の一部が選択済み").style(style().font_size(13).margin_left(28)),
+                kivact::ui::checkbox(
+                    "Partly selected (indeterminate)",
+                    kivact::state::signal(false),
+                )
+                .indeterminate(true),
+                muted("Some child items are selected").style(style().font_size(13).margin_left(28)),
             ))
             .style(style().gap(2)),
             node().style(style().height(1).background(color::BORDER)),
-            kivact::ui::radio_group("難易度", modes, mode),
-            muted("エクストリームの解放条件：Lv.80").style(style().font_size(13)),
-            kivact::ui::button("ハードの表示を切り替え").on_press(move || {
+            kivact::ui::radio_group("Difficulty", modes, mode),
+            muted("Extreme unlocks at Lv.80").style(style().font_size(13)),
+            kivact::ui::button("Toggle the Hard option").on_press(move || {
                 modes.update(|options| {
                     if options.iter().any(|option| option.key() == "hard") {
                         options.retain(|option| option.key() != "hard");
                     } else {
-                        options.insert(1, ListItem::new("hard".to_owned(), "ハード"));
+                        options.insert(1, ListItem::new("hard".to_owned(), "Hard"));
                     }
                 })
             }),
@@ -362,47 +352,46 @@ fn check_controls() -> kivact::ui::Card {
 fn selection_editors() -> kivact::ui::Card {
     let memo = signal(String::new());
     let count = signal(4.0_f64);
-    let tags = signal(vec!["護衛".into(), "調査".into()]);
+    let tags = signal(vec!["Guard".into(), "Scout".into()]);
     let chosen = signal(Some("azure".to_owned()));
     let schools = signal(vec![
-        ListItem::new("azure".to_owned(), "アズール学園"),
-        ListItem::new("celeste".to_owned(), "セレスト女学院"),
-        ListItem::new("million".to_owned(), "ミリオン工科高校"),
-        ListItem::new("nox".to_owned(), "ノクス自治区"),
+        ListItem::new("azure".to_owned(), "Azure Academy"),
+        ListItem::new("celeste".to_owned(), "Celeste Girls' School"),
+        ListItem::new("million".to_owned(), "Million Technical High"),
+        ListItem::new("nox".to_owned(), "Nox District"),
     ]);
     card(
-        "セレクト・テキストエリア",
+        "Select and text area",
         column((
             kivact::ui::field(
-                "所属学園",
-                kivact::ui::select("所属学園", schools, chosen).icon(kivact::view::icon("school")),
+                "School",
+                kivact::ui::select(schools, chosen)
+                    .label("School")
+                    .icon(kivact::view::icon("school")),
             ),
-            kivact::ui::button("学園一覧を並べ替え")
+            kivact::ui::button("Reverse the school list")
                 .on_press(move || schools.update(|options| options.reverse())),
             column((
                 row((
-                    text("タグ").style(style().flex_grow(1).font_weight(500).line_height(1.0)),
-                    text("Enterで追加").style(style().font_size(12).color(color::TEXT_MUTED)),
+                    text("Tags").style(style().flex_grow(1).font_weight(500).line_height(1.0)),
+                    text("Press Enter to add")
+                        .style(style().font_size(12).color(color::TEXT_MUTED)),
                 )),
-                kivact::ui::tag_input("タグを追加", tags)
-                    .on_add(move |tag| tags.update(|items| items.push(tag)))
-                    .on_remove(move |index| {
-                        tags.update(|items| {
-                            items.remove(index);
-                        })
-                    }),
+                kivact::ui::tag_input(tags).label("Add a tag"),
             ))
             .style(style().gap(8)),
             column((
                 row((
-                    text("依頼メモ").style(style().flex_grow(1).font_weight(500).line_height(1.0)),
+                    text("Request note")
+                        .style(style().flex_grow(1).font_weight(500).line_height(1.0)),
                     text(move || format!("{} / 140", memo.get().chars().count()))
                         .style(style().font_size(12).color(color::TEXT_MUTED)),
                 )),
                 ui::resizable_text_area(
-                    kivact::ui::text_area("依頼メモ", memo)
+                    kivact::ui::text_area(memo)
+                        .label("Request note")
                         .max_length(140)
-                        .placeholder("生徒への連絡事項を書いてください…"),
+                        .placeholder("Write a note for the student…"),
                     80.0,
                     72.0,
                 )
@@ -412,14 +401,14 @@ fn selection_editors() -> kivact::ui::Card {
             columns(
                 (
                     kivact::ui::field(
-                        "人数",
+                        "Count",
                         kivact::ui::number_input(
-                            "人数",
                             count,
                             kivact::interaction::ScalarRange::new(1.0, 12.0)
                                 .and_then(|range| range.with_step(1.0))
                                 .expect("invariant: the bounds and the step are finite"),
-                        ),
+                        )
+                        .label("Count"),
                     ),
                     date_editor(),
                 ),
@@ -431,44 +420,48 @@ fn selection_editors() -> kivact::ui::Card {
 }
 
 fn text_inputs() -> kivact::ui::Card {
-    let name = signal("空崎 ミナト".to_string());
+    let name = signal("Minato Sorasaki".to_string());
     let mail = signal("minato@halo".to_string());
     let password = signal("kivo-secret".to_string());
     let reveal = signal(false);
     card(
-        "テキスト入力",
+        "Text inputs",
         column((
             kivact::ui::field(
-                "生徒名 *",
+                "Student name *",
                 input_with_icon(
                     "user",
-                    kivact::ui::text_input("生徒名", name).placeholder("例：空崎 ミナト"),
+                    kivact::ui::text_input(name)
+                        .label("Student name")
+                        .placeholder("e.g. Minato Sorasaki"),
                     (),
                     false,
                 ),
             ),
             kivact::ui::field(
-                "メールアドレス",
+                "Email",
                 input_with_icon(
                     "mail",
-                    kivact::ui::text_input("メールアドレス", mail).invalid(true),
+                    kivact::ui::text_input(mail).label("Email").invalid(true),
                     kivact::view::icon("alert-circle").style(style().color(rgb(0xef4458))),
                     true,
                 ),
             )
-            .error(Some("有効なメールアドレスを入力してください。".to_owned())),
+            .error(Some("Enter a valid email address.".to_owned())),
             kivact::ui::field(
-                "アクセスキー",
+                "Access key",
                 input_with_icon(
                     "lock",
-                    kivact::ui::text_input("アクセスキー", password).purpose(move || {
-                        if reveal.get() {
-                            kivact::view::InputPurpose::Text
-                        } else {
-                            kivact::view::InputPurpose::Password
-                        }
-                    }),
-                    kivact::ui::button("表示切替")
+                    kivact::ui::text_input(password)
+                        .label("Access key")
+                        .purpose(move || {
+                            if reveal.get() {
+                                kivact::view::InputPurpose::Text
+                            } else {
+                                kivact::view::InputPurpose::Password
+                            }
+                        }),
+                    kivact::ui::button("Show or hide")
                         .variant(kivact::ui::ButtonVariant::Ghost)
                         .hide_label(true)
                         .icon(kivact::view::icon("eye"))
@@ -478,7 +471,7 @@ fn text_inputs() -> kivact::ui::Card {
                     false,
                 ),
             )
-            .hint(|| "8文字以上・英数字を含めてください。"),
+            .hint(|| "Use at least 8 characters, with letters and digits."),
             reward_editor(),
         ))
         .style(style().gap(20)),
@@ -488,7 +481,7 @@ fn text_inputs() -> kivact::ui::Card {
 fn date_editor() -> impl kivact::view::Element {
     let date = signal(CalendarDate::new(2026, 10, 3));
     kivact::ui::field(
-        "実施日",
+        "Date",
         {
             let value: kivact::state::Signal<kivact::i18n::CalendarDate> = date;
             let value = kivact::state::binding(
@@ -499,7 +492,8 @@ fn date_editor() -> impl kivact::view::Element {
                     }
                 },
             );
-            kivact::ui::date_input("実施日", value)
+            kivact::ui::date_input(value)
+                .label("Date")
                 .presentation(kivact::ui::DatePresentation::Desktop)
                 .calendar(move |calendar| {
                     calendar
@@ -513,7 +507,7 @@ fn date_editor() -> impl kivact::view::Element {
 
 fn reward_editor() -> impl kivact::view::Element {
     kivact::ui::field(
-        "報酬額",
+        "Reward",
         row((
             row((text("¥"),)).style(
                 style()
@@ -524,14 +518,16 @@ fn reward_editor() -> impl kivact::view::Element {
                     .background(color::SURFACE_ALT)
                     .border_right(1, color::BORDER),
             ),
-            kivact::ui::text_input("報酬額", signal("120,000".to_string())).style(
-                style()
-                    .height(34)
-                    .flex_grow(1)
-                    .border(0, Color::TRANSPARENT)
-                    .shadow(Shadow::new(0, 0, 0, Color::TRANSPARENT)),
-            ),
-            row((text("/ 件"),)).style(
+            kivact::ui::text_input(signal("120,000".to_string()))
+                .label("Reward amount")
+                .style(
+                    style()
+                        .height(34)
+                        .flex_grow(1)
+                        .border(0, Color::TRANSPARENT)
+                        .shadow(Shadow::new(0, 0, 0, Color::TRANSPARENT)),
+                ),
+            row((text("/ item"),)).style(
                 style()
                     .height(36)
                     .padding_x(12)
@@ -551,4 +547,3 @@ fn reward_editor() -> impl kivact::view::Element {
         ),
     )
 }
-

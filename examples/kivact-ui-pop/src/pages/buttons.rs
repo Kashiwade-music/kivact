@@ -1,32 +1,30 @@
 //! Role: The buttons page: the button variants, sizes, groups and the standard buttons.
 
+use super::common::*;
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
-use kivact::style::{Align, Color, GridPlacement, Justify, Track, color, pct, rgb, rgba, style};
+use kivact::state::{Machine, Step, machine};
+use kivact::style::rgba;
 use kivact::view::Node;
 use kivact_ui_pop as ui;
-use kivact::draw::{LineCap, LineJoin, Path, Stroke};
-use kivact::geometry::Point;
-use kivact::i18n::{CalendarDate, Weekday};
-use kivact::interaction::{ListItem, MenuEntry, ScalarRange};
-use kivact::motion::{Animated, Easing, Repeat, Transition};
-use kivact::state::{Callback, IntoHandler, IntoText, IntoValue, Machine, MachineHandle, Signal, Step, Value, callback, machine};
-use kivact::style::{Direction, Filter, Shadow, Shape, TextDecorationLine, linear_gradient};
-use kivact::ui::RadioGroup;
-use kivact::view::{Orientation, Placement, rich_text, span as text_span};
-use kivact_ui_pop::Hue;
 use std::time::Duration;
-use catalog_shell::{Example, Page};
-use super::common::*;
 /// The page of the buttons.
 pub fn page() -> Page {
-    Page::new("buttons", "Buttons", "Components", include_str!("buttons.rs"))
-        .description("Buttons come in variants, sizes and tones; the standard button takes the same theme.")
-        .example(Example::new(
-            "buttons",
-            "Button variants",
-            "The primary action is blue; the special moment is yellow.",
-            buttons_demo,
-        ))
+    Page::new(
+        "buttons",
+        "Buttons",
+        "Components",
+        include_str!("buttons.rs"),
+    )
+    .description(
+        "Buttons come in variants, sizes and tones; the standard button takes the same theme.",
+    )
+    .example(Example::new(
+        "buttons",
+        "Button variants",
+        "The primary action is blue; the special moment is yellow.",
+        buttons_demo,
+    ))
 }
 
 /// The sync button: idle, or busy until the delayed finish event arrives.
@@ -73,23 +71,18 @@ impl Machine for SyncMachine {
 fn buttons_demo() -> impl IntoView {
     // example: buttons
     let notify = notify();
-    use kivact::ui::ButtonVariant;
     use kivact_ui_pop::ButtonTone;
     let variants = [
-        ("プライマリ", ButtonVariant::Primary, None),
+        ("Primary", ButtonVariant::Primary, None),
+        ("Accent", ButtonVariant::Primary, Some(ButtonTone::Accent)),
         (
-            "アクセント",
-            ButtonVariant::Primary,
-            Some(ButtonTone::Accent),
-        ),
-        (
-            "セカンダリ",
+            "Secondary",
             ButtonVariant::Secondary,
             Some(ButtonTone::Soft),
         ),
-        ("アウトライン", ButtonVariant::Secondary, None),
-        ("ゴースト", ButtonVariant::Ghost, None),
-        ("削除する", ButtonVariant::Danger, None),
+        ("Outline", ButtonVariant::Secondary, None),
+        ("Ghost", ButtonVariant::Ghost, None),
+        ("Delete", ButtonVariant::Danger, None),
     ]
     .into_iter()
     .map(|(label, v, hue)| {
@@ -98,28 +91,30 @@ fn buttons_demo() -> impl IntoView {
             Some(hue) => button.variant(hue),
             None => button,
         };
-        button.on_press(move || notify.call((ui::Hue::Blue, "アクション".into(), label.into())))
+        button.on_press(move || notify.call((ui::Hue::Blue, "Action".into(), label.into())))
     })
-    .chain(std::iter::once(kivact::ui::button("無効").disabled(true)))
+    .chain(std::iter::once(
+        kivact::ui::button("Disabled").disabled(true),
+    ))
     .collect::<Vec<_>>();
     section(
         "02",
         "Buttons",
-        "ボタン — 主要アクションは青、特別な瞬間は黄色",
+        "Buttons: the primary action is blue; a special moment is yellow.",
         cards_grid((
-            half(card("バリエーション", wrap(variants))),
+            half(card("Variants", wrap(variants))),
             half(card(
-                "スラント（ゲームUI調）",
+                "Slanted (game UI style)",
                 wrap((
-                    kivact::ui::button("編成する").variant(kivact::ui::Slant),
-                    kivact::ui::button("出撃")
+                    kivact::ui::button("Assemble").variant(kivact::ui::Slant),
+                    kivact::ui::button("Deploy")
                         .variant(kivact_ui_pop::ButtonTone::Accent)
                         .variant(kivact::ui::Slant)
                         .icon(kivact::view::icon("sword")),
-                    kivact::ui::button("キャンセル")
+                    kivact::ui::button("Cancel")
                         .variant(kivact::ui::ButtonVariant::Secondary)
                         .variant(kivact::ui::Slant),
-                    kivact::ui::button("詳細")
+                    kivact::ui::button("Details")
                         .variant(kivact_ui_pop::ButtonTone::Soft)
                         .size(kivact::ui::ControlSize::Small)
                         .variant(kivact::ui::Slant),
@@ -128,19 +123,20 @@ fn buttons_demo() -> impl IntoView {
             half(button_sizes()),
             half(button_groups(notify)),
             half(card(
-                "標準部品（kivact::ui）— テーマの recipe でこのキットの見た目になる",
+                "Standard components (kivact::ui): the theme's recipes give them this kit's look",
                 column((
                     wrap((
-                        kivact::ui::button("標準ボタン").test_id("standard-button"),
-                        kivact::ui::button("標準ゴースト")
+                        kivact::ui::button("Standard button").test_id("standard-button"),
+                        kivact::ui::button("Standard ghost")
                             .variant(kivact::ui::ButtonVariant::Ghost),
-                        kivact::ui::button("標準無効").disabled(true),
+                        kivact::ui::button("Standard disabled").disabled(true),
                     )),
                     wrap((
-                        kivact::ui::checkbox("標準チェック", signal(true)),
-                        kivact::ui::switch("標準スイッチ", signal(true)),
+                        kivact::ui::checkbox("Standard checkbox", signal(true)),
+                        kivact::ui::switch("Standard switch", signal(true)),
                     )),
-                    kivact::ui::text_input("標準入力", signal("標準の入力欄".to_string()))
+                    kivact::ui::text_input(signal("Input value".to_string()))
+                        .label("Standard input")
                         .style(style().width(240)),
                 ))
                 .style(style().gap(16)),
@@ -152,7 +148,7 @@ fn buttons_demo() -> impl IntoView {
 
 fn button_sizes() -> kivact::ui::Card {
     card(
-        "サイズとアイコン",
+        "Sizes and icons",
         column((
             wrap((
                 kivact::ui::button("Small")
@@ -164,55 +160,55 @@ fn button_sizes() -> kivact::ui::Card {
                     .icon(kivact::view::icon("plus")),
             )),
             wrap((
-                kivact::ui::button("エクスポート")
+                kivact::ui::button("Export")
                     .variant(kivact::ui::ButtonVariant::Secondary)
                     .trailing(kivact::view::icon("download")),
-                kivact::ui::tooltip("追加")
-                    .placement(kivact::view::Placement::Below)
-                    .align(kivact::view::OverlayAlign::Center)
-                    .offset(6.0)
-                    .attach(
-                        kivact::ui::button("追加")
-                            .variant(kivact::ui::ButtonVariant::Ghost)
-                            .hide_label(true)
-                            .icon(kivact::view::icon("plus"))
-                            .style(style().background(color::ACCENT).color(Color::WHITE)),
-                    ),
-                kivact::ui::tooltip("編集")
-                    .placement(kivact::view::Placement::Below)
-                    .align(kivact::view::OverlayAlign::Center)
-                    .offset(6.0)
-                    .attach(
-                        kivact::ui::button("編集")
-                            .variant(kivact::ui::ButtonVariant::Ghost)
-                            .hide_label(true)
-                            .icon(kivact::view::icon("pencil"))
-                            .style(style().background(color::SURFACE_ALT)),
-                    ),
-                kivact::ui::tooltip("コピー")
-                    .placement(kivact::view::Placement::Below)
-                    .align(kivact::view::OverlayAlign::Center)
-                    .offset(6.0)
-                    .attach(
-                        kivact::ui::button("コピー")
-                            .variant(kivact::ui::ButtonVariant::Ghost)
-                            .hide_label(true)
-                            .icon(kivact::view::icon("copy"))
-                            .style(style().border(1, color::BORDER)),
-                    ),
-                kivact::ui::tooltip("その他")
-                    .placement(kivact::view::Placement::Below)
-                    .align(kivact::view::OverlayAlign::Center)
-                    .offset(6.0)
-                    .attach(
-                        kivact::ui::button("その他")
-                            .variant(kivact::ui::ButtonVariant::Ghost)
-                            .hide_label(true)
-                            .icon(kivact::view::icon("dots")),
-                    ),
+                kivact::ui::tooltip(
+                    "Add",
+                    kivact::ui::button("Add")
+                        .variant(kivact::ui::ButtonVariant::Ghost)
+                        .hide_label(true)
+                        .icon(kivact::view::icon("plus"))
+                        .style(style().background(color::ACCENT).color(Color::WHITE)),
+                )
+                .placement(kivact::view::Placement::Below)
+                .align(kivact::view::OverlayAlign::Center)
+                .offset(6.0),
+                kivact::ui::tooltip(
+                    "Edit",
+                    kivact::ui::button("Edit")
+                        .variant(kivact::ui::ButtonVariant::Ghost)
+                        .hide_label(true)
+                        .icon(kivact::view::icon("pencil"))
+                        .style(style().background(color::SURFACE_ALT)),
+                )
+                .placement(kivact::view::Placement::Below)
+                .align(kivact::view::OverlayAlign::Center)
+                .offset(6.0),
+                kivact::ui::tooltip(
+                    "Copy",
+                    kivact::ui::button("Copy")
+                        .variant(kivact::ui::ButtonVariant::Ghost)
+                        .hide_label(true)
+                        .icon(kivact::view::icon("copy"))
+                        .style(style().border(1, color::BORDER)),
+                )
+                .placement(kivact::view::Placement::Below)
+                .align(kivact::view::OverlayAlign::Center)
+                .offset(6.0),
+                kivact::ui::tooltip(
+                    "More",
+                    kivact::ui::button("More")
+                        .variant(kivact::ui::ButtonVariant::Ghost)
+                        .hide_label(true)
+                        .icon(kivact::view::icon("dots")),
+                )
+                .placement(kivact::view::Placement::Below)
+                .align(kivact::view::OverlayAlign::Center)
+                .offset(6.0),
                 node()
                     .role(Role::Button)
-                    .name("新規作成")
+                    .name("New")
                     .focusable(true)
                     .style(
                         style()
@@ -222,7 +218,7 @@ fn button_sizes() -> kivact::ui::Card {
                             .background(rgb(0xffdc3c))
                             .align_items(Align::Center)
                             .justify_content(Justify::Center)
-                            .focus(style().ring(3, color::FOCUS)),
+                            .focus(style().outline(3, color::FOCUS)),
                     )
                     .child(kivact::view::icon("sparkles").style(style().rotate(-45))),
             )),
@@ -238,21 +234,21 @@ fn button_groups(notify: Callback<(ui::Hue, String, String)>) -> kivact::ui::Car
         move |_, effect| match effect {
             SyncEffect::Finished => notify.call((
                 ui::Hue::Mint,
-                "同期完了".into(),
-                "最新のデータを取得しました。".into(),
+                "Sync complete".into(),
+                "The latest data has been fetched.".into(),
             )),
         },
     );
     card(
-        "グループ・ローディング",
+        "Group and loading",
         column((
             wrap((
                 view_mode_buttons(),
                 kivact::ui::button(move || {
                     if sync.get() == SyncPhase::Running {
-                        "同期中…"
+                        "Syncing…"
                     } else {
-                        "同期する"
+                        "Sync"
                     }
                     .to_string()
                 })
@@ -262,25 +258,25 @@ fn button_groups(notify: Callback<(ui::Hue, String, String)>) -> kivact::ui::Car
             )),
             wrap((
                 row((
-                    kivact::ui::button("保存して公開")
+                    kivact::ui::button("Save and publish")
                         .style(style().border_radius(0))
                         .on_press(move || {
                             notify.call((
                                 ui::Hue::Mint,
-                                "保存しました".into(),
-                                "変更が反映されました。".into(),
+                                "Saved".into(),
+                                "Your changes are live.".into(),
                             ))
                         }),
                     kivact::ui::menu(
-                        "保存方法",
+                        "Save options",
                         vec![
-                            MenuEntry::item("draft", "下書き保存"),
-                            MenuEntry::item("schedule", "予約公開…"),
+                            MenuEntry::item("draft", "Save as draft"),
+                            MenuEntry::item("schedule", "Schedule publish…"),
                         ],
                     )
                     .on_activate(|_: &'static str| {})
                     .attach(
-                        kivact::ui::button("保存方法")
+                        kivact::ui::button("Save options")
                             .variant(kivact::ui::ButtonVariant::Ghost)
                             .hide_label(true)
                             .icon(kivact::view::icon("chevron-down"))
@@ -293,8 +289,12 @@ fn button_groups(notify: Callback<(ui::Hue, String, String)>) -> kivact::ui::Car
                             ),
                     ),
                 ))
-                .style(style().border_radius(8).overflow(kivact::style::Overflow::Hidden)),
-                kivact::ui::button("もっと見る")
+                .style(
+                    style()
+                        .border_radius(8)
+                        .overflow(kivact::style::Overflow::Hidden),
+                ),
+                kivact::ui::button("Show more")
                     .variant(kivact::ui::ButtonVariant::Ghost)
                     .size(kivact::ui::ControlSize::Small)
                     .trailing(kivact::view::icon("arrow-right")),
@@ -304,19 +304,17 @@ fn button_groups(notify: Callback<(ui::Hue, String, String)>) -> kivact::ui::Car
     )
 }
 
-
-
 fn view_mode_buttons() -> Node {
     row((
-        kivact::ui::button("グリッド")
+        kivact::ui::button("Grid")
             .variant(kivact::ui::ButtonVariant::Secondary)
             .icon(kivact::view::icon("layout-grid"))
             .style(style().border_radius_corners(8, 0, 0, 8)),
-        kivact::ui::button("リスト")
+        kivact::ui::button("List")
             .variant(kivact::ui::ButtonVariant::Secondary)
             .icon(kivact::view::icon("list"))
             .style(style().border_radius(0).margin_left(-1)),
-        kivact::ui::button("フィルタ")
+        kivact::ui::button("Filter")
             .variant(kivact::ui::ButtonVariant::Ghost)
             .hide_label(true)
             .icon(kivact::view::icon("filter"))

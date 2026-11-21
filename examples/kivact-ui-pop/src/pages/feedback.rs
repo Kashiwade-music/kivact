@@ -1,32 +1,28 @@
 //! Role: The Feedback page.
 
+use super::common::*;
+use catalog_shell::{Example, Page};
+use kivact::draw::{LineCap, LineJoin};
+use kivact::motion::{Animated, Easing, Repeat, Transition};
 use kivact::prelude::*;
-use kivact::style::{Align, Color, GridPlacement, Justify, Track, color, pct, rgb, rgba, style};
+use kivact::style::GridPlacement;
 use kivact::view::Node;
 use kivact_ui_pop as ui;
-use kivact::draw::{LineCap, LineJoin, Path, Stroke};
-use kivact::geometry::Point;
-use kivact::i18n::{CalendarDate, Weekday};
-use kivact::interaction::{ListItem, MenuEntry, ScalarRange};
-use kivact::motion::{Animated, Easing, Repeat, Transition};
-use kivact::state::{Callback, IntoHandler, IntoText, IntoValue, Machine, MachineHandle, Signal, Step, Value, callback, machine};
-use kivact::style::{Direction, Filter, Shadow, Shape, TextDecorationLine, linear_gradient};
-use kivact::ui::RadioGroup;
-use kivact::view::{Orientation, Placement, rich_text, span as text_span};
-use kivact_ui_pop::Hue;
-use std::time::Duration;
-use catalog_shell::{Example, Page};
-use super::common::*;
 /// The page of the Feedback components.
 pub fn page() -> Page {
-    Page::new("feedback", "Feedback", "Components", include_str!("feedback.rs"))
-        .description("Alerts, toasts and notices that report the outcome of an action.")
-        .example(Example::new(
-            "feedback",
-            "Alerts and toasts",
-            "Alerts show a state; a toast slides in and expires on its own.",
-            feedback_demo,
-        ))
+    Page::new(
+        "feedback",
+        "Feedback",
+        "Components",
+        include_str!("feedback.rs"),
+    )
+    .description("Alerts, toasts and notices that report the outcome of an action.")
+    .example(Example::new(
+        "feedback",
+        "Alerts and toasts",
+        "Alerts show a state; a toast slides in and expires on its own.",
+        feedback_demo,
+    ))
 }
 
 // xtask-allow(state): independent: dismissed_info and dismissed_success hide the maintenance and success notices; each is set only by its own notice's close button and never cleared
@@ -38,26 +34,26 @@ fn feedback_demo() -> impl IntoView {
     section(
         "07",
         "Feedback",
-        "アラート・トースト・ローディング・空状態",
+        "Alerts, toasts, loading and empty state",
         cards_grid((
             half(alert_examples(notify, dismissed_info, dismissed_success)),
             half(toast_examples(notify)),
             kivact::ui::card(
-                kivact::ui::empty_state("まだ依頼がありません")
+                kivact::ui::empty_state("No requests yet")
                     .icon(ui::empty_illustration())
-                    .description("新しい依頼を作成して、生徒たちに仕事をお願いしましょう。")
+                    .description("Create a new request and ask your students for help.")
                     .actions({
                         wrap((
-                            kivact::ui::button("依頼を作成")
+                            kivact::ui::button("Create request")
                                 .icon(kivact::view::icon("plus"))
                                 .on_press(move || {
                                     notify.call((
                                         ui::Hue::Mint,
-                                        "依頼を作成しました".into(),
-                                        "新しい依頼が追加されました。".into(),
+                                        "Request created".into(),
+                                        "A new request was added.".into(),
                                     ))
                                 }),
-                            kivact::ui::button("テンプレートから")
+                            kivact::ui::button("From template")
                                 .variant(kivact::ui::ButtonVariant::Ghost),
                         ))
                     }),
@@ -73,7 +69,7 @@ fn maintenance_notice(dismissed_info: Signal<bool>) -> impl IntoView {
         move || !dismissed_info.get(),
         move || {
             let tone = kivact::state::IntoValue::into_value(kivact::interaction::Tone::Info);
-            kivact::ui::alert("メンテナンスのお知らせ")
+            kivact::ui::alert("Maintenance notice")
                 .tone(tone)
                 .icon(kivact::view::icon(move || {
                     kivact::style::Icon::named(match tone.get() {
@@ -83,9 +79,9 @@ fn maintenance_notice(dismissed_info: Signal<bool>) -> impl IntoView {
                         _ => "info-circle",
                     })
                 }))
-                .description("10/08 02:00〜06:00 の間、一部機能が利用できません。")
+                .description("Some features are unavailable from 02:00 to 06:00 on 10/08.")
                 .actions({
-                    kivact::ui::button("お知らせを閉じる")
+                    kivact::ui::button("Dismiss notice")
                         .variant(kivact::ui::ButtonVariant::Ghost)
                         .hide_label(true)
                         .icon(kivact::view::icon("x"))
@@ -101,7 +97,7 @@ fn success_notice(dismissed_success: Signal<bool>) -> impl IntoView {
         move || !dismissed_success.get(),
         move || {
             let tone = kivact::state::IntoValue::into_value(kivact::interaction::Tone::Success);
-            kivact::ui::alert("作戦成功！")
+            kivact::ui::alert("Mission success!")
                 .tone(tone)
                 .icon(kivact::view::icon(move || {
                     kivact::style::Icon::named(match tone.get() {
@@ -111,9 +107,9 @@ fn success_notice(dismissed_success: Signal<bool>) -> impl IntoView {
                         _ => "info-circle",
                     })
                 }))
-                .description("報酬が受取ボックスに送られました。")
+                .description("The reward was sent to your inbox.")
                 .actions({
-                    kivact::ui::button("成功通知を閉じる")
+                    kivact::ui::button("Dismiss success notice")
                         .variant(kivact::ui::ButtonVariant::Ghost)
                         .hide_label(true)
                         .icon(kivact::view::icon("x"))
@@ -130,13 +126,13 @@ fn alert_examples(
     dismissed_success: Signal<bool>,
 ) -> kivact::ui::Card {
     card(
-        "アラート",
+        "Alerts",
         column((
             maintenance_notice(dismissed_info),
             success_notice(dismissed_success),
             {
                 let tone = kivact::state::IntoValue::into_value(kivact::interaction::Tone::Warning);
-                kivact::ui::alert("活動ポイントが残りわずかです")
+                kivact::ui::alert("Activity points are running low")
                     .tone(tone)
                     .icon(kivact::view::icon(move || {
                         kivact::style::Icon::named(match tone.get() {
@@ -146,11 +142,11 @@ fn alert_examples(
                             _ => "info-circle",
                         })
                     }))
-                    .description("あと 12 で上限に達します。今すぐ使う")
+                    .description("12 more reaches the cap. Use them now.")
             },
             {
                 let tone = kivact::state::IntoValue::into_value(kivact::interaction::Tone::Danger);
-                kivact::ui::alert("同期に失敗しました")
+                kivact::ui::alert("Sync failed")
                     .tone(tone)
                     .icon(kivact::view::icon(move || {
                         kivact::style::Icon::named(match tone.get() {
@@ -160,16 +156,16 @@ fn alert_examples(
                             _ => "info-circle",
                         })
                     }))
-                    .description("通信状態を確認してから再試行してください。")
+                    .description("Check the connection status, then try again.")
                     .actions({
-                        kivact::ui::button("再試行")
+                        kivact::ui::button("Retry")
                             .size(kivact::ui::ControlSize::Small)
                             .variant(kivact::ui::ButtonVariant::Secondary)
                             .on_press(move || {
                                 notify.call((
                                     ui::Hue::Blue,
-                                    "同期しています".into(),
-                                    "再試行を開始しました。".into(),
+                                    "Syncing".into(),
+                                    "Retry started.".into(),
                                 ))
                             })
                     })
@@ -181,12 +177,12 @@ fn alert_examples(
 
 fn toast_examples(notify: Callback<(ui::Hue, String, String)>) -> kivact::ui::Card {
     card(
-        "トースト通知",
+        "Toast notifications",
         column((
-            muted("ボタンを押すと画面右下に表示されます。")
+            muted("Press a button to show it at the bottom right of the screen.")
                 .style(style().font_size(12).line_height(1.5)),
             toast_action_buttons(notify),
-            text("ローディング").style(
+            text("Loading").style(
                 style()
                     .font_size(15)
                     .font_weight(600)
@@ -228,44 +224,44 @@ fn toast_examples(notify: Callback<(ui::Hue, String, String)>) -> kivact::ui::Ca
 fn toast_action_buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
     wrap(
         [
-            (ui::Hue::Mint, "成功"),
-            (ui::Hue::Blue, "情報"),
-            (ui::Hue::Yellow, "警告"),
-            (ui::Hue::Red, "エラー"),
-            (ui::Hue::Yellow, "報酬"),
+            (ui::Hue::Mint, "Success"),
+            (ui::Hue::Blue, "Info"),
+            (ui::Hue::Yellow, "Warning"),
+            (ui::Hue::Red, "Error"),
+            (ui::Hue::Yellow, "Reward"),
         ]
         .into_iter()
         .map(|(hue, s)| {
             kivact::ui::button(s)
-                .variant(if s == "報酬" {
+                .variant(if s == "Reward" {
                     kivact_ui_pop::ButtonTone::Accent
                 } else {
                     kivact_ui_pop::ButtonTone::Soft
                 })
                 .icon(kivact::view::icon(match s {
-                    "成功" => "circle-check",
-                    "情報" => "info-circle",
-                    "警告" => "alert-triangle",
-                    "エラー" => "alert-circle",
+                    "Success" => "circle-check",
+                    "Info" => "info-circle",
+                    "Warning" => "alert-triangle",
+                    "Error" => "alert-circle",
                     _ => "gift",
                 }))
                 .on_press(move || {
                     notify.call((
                         hue,
                         match s {
-                            "成功" => "保存しました",
-                            "情報" => "新しいお知らせ",
-                            "警告" => "期限が近づいています",
-                            "エラー" => "送信に失敗しました",
-                            _ => "報酬を獲得！",
+                            "Success" => "Saved",
+                            "Info" => "New notice",
+                            "Warning" => "Deadline approaching",
+                            "Error" => "Send failed",
+                            _ => "Reward earned!",
                         }
                         .into(),
                         match s {
-                            "成功" => "依頼の変更が反映されました。",
-                            "情報" => "総力戦の新シーズンが始まりました。",
-                            "警告" => "REQ-1003 の期限まで残り 6 時間です。",
-                            "エラー" => "ネットワーク接続を確認してください。",
-                            _ => "クレジット ×12,000 / 活動報告書 ×2",
+                            "Success" => "Request changes are saved.",
+                            "Info" => "A new all-out battle season has started.",
+                            "Warning" => "6 hours left until the REQ-1003 deadline.",
+                            "Error" => "Check your network connection.",
+                            _ => "Credits ×12,000 / activity report ×2",
                         }
                         .into(),
                     ))
@@ -289,7 +285,6 @@ pub(crate) fn halo_loader() -> Node {
         .name(message("spinner.loading", "Loading"))
         .style(style().size(48, 48))
         .draw(move |draw, _| {
-            let p = draw.theme().ext::<Tokens>();
             let phase = pulse.get();
             let mut ring = Path::new();
             for i in 0..=64 {
@@ -304,7 +299,7 @@ pub(crate) fn halo_loader() -> Node {
             draw.stroke_path(
                 &ring,
                 &Stroke::new(3.0).cap(LineCap::Round).join(LineJoin::Round),
-                p.cyan.mix_in(p.yellow, phase, draw.theme()),
+                rgb(0x5cbde8).mix(ui::Hue::Yellow.accent(), phase, draw.theme()),
             );
             draw.rounded_rect(
                 Rect {
@@ -314,8 +309,9 @@ pub(crate) fn halo_loader() -> Node {
                     height: 8.0,
                 },
                 4.0,
-                p.blue
-                    .mix_in(Color::TRANSPARENT, 0.78 + phase * 0.11, draw.theme()),
+                ui::Hue::Blue
+                    .accent()
+                    .mix(Color::TRANSPARENT, 0.78 + phase * 0.11, draw.theme()),
             );
         })
 }

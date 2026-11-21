@@ -1,23 +1,11 @@
 //! Role: The data table page: a searchable, sortable and paged table of students with a row drawer.
 
-use kivact::prelude::*;
-use kivact::style::{Align, Color, GridPlacement, Justify, Track, color, pct, rgb, rgba, style};
-use kivact::view::Node;
-use kivact_ui_pop as ui;
-use kivact::draw::{LineCap, LineJoin, Path, Stroke};
-use kivact::geometry::Point;
-use kivact::i18n::{CalendarDate, Weekday};
-use kivact::interaction::{ListItem, MenuEntry, ScalarRange};
-use kivact::motion::{Animated, Easing, Repeat, Transition};
-use kivact::state::{Callback, IntoHandler, IntoText, IntoValue, Machine, MachineHandle, Signal, Step, Value, callback, machine};
-use kivact::style::{Direction, Filter, Shadow, Shape, TextDecorationLine, linear_gradient};
-use kivact::ui::RadioGroup;
-use kivact::view::{Orientation, Placement, rich_text, span as text_span};
-use kivact_ui_pop::Hue;
-use std::time::Duration;
+use super::common::*;
 use super::data::*;
 use catalog_shell::{Example, Page};
-use super::common::*;
+use kivact::prelude::*;
+use kivact::view::Node;
+use kivact_ui_pop as ui;
 /// The page of the data table.
 pub fn page() -> Page {
     Page::new("table", "Table", "Components", include_str!("table.rs"))
@@ -43,9 +31,9 @@ fn table_demo() -> impl IntoView {
     let query = signal(String::new());
     let visible = move || {
         let expected = match status.get() {
-            Some("deployed") => Some("出撃中"),
-            Some("standby") => Some("待機"),
-            Some("rest") => Some("休息"),
+            Some("deployed") => Some("Deployed"),
+            Some("standby") => Some("Standby"),
+            Some("rest") => Some("Resting"),
             _ => None,
         };
         rows.get()
@@ -56,7 +44,7 @@ fn table_demo() -> impl IntoView {
     section(
         "06",
         "Data Table",
-        "テーブル — 検索・並べ替え・選択・ページング",
+        "Table: search, sort, select and page",
         column((kivact::ui::data_table(
             visible,
             |s: &Student| s.id,
@@ -72,7 +60,7 @@ fn table_demo() -> impl IntoView {
         .row_actions(54.0, move |s: Value<Student>| {
             let s = s.get_untracked();
             let name = s.name.to_owned();
-            kivact::ui::button("生徒詳細を開く")
+            kivact::ui::button("Open student details")
                 .variant(kivact::ui::ButtonVariant::Ghost)
                 .hide_label(true)
                 .icon(kivact::view::icon("dots-vertical"))
@@ -92,7 +80,6 @@ fn table_demo() -> impl IntoView {
     // end example
 }
 
-
 // xtask-allow(state): independent: pin_student and auto_skill back the drawer's two switches (pin to main team, auto skill), each written only by its own switch
 fn student_drawer(
     drawer_title: Signal<String>,
@@ -102,36 +89,37 @@ fn student_drawer(
     let pin_student = signal(true);
     let auto_skill = signal(false);
     kivact::ui::dialog(drawer_title, sheet)
-        .mode(kivact::interaction::DialogMode::Drawer(
+        .mode(kivact::ui::DialogKind::Drawer(
             kivact::geometry::Edge::Right,
         ))
         .content(move || {
             column((
                 student_identity(),
                 kivact::ui::description_list((
-                    kivact::ui::description("レベル", text("Lv.86")),
-                    kivact::ui::description("絆ランク", text("Rank 20")),
+                    kivact::ui::description("Level", text("Lv.86")),
+                    kivact::ui::description("Bond rank", text("Rank 20")),
                     kivact::ui::description(
-                        "攻撃タイプ",
-                        kivact::ui::badge("爆発").variant(ui::Hue::Red),
+                        "Attack type",
+                        kivact::ui::badge("Explosive").variant(ui::Hue::Red),
                     ),
                     kivact::ui::description(
-                        "防御タイプ",
-                        kivact::ui::badge("重装甲").variant(ui::Hue::Yellow),
+                        "Defense type",
+                        kivact::ui::badge("Heavy armor").variant(ui::Hue::Yellow),
                     ),
-                    text("個別設定").style(style().font_size(15).font_weight(600).margin_top(8)),
+                    text("Individual settings")
+                        .style(style().font_size(15).font_weight(600).margin_top(8)),
                 ))
                 .style(style().gap(12)),
                 row((
-                    text("メイン編成に固定").style(style().flex_grow(1)),
-                    kivact::ui::switch("メイン編成に固定", pin_student)
+                    text("Pin to main team").style(style().flex_grow(1)),
+                    kivact::ui::switch("Pin to main team", pin_student)
                         .hide_label(true)
                         .style(style().width(32).padding_left(0)),
                 ))
                 .style(style().align_items(Align::Center)),
                 row((
-                    text("スキル自動使用").style(style().flex_grow(1)),
-                    kivact::ui::switch("スキル自動使用", auto_skill)
+                    text("Auto skill").style(style().flex_grow(1)),
+                    kivact::ui::switch("Auto skill", auto_skill)
                         .hide_label(true)
                         .style(style().width(32).padding_left(0)),
                 ))
@@ -141,17 +129,17 @@ fn student_drawer(
         })
         .footer(move || {
             row((
-                kivact::ui::button("閉じる")
+                kivact::ui::button("Close")
                     .variant(kivact::ui::ButtonVariant::Secondary)
                     .on_press(move || sheet.set(false)),
-                kivact::ui::button("保存")
+                kivact::ui::button("Save")
                     .test_id("pop-drawer-save")
                     .on_press(move || {
                         sheet.set(false);
                         notify.call((
                             ui::Hue::Mint,
-                            "保存しました".into(),
-                            "個別設定を保存しました。".into(),
+                            "Saved".into(),
+                            "Individual settings saved.".into(),
                         ));
                     }),
             ))
@@ -166,11 +154,11 @@ fn student_identity() -> Node {
             AvatarLook::default().size(72).halo(true),
         ),
         column((
-            text("アズール学園 · 調査部").style(style().font_weight(600)),
+            text("Azure Academy · Investigation Club").style(style().font_weight(600)),
             text("★★★").style(style().color(rgb(0xf2bf0a))),
             wrap((
-                kivact::ui::badge("ストライカー"),
-                kivact::ui::badge("後衛").variant(ui::Hue::Gray),
+                kivact::ui::badge("Striker"),
+                kivact::ui::badge("Back line").variant(ui::Hue::Gray),
             )),
         ))
         .style(style().gap(6)),

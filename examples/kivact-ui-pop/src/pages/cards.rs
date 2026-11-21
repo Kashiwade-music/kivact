@@ -1,32 +1,28 @@
 //! Role: The Mission Cards page.
 
+use super::common::*;
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
-use kivact::style::{Align, Color, GridPlacement, Justify, Track, color, pct, rgb, rgba, style};
+use kivact::state::{IntoHandler, IntoValue};
+use kivact::style::{FlexDirection, Shape, linear_gradient};
 use kivact::view::Node;
 use kivact_ui_pop as ui;
-use kivact::draw::{LineCap, LineJoin, Path, Stroke};
-use kivact::geometry::Point;
-use kivact::i18n::{CalendarDate, Weekday};
-use kivact::interaction::{ListItem, MenuEntry, ScalarRange};
-use kivact::motion::{Animated, Easing, Repeat, Transition};
-use kivact::state::{Callback, IntoHandler, IntoText, IntoValue, Machine, MachineHandle, Signal, Step, Value, callback, machine};
-use kivact::style::{Direction, Filter, Shadow, Shape, TextDecorationLine, linear_gradient};
-use kivact::ui::RadioGroup;
-use kivact::view::{Orientation, Placement, rich_text, span as text_span};
 use kivact_ui_pop::Hue;
-use std::time::Duration;
-use catalog_shell::{Example, Page};
-use super::common::*;
 /// The page of the Mission Cards components.
 pub fn page() -> Page {
-    Page::new("cards", "Mission Cards", "Components", include_str!("cards.rs"))
-        .description("Mission cards that summarize a task, its progress and its next action.")
-        .example(Example::new(
-            "cards",
-            "Mission cards",
-            "A mission card shows its state, progress and action together.",
-            cards_demo,
-        ))
+    Page::new(
+        "cards",
+        "Mission Cards",
+        "Components",
+        include_str!("cards.rs"),
+    )
+    .description("Mission cards that summarize a task, its progress and its next action.")
+    .example(Example::new(
+        "cards",
+        "Mission cards",
+        "A mission card shows its state, progress and action together.",
+        cards_demo,
+    ))
 }
 
 fn cards_demo() -> impl IntoView {
@@ -35,8 +31,8 @@ fn cards_demo() -> impl IntoView {
     let items = [
         super::cards::Mission {
             code: "AREA 07".into(),
-            title: "外郭地区のパトロール".into(),
-            description: "不審なドローンの目撃情報。周辺の安全を確認してください。".into(),
+            title: "Outer district patrol".into(),
+            description: "Suspicious drone sighting. Check the safety of the area.".into(),
             hue: ui::Hue::Blue,
             rank: "NORMAL".into(),
             rank_tone: ui::Hue::Blue,
@@ -46,44 +42,45 @@ fn cards_demo() -> impl IntoView {
             progress_value: "2 / 3".into(),
             rewards: vec!["×12,000".into(), "×2".into()],
             reward_icons: vec!["coin", "ticket"],
-            footer: "残り 2日 4時間".into(),
-            action_label: Some("出撃".into()),
+            footer: "2 days 4 hours left".into(),
+            action_label: Some("Deploy".into()),
             action_tone: kivact_ui_pop::ButtonTone::Accent,
             locked: false,
         },
         super::cards::Mission {
             code: "EVENT".into(),
-            title: "秋のお月見フェスティバル".into(),
-            description: "イベント限定ストーリーと報酬を手に入れよう。".into(),
+            title: "Autumn moon-viewing festival".into(),
+            description: "Get the event-only story and rewards.".into(),
             hue: ui::Hue::Pink,
-            rank: "限定".into(),
+            rank: "Limited".into(),
             rank_tone: ui::Hue::Yellow,
             banner_icon: "gift",
             progress: 43.0,
-            progress_label: Some("イベントポイント".into()),
+            progress_label: Some("Event points".into()),
             progress_value: "4,280 pt".into(),
-            rewards: vec!["×1,200".into(), "家具セット".into()],
+            rewards: vec!["×1,200".into(), "Furniture set".into()],
             reward_icons: vec!["sparkles", "gift"],
-            footer: "10/17 まで".into(),
-            action_label: Some("参加".into()),
+            footer: "Until 10/17".into(),
+            action_label: Some("Join".into()),
             action_tone: kivact_ui_pop::ButtonTone::Pink,
             locked: false,
         },
         super::cards::Mission {
             code: "RAID".into(),
-            title: "総力戦：機械仕掛けの大蛇".into(),
-            description: "全部隊で挑む高難度コンテンツ。最強の編成で臨め。".into(),
+            title: "All-out battle: the clockwork serpent".into(),
+            description: "A hard endgame content for all units. Face it with your strongest team."
+                .into(),
             hue: ui::Hue::Gray,
             rank: "INSANE".into(),
             rank_tone: ui::Hue::Red,
             banner_icon: "crosshair",
             progress: 90.0,
-            progress_label: Some("解放条件".into()),
+            progress_label: Some("Unlock condition".into()),
             progress_value: "Lv.80".into(),
-            rewards: vec!["称号".into(), "×200,000".into()],
+            rewards: vec!["Title".into(), "×200,000".into()],
             reward_icons: vec!["star", "coin"],
-            footer: "あと 8 レベル".into(),
-            action_label: Some("ロック中".into()),
+            footer: "8 more levels".into(),
+            action_label: Some("Locked".into()),
             action_tone: kivact_ui_pop::ButtonTone::Soft,
             locked: true,
         },
@@ -91,7 +88,7 @@ fn cards_demo() -> impl IntoView {
     section(
         "12",
         "Mission Cards",
-        "ミッションカード — 依頼・イベント・報酬",
+        "Mission cards: requests, events and rewards",
         cards_grid(
             items
                 .into_iter()
@@ -99,8 +96,8 @@ fn cards_demo() -> impl IntoView {
                     third(super::cards::mission_card(mission, move || {
                         notify.call((
                             ui::Hue::Yellow,
-                            "報酬を獲得！".into(),
-                            "クレジット ×12,000 / 活動報告書 ×2".into(),
+                            "Reward earned!".into(),
+                            "Credits ×12,000 / activity report ×2".into(),
                         ))
                     }))
                 })
@@ -171,29 +168,27 @@ fn mission_banner(mission: &Mission) -> Node {
     let locked = mission.locked;
     node()
         .style(move || {
-            let t = &use_theme().get();
-            let p = t.ext::<Tokens>();
             style()
                 .height(104)
                 .background(linear_gradient(120).colors([
                     if hue == Hue::Gray {
-                        p.navy
+                        rgb(0x1d2b4a)
                     } else if hue == Hue::Blue {
-                        p.blue_deep
+                        rgb(0x1a66a8)
                     } else {
-                        p.accent(hue)
+                        hue.accent()
                     },
                     if hue == Hue::Pink {
                         kivact::style::rgb(0xffb3cf)
                     } else if hue == Hue::Gray {
                         kivact::style::rgb(0x3b4f7a)
                     } else {
-                        p.cyan
+                        rgb(0x5cbde8)
                     },
                 ]))
                 .color(Color::WHITE)
                 .filter(kivact::style::Filter::new().saturate(if locked { 0.6 } else { 1.0 }))
-                .direction(Direction::Row)
+                .flex_direction(FlexDirection::Row)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
                 .clip_path(
@@ -241,7 +236,7 @@ fn mission_banner(mission: &Mission) -> Node {
         .child(icon(mission.banner_icon).style(style().size(40, 40)))
         .child(
             kivact::ui::badge(mission.rank.clone())
-                .variant(ui::Hue::from_badge(mission.rank_tone))
+                .variant(mission.rank_tone)
                 .variant(ui::BadgeVariant::Slant)
                 .style(style().position(Position::Absolute).right(16).top(12)),
         )

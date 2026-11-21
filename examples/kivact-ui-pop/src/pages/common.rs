@@ -1,7 +1,7 @@
 //! Role: Layout, text and sample helpers that the catalog's pages share.
 
 use kivact::prelude::*;
-use kivact::style::{Align, Color, GridPlacement, Justify, Track, color, pct, rgb, rgba, style};
+use kivact::style::{GridPlacement, Track};
 use kivact::view::Node;
 use kivact_ui_pop as ui;
 /// A grid of twelve columns for the page's cards.
@@ -50,12 +50,7 @@ pub(crate) fn third<C: Element>(element: C) -> C {
 
 /// A row of `children` that wraps onto more lines when it runs out of width.
 pub(crate) fn wrap(children: impl IntoView) -> Node {
-    row(children).style(
-        style()
-            .gap(8)
-            .flex_wrap(true)
-            .align_items(Align::Center),
-    )
+    row(children).style(style().gap(8).flex_wrap(true).align_items(Align::Center))
 }
 
 /// A numbered section: the number badge, the heading, the subtitle and the content.
@@ -65,19 +60,10 @@ pub(crate) fn section(number: &str, title: &str, subtitle: &str, content: impl I
             kivact::ui::badge(number).variant(ui::SectionNumber),
             column((
                 kivact::ui::heading(title.to_string(), 2),
-                text(subtitle.to_string()).style(
-                    style()
-                        .font_size(13)
-                        .color(color::TEXT_MUTED),
-                ),
+                text(subtitle.to_string()).style(style().font_size(13).color(color::TEXT_MUTED)),
             )),
         ))
-        .style(
-            style()
-                .gap(16)
-                .align_items(Align::Center)
-                .margin_bottom(16),
-        ),
+        .style(style().gap(16).align_items(Align::Center).margin_bottom(16)),
         content,
     ))
 }
@@ -125,7 +111,11 @@ pub(crate) fn notify() -> Callback<(ui::Hue, String, String)> {
 pub(crate) fn type_samples() -> Vec<Node> {
     [
         ("Display 32", 32, "Barlow Italic 800"),
-        ("Heading H2 / 20", 20, "Inter + Noto Sans JP 600 · tracking −2%"),
+        (
+            "Heading H2 / 20",
+            20,
+            "Inter + Noto Sans JP 600 · tracking −2%",
+        ),
         ("Heading H3 / 15", 15, "600"),
         (
             "Body text 14 — easy to read and soft.",

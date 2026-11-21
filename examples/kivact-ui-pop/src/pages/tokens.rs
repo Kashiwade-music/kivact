@@ -1,11 +1,11 @@
 //! Role: The design tokens page: the colors, the type scale and the radii and shadows of the Pop theme.
 
+use super::common::*;
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
-use kivact::style::{Align, Color, GridPlacement, Justify, Track, color, pct, rgb, rgba, style};
+use kivact::style::{GridPlacement, Track};
 use kivact::view::Node;
 use kivact_ui_pop as ui;
-use catalog_shell::{Example, Page};
-use super::common::*;
 /// The page of the design tokens.
 pub fn page() -> Page {
     Page::new(
@@ -101,11 +101,7 @@ fn color_swatches(notify: Callback<(ui::Hue, String, String)>) -> Vec<Node> {
         .focusable(true)
         .on_press(move || {
             spawn(kivact::platform::copy_text(format!("#{hex:06X}")));
-            notify.call((
-                ui::Hue::Blue,
-                "Copied".into(),
-                format!("#{hex:06X}"),
-            ));
+            notify.call((ui::Hue::Blue, "Copied".into(), format!("#{hex:06X}")));
         })
         .style(
             style()

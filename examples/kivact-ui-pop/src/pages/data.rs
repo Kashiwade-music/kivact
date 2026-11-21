@@ -1,299 +1,287 @@
 //! Role: The table data: the student fixture, its columns, the toolbar and the footer of the table page.
 
-use kivact::prelude::*;
-use kivact::style::{Align, Color, GridPlacement, Justify, Track, color, pct, rgb, rgba, style};
-use kivact::view::Node;
-use kivact_ui_pop as ui;
-use kivact::draw::{LineCap, LineJoin, Path, Stroke};
-use kivact::geometry::Point;
-use kivact::i18n::{CalendarDate, Weekday};
-use kivact::interaction::{ListItem, MenuEntry, ScalarRange};
-use kivact::motion::{Animated, Easing, Repeat, Transition};
-use kivact::state::{Callback, IntoHandler, IntoText, IntoValue, Machine, MachineHandle, Signal, Step, Value, callback, machine};
-use kivact::style::{Direction, Filter, Shadow, Shape, TextDecorationLine, linear_gradient};
-use kivact::ui::RadioGroup;
-use kivact::view::{Orientation, Placement, rich_text, span as text_span};
-use kivact_ui_pop::Hue;
-use std::time::Duration;
-use catalog_shell::{Example, Page};
 use super::common::*;
+use kivact::prelude::*;
+use kivact::view::Node;
+use kivact::view::Orientation;
+use kivact_ui_pop as ui;
 /// One row of the student table.
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) struct Student {
-    id: usize,
-    name: &'static str,
-    academy: &'static str,
-    club: &'static str,
-    role: &'static str,
-    level: u32,
-    bond: u32,
-    status: &'static str,
-    hue: f64,
+    pub(crate) id: usize,
+    pub(crate) name: &'static str,
+    pub(crate) academy: &'static str,
+    pub(crate) club: &'static str,
+    pub(crate) role: &'static str,
+    pub(crate) level: u32,
+    pub(crate) bond: u32,
+    pub(crate) status: &'static str,
+    pub(crate) hue: f64,
 }
 
 pub(crate) const STUDENT_FIXTURE: [Student; 24] = [
     Student {
         id: 0,
-        name: "空崎 ミナト",
-        academy: "アズール学園",
-        club: "調査部",
-        role: "ストライカー",
+        name: "Minato Sorasaki",
+        academy: "Azure Academy",
+        club: "Investigation Club",
+        role: "Striker",
         level: 86,
         bond: 20,
-        status: "出撃中",
+        status: "Deployed",
         hue: 205.0,
     },
     Student {
         id: 1,
-        name: "春日 ハルカ",
-        academy: "セレスト女学院",
-        club: "救護騎士団",
-        role: "スペシャル",
+        name: "Haruka Kasuga",
+        academy: "Celeste Girls' Academy",
+        club: "Rescue Knights",
+        role: "Special",
         level: 78,
         bond: 14,
-        status: "待機",
+        status: "Standby",
         hue: 330.0,
     },
     Student {
         id: 2,
-        name: "花岡 ユズ",
-        academy: "ミリオン工科高校",
-        club: "ゲーム開発部",
-        role: "ストライカー",
+        name: "Yuzu Hanaoka",
+        academy: "Million Tech High",
+        club: "Game Dev Club",
+        role: "Striker",
         level: 72,
         bond: 11,
-        status: "休息",
+        status: "Resting",
         hue: 45.0,
     },
     Student {
         id: 3,
-        name: "白石 アリサ",
-        academy: "アズール学園",
-        club: "風紀委員会",
-        role: "ストライカー",
+        name: "Arisa Shiraishi",
+        academy: "Azure Academy",
+        club: "Discipline Committee",
+        role: "Striker",
         level: 90,
         bond: 25,
-        status: "出撃中",
+        status: "Deployed",
         hue: 160.0,
     },
     Student {
         id: 4,
-        name: "月城 コハル",
-        academy: "セレスト女学院",
-        club: "補習授業部",
-        role: "スペシャル",
+        name: "Koharu Tsukishiro",
+        academy: "Celeste Girls' Academy",
+        club: "Remedial Class Club",
+        role: "Special",
         level: 54,
         bond: 6,
-        status: "待機",
+        status: "Standby",
         hue: 265.0,
     },
     Student {
         id: 5,
-        name: "朝凪 シオリ",
-        academy: "ノクス自治区",
-        club: "図書委員会",
-        role: "スペシャル",
+        name: "Shiori Asanagi",
+        academy: "Nox Autonomous Zone",
+        club: "Library Committee",
+        role: "Special",
         level: 66,
         bond: 9,
-        status: "待機",
+        status: "Standby",
         hue: 190.0,
     },
     Student {
         id: 6,
-        name: "鷹宮 レイ",
-        academy: "ミリオン工科高校",
-        club: "エンジニア部",
-        role: "ストライカー",
+        name: "Rei Takamiya",
+        academy: "Million Tech High",
+        club: "Engineering Club",
+        role: "Striker",
         level: 81,
         bond: 17,
-        status: "出撃中",
+        status: "Deployed",
         hue: 15.0,
     },
     Student {
         id: 7,
-        name: "深山 ツバキ",
-        academy: "ノクス自治区",
-        club: "修行部",
-        role: "ストライカー",
+        name: "Tsubaki Miyama",
+        academy: "Nox Autonomous Zone",
+        club: "Training Club",
+        role: "Striker",
         level: 75,
         bond: 13,
-        status: "休息",
+        status: "Resting",
         hue: 350.0,
     },
     Student {
         id: 8,
-        name: "桜井 ノノカ",
-        academy: "アズール学園",
-        club: "給食部",
-        role: "スペシャル",
+        name: "Nonoka Sakurai",
+        academy: "Azure Academy",
+        club: "Lunch Club",
+        role: "Special",
         level: 48,
         bond: 22,
-        status: "待機",
+        status: "Standby",
         hue: 120.0,
     },
     Student {
         id: 9,
-        name: "氷室 カナデ",
-        academy: "セレスト女学院",
-        club: "生徒会",
-        role: "スペシャル",
+        name: "Kanade Himuro",
+        academy: "Celeste Girls' Academy",
+        club: "Student Council",
+        role: "Special",
         level: 88,
         bond: 19,
-        status: "出撃中",
+        status: "Deployed",
         hue: 220.0,
     },
     Student {
         id: 10,
-        name: "日向 イブキ",
-        academy: "ミリオン工科高校",
-        club: "ヴェリタス",
-        role: "ストライカー",
+        name: "Ibuki Hinata",
+        academy: "Million Tech High",
+        club: "Veritas",
+        role: "Striker",
         level: 69,
         bond: 8,
-        status: "待機",
+        status: "Standby",
         hue: 30.0,
     },
     Student {
         id: 11,
-        name: "黒羽 セナ",
-        academy: "ノクス自治区",
-        club: "便利屋",
-        role: "ストライカー",
+        name: "Sena Kurobane",
+        academy: "Nox Autonomous Zone",
+        club: "Odd Jobs",
+        role: "Striker",
         level: 83,
         bond: 16,
-        status: "出撃中",
+        status: "Deployed",
         hue: 280.0,
     },
     Student {
         id: 12,
-        name: "瀬川 ミオ",
-        academy: "アズール学園",
-        club: "放送部",
-        role: "スペシャル",
+        name: "Mio Segawa",
+        academy: "Azure Academy",
+        club: "Broadcast Club",
+        role: "Special",
         level: 41,
         bond: 4,
-        status: "休息",
+        status: "Resting",
         hue: 175.0,
     },
     Student {
         id: 13,
-        name: "真白 ユイ",
-        academy: "セレスト女学院",
-        club: "ティーパーティー",
-        role: "スペシャル",
+        name: "Yui Mashiro",
+        academy: "Celeste Girls' Academy",
+        club: "Tea Party",
+        role: "Special",
         level: 90,
         bond: 30,
-        status: "待機",
+        status: "Standby",
         hue: 300.0,
     },
     Student {
         id: 14,
-        name: "若葉 ナギ",
-        academy: "ミリオン工科高校",
-        club: "セミナー",
-        role: "ストライカー",
+        name: "Nagi Wakaba",
+        academy: "Million Tech High",
+        club: "Seminar",
+        role: "Striker",
         level: 62,
         bond: 10,
-        status: "休息",
+        status: "Resting",
         hue: 95.0,
     },
     Student {
         id: 15,
-        name: "九条 アカネ",
-        academy: "ノクス自治区",
-        club: "百鬼夜行",
-        role: "ストライカー",
+        name: "Akane Kujo",
+        academy: "Nox Autonomous Zone",
+        club: "Night Parade",
+        role: "Striker",
         level: 77,
         bond: 15,
-        status: "出撃中",
+        status: "Deployed",
         hue: 5.0,
     },
     Student {
         id: 16,
-        name: "小鳥遊 ルカ",
-        academy: "アズール学園",
-        club: "対策委員会",
-        role: "ストライカー",
+        name: "Ruka Takanashi",
+        academy: "Azure Academy",
+        club: "Countermeasures Committee",
+        role: "Striker",
         level: 85,
         bond: 21,
-        status: "待機",
+        status: "Standby",
         hue: 210.0,
     },
     Student {
         id: 17,
-        name: "御影 サヤ",
-        academy: "セレスト女学院",
-        club: "シスターフッド",
-        role: "スペシャル",
+        name: "Saya Mikage",
+        academy: "Celeste Girls' Academy",
+        club: "Sisterhood",
+        role: "Special",
         level: 58,
         bond: 7,
-        status: "出撃中",
+        status: "Deployed",
         hue: 250.0,
     },
     Student {
         id: 18,
-        name: "天野 ヒナタ",
-        academy: "ミリオン工科高校",
-        club: "トレーニング部",
-        role: "ストライカー",
+        name: "Hinata Amano",
+        academy: "Million Tech High",
+        club: "Training Squad",
+        role: "Striker",
         level: 71,
         bond: 12,
-        status: "待機",
+        status: "Standby",
         hue: 55.0,
     },
     Student {
         id: 19,
-        name: "水無瀬 リン",
-        academy: "ノクス自治区",
-        club: "陰陽部",
-        role: "スペシャル",
+        name: "Rin Minase",
+        academy: "Nox Autonomous Zone",
+        club: "Onmyo Club",
+        role: "Special",
         level: 64,
         bond: 9,
-        status: "休息",
+        status: "Resting",
         hue: 185.0,
     },
     Student {
         id: 20,
-        name: "藤咲 マコ",
-        academy: "アズール学園",
-        club: "美食研究会",
-        role: "ストライカー",
+        name: "Mako Fujisaki",
+        academy: "Azure Academy",
+        club: "Gourmet Society",
+        role: "Striker",
         level: 52,
         bond: 5,
-        status: "出撃中",
+        status: "Deployed",
         hue: 340.0,
     },
     Student {
         id: 21,
-        name: "霧島 アヤネ",
-        academy: "セレスト女学院",
-        club: "正義実現委員会",
-        role: "ストライカー",
+        name: "Ayane Kirishima",
+        academy: "Celeste Girls' Academy",
+        club: "Justice Committee",
+        role: "Striker",
         level: 87,
         bond: 23,
-        status: "待機",
+        status: "Standby",
         hue: 0.0,
     },
     Student {
         id: 22,
-        name: "星野 ミユ",
-        academy: "ミリオン工科高校",
+        name: "Miyu Hoshino",
+        academy: "Million Tech High",
         club: "C&C",
-        role: "ストライカー",
+        role: "Striker",
         level: 80,
         bond: 18,
-        status: "休息",
+        status: "Resting",
         hue: 235.0,
     },
     Student {
         id: 23,
-        name: "東雲 キキョウ",
-        academy: "ノクス自治区",
-        club: "忍術研究部",
-        role: "スペシャル",
+        name: "Kikyo Shinonome",
+        academy: "Nox Autonomous Zone",
+        club: "Ninjutsu Club",
+        role: "Special",
         level: 60,
         bond: 8,
-        status: "待機",
+        status: "Standby",
         hue: 150.0,
     },
 ];
@@ -303,21 +291,21 @@ pub(crate) fn contains(field: &str, query: &str) -> bool {
 }
 
 pub(crate) fn student_status_column() -> kivact::ui::DataColumn<Student> {
-    kivact::ui::DataColumn::new("状態", |s: &Student| s.status.to_owned())
+    kivact::ui::DataColumn::new("Status", |s: &Student| s.status.to_owned())
         .width(142.0)
         .cell(|s| {
             kivact::ui::badge(s.status)
-                .variant(ui::Hue::from_badge(match s.status {
-                    "出撃中" => ui::Hue::Blue,
-                    "待機" => ui::Hue::Mint,
+                .variant(match s.status {
+                    "Deployed" => ui::Hue::Blue,
+                    "Standby" => ui::Hue::Mint,
                     _ => ui::Hue::Gray,
-                }))
+                })
                 .variant(ui::BadgeVariant::Dot)
         })
 }
 
 pub(crate) fn student_bond_column() -> kivact::ui::DataColumn<Student> {
-    kivact::ui::DataColumn::new("絆", |s: &Student| s.bond.to_string())
+    kivact::ui::DataColumn::new("Bond", |s: &Student| s.bond.to_string())
         .width(220.0)
         .compare(|a, b| a.bond.cmp(&b.bond))
         .cell(|s| {
@@ -325,7 +313,7 @@ pub(crate) fn student_bond_column() -> kivact::ui::DataColumn<Student> {
                 kivact::view::icon("heart").style(style().color(rgb(0xf2559a))),
                 text(s.bond.to_string()),
                 kivact::ui::progress(Some(f64::from(s.bond) / 30.0))
-                    .name("絆")
+                    .name("Bond")
                     .variant(ui::Hue::Pink)
                     .style(style().flex_grow(1).height(6)),
             ))
@@ -341,26 +329,26 @@ pub(crate) fn student_level_column() -> kivact::ui::DataColumn<Student> {
 }
 
 pub(crate) fn student_role_column() -> kivact::ui::DataColumn<Student> {
-    kivact::ui::DataColumn::new("役割", |s: &Student| s.role.to_owned())
+    kivact::ui::DataColumn::new("Role", |s: &Student| s.role.to_owned())
         .width(220.0)
         .cell(|s| {
-            kivact::ui::badge(s.role).variant(ui::Hue::from_badge(if s.role == "ストライカー" {
+            kivact::ui::badge(s.role).variant(if s.role == "Striker" {
                 ui::Hue::Red
             } else {
                 ui::Hue::Blue
-            }))
+            })
         })
 }
 
 pub(crate) fn student_academy_column() -> kivact::ui::DataColumn<Student> {
-    kivact::ui::DataColumn::new("所属", |s: &Student| s.academy.to_owned())
+    kivact::ui::DataColumn::new("Academy", |s: &Student| s.academy.to_owned())
         .width(214.0)
         .compare(|a, b| a.academy.cmp(b.academy))
         .filter(move |s, q| contains(s.academy, q))
 }
 
 pub(crate) fn student_name_column() -> kivact::ui::DataColumn<Student> {
-    kivact::ui::DataColumn::new("生徒", |s: &Student| s.name.to_owned())
+    kivact::ui::DataColumn::new("Student", |s: &Student| s.name.to_owned())
         .width(228.0)
         .compare(|a, b| a.name.cmp(b.name))
         .filter(move |s, q| contains(s.name, q) || contains(s.club, q))
@@ -397,12 +385,12 @@ pub(crate) fn student_toolbar(
     visible: impl Fn() -> Vec<Student> + Copy + 'static,
 ) -> Node {
     let filters = kivact::ui::radio_group(
-        "状態で絞り込む",
+        "Filter by status",
         vec![
-            ListItem::new("all", "すべて"),
-            ListItem::new("deployed", "出撃中"),
-            ListItem::new("standby", "待機"),
-            ListItem::new("rest", "休息"),
+            ListItem::new("all", "All"),
+            ListItem::new("deployed", "Deployed"),
+            ListItem::new("standby", "Standby"),
+            ListItem::new("rest", "Resting"),
         ],
         kivact::state::binding(status, move |next| {
             status.set(next);
@@ -412,13 +400,11 @@ pub(crate) fn student_toolbar(
     .orientation(Orientation::Horizontal)
     .variant(kivact::ui::RadioGroupVariant::Segmented);
     let actions = student_actions(visible, sheet).style(style().gap(8));
-    let search = kivact::ui::text_input(
-        kivact::i18n::message("pop.table.search", "Search table"),
-        kivact::state::binding(query, move |text: String| {
-            query.set(text);
-            page.set(0);
-        }),
-    )
+    let search = kivact::ui::text_input(kivact::state::binding(query, move |text: String| {
+        query.set(text);
+        page.set(0);
+    }))
+    .label(kivact::i18n::message("pop.table.search", "Search table"))
     .placeholder(kivact::i18n::message(
         "pop.table.search_placeholder",
         "Filter rows…",
@@ -486,11 +472,9 @@ pub(crate) fn student_footer(context: kivact::ui::DataTableContext<Student, usiz
                     .variant(kivact::ui::ButtonVariant::Ghost)
                     .with_node(|node| node.selected(move || current() == index))
                     .style(
-                        style().size(30, 30).selected(
-                            style()
-                                .background(color::ACCENT)
-                                .color(color::ACCENTText),
-                        ),
+                        style()
+                            .size(30, 30)
+                            .selected(style().background(color::ACCENT).color(color::ACCENT_TEXT)),
                     )
                     .on_press(move || page.set(index))
             },
@@ -540,7 +524,7 @@ pub(crate) fn student_actions(
                     );
                 kivact::task::spawn(kivact::platform::copy_text(lines));
             }),
-        kivact::ui::button("生徒を追加")
+        kivact::ui::button("Add student")
             .icon(kivact::view::icon("user-plus"))
             .size(kivact::ui::ControlSize::Small)
             .on_press(move || sheet.set(true)),

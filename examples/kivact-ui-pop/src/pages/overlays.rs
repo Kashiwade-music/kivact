@@ -1,34 +1,30 @@
 //! Role: The Overlays page.
 
-use kivact::prelude::*;
-use kivact::style::{Align, Color, GridPlacement, Justify, Track, color, pct, rgb, rgba, style};
-use kivact::view::Node;
-use kivact_ui_pop as ui;
-use kivact::draw::{LineCap, LineJoin, Path, Stroke};
-use kivact::geometry::Point;
-use kivact::i18n::{CalendarDate, Weekday};
-use kivact::interaction::{ListItem, MenuEntry, ScalarRange};
-use kivact::motion::{Animated, Easing, Repeat, Transition};
-use kivact::state::{Callback, IntoHandler, IntoText, IntoValue, Machine, MachineHandle, Signal, Step, Value, callback, machine};
-use kivact::style::{Direction, Filter, Shadow, Shape, TextDecorationLine, linear_gradient};
-use kivact::ui::RadioGroup;
-use kivact::view::{Orientation, Placement, rich_text, span as text_span};
-use kivact_ui_pop::Hue;
-use std::time::Duration;
-use catalog_shell::{Example, Page};
 use super::common::*;
+use catalog_shell::{Example, Page};
+use kivact::i18n::CalendarDate;
+use kivact::prelude::*;
+use kivact::view::Node;
+use kivact::view::Placement;
+use kivact_ui_pop as ui;
 /// The page of the Overlays components.
 pub fn page() -> Page {
-    Page::new("overlays", "Overlays", "Components", include_str!("overlays.rs"))
-        .description("Dialogs, drawers, popovers, menus and palettes that open above the page.")
-        .example(Example::new(
-            "overlays",
-            "Overlays",
-            "Each overlay opens from its trigger and closes on its own action.",
-            overlays_demo,
-        ))
+    Page::new(
+        "overlays",
+        "Overlays",
+        "Components",
+        include_str!("overlays.rs"),
+    )
+    .description("Dialogs, drawers, popovers, menus and palettes that open above the page.")
+    .example(Example::new(
+        "overlays",
+        "Overlays",
+        "Each overlay opens from its trigger and closes on its own action.",
+        overlays_demo,
+    ))
 }
 
+// xtask-allow(state): independent: confirm is the open state of the confirm dialog, written only by its button and that dialog; form is the open state of the form dialog, written only by its button and that dialog; sheet is the open state of the drawer, written only by its button and the drawer; command is the open state of the command palette, written only by its button and the palette; popover_open is the open state of the popover, written only by its trigger and its own Got it button
 fn overlays_demo() -> impl IntoView {
     // example: overlays
     let confirm = signal(false);
@@ -39,54 +35,54 @@ fn overlays_demo() -> impl IntoView {
     section(
         "08",
         "Overlays",
-        "モーダル・ドロワー・メニュー・ツールチップ",
+        "Modals, drawers, menus and tooltips",
         cards_grid((
             third(card(
-                "ダイアログ",
+                "Dialogs",
                 column((
-                    kivact::ui::button("確認ダイアログ").icon(kivact::view::icon("sword")).on_press(move || confirm.set(true)),
-                    kivact::ui::button("フォームダイアログ").icon(kivact::view::icon("pencil"))
+                    kivact::ui::button("Confirm dialog").icon(kivact::view::icon("sword")).on_press(move || confirm.set(true)),
+                    kivact::ui::button("Form dialog").icon(kivact::view::icon("pencil"))
                         .variant(kivact::ui::ButtonVariant::Secondary).on_press(move || form.set(true)),
-                    kivact::ui::button("ドロワーを開く").icon(kivact::view::icon("layout-sidebar-left-collapse"))
+                    kivact::ui::button("Open drawer").icon(kivact::view::icon("layout-sidebar-left-collapse"))
                         .variant(kivact_ui_pop::ButtonTone::Soft)
                         .on_press(move || sheet.set(true)),
-                    kivact::ui::button("コマンドパレット　 Ctrl K").icon(kivact::view::icon("command"))
+                    kivact::ui::button("Command palette · Ctrl K").icon(kivact::view::icon("command"))
                         .variant(kivact::ui::ButtonVariant::Ghost)
                         .on_press(move || command.set(true)),
                 ))
                 .style(style().gap(16)),
             )),
             third(card(
-                "ドロップダウン・ポップオーバー",
+                "Dropdown and popover",
                 wrap((
-                    kivact::ui::menu("アクション", vec![
-                            MenuEntry::item("rename", "名前を変更").with_shortcut("F2"),
-                            MenuEntry::item("copy", "複製").with_shortcut("Ctrl D"),
-                            MenuEntry::item("archive", "アーカイブ"),
-                            MenuEntry::item("delete", "削除"),
+                    kivact::ui::menu("Actions", vec![
+                            MenuEntry::item("rename", "Rename").with_shortcut("F2"),
+                            MenuEntry::item("copy", "Duplicate").with_shortcut("Ctrl D"),
+                            MenuEntry::item("archive", "Archive"),
+                            MenuEntry::item("delete", "Delete"),
                         ]).on_activate(|_: &'static str| {}),
-                    kivact::ui::dialog("ヘイローとは？", popover_open).mode(kivact::interaction::DialogMode::Popover).content(move || {
+                    kivact::ui::dialog("What is a halo?", popover_open).mode(kivact::interaction::DialogMode::Popover).content(move || {
                             column((
-                            halo_loader(),
-                            muted("キャラクターの頭上に浮かぶ光輪。このUIではアバターやローダーの装飾モチーフとして使っています。"),
+                            super::feedback::halo_loader(),
+                            muted("The ring above a character's head. This UI uses it as a decorative motif for avatars and loaders."),
                             row((
-                                kivact::ui::button("わかった").size(kivact::ui::ControlSize::Small).on_press(move || popover_open.set(false)),
-                                kivact::ui::button("詳しく").variant(kivact::ui::ButtonVariant::Ghost).size(kivact::ui::ControlSize::Small),
+                                kivact::ui::button("Got it").size(kivact::ui::ControlSize::Small).on_press(move || popover_open.set(false)),
+                                kivact::ui::button("Details").variant(kivact::ui::ButtonVariant::Ghost).size(kivact::ui::ControlSize::Small),
                             )).style(style().gap(8)),
                         ))
                         .style(style().gap(6))
-                        }).attach(kivact::ui::button("ポップオーバー")
+                        }).attach(kivact::ui::button("Popover")
                         .variant(kivact_ui_pop::ButtonTone::Soft)),
                 ))
                 .style(style().gap(8).align_items(Align::Start)),
             )),
             third(card(
-                "ツールチップ",
+                "Tooltips",
                 wrap((
-                    kivact::ui::tooltip("上に表示").placement(kivact::view::Placement::Below).align(kivact::view::OverlayAlign::Center).offset(6.0).placement(Placement::Above).attach(kivact::ui::button("上").variant(kivact::ui::ButtonVariant::Secondary)),
-                    kivact::ui::tooltip("下に表示").placement(kivact::view::Placement::Below).align(kivact::view::OverlayAlign::Center).offset(6.0).placement(Placement::Below).attach(kivact::ui::button("下").variant(kivact::ui::ButtonVariant::Secondary)),
-                    kivact::ui::tooltip("右に表示").placement(kivact::view::Placement::Below).align(kivact::view::OverlayAlign::Center).offset(6.0).placement(Placement::End).attach(kivact::ui::button("右").variant(kivact::ui::ButtonVariant::Secondary)),
-                    muted("保存　Ctrl　S").style(style().font_size(12)),
+                    kivact::ui::tooltip("Shown above", kivact::ui::button("Above").variant(kivact::ui::ButtonVariant::Secondary)).align(kivact::view::OverlayAlign::Center).offset(6.0).placement(Placement::Above),
+                    kivact::ui::tooltip("Shown below", kivact::ui::button("Below").variant(kivact::ui::ButtonVariant::Secondary)).align(kivact::view::OverlayAlign::Center).offset(6.0).placement(Placement::Below),
+                    kivact::ui::tooltip("Shown on the right", kivact::ui::button("Right").variant(kivact::ui::ButtonVariant::Secondary)).align(kivact::view::OverlayAlign::Center).offset(6.0).placement(Placement::End),
+                    muted("Save · Ctrl S").style(style().font_size(12)),
                 )),
             )),
         )),
@@ -102,7 +98,7 @@ fn request_dialog(
     let request_priority = signal(Some("normal"));
     let request_detail = signal(String::new());
     let request_date = signal(CalendarDate::new(2026, 10, 10));
-    kivact::ui::dialog("新しい依頼を作成", form_dialog)
+    kivact::ui::dialog("Create a new request", form_dialog)
         .content(move || {
             request_fields(
                 request_title,
@@ -115,18 +111,18 @@ fn request_dialog(
         })
         .footer(move || {
             row((
-                kivact::ui::button("キャンセル")
+                kivact::ui::button("Cancel")
                     .variant(kivact::ui::ButtonVariant::Ghost)
                     .on_press(move || form_dialog.set(false)),
-                kivact::ui::button("作成する")
+                kivact::ui::button("Create")
                     .disabled(move || request_title.get().trim().is_empty())
                     .test_id("pop-create-request")
                     .on_press(move || {
                         form_dialog.set(false);
                         notify.call((
                             ui::Hue::Mint,
-                            "依頼を作成しました".into(),
-                            "生徒たちに通知が送られます。".into(),
+                            "Request created".into(),
+                            "Students will be notified.".into(),
                         ));
                     }),
             ))
@@ -139,10 +135,10 @@ fn operation_confirmation(
     notify: kivact::state::Callback<(ui::Hue, String, String)>,
 ) -> kivact::ui::Dialog {
     let remember_confirmation = signal(false);
-    kivact::ui::dialog("作戦を開始しますか？", confirm)
+    kivact::ui::dialog("Start the mission?", confirm)
         .content(move || {
             column((
-                text("活動ポイントを 20 消費して「外郭地区のパトロール」を開始します。"),
+                text("Spend 20 activity points to start 'Outer district patrol'."),
                 row((
                     decorated_avatar(
                         kivact::state::IntoText::into_text_value("MN"),
@@ -169,17 +165,17 @@ fn operation_confirmation(
                         .background(color::SURFACE_ALT)
                         .border_radius(10),
                 ),
-                kivact::ui::checkbox("今後この確認を表示しない", remember_confirmation),
+                kivact::ui::checkbox("Do not show this confirmation again", remember_confirmation),
             ))
             .style(style().gap(16))
         })
         .footer(move || {
             row((
-                kivact::ui::button("キャンセル")
+                kivact::ui::button("Cancel")
                     .variant(kivact::ui::Slant)
                     .variant(kivact::ui::ButtonVariant::Secondary)
                     .on_press(move || confirm.set(false)),
-                kivact::ui::button("出撃する")
+                kivact::ui::button("Deploy")
                     .variant(kivact::ui::Slant)
                     .variant(kivact_ui_pop::ButtonTone::Accent)
                     .test_id("pop-confirm-start")
@@ -187,8 +183,8 @@ fn operation_confirmation(
                         confirm.set(false);
                         notify.call((
                             ui::Hue::Blue,
-                            "作戦開始".into(),
-                            "部隊が外郭地区へ出撃しました。".into(),
+                            "Mission started".into(),
+                            "The squad has deployed to the outer district.".into(),
                         ));
                     }),
             ))
@@ -206,37 +202,38 @@ fn request_fields(
 ) -> Node {
     column((
         kivact::ui::field(
-            "依頼タイトル *",
-            kivact::ui::text_input("依頼タイトル", request_title)
+            "Request title *",
+            kivact::ui::text_input(request_title)
+                .label("Request title")
                 .on_submit(move || {
                     if !request_title.get_untracked().trim().is_empty() {
                         form_dialog.set(false);
                         notify.call((
                             ui::Hue::Mint,
-                            "依頼を作成しました".into(),
-                            "生徒たちに通知が送られます。".into(),
+                            "Request created".into(),
+                            "Students will be notified.".into(),
                         ));
                     }
                 })
-                .placeholder("例：図書館の蔵書整理")
+                .placeholder("e.g. library book sorting")
                 .test_id("pop-request-title"),
         ),
         row((
             kivact::ui::field(
-                "優先度",
+                "Priority",
                 kivact::ui::select(
-                    "優先度",
                     vec![
-                        ListItem::new("normal", "通常"),
-                        ListItem::new("high", "高"),
-                        ListItem::new("urgent", "緊急"),
+                        ListItem::new("normal", "Normal"),
+                        ListItem::new("high", "High"),
+                        ListItem::new("urgent", "Urgent"),
                     ],
                     request_priority,
-                ),
+                )
+                .label("Priority"),
             )
             .style(style().flex_grow(1)),
             kivact::ui::field(
-                "期限",
+                "Due date",
                 {
                     let value: kivact::state::Signal<kivact::i18n::CalendarDate> = request_date;
                     let value = kivact::state::binding(
@@ -247,7 +244,8 @@ fn request_fields(
                             }
                         },
                     );
-                    kivact::ui::date_input("依頼期限", value)
+                    kivact::ui::date_input(value)
+                        .label("Request due date")
                         .presentation(kivact::ui::DatePresentation::Desktop)
                         .calendar(move |calendar| {
                             calendar
@@ -260,8 +258,10 @@ fn request_fields(
         ))
         .style(style().gap(16)),
         kivact::ui::field(
-            "詳細",
-            kivact::ui::text_area("依頼詳細", request_detail).placeholder("依頼の内容を入力…"),
+            "Details",
+            kivact::ui::text_area(request_detail)
+                .label("Request details")
+                .placeholder("Describe the request…"),
         ),
     ))
     .style(style().gap(16))
