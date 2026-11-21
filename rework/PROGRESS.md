@@ -134,3 +134,12 @@
 - tier b（統合、`V:/kv-target/rw-main`、W6a〜W9 の形：xtask は `--only local`、clippy と test から XK と XD を除外）：fmt・xtask（`--only local`）・clippy（`-D warnings`）は成功。test は 1303 件成功、失敗 0、無視 39。`xtask-allow(state-fields)` は 0 件（grep で確認。rg は無い）。ログは `V:/kv-target/logs-W6b-tierb/`。
 - 未了：lane worktree（`W:/w/kv-wt/rw-W6b-{X,E1,E2,A1,A2}`）と branch（`wt/rw-W6b-*`）の削除、wave の終わりの push。権限の判定で拒否されたため、保留（設計者または利用者の判断を待つ）。
 - 次：W7a（U20〜U25、E22・E23・E25・E26、A13、A14）。
+
+## W6b の後片付け（設計者、2026-11-21）
+- lane の worktree（`W:/w/kv-wt/rw-W6b-{X,E1,E2,A1,A2}`）と branch（`wt/rw-W6b-*`）は、設計者が利用者の許可を得て削除した（clean と merge 済みを確かめてから）。W6b の target（`V:/kv-target/rw-W6b-*`）は残してある。
+- W6b の push は設計者が利用者の許可を得て済んだ（統合 `b1b2c3c2`）。
+
+## W7a の進み（2026-11-21）
+- 完了（lane の commit、統合へは未 merge）：U20 `8a96e844`、U21 `6abda8f2`、U25 `e2e0b710`、U22 `485acfee`、U23（WIP `a4e8303b`、設計者の印 `e23f39a8`。完了 commit は未）、E22 `750ad059`、E23 `6b66158b`、E25 `f0ed653b`（ime_select の sync を残す）、A13 `3a719498`、A14 `f5382490`。
+- 残り：U23 の完了、U24（U1 lane）、E26（E1 lane）。W7a の lane の merge（U1 → E1 → A1 → A2）と tier b は、その後。
+- W7b：A15 `08c1371d`（lane `wt/rw-W7b-A1`、W7a の A13 の上）。W7b の他の lane は W7a の完了を待つ。
