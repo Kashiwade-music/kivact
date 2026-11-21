@@ -13,7 +13,7 @@ use kivact::geometry::Point;
 use kivact::i18n::message;
 use kivact::interaction::ListItem;
 use kivact::interaction::{
-    ComboboxApi, ComboboxOptions, PopupApi, Selection, use_combobox, use_popup,
+    ComboboxApi, ComboboxOptions, PopupApi, PopupCloseReason, Selection, use_combobox, use_popup,
 };
 use kivact::state::{
     Callback, Machine, MachineHandle, Step, Value, binding, machine, memo, on_cleanup, signal,
@@ -701,7 +701,7 @@ fn column_machine<K: kivact::state::ItemKey>(
             ColumnEffect::Preview(key) => outcomes.preview(key),
             ColumnEffect::Settle(outcome) => {
                 if let PickerOutcome::Picked(_) = &outcome {
-                    popup.hide();
+                    popup.close(PopupCloseReason::Selection);
                 }
                 outcomes.settle(outcome);
             }
