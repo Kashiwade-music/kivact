@@ -13,6 +13,7 @@
 mod attachment;
 mod card_header;
 mod chart;
+mod code_block;
 mod color;
 mod field;
 mod icons;
@@ -52,6 +53,7 @@ pub use attachment::{
 };
 pub use card_header::{CardHeader, card_header};
 pub use chart::{Chart, ChartConfig, ChartKind, ChartRow, ChartSeries, chart};
+pub use code_block::rust_lines;
 pub use color::{
     ACCENT, ACCENT_FOREGROUND, ACCENT_FOREGROUND_VAR, ACCENT_VAR, BACKGROUND, BACKGROUND_VAR,
     BORDER, BORDER_VAR, BUBBLE_TINTED, BUBBLE_TINTED_HOVER, BUBBLE_TINTED_HOVER_VAR,
