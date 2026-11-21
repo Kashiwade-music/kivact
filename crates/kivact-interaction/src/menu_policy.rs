@@ -23,6 +23,3 @@ impl Default for SubmenuTiming {
         }
     }
 }
-/// A theme's opt-in to native menu press, drag and release selection.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct MenuPress(pub bool);

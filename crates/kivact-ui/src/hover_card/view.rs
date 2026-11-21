@@ -6,7 +6,7 @@ use kivact_core::style::use_theme;
 use kivact_core::view::{
     Element, IntoView, OverlayAlign, Placement, Role, View, ViewFn, column, node_ref, overlay, show,
 };
-use kivact_interaction::{HoverCardTiming, InteractionPolicy, use_hover_card};
+use kivact_interaction::{Delays, InteractionPolicy, use_hover_card};
 use std::time::Duration;
 
 use crate::hover_card::look::HoverCardSurfaceState;
@@ -37,7 +37,7 @@ pub struct HoverCard {
     variants: kivact_core::view::Variants,
     placement: Value<Placement>,
     align: Value<OverlayAlign>,
-    timing: HoverCardTiming,
+    timing: Delays,
     enabled: Value<bool>,
     focus: FocusTrigger,
     open: CardOpen,
@@ -79,12 +79,12 @@ impl HoverCard {
     }
     /// Override pointer entry delay; focus still opens immediately.
     pub fn open_delay(mut self, delay: Duration) -> Self {
-        self.timing.open_delay = delay;
+        self.timing.open = delay;
         self
     }
     /// Override the delay after pointer and focus leave.
     pub fn close_delay(mut self, delay: Duration) -> Self {
-        self.timing.close_delay = delay;
+        self.timing.close = delay;
         self
     }
     /// Use this binding as the sole authority for visibility.

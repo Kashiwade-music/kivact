@@ -112,7 +112,7 @@ pub use list::{
 };
 pub use menu::{
     DisabledMenuFocus, MenuApi, MenuCheck, MenuEntry, MenuItemDisplay, MenuItemKind, MenuItemState,
-    MenuOrigin, MenuPress, MenuRow, PressOver, SubmenuTiming, use_menu,
+    MenuOrigin, MenuRow, PressOver, SubmenuTiming, use_menu,
 };
 pub use menubar::{MenubarApi, use_menubar};
 pub use palette::{Command, CommandGroup, CommandPaletteApi, filter_commands, use_command_palette};
@@ -167,8 +167,8 @@ pub use inline_edit::{InlineEditApi, use_inline_edit};
 
 pub use interaction_policy::{
     ButtonPolicy, DisabledButtonFocus, InteractionPolicy, MenuPolicy, ModifierKey, PressDrift,
-    ScrubPolicy, SelectPolicy, SliderPolicy, SliderTouchMotion, SwitchDrag, SwitchPolicy,
-    ToastPolicy, ToastSwipe,
+    ScrubPolicy, SelectPolicy, SliderPolicy, SliderTouchMotion, SwitchPolicy, ToastPolicy,
+    ToastSwipe,
 };
 
 mod menu_policy;
@@ -186,7 +186,7 @@ mod disclosure_group;
 pub use disclosure_group::{DisclosureGroupApi, use_disclosure_group};
 
 mod surface_policy;
-pub use surface_policy::{DrawerPolicy, DrawerSwipe, HoverCardTiming};
+pub use surface_policy::{DrawerPolicy, DrawerSwipe};
 
 mod hover_card;
 pub use hover_card::{HoverCardApi, HoverCardOpenedBy, HoverCardState, use_hover_card};
