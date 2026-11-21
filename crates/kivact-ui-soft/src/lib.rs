@@ -1,4 +1,13 @@
-//! Role: Expose Astryx Neutral as an official Kivact UI kit: its color, space and radius variables and its theme.
+//! Role: Astryx Neutral as a Kivact UI kit: the look of every standard component, an app frame (shell, top and side navigation), and content parts (markdown, rich blocks, chat tools, tables).
+//!
+//! ```no_run
+//! use kivact::prelude::*;
+//! use kivact_ui_soft as soft;
+//!
+//! fn main() -> kivact::Result<()> {
+//!     App::new("App").theme(soft::theme(ThemeMode::Light)).run(|| button("Save"))
+//! }
+//! ```
 mod color;
 mod icons;
 mod metrics;
@@ -9,6 +18,7 @@ mod space;
 mod theme;
 mod theme_policy;
 mod type_scale;
+mod variants;
 
 pub use color::{
     ACCENT, ACCENT_HOVER, ACCENT_MUTED, BG_BODY, BG_CARD, BG_ERROR_INVERTED, BG_INVERTED, BG_MUTED,
@@ -51,3 +61,14 @@ pub use space::{
     SPACE_S9, SPACE_S10, SPACE_S11, SPACE_S12, SPACE_SECTION_PADDING,
 };
 pub use theme::theme;
+pub use variants::{
+    AvatarGroupShape, AvatarSize, BadgeVariant, BannerVariant, BreadcrumbsVariant,
+    ButtonGroupVariant, CardPadding, CardVariant, ChatBubbleVariant, ChatDensity, ChevronPosition,
+    CodeBlockContainer, CodeBlockSize, CodeBlockWidth, ComposerElevation, DisclosureDensity,
+    DisclosureDividers, DropzoneVariant, Elevation, EmptyStateCompact, HeadingDisplay, ItemAlign,
+    ItemDensity, ItemHighlighted, ItemLayout, LabelPosition, ListDividers, ListEdge,
+    MetadataColumns, MetadataLabelWidth, MetadataOrientation, PaginationSize, RowStatusDot,
+    SegmentedIconOnly, SegmentedLayout, SkeletonRadius, Space, SpinnerInk, SpinnerShade,
+    StepCollapsedVariant, StepDensity, StepIndicatorPosition, SystemMessageVariant, TableCellAlign,
+    TableCellDivider, TableRowDividers, TableRowHover, TableRowStriped, ToolbarVariant, TreeGuides,
+};
