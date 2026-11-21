@@ -34,38 +34,6 @@ pub enum AvatarStatus {
     },
 }
 
-pub(crate) struct StatusMetrics {
-    pub(crate) side: f64,
-    pub(crate) border: f64,
-    stroke: f64,
-    icon: f64,
-}
-
-pub(crate) fn status_metrics(side: f64) -> StatusMetrics {
-    if side <= 36.0 {
-        StatusMetrics {
-            side: 10.0,
-            border: 1.0,
-            stroke: 1.0,
-            icon: 0.0,
-        }
-    } else if side < 96.0 {
-        StatusMetrics {
-            side: 20.0,
-            border: 2.0,
-            stroke: 1.5,
-            icon: 12.0,
-        }
-    } else {
-        StatusMetrics {
-            side: 32.0,
-            border: 4.0,
-            stroke: 2.0,
-            icon: 18.0,
-        }
-    }
-}
-
 // xtask-allow(state): legacy: label, icon
 /// A small presence indicator, usable with or without an avatar.
 pub struct AvatarStatusDot {

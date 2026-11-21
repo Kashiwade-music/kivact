@@ -16,3 +16,37 @@ pub(crate) const BADGE_HEIGHT: f64 = 20.0;
 pub(crate) const MIN_TOUCH_TARGET: f64 = 44.0;
 pub(crate) const DISABLED_OPACITY: f64 = 0.5;
 pub(crate) const PRESS_SCALE: f64 = 0.98;
+
+/// The size of a presence marker on an avatar of `side`, with its ring and glyph.
+pub(crate) struct StatusMetrics {
+    pub(crate) side: f64,
+    pub(crate) border: f64,
+    pub(crate) stroke: f64,
+    pub(crate) icon: f64,
+}
+
+/// The presence marker's metrics for an avatar `side` logical px wide.
+pub(crate) fn status_metrics(side: f64) -> StatusMetrics {
+    if side <= 36.0 {
+        StatusMetrics {
+            side: 10.0,
+            border: 1.0,
+            stroke: 1.0,
+            icon: 0.0,
+        }
+    } else if side < 96.0 {
+        StatusMetrics {
+            side: 20.0,
+            border: 2.0,
+            stroke: 1.5,
+            icon: 12.0,
+        }
+    } else {
+        StatusMetrics {
+            side: 32.0,
+            border: 4.0,
+            stroke: 2.0,
+            icon: 18.0,
+        }
+    }
+}

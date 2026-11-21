@@ -1,4 +1,4 @@
-//! Role: Install Astryx Neutral's recipes of the feedback group: the toast, the skeleton, the spinner and the key caps.
+//! Role: Install Astryx Neutral's recipes of the feedback group: the toast, the badge, the skeleton, the spinner and the key caps, with the alert, the empty state and the avatars.
 use crate::color as c;
 use crate::metrics as m;
 use crate::motion::FAST;
@@ -7,7 +7,7 @@ use crate::recipe_parts::{body_text, ring, shadowed, tween};
 use crate::shadows;
 use crate::space as s;
 use crate::type_scale as t;
-use crate::variants::{SkeletonRadius, SpinnerShade, SpinnerVariant};
+use crate::variants::{BadgeVariant, RowStatusDot, SkeletonRadius, SpinnerShade, SpinnerVariant};
 use kivact::custom::PartState;
 use kivact::draw::{LineCap, Path, Stroke};
 use kivact::geometry::Point;
@@ -16,8 +16,8 @@ use kivact::style::{
     Align, Color, FlexDirection, Justify, Position, Style, Theme, ThemeMode, pct, style,
 };
 use kivact::ui::theme::{
-    KbdKeyState, KbdTheme, Look, SkeletonState, SkeletonTheme, SpinnerState, SpinnerTheme,
-    ToastGroupState, ToastTheme,
+    BadgeState, BadgeTheme, KbdKeyState, KbdTheme, Look, SkeletonState, SkeletonTheme,
+    SpinnerState, SpinnerTheme, ToastGroupState, ToastTheme,
 };
 use kivact::ui::{ControlSize, SkeletonShape};
 
@@ -167,6 +167,59 @@ fn spinner(_theme: &Theme, look: &Look<SpinnerState>, _base: Style) -> Style {
         })
 }
 
+/// The badge: a pill in the tone's fill, or in a categorical hue; a status dot when it is a row dot.
+fn badge(_theme: &Theme, look: &Look<BadgeState>, _base: Style) -> Style {
+    if look.variant::<RowStatusDot>().is_some() {
+        let color = match look.tone {
+            Tone::Success => c::TEXT_SUCCESS,
+            Tone::Warning => c::TEXT_WARNING,
+            Tone::Danger => c::TEXT_ERROR,
+            _ => c::ICON_SECONDARY,
+        };
+        return style()
+            .size(8.0, 8.0)
+            .min_height(8.0)
+            .min_width(8.0)
+            .padding(0.0)
+            .gap(0.0)
+            .border_radius(4.0)
+            .background(color);
+    }
+    let (fill, ink) = match look.tone {
+        Tone::Info | Tone::Accent => (c::INFO, c::ON_INFO),
+        Tone::Success => (c::SUCCESS, c::ON_SUCCESS),
+        Tone::Warning => (c::WARNING, c::ON_WARNING),
+        Tone::Danger => (c::ERROR, c::ON_ERROR),
+        Tone::Neutral => match look.variant::<BadgeVariant>().unwrap_or_default() {
+            BadgeVariant::Blue => (c::HUE_BLUE_BG, c::HUE_BLUE_TEXT),
+            BadgeVariant::Cyan => (c::HUE_CYAN_BG, c::HUE_CYAN_TEXT),
+            BadgeVariant::Green => (c::HUE_GREEN_BG, c::HUE_GREEN_TEXT),
+            BadgeVariant::Orange => (c::HUE_ORANGE_BG, c::HUE_ORANGE_TEXT),
+            BadgeVariant::Pink => (c::HUE_PINK_BG, c::HUE_PINK_TEXT),
+            BadgeVariant::Purple => (c::HUE_PURPLE_BG, c::HUE_PURPLE_TEXT),
+            BadgeVariant::Red => (c::HUE_RED_BG, c::HUE_RED_TEXT),
+            BadgeVariant::Teal => (c::HUE_TEAL_BG, c::HUE_TEAL_TEXT),
+            BadgeVariant::Yellow => (c::HUE_YELLOW_BG, c::HUE_YELLOW_TEXT),
+            BadgeVariant::Neutral | BadgeVariant::Gray => (c::HUE_GRAY_BG, c::HUE_GRAY_TEXT),
+        },
+    };
+    style()
+        .min_height(m::BADGE_HEIGHT)
+        .min_width(0.0)
+        .max_width(pct(100))
+        .border_radius(r::RADIUS_FULL)
+        .padding_x(s::SPACE_S2)
+        .gap(s::SPACE_S1)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center)
+        .background(fill)
+        .color(ink)
+        .font_size(t::SIZE_SM)
+        .line_height(20.0 / t::SIZE_SM)
+        .font_weight(t::WEIGHT_MEDIUM)
+        .text_wrap(false)
+}
+
 /// The row of key caps: the caps sit in a centered row.
 fn kbd_root(_theme: &Theme, _look: &Look<()>, _base: Style) -> Style {
     style().align_items(Align::Center).gap(4.0).flex_shrink(0)
@@ -192,7 +245,7 @@ fn key(_theme: &Theme, _look: &Look<KbdKeyState>, _base: Style) -> Style {
 
 /// Install the kit's recipes of the feedback group.
 pub(crate) fn install(theme: Theme) -> Theme {
-    theme
+    let theme = theme
         .with(
             ToastTheme::default()
                 .region(region)
@@ -203,7 +256,11 @@ pub(crate) fn install(theme: Theme) -> Theme {
                 .close(close)
                 .icon(icon),
         )
+        .with(BadgeTheme::default().root(badge))
         .with(SkeletonTheme::default().root(skeleton))
         .with(SpinnerTheme::default().root(spinner))
-        .with(KbdTheme::default().root(kbd_root).key(key))
+        .with(KbdTheme::default().root(kbd_root).key(key));
+    let theme = crate::recipes_feedback_banner::install(theme);
+    let theme = crate::recipes_feedback_empty::install(theme);
+    crate::recipes_feedback_avatar::install(theme)
 }

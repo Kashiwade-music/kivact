@@ -193,9 +193,14 @@ fn root(theme: &Theme, s: &Look<CardState>) -> Style {
             base = base.hover(style().border_color(c.border_emphasized));
         }
     }
-    s.variant::<CardAppearance>()
-        .map_or(Elevation::None, |v| v.elevation.get())
-        .apply(base, &t)
+    let elevation = s
+        .variant::<CardAppearance>()
+        .map_or(Elevation::None, |v| v.elevation.get());
+    crate::shadows::elevate(
+        base,
+        elevation,
+        theme.mode() == kivact::style::ThemeMode::Dark,
+    )
 }
 fn overlay(theme: &Theme, s: &Look<CardState>) -> Style {
     let t = theme.ext::<crate::Tokens>();

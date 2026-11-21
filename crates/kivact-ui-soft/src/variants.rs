@@ -246,6 +246,11 @@ impl EmptyStateVariant {
             compact: compact.into_value(),
         }
     }
+
+    /// Whether the empty message uses the compact spacing scale now.
+    pub(crate) fn is_compact(&self) -> bool {
+        self.compact.get()
+    }
 }
 
 impl Variant for EmptyStateVariant {}
