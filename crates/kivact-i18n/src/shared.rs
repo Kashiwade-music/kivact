@@ -171,7 +171,7 @@ impl NumberSymbols {
     }
 }
 
-// xtask-allow(state): legacy: symbols, digits; the decimal symbols ICU loads through this provider while it builds the formatter; ICU loads the digits through the other slot in
+// xtask-allow(state): independent: symbols and digits are filled by the two DataProvider::load impls, one per ICU key, in whichever order ICU asks; NumberSymbols::new takes both once the formatter is built
 /// Observe ICU's resolved data requests, preserving locale and numbering-system fallback.
 #[derive(Default)]
 struct SymbolCapture {

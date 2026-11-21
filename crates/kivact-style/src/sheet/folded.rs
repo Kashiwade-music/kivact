@@ -141,7 +141,7 @@ pub(crate) struct TextFields {
     pub(crate) text: Option<Box<TextRareFields>>,
 }
 
-// xtask-allow(state): legacy: hover, group, group_hover, group_focus, pressed, focus, focus_visible, disabled, selected, enter, exit; one authored property; absent means the inherited or default value
+// xtask-allow(state): independent: each Option is the style of one interaction state and group marks a group container; any set of states may be styled, and merging combines each state's style on its own
 /// The interaction styles of a folded style and the nesting of a group.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct StateFields {

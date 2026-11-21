@@ -13,7 +13,7 @@ use std::time::Duration;
 /// How long `find_by_*` and `wait_for` wait by default (virtual time).
 pub(super) const FIND_TIMEOUT: Duration = Duration::from_secs(5);
 
-// xtask-allow(state): legacy: host, actions, contacts, last_contact; the platform pointer id of the last contact
+// xtask-allow(state): record: separate test-session facts: host is the driver borrowed by each step, actions the last logged actions (Screen::log), contacts the contacts down (contact_down, contact_up, contact_cancel), last_contact the contact id allocator (contact_down)
 /// A rendered App on real windows of the engine's test driver, shared by
 /// every [`Screen`] handle of its windows.
 pub(crate) struct TestApp {
