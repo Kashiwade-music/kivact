@@ -134,9 +134,8 @@ mod tests {
     }
     #[test]
     fn a_nested_core_name_is_not_reserved() {
-        let mut source = crate::check_source::fixture(
-            "pub const BACKGROUND: u32 = 0; pub struct Button;",
-        );
+        let mut source =
+            crate::check_source::fixture("pub const BACKGROUND: u32 = 0; pub struct Button;");
         source.module.clear();
         let mut surface = crate::public_surface::build(std::slice::from_ref(&source));
         surface.exports.insert(
