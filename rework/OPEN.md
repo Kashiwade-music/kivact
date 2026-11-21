@@ -954,3 +954,46 @@ U47（lane `wt/rw-W8-U2`、commit `13432f34`）は部分完了：`announcer_outl
 - **U40（`aa7c073e`、lane `wt/rw-W8-U1`）**：採る。`button` と `icon_button` を `#[component]` にし、`button/view.rs` を消して `button.rs` に移した（付属書の sketch どおり）。`button_group::member_style` は触っていない（所有の外）。`group_style` は private のまま。busy の試験は `force_click` と期待値 0 と `is_disabled()`（期待値は緩めていない）。
 - **S22b（`a0ca71e0`、lane `wt/rw-W8-S`）**：採る。`span_drops` の 13 variant を `rejected` に数える。試験 1 件を足した。確認は `--no-deps` の clippy、e2e_core 494 件。
 - **A16（`508a49fe`、lane `wt/rw-W8-A2`）**：採る。`Fnv` を `WordHash` に、`adapter.rs` の `#![allow(unsafe_code, ...)]` は、消した identity の既存の allow と同じ（新しい印ではない）。確認は全部通った（GPU の形を含む）。
+
+## 設計者の回答（W8・U47 の差戻し、2026-11-21）
+
+- 付属書 U の「U44〜U54」の節に「U47 の手書きの builder」の段落を足した（「## U47」の節は無く、表の行とこの段落が U47 の手順）。
+- `Dialog`・`HoverCard`・`Disclosure`（`attach(trigger)` で trigger と surface を兄弟で出す）と `DisclosureGroup`（型付きの panel を積む）は、`Tooltip` と同じく手書きの builder のまま残し、`[hand_element] allowed_impls` に足す。`Dialog`・`HoverCard` は root の node を持って `impl Element` にする（呼出し側の modifier は surface に付く）。U24 の残りの固有の `variant` はここで消す。
+- `Disclosure` の `always_open`・`keep_mounted` は `bool` を取る setter にする（C1 の例外、呼出し元は `(true)`）。
+- U2 lane を再開し、U47 の残りを済ませてから U48 へ進む。U48 の `Menu`・`CommandPalette`・`ToastRegion` で同じ理由（trigger と surface を兄弟で出す）に当たるものがあれば、同じ扱いにしてよい（allowed_impls に足し、OPEN に記録する）。それ以外の理由で `#[component]` にできないものは差し戻す。
+
+## 差戻し（W8・U40 と U44 の名前の規則、2026-11-21）
+
+U44（lane `wt/rw-W8-U1`、commit `e693a67f`）の確認で、U40 の試験 `ui_components::menu_renders_nested_levels_and_custom_trigger_keeps_its_style` が落ちる（`e2e_ui` 全件で 277 件通過、1 件失敗）。原因：`#[component]` の名前（`accessible_name`）は body の root node に載るので、`menu/view.rs:named` と `attach` が読む `trigger.node_mut().accessible_name()` が None になり、menu が自分の label（"Custom" ではない）を使う。U44 の toggle・toggle_button・toggle_group・button_group・toolbar も同じ形で、今の試験は当たらないが、trigger の名前を読む API で同じ誤りが出る。試験の期待値は変えない。**設計者が決める**：名前の規則（マクロの側で名前を trigger に載せる、または呼出し側の名前を優先する、など）。U1 lane は止める（U45・U46 は後）。
+
+## 差戻し（W8・U43、二度目、2026-11-21）
+
+U43（lane `wt/rw-W8-U3`、作業ツリーに変更、commit なし）。設計者の答え（`503f3fdf`：セルは行の drag を止めない、選択の守りは行の press に移す）を実施したが、試験 `dragging_a_row_reports_one_place_per_step` は、答えの前提と合わずに落ちる：
+- 試験には `.selection(...)` が無く、`checks()` が None なので、data cell の `keep_selection` は掛からない。止めているのは keep_selection ではない。
+- HEAD の `row_drag.rs`・`rows.rs` の `drag_source` に戻しても、同じ試験が同じ失敗（`left: []`）。drag が始まらない（`on_start` が呼ばれない）。`TableFocus::None` で `Role::Cell` を押しても失敗する。
+- 守りを行の press に移せない：`crates/kivact-core/src/client/dispatch/pointer.rs` の `pointer()` は押しを最も近い pointer handler の祖先 1 つに渡す。`TableFocus::Cells` では、セルの part の handler（`crates/kivact-interaction/src/table/cells.rs` の `cell`、`list.select` を呼ぶ）が先に当たる。
+- **設計者が決める**：(a) チェック付きのセルの押しで選択を置き換えない守りを `table/cells.rs` に置く（所有の外）、(b) drag の出どころを行全体でなく drag の取手（handle）に限る。どちらでも、drag が始まらない原因（どの part が押しを取るか）を先に調べる。U3 lane は止める（U49〜U51 は後）。
+
+## 設計者の回答（W8・名前の規則と U43 の二度目、2026-11-21）
+
+- **(1) 名前の規則**：名前は今のとおり body の root に載る（マクロは変えない）。直すのは読む側：**外から受け取った element（trigger・control など）の、呼出し側が書いた値は `node_mut().authored()` で読む**（`authored()` は caller の segment を畳むので、`#[component]` の element でも呼出し側の `.name(..)` が見える）。`accessible_name()` などの `accessible_*()` は、その node に直に書かれた値だけを読むので、外から受け取った element には使わない。自分の body の中は C3 のとおり `Caller` から読む。
+  - 直す所：`menu/view.rs` の 184・240 行の `trigger.node_mut().accessible_name()` を `trigger.node_mut().authored().name()` に（menu は lane U2 の U48 の file。U2 lane で U47 の続きの前に直して commit する。U1 lane は直さない）。U44 の toggle・toggle_button・toggle_group・button_group・toolbar の中で、外から受け取った element の名前などを `accessible_*()` で読んでいる所があれば、U1 lane で同じく `authored()` にする。U48 以降の lane も同じ規則（combobox・select・slider・tag_input・number_input の `self.root.accessible_name()` は自分の root を読む手書きの builder の間はそのままでよく、`#[component]` にするときに `Caller` にする）。
+  - U1 lane の `menu_renders_nested_levels_and_custom_trigger_keeps_its_style` の失敗は、U2 lane の直しが merge されるまでの既知の失敗として記録し、U1 lane は U45・U46 へ進んでよい。W8 の merge は U2 を U1 より先に入れ、W8 の tier b でこの試験が通ることを確かめる。
+- **(2) U43**：先に原因を突き止める。DevTools の `handler_ran`（`devtools_hooks::handler_ran` が on_pointer を記録する）か一時的な log で、試験の press（Ada の GridCell の中心）を受ける node と、その handler が返す `Handled` を調べる。core の `client/dispatch/pointer.rs` の `pointer()` は、最も近い pointer handler の祖先一つにだけ渡し、`Handled::No` でもそれより上の handler には渡さない。そのため、セル（またはその子）に hover・press の状態を取る part の pointer handler があると、行の `drag_source` は押しを受けない。原因がこれなら、直しは core にする：
+  - `pointer()` で、handler が `Handled::No` を返したら、その node の親から上へ次の pointer handler を探して渡す（Enter・Leave は今のとおりその node だけ）。`Handled::Yes`・`PreventDefault` で止まる（Web の伝播と同じ。`keep_selection` が `Handled::Yes` で行の選択を止めるという今の文の意図もこの形を前提にしている）。この 1 file は U43 の所有の外だが、設計者の決まりとして許す。
+  - セルの選択の handler（`table/cells.rs` の `cell`）が down で `Handled::Yes` を返していれば、選択はしても `Handled::No` を返す（押しでセルを選び、動かせば行を drag する。ファイルの一覧と同じ）。この file も許す。
+  - core の変更は全体に効くので、確認は e2e_core・e2e_ui・e2e_native・kivact-test の全件と workspace の clippy。期待値を変えないと通らない試験が出たら STOP して、その試験の名前と理由を報告する。
+  - 原因が別（例えば `drag_source` の on_start の配線の誤り）なら、それを直し、上の core の変更はしない。
+  - drag の取手（handle）に限る案は採らない。
+
+## 差戻し（W8・U47 の dialog・hover_card、U53 の chat_thread・code_block、2026-11-21）
+
+- **U47（lane `wt/rw-W8-U2`、commit `d42f9096`）**：Disclosure（`always_open(bool)`・`keep_mounted(bool)`）と DisclosureGroup（allowed_impls）は完了。Dialog・HoverCard は止まる。設計者の答え（root の node を surface に載せる）は、このままでは作れない：`show(when, child)` の child は `Fn() -> V` で、surface は開くたびに作り直す。`Node` は `Clone` でなく、`View` は mount で一度だけ node を作る。呼出し側の `.style`・`.name`・`.test_id` を二回目以降の開きに写せず、root を載せないと黙って落ちる。`variant` だけなら `root.authored().variants()` で読めるが、他の modifier が残る。**設計者が決める**：(a) kivact-core（所有の外）に、一度だけ mount する child か複製できる modifier の集まりを足す、(b) root を作らず `variant` だけ `Variants` の field で持つ（U24 の残りの指示を外す）、(c) 別の形。U48 は U47 の後。
+- **U53（lane `wt/rw-W8-U4`、commit `d9dc37b7`）**：chat_message・chat_composer・typing_indicator は完了。chat_thread と code_block は止まる。(1) `code_block/view.rs:CodeBlock::highlight` の 2 引数の setter `highlight(content, f)`（`ui_chat_code.rs:79` が `.highlight((), f)` を呼ぶ）。マクロの 1 prop 1 setter に写せず、C1 で呼出しの形を変えられない。(2) `chat_thread/view.rs:ChatThread::empty` の 2 引数の setter `empty(when, content)`。`Option<(Value<bool>, View)>` の prop にすると `.empty((when, content))` になり形が変わる。**設計者が決める**：どちらも、マクロの形を変える（2 引数の setter を許す）か、呼出しの形を変えるか。U4 lane は止める（U54 は後）。
+
+## 設計者の回答（W8・U47 の dialog・hover_card、U53 の chat_thread・code_block、2026-11-21）
+
+- **(1) dialog・hover_card**：(b) を採る。root の node を持たせず `Element` にしない。固有の `variant` と `variants` の field を残す（U24 の残りはこの 2 つでは外す）。呼出し側が surface を変えるのは builder の method と recipe・variant だけ。付属書 U の「U47 の手書きの builder」の段落を直した。U48 の `Menu`・`CommandPalette`・`ToastRegion` が同じ事情（surface を開くたびに作り直す）なら同じ扱いでよい（OPEN に記録）。
+- **(2) chat_thread・code_block**：マクロは変えない（1 prop 1 setter のまま）。呼出しの形を一つの値に直す（C1 の例外。G の移行の文書に 1 行ずつ足す。W11b）：
+  - `chat_thread` の `empty(when, content)` → `empty(content: impl IntoView)`。empty の表示は「messages が空で、`loading_top` でない間」に本体が決める（`when` の引数を消す）。呼出し元の `when` が、この条件と違うものを渡している所があれば STOP して報告する。
+  - `code_block` の `highlight(content, f)` → `highlight(h: Highlighter)`。`code_block` の module に `pub struct Highlighter`（中身は今の boxed の closure を `Rc<dyn Fn(..)>` にしたもの。props は `Option<Highlighter>`）と `pub fn highlighter<T, S, F>(content: impl IntoValue<T>, f: F) -> Highlighter`（型引数と制約は今の `highlight` と同じ。doc は今の `highlight` の doc を写す）を足し、`lib.rs` と prelude（今 `code_block` を出している所）から `highlighter` と `Highlighter` を出す。呼出し元は `.highlight(highlighter(content, f))` に直す（所有の木の試験・examples。kit は W9）。
