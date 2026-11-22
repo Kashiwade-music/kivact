@@ -73,6 +73,6 @@ cargo run
 
 ## フォント
 
-Pop は Kivact が同梱するフォントでそのまま動くので、このチュートリアルでは何も足す必要はありません。キット付属のカタログは、元のデザインに合わせて Inter、Barlow、Noto Sans JP を `App::font` で登録しています。フォントはアプリが持つもので、同じことをしたい場合は [Pop のテーマと変数を設定する](../how-to-guide/theme-and-tokens.md) を参照してください。
+Pop は Kivact が同梱するフォントでそのまま動くので、このチュートリアルでは何も足す必要はありません。キット付属のカタログは、元のデザインに合わせて Inter、Barlow、Noto Sans JP を `Theme::with_fonts` で登録しています。フォントはアプリが持つもので、同じことをしたい場合は [Pop のテーマと変数を設定する](../how-to-guide/theme-and-tokens.md) を参照してください。
 
 次へ: [ステップ 2: フォームを組み立てる](02-build-the-form.md)

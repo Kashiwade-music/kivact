@@ -75,7 +75,7 @@ pub enum ErrorKind {
     /// font family that is not installed. The message names the source
     /// (for a file, its absolute path and the current directory) and the
     /// reason; the location is where the node or the request was created
-    /// (`image(..)`, `App::font`).
+    /// (`image(..)`, `Theme::with_fonts`).
     ///
     /// It is a diagnostic, not a failure of the subtree: it goes to the
     /// App's default sink (`tracing` at target `kivact`, and the

@@ -2,7 +2,7 @@
 //!
 //! Components are plain functions that take arguments, return a view and
 //! run once. State lives in an App-owned arena; you hold Copy handles
-//! (`Signal`, `Value`, `Binding`, ...) created by the setup functions
+//! (`Signal`, `Value`, ...) created by the setup functions
 //! (`signal`, `memo`, `binding`, `effect`, ... like Solid's `createSignal`,
 //! `createMemo`, `createEffect`). Callbacks are plain closures. A component
 //! author who stores a caller's closure keeps it as a Copy

@@ -168,7 +168,7 @@ Machine は独自 control のための、小さい reducer に effect と timer 
 | API-8 | Rc/Arc/Box dyn/Location/明示 lifetime を普通の公開署名に出さない。lifetime の例外は Constraints と Element の借用。実在する内部 cross-crate bridge だけ doc(hidden) にし、`__private`/`__macro` の module と policy の `[macro_support]` の crate は検査の側で例外にする |
 | API-9 | backend の型、公開 path で名前を書けない型を漏らさない |
 | API-10 | kit の名前は facade prelude、ui、標準 prelude と衝突させない。kit 名の接頭辞を型名に付けない |
-| API-11 | conversion trait の診断を具体的にする。独自の型を props の定数にするのは `#[derive(Prop)]`（`constant_value!` は hidden で runtime と types の基本型だけ） |
+| API-11 | conversion trait の診断を具体的にする。独自の型を props の定数にするのは `#[derive(Prop)]`（内部の hidden の仕組みは runtime と types の基本型だけ） |
 | API-12 | setup/context の misuse は track_caller 付きで、修正方法の分かる panic にする |
 | API-13 | 必須位置引数は見える label/title、data、選択、開閉、children。見えない名前を持つ入力部品（text_input、text_area、select、combobox、slider、number_input、日付・時刻の入力）は名前を位置引数で取らず、`.label(..)` か `field(..)` で受ける。focus できる control に名前が無いと mount で位置付きの診断（debug build と `kivact::test` では error）。項目の集まりは items。値を編集する部品は `Signal<T>` を位置引数で受ける（0 個以上を選ぶ部品は `IntoSelection`、単一は `Signal<Option<K>>`、必ず一つは `Signal<K>`）。閉じていると意味の無い部品（dialog、window、drawer、sheet）は `open: Signal<bool>` を位置引数、開閉が任意の部品は setter `.open(signal)`（呼ばなければ部品が局所の signal を作る）。一つの root は `impl Element` |
 | API-14 | bool query は is_/has_、それ以外は名詞。get_/_value は使わず、更新は set/動詞、失敗可能は try_。略語は a11y/ime/id 以外を増やさない |
@@ -188,7 +188,7 @@ HandlerResult は `()`、Handled、Result<(), UiError>、Result<Handled, UiError
 
 handler は runtime の一つの `Handler<E>`（`Rc<dyn Fn(E) -> Result<Handled, UiError>>`、arena の object を作らない）に揃える。受け方は二つだけ（DEC-16）：payload の無い handler は sealed な `IntoHandler<(), M>`（closure `Fn() -> R`（M = Nullary）と `Callback<()>`（M = Handle））、payload のある handler は `impl Fn(E) -> R + 'static`。rustc は closure の引数の型を `Fn` の bound からしか推論しないので、payload のある handler を trait で包まない。共有したい handler は `callback(f)` で作り、payload のある handler には `move |e| cb.call(e)` で渡す。`#[component]` の `Callback<E>` props は内部で `Handler<E>` を持ち、本体には Copy の `Callback<E>` を渡す。owner への登録は本体が子に渡すときだけ行う。user handler、Part、既定動作の順序で伝播と既定動作の防止を区別する。
 
-state の on_mount/on_cleanup は FnOnce の lifecycle 登録であり、node の実装用 on_attach(PartMount) と区別する。イベントは on_press（payload のない押下）、on_activate(key)（key のある項目の実行）、on_commit(value)（確定）、on_edit(EditPhase)（編集の段階）、on_submit、drag の on_start/on_update/on_end、on_files、on_dismiss(reason)、on_complete(Result)/on_exit_complete、on_error(UiError)、on_composition_change、on_active_change、on_reorder とする。項目の活性化は on_activate とし、on_select・on_pick・on_item_activate・on_step_press を使わない。値は Signal が正本で、通知のための on_select・on_add・on_remove・on_open_change を足さない。支援技術 action は a11y_action に登録する。
+state の on_mount/on_cleanup は FnOnce の lifecycle 登録であり、node の実装用 on_attach(PartMount) と区別する。イベントは on_press（payload のない押下）、on_activate(key)（key のある項目の実行）、on_commit(value)（確定）、on_edit(EditPhase)（編集の段階）、on_submit、drag の on_start/on_update/on_end、on_files、on_dismiss(reason)、on_complete(Result)/on_exit_complete、on_error(UiError)、on_composition_change、on_active_change、on_reorder とする。項目の活性化は on_activate とし、on_select・on_pick・on_item_activate を使わない。値は Signal が正本で、通知のための専用の handler（on_select・on_add・on_remove に当たるもの）を足さない。支援技術 action は a11y_action に登録する。
 
 ### 構造 option と slot
 
@@ -219,7 +219,7 @@ ShapedTextSnapshot と GlyphRunSnapshot は不変描画データを安価に clo
 | KIT-1 | `theme(mode) -> Theme`。実際の option があるときだけ `ThemeOptions` と `theme_with(mode, options)`。Theme の extension trait を作らない。kit は theme を `thread_local!` の static で一度だけ作る（fn pointer を key にする cache は作らない） |
 | KIT-2 | kit の色・大きさは kit の theme 変数（`<kit>::PRIMARY` などの `const` と `PRIMARY_VAR` などの `static`）。`theme()` が中核の変数（`color::ACCENT_VAR` など）を kit の変数に向ける。色の名前の旧型と Tokens の値の field を持たない。色 literal は theme 変数の定義と `theme()` だけに置く |
 | KIT-3 | 形の差は `recipes_<group>.rs` の `<Name>Theme` の上書き、値の差は theme 変数。全 recipe を無差別に上書きせず、上書きしない部品は中核の既定を使う |
-| KIT-4 | 公開名は API-10 に従う。kit 名の接頭辞を型名に付けない（`GameCellVariant` としない） |
+| KIT-4 | 公開名は API-10 に従う。kit 名の接頭辞を型名に付けない（`Game` で始まる型名にしない） |
 | KIT-5 | slot は API-6、children は `Vec<View>`。kit 私有の同義 slot/children trait を作らない |
 | KIT-6 | 見た目の選択は `variants.rs` の `<Component>Variant` 一つにまとめ、`Element::variant` で渡す。`*Appearance`・`*Look`・`*Hue`・`*Tone` と呼ばない。標準 Element の disabled を隠さない |
 | KIT-7 | kit の use_ は固有 domain に限る。共通 hook は core/interaction、状態は Machine |

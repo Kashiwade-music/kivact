@@ -1,20 +1,17 @@
 //! Role: Run the workspace's local architectural checks under shared selectors.
 use crate::check_cli::{Options, RULES};
 use crate::check_policy::is_kit;
-use crate::pending::Pending;
 use std::path::Path;
 
-/// The findings of one run: errors fail it; notes are findings of a pending rule.
+/// The findings of one run: errors fail it.
 pub(crate) struct Outcome {
     pub(crate) errors: Vec<String>,
-    pub(crate) notes: Vec<String>,
 }
 
 pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Outcome, String> {
     let text = std::fs::read_to_string(policy).map_err(|e| format!("{}: {e}", policy.display()))?;
     let policy: toml::Table = text.parse().map_err(|e| format!("{e}"))?;
     validate_policy(&policy)?;
-    let pending = Pending::parse(&policy)?;
     let sources = crate::check_source::load(root)?;
     if let Some(package) = &options.package
         && !sources.iter().any(|s| s.package == *package)
@@ -28,10 +25,7 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Out
                 (!kit_only || is_kit(&source.package)) && selected_source(source, options)
             })
     };
-    let mut outcome = Outcome {
-        errors: Vec::new(),
-        notes: Vec::new(),
-    };
+    let mut outcome = Outcome { errors: Vec::new() };
     if !RULES.iter().any(|rule| active(rule)) {
         return Ok(outcome);
     }
@@ -47,13 +41,10 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Out
         index: &index,
         elements: &elements,
         policy: &policy,
-        pending: &pending,
     };
     scope.run(root, options, &mut outcome);
-    for list in [&mut outcome.errors, &mut outcome.notes] {
-        list.sort();
-        list.dedup();
-    }
+    outcome.errors.sort();
+    outcome.errors.dedup();
     Ok(outcome)
 }
 
@@ -64,7 +55,6 @@ struct Scope<'a> {
     index: &'a crate::state::Index,
     elements: &'a crate::element_shadow::Elements,
     policy: &'a toml::Table,
-    pending: &'a Pending,
 }
 
 impl Scope<'_> {
@@ -82,7 +72,7 @@ impl Scope<'_> {
                 {
                     let mut found = Vec::new();
                     run_workspace_rule(rule, root, &mut found);
-                    self.route(rule, package, found, options, outcome);
+                    outcome.errors.extend(found);
                 }
                 continue;
             }
@@ -97,28 +87,8 @@ impl Scope<'_> {
                 }
                 let mut found = Vec::new();
                 self.run_rule(rule, source, settings, &mut found);
-                self.route(rule, &source.package, found, options, outcome);
+                outcome.errors.extend(found);
             }
-        }
-    }
-
-    /// File the findings of `rule` in `package` as notes while the rule is pending there.
-    fn route(
-        &self,
-        rule: &str,
-        package: &str,
-        found: Vec<String>,
-        options: &Options,
-        outcome: &mut Outcome,
-    ) {
-        if !options.strict && self.pending.covers(rule, package) {
-            outcome.notes.extend(
-                found
-                    .into_iter()
-                    .map(|finding| format!("pending: {finding}")),
-            );
-        } else {
-            outcome.errors.extend(found);
         }
     }
 
@@ -162,11 +132,8 @@ fn run_workspace_rule(rule: &str, root: &Path, errors: &mut Vec<String>) {
     }
 }
 
-/// Print one selected run's notes and errors and choose the exit code.
+/// Print one selected run's errors and choose the exit code.
 pub(crate) fn selected(options: &Options, local: &Outcome) -> std::process::ExitCode {
-    for note in &local.notes {
-        println!("{note}");
-    }
     for error in &local.errors {
         if options.report {
             println!("{error}");

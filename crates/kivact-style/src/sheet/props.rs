@@ -420,7 +420,7 @@ style_props! {
         text_align(v: TextAlign) => TextAlign(TextAlign) = v, Rest, Text;
         /// Font family of the text in this node and below (CSS
         /// `font-family`): a family name (`"Inter"`, a font
-        /// registered with `App::font` or installed on the system) or a
+        /// registered with `Theme::with_fonts` or installed on the system) or a
         /// generic family (`"system-ui"`, `"sans-serif"`, `"serif"`,
         /// `"monospace"`). Descendants inherit it, also those that set
         /// other text properties. A family that is not installed falls back

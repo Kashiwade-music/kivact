@@ -539,12 +539,3 @@ a11y = []
 services = []
 display = []
 mirror = ["port", "present", "a11y"]
-
-# 改修（REWORK_DESIGN.md）の間だけ：ここに挙げた package での検査の結果は note として表示し、失敗にしない。
-# `--strict` で error に戻す。各検査を通す unit が入った後、付属書 G の最後の unit が表ごと消す。
-[rework.pending]
-interaction-view = ["kivact-interaction"]
-ui-machine = ["kivact-ui"]
-hand-element = ["kivact-core", "kivact-ui", "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft", "kivact-ui-game-catalog", "kivact-ui-pop-catalog"]
-unit-machine = ["kivact-interaction"]
-element-shadow = ["kivact-ui", "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft", "kivact-ui-game-catalog", "kivact-ui-pop-catalog"]

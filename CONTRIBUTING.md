@@ -18,7 +18,7 @@
   - 公開 enum と field を公開した struct への `#[non_exhaustive]`（`non-exhaustive`。policy の `extra_rules` に入れていません）。互換を残さない初期開発版では利点がなく、workspace の中の `match` から網羅性の検査を奪うためです。
 - 関数は Clippy の 80 行の上限に収めます。長い処理は責務を持つ helper に分け、lint の無効化や行の詰め込みで回避しません。
 - 所有と状態は `Machine`・binding・読み取り専用の投影で表します。公開 API の field に `Arc`・`Rc`・lock を漏らさず、asset は所有する byte 列や `AssetBytes`、保持する描画結果は snapshot の型で渡します。
-- 一度だけ mount する slot は `impl IntoView`、開くたびに作り直す内容は `impl Fn() -> V` で受け取ります。子の mount 時に setup と cleanup owner を作る場合は `scope(move || view)` を使います。
+- 部品は `#[component]` の関数で書きます。一度だけ mount する slot は `View`、開くたびに作り直す内容は `ViewFn` の props で受け取ります。
 - panic は不具合です。`catch_unwind` は host から呼ばれる入口の二か所だけに置きます（Win32 の wndproc と、X11 の埋め込み UI thread の `run`。unwind が host へ届くと abort するため）。その外では `catch_unwind` を使いません。毒された lock は `embed/child.rs` の `Shared::lock` と、X11 UI thread の join handle の slot（`x11/thread.rs` の `thread_slot`）だけで回復し、ほかでは毒された lock の中身にも触れません。
 - glob import は使いません（例・雛形・利用者側の E2E での `kivact::prelude::*` は除きます）。
 
@@ -41,8 +41,9 @@
 | `docs/for-kivact-developer/architecture.md` | crate の境界、状態・API・依存の規則、変更時の確認箇所（日本語） |
 | `docs/for-kivact-developer/decisions.md` | 設計の決定と理由（日本語） |
 | `docs/for-kivact-developer/strategy.md` | 製品戦略（日本語のみ） |
+| `docs/for-kivact-user/{en,jp}/how-to-guide/migrating-to-rework.md` | 改修前の API からの移行の表（改修の時点で固定） |
 
-英語と日本語は同じファイル名で対にし、同じ変更で両方を更新します。英語の木（`docs/*/en/`）と `README.md` の Rust のコードブロックは `dev/tests/docs`（`kivact-docs`）がコンパイルします。`no_run` 以外は doctest として実行し、`no_run` は link しない型検査（`cargo check -p kivact-docs --all-targets`）にします。日本語の木と `README_JP.md` はコンパイルしません。代わりに `cargo xtask check` の `docs-pairs` が、日本語のファイルの Rust のコードブロックの列が英語と同じ（comment・空白・文字列の中身を除く）ことを確かめます。新しいページの登録は不要です。GPU texture 共有のガイドの例は `kivact-docs` の `gpu-interop` feature（`--all-features` で有効）のときだけコンパイルされます。
+英語と日本語は同じファイル名で対にし、同じ変更で両方を更新します。日本語のファイルの Rust のコードブロックは、英語の同じ順番のブロックと token の列を同じにします。文字列の literal の中身だけは訳してかまいません（`cargo xtask check` の `docs-pairs` が、英日のファイルの集合と、ブロックの token の列を確かめます）。`docs/` の英語の木と `README.md` の Rust のコードブロックは `dev/tests/docs`（`kivact-docs`）の doctest としてコンパイルされます。新しいページの登録は不要です。直したガイドだけを確かめるには `KIVACT_DOCS_ONLY=<docs/ からの path をコンマ区切り>` を付けて `cargo test -p kivact-docs --doc` を実行します（root の README は `README.md`）。GPU texture 共有のガイドの例は `kivact-docs` の `gpu-interop` feature（`--all-features` で有効）のときだけコンパイルされます。公開 API を変えたときは、移行ガイド `docs/for-kivact-user/{en,jp}/how-to-guide/migrating-to-rework.md` には足さず、ガイドの本文を新しい使い方に揃えます。
 
 ## テスト
 
@@ -74,7 +75,7 @@ tier a（変更ごと。数分。lock は E2E だけ）：
 cargo fmt -p <crate>
 cargo check -p <crate> --all-targets
 cargo clippy -p <crate> --all-targets -- -D warnings
-cargo xtask check --no-write --crate <crate>                      # 局所の検査だけ。pending を閉じる unit は --strict を付ける
+cargo xtask check --no-write --crate <crate>                      # 局所の検査だけ
 cargo test -p <crate> <filter>                                     # lock の一覧に無い package
 dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p <crate> <filter>      # lock の一覧の package
 dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- <module>
@@ -91,7 +92,6 @@ cargo xtask check --no-write
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs
 cargo check -p kivact-docs --all-targets --all-features
-rg -n "xtask-allow\(state-fields\)" crates dev examples templates     # W1c の後：何も出ない
 ```
 
 tier c（merge の前、native の経路を変えたとき）：
@@ -116,8 +116,6 @@ dev/tools/check-features.sh
 `cargo xtask check` はファイルごとの code 行の上限、crate の `visible_to`（dev-dependency は対象外）、module の依存の向き、Google Rust Style Guide の規則（rustfmt と Clippy を含む）と、局所の検査（`state`、`effect-writes`、`api-shape`、`canonical-path`、`name-collision`、`kit-literal-color`、`os-branch`、`docs-pairs`、`interaction-view`、`ui-machine`、`hand-element`、`unit-machine`、`element-shadow`）を行います。図は書きません（`cargo xtask diagrams`）。`--crate <crate>` を付けると局所の検査だけをその crate に行い（tier a）、`--only <検査,...>` で検査を選び（`--only local` はすべての局所の検査）、`--module <module path>` で範囲を絞ります。`--report` は違反を一覧にして成功で終了します。
 
 状態の規則（`state`）は、`bool`・`Option`・名前の付いた counter・`Cell`・`RefCell`・`Mutex`・`RwLock`・`Atomic*`・`Signal`・`Var` の field を 2 つ以上持ち、作った後に書かれる（`&mut self` の method、内部可変の field、自分の method が書く `Signal`/`Var`）型と、状態の local を 2 つ以上持つ関数を対象にします。組合せは enum で閉じ、閉じない組合せは型（関数）の直前の 1 行 `// xtask-allow(state): <組合せの閉じ方>` に書きます。constructor・`Default`・値渡しの builder だけで書く field は状態ではありません。
-
-改修の間だけ、`dev/xtask/policy/workspace.toml` の `[rework.pending]` に挙げた検査と package の組の結果は `pending:` の note になり、失敗になりません。`--strict` で error に戻ります。
 
 CI は fmt と `cargo xtask check --no-write` だけを実行します。`dev/tools/check-features.sh` は公開の意味を持つ feature を一つずつ有効にしてコンパイルします（tier c）。DevTools の JSON schema は protocol の型から `cargo test -p kivact-devtools-protocol --test schema_generated` が照合し、`KIVACT_WRITE_SCHEMA=1` を付けると書き直します。
 

@@ -27,8 +27,6 @@ pub(crate) struct Options {
     pub(crate) module: Option<String>,
     /// Print errors as notes and succeed.
     pub(crate) report: bool,
-    /// Report pending rules as errors too (`[rework.pending]`).
-    pub(crate) strict: bool,
 }
 
 impl Options {
@@ -53,7 +51,6 @@ impl Options {
                     }
                 }
                 "--report" => result.report = true,
-                "--strict" => result.strict = true,
                 _ => shared.push(arg),
             }
         }
@@ -92,7 +89,6 @@ mod tests {
                 "--module",
                 "state",
                 "--report",
-                "--strict",
                 "--no-write",
             ]
             .map(String::from)
@@ -108,7 +104,6 @@ mod tests {
         assert!(all.selected("state") && all.selected("os-branch"));
         assert!(Options::parse(vec!["--only".into(), "api-shape,unknown".into()]).is_err());
         assert!(options.report);
-        assert!(options.strict);
         assert_eq!(options.package.as_deref(), Some("demo"));
         assert_eq!(rest, ["check", "--no-write"]);
         assert!(Options::parse(vec!["--module".into(), "state".into()]).is_err());
