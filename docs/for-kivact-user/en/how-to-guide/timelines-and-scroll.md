@@ -27,17 +27,19 @@ it drives, add **segments** that move a track to a target, and start it from
 updates while the timeline plays.
 
 ```rust,no_run
-use kivact::motion::{At, Stagger, Timeline};
+use kivact::motion::{At, Easing, Stagger, Timeline, Transition, timeline};
 use kivact::prelude::*;
 
-fn boot_line(tl: Timeline, delay_ms: f64, label: &'static str) -> impl IntoView {
+#[component]
+fn boot_line(tl: Timeline, delay_ms: f64, label: &'static str) -> impl Element {
     let shown = tl.track(0.0_f64);
     tl.to(shown, 1.0, Transition::tween(200, Easing::EaseOut))
         .at(At::Time(delay_ms));
     text(label).style(move || style().opacity(shown.get()))
 }
 
-fn boot_sequence() -> impl IntoView {
+#[component]
+fn boot_sequence() -> impl Element {
     let tl = timeline();
     let stagger = Stagger::new(180.0);
     on_mount(move || tl.play());
@@ -104,11 +106,13 @@ shape the steps with `.easing(..)`:
 - `StaggerFrom::Index(i)` counts from item `i`.
 
 ```rust,no_run
-use kivact::motion::{Stagger, StaggerFrom};
+use kivact::motion::{Easing, Stagger, StaggerFrom, Transition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
+use kivact::view::Node;
 
-fn chips(labels: &'static [&'static str]) -> impl IntoView {
+#[component]
+fn chips(labels: &'static [&'static str]) -> impl Element {
     let stagger = Stagger::new(60.0)
         .from(StaggerFrom::Center)
         .easing(Easing::EaseOut);
@@ -122,7 +126,7 @@ fn chips(labels: &'static [&'static str]) -> impl IntoView {
             text(*label).style(
                 style()
                     .padding(8)
-                    .background(ColorToken::SurfaceAlt)
+                    .background(color::SURFACE_ALT)
                     .enter(style().opacity(0.0).translate_y(8))
                     .transition(
                         TransitionProp::All,
@@ -134,7 +138,7 @@ fn chips(labels: &'static [&'static str]) -> impl IntoView {
 
     row(items).style(style().gap(8).padding(12))
 }
-# fn main() -> kivact::Result<()> { App::new("Chips").run(|| chips(&["Ore", "Fuel", "Food"])) }
+# fn main() -> kivact::Result<()> { App::new("Chips").run(|| chips(&["Ore", "Fuel", "Food"][..])) }
 ```
 
 A stagger only supplies delays. The transition of each item decides how it
@@ -161,9 +165,11 @@ The `ViewRange` says where the measurement starts and ends:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::view::{ViewRange, scroll_progress, view_progress};
+use kivact::view::{Orientation, ViewRange, scroll_progress, view_progress};
+use kivact::view::Node;
 
-fn release_notes(lines: usize) -> impl IntoView {
+#[component]
+fn release_notes(lines: usize) -> impl Element {
     let scroller = node_ref();
     let card = node_ref();
     let header = scroll_progress(scroller, Orientation::Vertical);
@@ -194,7 +200,7 @@ fn release_notes(lines: usize) -> impl IntoView {
     ))
     .style(style().gap(8).padding(16))
 }
-# fn main() -> kivact::Result<()> { App::new("Notes").run(|| release_notes(40)) }
+# fn main() -> kivact::Result<()> { App::new("Notes").run(|| release_notes(40_usize)) }
 ```
 
 The scroll values update when the host reports a new scroll position or layout.
@@ -210,16 +216,18 @@ how a scroll-linked animation is written without a frame loop:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::view::scroll_progress;
+use kivact::view::{Orientation, scroll_progress};
+use kivact::motion::{Easing, Transition, timeline};
 
-fn reading_progress(scroller: NodeRef) -> impl IntoView {
+#[component]
+fn reading_progress(scroller: NodeRef) -> impl Element {
     let tl = timeline();
     let width = tl.track(0.0_f64);
     tl.to(width, 100.0, Transition::tween(1000, Easing::Linear));
     tl.drive(scroll_progress(scroller, Orientation::Vertical));
 
     column((
-        node().style(move || style().height(4).width(pct(width.get())).background(ColorToken::Accent)),
+        node().style(move || style().height(4).width(pct(width.get())).background(color::ACCENT)),
         scroll(text("Long article")).node_ref(scroller).style(style().height(240)),
     ))
 }
@@ -246,18 +254,21 @@ there is an exit to wait for. Without one, it is removed at once in every mode.
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 use kivact::view::PresenceMode;
+use kivact::motion::{Easing, Transition};
+use kivact::view::Node;
 
 fn fading(label: &'static str) -> Node {
     text(label).style(
         style()
             .padding(12)
-            .background(ColorToken::SurfaceAlt)
+            .background(color::SURFACE_ALT)
             .exit(style().opacity(0.0))
             .transition(TransitionProp::All, Transition::tween(200, Easing::EaseOut)),
     )
 }
 
-fn play_pause(playing: Signal<bool>) -> impl IntoView {
+#[component]
+fn play_pause(playing: Signal<bool>) -> impl Element {
     column((
         button("Toggle").on_press(move || playing.update(|p| *p = !*p)),
         show(playing, || fading("Playing"))
@@ -279,18 +290,21 @@ property.
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::motion::{Spring, Transition};
 
-fn tabs() -> impl IntoView {
+#[component]
+fn tabs() -> impl Element {
     let selected = signal(0_usize);
     row((
-        tab("Home", selected, 0),
-        tab("Inbox", selected, 1),
-        tab("Settings", selected, 2),
+        tab("Home", selected, 0_usize),
+        tab("Inbox", selected, 1_usize),
+        tab("Settings", selected, 2_usize),
     ))
     .style(style().gap(16).padding(12))
 }
 
-fn tab(label: &'static str, selected: Signal<usize>, index: usize) -> impl IntoView {
+#[component]
+fn tab(label: &'static str, selected: Signal<usize>, index: usize) -> impl Element {
     column((
         button(label).on_press(move || selected.set(index)),
         show(move || selected.get() == index, move || {
@@ -299,7 +313,7 @@ fn tab(label: &'static str, selected: Signal<usize>, index: usize) -> impl IntoV
             node().layout_id("tab-marker").style(
                 style()
                     .height(3)
-                    .background(ColorToken::Accent)
+                    .background(color::ACCENT)
                     .layout_transition(Transition::spring(Spring::STIFF)),
             )
         }),

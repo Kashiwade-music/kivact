@@ -24,8 +24,11 @@ it under a transform.
 ```rust,no_run
 use kivact::draw::Layer;
 use kivact::prelude::*;
+use kivact::view::drawable;
+use kivact::style::Transform;
 
-fn settings_card() -> impl IntoView {
+#[component]
+fn settings_card() -> impl Element {
     let card = drawable();
     let angle = signal(20.0_f64);
 
@@ -93,8 +96,10 @@ use kivact::draw::Pixels;
 use kivact::geometry::Matrix4;
 use kivact::prelude::*;
 use kivact::view::{DrawableFrame, ShareError, ShareUpdate, viewport};
+use kivact::view::drawable;
 
-fn engine_panel() -> impl IntoView {
+#[component]
+fn engine_panel() -> impl Element {
     let panel = drawable();
     let share = panel.share();
     share.request_pixels();

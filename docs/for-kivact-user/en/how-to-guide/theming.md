@@ -4,9 +4,9 @@
 
 A `Theme` holds the colors, spacing, radii, type sizes, icons and component
 recipes that every standard component draws from. Pick a theme for the app with
-`App::theme`, switch it at run time with `provide_theme`, read its tokens in
-your own styles, and change single parts with recipes. The official kits ship
-complete themes, so you rarely start from nothing.
+`App::theme`, switch it at run time with `provide_theme`, read its theme
+variables in your own styles, and change single parts with recipes. The official
+kits ship complete themes, so you rarely start from nothing.
 
 ## Choose a theme
 
@@ -40,7 +40,6 @@ signal and wrap your screen in `provide_theme`:
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::style::provide_theme;
 
 fn app() -> impl IntoView {
     let theme = signal(Theme::light());
@@ -63,8 +62,8 @@ fn app() -> impl IntoView {
                 .height(pct(100))
                 .padding(16)
                 .gap(8)
-                .background(ColorToken::Surface)
-                .color(ColorToken::Text),
+                .background(color::SURFACE)
+                .color(color::TEXT),
         )
     })
 }
@@ -92,63 +91,69 @@ nothing is rebuilt and no state is lost. The theme can also be a closure or a
 `memo`. `provide_theme` works for a subtree too: a settings panel can be dark
 inside a light app, and siblings keep the theme from above.
 
-## Read tokens in your own styles
+## Use theme variables in your styles
 
-Colors given as `ColorToken`s resolve against the theme they are drawn in, so
-they follow a switch for free:
+Theme variables resolve against the theme they are drawn in, so they follow a
+switch for free:
 
 ```rust,no_run
 use kivact::prelude::*;
 
-fn card(body: impl IntoView) -> impl IntoView {
+#[component]
+fn card(body: View) -> impl Element {
     column(body).style(
         style()
-            .background(ColorToken::SurfaceAlt)
-            .border(1, ColorToken::Border)
-            .radius(8)
-            .padding(12),
+            .background(color::SURFACE_ALT)
+            .border(1, color::BORDER)
+            .border_radius(radius::MD)
+            .padding(space::MD),
     )
 }
 
-fn spaced(body: impl IntoView) -> impl IntoView {
-    // Read the theme inside the closure: the style is computed again when it changes.
-    column(body).style(move || {
-        let theme = use_theme().get();
-        style().padding(theme.space().lg).gap(theme.space().sm)
-    })
+#[component]
+fn spaced(body: View) -> impl Element {
+    // A theme variable needs no closure: the style follows a theme switch.
+    column(body).style(style().padding(space::LG).gap(space::SM).width(pct(100) - space::XL))
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("Tokens").run(|| card(spaced(text("Hello"))))
+    App::new("Theme variables").run(|| card(spaced(text("Hello"))))
 }
 ```
 
-- The color tokens: `Surface`, `SurfaceAlt`, `Text`, `TextMuted`, `Accent`,
-  `AccentText`, `Border`, `Focus`, `Danger`, `Success`, `Warning`, `Overlay`,
-  `Shadow`, `Selection`, `Hover`, `Pressed` and `Raised`. `rgb(0x2563eb)` and
-  `rgba(..)` give fixed colors.
-- Other tokens are read with accessors: `theme.space().md`, `theme.radius().lg`,
-  `theme.text().size`, `theme.focus_ring()`, `theme.focus_ring_offset()`,
-  `theme.disabled_opacity()` and `theme.control_height()`.
-- `use_theme()` returns a reactive `Value<Theme>` that you may keep during
-  setup. Read its `.get()` inside a style closure to follow theme switches.
+- The color variables in `color`: `SURFACE`, `SURFACE_ALT`, `TEXT`, `TEXT_MUTED`,
+  `ACCENT`, `ACCENT_TEXT`, `BORDER`, `FOCUS`, `DANGER`, `SUCCESS`, `WARNING`,
+  `OVERLAY`, `SHADOW`, `SELECTION`, `HOVER`, `PRESSED` and `RAISED`. `space::XS`
+  to `space::XL`, `radius::SM` to `radius::LG` and `font::SIZE`, `font::SIZE_SMALL`
+  and `font::SIZE_LARGE` are lengths. `rgb(0x2563eb)` and `rgba(..)` give fixed
+  colors. Lengths combine with `+` and `-`, like CSS `calc()`:
+  `pct(100) - space::XL` mixes a percentage and a theme variable and is computed
+  again when the theme changes.
+- Other theme values: `theme.focus_ring()` and `theme.focus_ring_offset()` are
+  read with accessors; the control height, the disabled opacity and the overlay
+  margin are the variables `control::HEIGHT_VAR`, `control::DISABLED_OPACITY_VAR`
+  and `control::OVERLAY_MARGIN_VAR` (in `kivact::style::control`), read with
+  `theme.get(..)`. `theme.get(&color::ACCENT_VAR)` reads the value of a variable,
+  for example to draw on a canvas.
+- `use_theme()` returns the theme in effect; read it inside a style closure when
+  a style depends on more than variables.
 
-## Change tokens
+## Set theme variables
 
-Every `with_*` builder returns a new theme and keeps the rest:
+`set(&VAR, value)` returns a new theme with one variable changed and keeps the
+rest; the value may be another variable, as `FOCUS` follows `ACCENT` here:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::theme::Palette;
+use kivact::style::control;
 
 fn brand() -> Theme {
-    let base = Theme::light().with_focus_ring(3.0).with_focus_ring_offset(2.0);
-    let colors = Palette {
-        accent: rgb(0x7c3aed),
-        focus: rgb(0x7c3aed),
-        ..base.colors().clone()
-    };
-    base.with_colors(colors).with_disabled_opacity(0.4)
+    Theme::light()
+        .with_focus_ring(3.0)
+        .with_focus_ring_offset(2.0)
+        .set(&color::ACCENT_VAR, rgb(0x7c3aed))
+        .set(&color::FOCUS_VAR, &color::ACCENT_VAR)
+        .set(&control::DISABLED_OPACITY_VAR, 0.4)
 }
 
 fn main() -> kivact::Result<()> {
@@ -156,33 +161,53 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-Every standard component picks the new accent up. The same works for
-`with_space`, `with_radius`, `with_text` (type sizes and the default font
-family), `with_control_height` and `with_icons`. Starting from a kit's theme
-instead of `Theme::light()` keeps the kit's recipes and tokens.
-
-Use `theme.with_overlay_margin(16.0)`
-to fit overlays inside a 16 px viewport margin. The default is zero inset with viewport fitting enabled. Anchored overlays try
-flips, spans and slides before clamping. Use `Overlay::viewport_margin`
-to set the margin on an individual layer.
-
-## Change how one standard component looks
-
-Tokens change everything at once. To change one part of one component, wrap its
-**recipe**: a function from the theme and the part's state to a `Style`. The
-recipe table is `UiRecipes`, installed with `Theme::with`.
+Every kind of theme variable can take another variable as its value, sizes
+included: a component's own variables, such as the button height, default to the
+core variables, so changing a core value reaches every component that follows it.
+A loop of variables is reported once and falls back to the fallback value.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::UiRecipes;
+use kivact::style::ThemeVar;
+
+/// The gap of a toolbar: the theme's medium spacing until a theme sets it.
+pub static TOOLBAR_GAP_VAR: ThemeVar<f64> = ThemeVar::alias("toolbar.gap", &space::MD_VAR);
+
+fn roomy() -> Theme {
+    Theme::light().set(&TOOLBAR_GAP_VAR, &space::LG_VAR)
+}
+# fn main() { let _ = roomy(); }
+```
+
+An alias is written one way: `ThemeVar::alias(name, &OTHER_VAR)` for the default,
+and `theme.set(&VAR, &OTHER_VAR)` in a theme.
+
+Every standard component picks the new accent up. The same works for the `space`,
+`radius` and `font` variables (`space::MD_VAR` and so on). `with_icons` sets the
+icons; the control height, the disabled opacity and the overlay margin are
+`control::HEIGHT_VAR`, `control::DISABLED_OPACITY_VAR` and
+`control::OVERLAY_MARGIN_VAR`, set the same way. Starting from a kit's theme
+instead of `Theme::light()` keeps the kit's recipes and tokens.
+
+Use `theme.set(&control::OVERLAY_MARGIN_VAR, 16.0)` to fit overlays inside a
+16 px viewport margin. The default is zero inset with viewport fitting enabled.
+Anchored overlays try flips, spans and slides before clamping. Use
+`Overlay::viewport_margin` to set the margin on an individual layer.
+
+## Change how one standard component looks
+
+Theme variables change everything at once. To change one part of one component,
+wrap its **recipe**: a function from the theme, the part's look and the style
+made so far to a `Style`. Each standard component has a table in
+`kivact::ui::theme`, such as `ButtonTheme`, installed with `Theme::with`.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::ui::theme::ButtonTheme;
 
 fn square_buttons() -> Theme {
-    let theme = Theme::light();
-    // Read the recipes the theme has now (a kit's, if it is a kit's theme) ...
-    let recipes = UiRecipes::clone(&theme.ext::<UiRecipes>());
-    // ... and wrap the button recipe: call the old one, then override one thing.
-    let recipes = recipes.button(|previous| move |theme, state| previous(theme, state).radius(0));
-    theme.with(recipes)
+    // `base` is the style the theme's recipe made; return it changed.
+    Theme::light().with(ButtonTheme::default().root(|_theme, _look, base| base.border_radius(0)))
 }
 
 fn main() -> kivact::Result<()> {
@@ -190,24 +215,21 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-- The method named after a part (`button`, `text_input`, `checkbox`, ...)
-  replaces that recipe; it receives the current one so you can build on it. Tables of
-  several parts, such as the dialog, are read with `dialog_recipes()` and
-  changed with `dialog(|table| table.surface(..))`.
-- Build the theme **once** (at start, or in a `static`). A recipe table is
-  compared by identity, so a theme rebuilt on every run restyles everything under it
-  each time.
-- Behavior (keys, focus, accessibility) is not in a recipe, so restyling a
-  component never changes how it works.
+- A method named after a part (`root` and the other parts of the table) adds your
+  function after the theme's recipe for that part: `base` is the style the theme
+  made, and `look` holds the part's state and variant.
+- Build the theme **once**, at start, and keep it: pass it to `App::theme` or
+  keep it in a signal for `provide_theme`. A recipe table is compared by identity,
+  so a theme rebuilt on every run restyles everything under it each time.
 - To change a single instance instead of a theme, add `.style(..)` to it. A
   style you set on a component comes after the recipe and wins.
 
-Themes can draw checkbox marks in the `checkbox_check` and `checkbox_mixed`
-recipes inside `checkbox_indicator`, and draw a switch thumb with
-`switch_thumb` inside `switch_track`. Replace the root recipe's drawing
-when drawing these parts separately. The radio group's `mark` recipe
-styles the dot icon. Custom parts stay mounted as the checked state changes,
-so a paint transition can animate opacity, translation or scale.
+Themes can draw checkbox marks in the `check` and `mixed` parts of
+`CheckboxTheme`, which sit inside `indicator`, and draw a switch thumb with the
+`thumb` part of `SwitchTheme`, inside `track`. Replace the root recipe's drawing
+when drawing these parts separately. The radio group's `mark` part (in
+`RadioGroupTheme`) styles the dot icon. Custom parts stay mounted as the checked
+state changes, so a paint transition can animate opacity, translation or scale.
 
 ### Variants: the same component in another look
 
@@ -217,7 +239,8 @@ so a paint transition can animate opacity, translation or scale.
 ```rust,no_run
 use kivact::prelude::*;
 
-fn buttons() -> impl IntoView {
+#[component]
+fn buttons() -> impl Element {
     row((
         button("Primary"),
         button("Secondary").variant(ButtonVariant::Secondary),
@@ -236,18 +259,19 @@ fn main() -> kivact::Result<()> {
 
 A button without a variant is `Primary`. A theme decides how each variant looks;
 kits often add their own variant types. Define one yourself with a type that
-implements `kivact::ui::Variant` and read it in a recipe with
+implements `kivact::ui::theme::Variant` and read it in a recipe with
 `look.variant::<MyVariant>()`. `button(..).size(kivact::ui::ControlSize::Small)` and
 the other `size` options change the metrics the same way.
 
-## Hover, pressed, focus and disabled looks
+## Hover, active, focus and disabled looks
 
 State looks are part of the style you return, not events you listen to:
 
 ```rust,no_run
 use kivact::prelude::*;
 
-fn tile() -> impl IntoView {
+#[component]
+fn tile() -> impl Element {
     node()
         .child(text("Open"))
         .role(Role::Button)
@@ -255,15 +279,16 @@ fn tile() -> impl IntoView {
         .style(
             style()
                 .padding(12)
-                .background(ColorToken::SurfaceAlt)
-                .hover(style().background(ColorToken::Hover))
-                .pressed(style().background(ColorToken::Pressed))
-                .focus_visible(style().ring(2, ColorToken::Focus))
+                .background(color::SURFACE_ALT)
+                .hover(style().background(color::HOVER))
+                .active(style().background(color::PRESSED))
+                .focus_visible(style().outline(2, color::FOCUS))
                 .disabled(style().opacity(0.5)),
         )
 }
 
-fn row_with_actions() -> impl IntoView {
+#[component]
+fn row_with_actions() -> impl Element {
     // `group()` on the parent lets a child react to the parent's hover.
     row((
         text("Report.pdf"),
@@ -278,18 +303,17 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-- `hover` applies while the pointer is over the node or a descendant, `pressed`
+- `hover` applies while the pointer is over the node or a descendant, `active`
   while it is pressed, `focus` while it has focus, `focus_visible` while the focus
   should be visible (keyboard use), and `disabled` while the node is disabled.
 - A focusable element without its own `focus` or `focus_visible` gets the theme's
   focus ring automatically, and a disabled one is drawn with the theme's
-  `disabled_opacity`. Remove them with `style().focus_visible(style().ring_none())`
+  `disabled_opacity`. Remove them with `style().focus_visible(style().outline_none())`
   or `style().disabled(style().opacity(1.0))`.
 - `group()` and `group_hover(..)` (also `group_focus(..)`) react to an ancestor's
   state with no pointer handler in your code.
-- A state style changes paint only (background, border, ring, radius, opacity,
-  shadow, transform, cursor, filters, color); anything else set in it is
-  reported and ignored. `disabled` and `selected` can change any property.
+- A state style can set any property, including layout ones such as padding or
+  width; the node is laid out again when the state changes.
 - You do not read hover state in a recipe and branch on it. Describe each state
   as a style and the engine applies it.
 
@@ -307,7 +331,7 @@ static STAR: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24
 
 fn app() -> impl IntoView {
     row((
-        icon("star").name("Favorite").style(style().size(24, 24).color(ColorToken::Warning)),
+        icon("star").name("Favorite").style(style().size(24, 24).color(color::WARNING)),
         text("Starred"),
     ))
     .style(style().gap(8).padding(16))
@@ -360,9 +384,10 @@ setting.
 use kivact::prelude::*;
 use kivact::style::{hwb, oklch};
 
-fn swatches(brand_text: &str) -> impl IntoView {
+#[component]
+fn swatches(brand_text: String) -> impl Element {
     // A color from a setting: a value that does not parse falls back to the default.
-    let brand = Color::css(brand_text).unwrap_or(oklch(0.62, 0.19, 255.0));
+    let brand = Color::css(&brand_text).unwrap_or(oklch(0.62, 0.19, 255.0));
     row((
         text("Brand").style(
             style()
@@ -379,7 +404,7 @@ fn swatches(brand_text: &str) -> impl IntoView {
     ))
     .style(style().gap(8).padding(12))
 }
-# fn main() -> kivact::Result<()> { App::new("Swatches").run(|| swatches("oklch(70% 0.15 250)")) }
+# fn main() -> kivact::Result<()> { App::new("Swatches").run(|| swatches("oklch(70% 0.15 250)".to_string())) }
 ```
 
 Colors from these spaces work everywhere a color is accepted: a style, a border,
@@ -399,11 +424,11 @@ after the stop: where the color is halfway between the two is then at `at`, not
 at the middle of the two stops, as CSS color hints do.
 
 ```rust,no_run
-use kivact::draw::linear_gradient;
 use kivact::prelude::*;
-use kivact::style::{ColorSpace, HueInterpolation, oklch};
+use kivact::style::{ColorSpace, HueInterpolation, linear_gradient, oklch};
 
-fn dusk() -> impl IntoView {
+#[component]
+fn dusk() -> impl Element {
     // Sweep through the hues in oklch, the long way round, with the
     // midpoint of the first pair moved towards the warm end.
     let sky = linear_gradient(180)
@@ -419,39 +444,27 @@ fn dusk() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Dusk").run(dusk) }
 ```
 
-## Add your own tokens
+## Add your own theme variables
 
-Share your own colors and sizes through the theme by defining a type that
-implements `ThemeExtension`:
+Share your own colors and sizes through the theme with your own theme variables:
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::style::ThemeExtension;
+use kivact::style::{Length, ThemeVar};
 
-#[derive(Debug, PartialEq)]
-struct Brand {
-    highlight: Color,
-    gutter: f64,
-}
+static HIGHLIGHT_VAR: ThemeVar<Color> = ThemeVar::new("brand.highlight", rgb(0xff8800));
+static GUTTER_VAR: ThemeVar<f64> = ThemeVar::new("brand.gutter", 12.0);
+const HIGHLIGHT: Color = Color::var(&HIGHLIGHT_VAR);
+const GUTTER: Length = Length::var(&GUTTER_VAR);
 
-impl ThemeExtension for Brand {
-    // What a theme without `Brand` reads, for example when your component runs
-    // under another theme.
-    fn fallback(_theme: &Theme) -> Self {
-        Brand { highlight: rgb(0xff8800), gutter: 12.0 }
-    }
-}
-
-fn banner() -> impl IntoView {
-    text("New").style(move || {
-        let brand = use_theme().get().ext::<Brand>();
-        style().color(brand.highlight).padding(brand.gutter)
-    })
+#[component]
+fn banner() -> impl Element {
+    text("New").style(style().color(HIGHLIGHT).padding(GUTTER))
 }
 
 fn main() -> kivact::Result<()> {
-    let theme = Theme::light().with(Brand { highlight: rgb(0x0088ff), gutter: 16.0 });
-    App::new("Brand tokens").theme(theme).run(banner)
+    let theme = Theme::light().set(&HIGHLIGHT_VAR, rgb(0x0088ff)).set(&GUTTER_VAR, 16.0);
+    App::new("Brand variables").theme(theme).run(banner)
 }
 
 #[cfg(test)]
@@ -459,23 +472,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn an_installed_value_wins_and_a_missing_one_falls_back() {
-        let themed = Theme::light().with(Brand { highlight: rgb(0x0088ff), gutter: 16.0 });
-        assert_eq!(themed.ext::<Brand>().gutter, 16.0);
-        assert_eq!(Theme::dark().ext::<Brand>().gutter, 12.0);
+    fn a_set_value_wins_and_an_unset_one_falls_back() {
+        let themed = Theme::light().set(&GUTTER_VAR, 16.0);
+        assert_eq!(themed.get(&GUTTER_VAR), 16.0);
+        assert_eq!(Theme::dark().get(&GUTTER_VAR), 12.0);
     }
 }
 ```
 
-- The type needs `Debug + PartialEq + Send + Sync + 'static`. Two themes are equal
-  when their installed values are equal, which keeps unchanged themes from
-  restyling.
-- `Theme::ext::<Brand>()` returns a `ThemeRef<Brand>` that shares the installed value;
-  nothing is copied.
-- Read tokens inside a style closure (as above) so a theme switch restyles the
-  component without remounting.
-- A library that ships components uses the same mechanism for its own
-  recipe tables. See [Write reusable components](custom-components.md).
+- A variable is a `static` `ThemeVar` (a name and a fallback) and a `const` `Color`
+  or `Length` that points to it. Use the `const` anywhere a value goes.
+- `theme.set(&VAR, value)` gives it a value in one theme; a theme that never sets
+  it uses the fallback, which may be another variable.
+- Tables of functions, such as recipes, stay `ThemeExtension`s installed with
+  `Theme::with`. See [Write reusable components](custom-components.md).
 
 ## See also
 
@@ -485,4 +495,4 @@ mod tests {
 - [Images and fonts](images-and-fonts.md): custom fonts and icons from SVG.
 - [Internationalization](i18n.md): locale, texts and text direction.
 - Reference: `cargo doc -p kivact-style --open` for `Theme`, `Style` and
-  `ColorToken`; `cargo doc -p kivact-ui --open` for `UiRecipes`.
+  `ThemeVar`; `cargo doc -p kivact-ui --open` for `kivact::ui::theme`.

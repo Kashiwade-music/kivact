@@ -11,32 +11,33 @@
 ```rust,no_run
 use kivact::prelude::*;
 
-fn tilted_card() -> impl IntoView {
+#[component]
+fn tilted_card() -> impl Element {
     let angle = signal(0.0_f64);
 
     column((
-        button("15 度回す").on_press(move || angle.update(|a| *a += 15.0)),
-        column(text("カード"))
+        button("Turn 15 degrees").on_press(move || angle.update(|a| *a += 15.0)),
+        column(text("Card"))
             .style(move || {
                 style()
                     .size(200, 120)
                     .padding(16)
-                    .radius(12)
-                    .background(ColorToken::Surface)
+                    .border_radius(12)
+                    .background(color::SURFACE)
                     .rotate_x(20.0)
                     .rotate_y(angle.get())
             }),
     ))
-    // 遠近は親に付けます。子は 800 px の距離から見たように描かれます。
+    // The perspective belongs to the parent: its children are seen from 800 px away.
     .style(style().gap(12).padding(24).perspective(800.0))
 }
-# fn main() -> kivact::Result<()> { App::new("傾いたカード").run(tilted_card) }
+# fn main() -> kivact::Result<()> { App::new("Tilted card").run(tilted_card) }
 ```
 
 - `perspective` は、子を立体に見せたい要素に付けます。800 は、少し後ろに下がったカメラのような見え方です。小さい値ほど傾きが強調されます。
 - `perspective_origin(x, y)` は、見る人が向いている点を箱に対して動かします。既定は中央です。
 - `transform_origin(x, y)` は、要素を回す中心の点を動かします。既定は中央です。`transform_origin_z` で奥行きを指定します。
-- 変換を 1 つの値として書くには、`kivact::draw::Transform` を `style().transform(..)` に渡します（例: `Transform::new().perspective(800.0).rotate_y(angle)`）。関数は CSS と同じく、書いた順に適用されます。`matrix_3d` は 4×4 の行列を受け付けますが、最下行は `(0, 0, 0, 1)` でなければなりません。遠近は `perspective` プロパティか `perspective(..)` で表してください。一般の遠近の行はサポートしていません。
+- 変換を 1 つの値として書くには、`kivact::style::Transform` を `style().transform(..)` に渡します（例: `Transform::new().perspective(800.0).rotate_y(angle)`）。関数は CSS と同じく、書いた順に適用されます。`matrix_3d` は 4×4 の行列を受け付けますが、最下行は `(0, 0, 0, 1)` でなければなりません。遠近は `perspective` プロパティか `perspective(..)` で表してください。一般の遠近の行はサポートしていません。
 
 ## 子を一つの 3D 空間に置く
 
@@ -45,32 +46,34 @@ fn tilted_card() -> impl IntoView {
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::{BackfaceVisibility, TransformStyle};
+use kivact::motion::{Spring, Transition, animated};
 
-fn flip_card() -> impl IntoView {
+#[component]
+fn flip_card() -> impl Element {
     let flipped = signal(false);
     let turn = animated(
         move || if flipped.get() { 180.0_f64 } else { 0.0 },
         Transition::spring(Spring::GENTLE),
     );
 
-    let front = column(text("表")).style(
+    let front = column(text("Front")).style(
         style()
             .size(200, 120)
             .padding(16)
-            .background(ColorToken::Accent)
+            .background(color::ACCENT)
             .backface_visibility(BackfaceVisibility::Hidden),
     );
-    let back = column(text("裏")).style(
+    let back = column(text("Back")).style(
         style()
             .size(200, 120)
             .padding(16)
-            .background(ColorToken::Surface)
+            .background(color::SURFACE)
             .backface_visibility(BackfaceVisibility::Hidden)
             .rotate_y(180.0),
     );
 
     column((
-        button("裏返す").on_press(move || flipped.update(|f| *f = !*f)),
+        button("Flip").on_press(move || flipped.update(|f| *f = !*f)),
         stack((front, back)).style(move || {
             style()
                 .transform_style(TransformStyle::Preserve3d)
@@ -79,7 +82,7 @@ fn flip_card() -> impl IntoView {
     ))
     .style(style().gap(12).padding(24).perspective(800.0))
 }
-# fn main() -> kivact::Result<()> { App::new("裏返るカード").run(flip_card) }
+# fn main() -> kivact::Result<()> { App::new("Flip card").run(flip_card) }
 ```
 
 - `Preserve3d` は、表と裏を持つ要素に付けます。その子が 3D 空間に置かれるので、裏の `rotate_y(180)` によって裏が反対向きになります。
@@ -98,12 +101,14 @@ fn flip_card() -> impl IntoView {
 use kivact::platform::window_size;
 use kivact::prelude::*;
 use kivact::view::pointer_position;
+use kivact::motion::{Spring, Transition, animated};
 
-fn tilt_card() -> impl IntoView {
+#[component]
+fn tilt_card() -> impl Element {
     let pointer = pointer_position();
     let window = window_size();
 
-    // ポインターの位置を、ウィンドウの中で -1..1 にしたもの。外にあるときは中央とみなします。
+    // Pointer position as -1..1 across the window; centred when it is outside.
     let aim = animated(
         move || {
             let size = window.get();
@@ -117,13 +122,13 @@ fn tilt_card() -> impl IntoView {
     );
 
     column(
-        column((text("ポインターを動かす"), text("カードがそちらへ傾きます。")))
+        column((text("Move the pointer"), text("This card leans toward it.")))
             .style(move || {
                 let a = aim.get();
                 style()
                     .padding(24)
-                    .radius(16)
-                    .background(ColorToken::Surface)
+                    .border_radius(16)
+                    .background(color::SURFACE)
                     .rotate_x(-a.y * 12.0)
                     .rotate_y(a.x * 12.0)
                     .translate_z(20.0)
@@ -131,7 +136,7 @@ fn tilt_card() -> impl IntoView {
     )
     .style(style().padding(40).perspective(600.0))
 }
-# fn main() -> kivact::Result<()> { App::new("傾くカード").run(tilt_card) }
+# fn main() -> kivact::Result<()> { App::new("Tilt card").run(tilt_card) }
 ```
 
 - ポインターの位置はウィンドウの座標なので、例ではカードではなくウィンドウの大きさと比べています。傾きの上限（ここでは 12 度）は、レイアウトに合わせて決めてください。
@@ -151,4 +156,4 @@ fn tilt_card() -> impl IntoView {
 - [値と要素をアニメーションさせる](animation.md): ばね、トランジション、`animated`。
 - [キャンバスで描く](canvas.md): キャンバスの中の 3D の層。
 - [エフェクトを使う](effects.md): 同じ要素へのフィルター、マスク、ブレンド。
-- API リファレンス: `cargo doc -p kivact --open` を実行し、`kivact::style` と `kivact::draw::Transform` を見てください。
+- API リファレンス: `cargo doc -p kivact --open` を実行し、`kivact::style` と `kivact::style::Transform` を見てください。
