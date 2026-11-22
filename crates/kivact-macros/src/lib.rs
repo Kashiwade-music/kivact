@@ -12,7 +12,9 @@ mod root;
 ///
 /// Required arguments become the builder's positional arguments; `Option<..>`
 /// arguments and `#[prop(default = ..)]` arguments become named setters on the
-/// returned struct. Return `impl Element` to let callers style the component.
+/// returned struct. Integer props (`u8` to `isize`) take their written type,
+/// so a literal such as `3` passes as it is. Return `impl Element` to let
+/// callers style the component.
 /// The function body runs once, in the scope the builder mounts.
 #[proc_macro_attribute]
 pub fn component(attr: TokenStream, item: TokenStream) -> TokenStream {

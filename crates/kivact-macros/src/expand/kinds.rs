@@ -92,7 +92,7 @@ pub(super) fn input_type(prop: &Prop, r: &TokenStream) -> TokenStream {
             let output = func_result(prop, output, *returns_view);
             quote! { impl ::std::ops::Fn(#(#args),*) -> #output + 'static }
         }
-        PropKind::Param(ty) => quote! { #ty },
+        PropKind::AsIs(ty) => quote! { #ty },
         PropKind::Other(ty) => quote! { impl ::std::convert::Into<#ty> },
     }
 }
@@ -120,7 +120,7 @@ pub(super) fn keep_type(prop: &Prop, r: &TokenStream) -> TokenStream {
             };
             quote! { ::std::rc::Rc<dyn ::std::ops::Fn(#(#args),*) -> #output> }
         }
-        PropKind::Param(ty) | PropKind::Other(ty) => quote! { #ty },
+        PropKind::AsIs(ty) | PropKind::Other(ty) => quote! { #ty },
     }
 }
 
@@ -129,7 +129,7 @@ pub(super) fn store(prop: &Prop, r: &TokenStream, input: TokenStream) -> TokenSt
     match &prop.kind {
         PropKind::Text => quote! { #r::custom::Prop::from_text(#input) },
         PropKind::Value(_) => quote! { #r::custom::Prop::new(#input) },
-        PropKind::Signal(_) | PropKind::Param(_) => input,
+        PropKind::Signal(_) | PropKind::AsIs(_) => input,
         PropKind::Callback0 => quote! { #r::state::IntoHandler::into_handler(#input) },
         PropKind::Callback(_) => quote! { #r::custom::Handler::from_fn(#input) },
         PropKind::View => quote! { #r::view::IntoView::into_view(#input) },
@@ -213,6 +213,6 @@ pub(super) fn kivact_type(prop: &Prop, r: &TokenStream) -> Option<TokenStream> {
         PropKind::View => Some(quote! { #r::view::View }),
         PropKind::Children => Some(quote! { ::std::vec::Vec<#r::view::View> }),
         PropKind::ViewFn => Some(quote! { #r::view::ViewFn }),
-        PropKind::Param(_) | PropKind::Func { .. } | PropKind::Other(_) => None,
+        PropKind::AsIs(_) | PropKind::Func { .. } | PropKind::Other(_) => None,
     }
 }
