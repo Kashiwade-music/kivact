@@ -135,3 +135,34 @@
 - policy の各 crate の `[module_rules.<crate>]` の節は、その crate の unit が触る。
 - 完了：統合で `cargo xtask check --no-write` の error が、W11b の文書の分を除いて 0 件。W11b の後は全体で 0 件。
 - **設計者の決め**と書いた所で、書いた形にできない理由が出たら返す。
+
+## 3. 設計者の答え（2026-11-22、Orchestrator 5 の W11x の質問）
+
+- **X4 の付属書との違い**：すべて受ける（`paint::state` の名前、`open_vulkan` の `vulkan/open.rs`、`view/measurement.rs`、`begin_exit` の `platform/lifecycle.rs`、`span.rs` の `kivact_style::paint::Paint` の import）。公開の path は変わらないので、意図どおり。
+- **X1 の `SidebarTheme`**：`look.rs` に残してよい。条件は、sidebar の 3 module の循環が消えていて、辺が一方向であること。kivact-ui の theme の型は `look.rs` に置くのが他の component と同じ形（`DialogKind` も `look.rs`）。
+- **X2 の `color.rs` の分割**：(a) に近い形にする。policy の `[kit_literal_color]` は変えない。
+  - `color.rs`：theme の変数（`*_VAR` と `Color::var` の定数。名前と明るい外観の既定の値）だけを置く。
+  - `tokens.rs`（新）：`set_colors` とその補助の関数（外観ごとの値）を移す。
+  - 色の群ごとの file には分けない（basename の制約のため。群は file の中の節の見出しで示す）。
+  - どちらの file も 1000 行に収まること。
+- **X2 に足す（G11 の STOP (b)）**：
+  - soft の `ListDividers`・`TableCellAlign`・`TableCellDivider`・`TableRowStriped` に `#[derive(Prop)]` を付ける（K28 の V7。`.variant(..)` が通ること）。
+  - soft の `*_VAR` を `pub` にし、basic・pop と同じく crate の root から公開する（付属書 K の 4.4.5）。
+- **X5 (1) runtime の hub（f12）**：付属書 1 章 f12 の「設計者の決め」を、次で置き換える。前の決めは、`TaskState` の field の型（`Executor`・`Scheduler`・`Pool`・`Drain`・`Deliver`・`ClockEntry`・`Owned`）と `MotionState` の field の型（`LoopCell`・`Anim`）が `reactive` を使うので、移すだけでは作れない。
+  - 方針：`reactive` は task と motion を知らない。依存は `task -> reactive`・`motion -> reactive` の一方向にする（依存の逆転）。
+  - `reactive::data::Runtime` から `tasks`・`motion`・`motion_env` の field を外す。代わりに、型で引く拡張の欄（`theme.ext::<XTheme>()` と同じ形）を持たせる。
+    - 欄は `Runtime` を作るときに一度だけ埋め、後から足したり消したりしない（state の印を付ける）。
+    - 埋めるのは、`reactive`・`task`・`motion` の上にある組み立ての module（今の `crate::host` か `crate::driver` の、`Runtime` を作る所）。
+  - task と motion は自分の状態を、自分の module の accessor で引く（例：`TaskState::of(rt)`、`MotionState::of(rt)`。中で拡張の欄を引く）。`crate::host` の `tasks()`・`motion()` も、それを呼ぶだけにする。
+  - turn が task と motion に頼む仕事（`has_ready`、`remote_wake` の確認と取り出し、他の thread からの便の配達、motion の環境）は、`reactive` が定める trait（turn に加わる subsystem の trait）を通す。今の `task::remote::Deliver` の役は、この trait に入れる。
+  - 欄が無いのはプログラムの誤りなので、引けないときの扱いは crate の今の panic の規則に従う。
+  - 前の決めの policy の追記（`reactive` が `task::state`・`motion::state` を使ってよい）は行わない。
+  - `cargo test -p kivact-runtime` と、`kivact-core` の turn の test が通ること。
+- **X5 (2) `StyledRange`（f13 (2)）**：`sheet` に移し、crate の root（`kivact_style::StyledRange`）と facade（`kivact::style::StyledRange`）から公開する。`kivact_style::text::StyledRange` の path は消してよい。同じ型が 2 つの path にあるのが API-10 の問題なので、root を正の path とする（workspace の中に `text::StyledRange` の利用者はいない）。`PR_DRAFT.md` の破壊的な変更の一覧に 1 行書く。
+- **X5 (3) `draw` と `length`（f13 (1)）**：policy の `[module_rules.kivact-style]` の `draw` の uses に `length` を足す（理由：「draw resolves theme-aware lengths when it records」）。`length` は geometry と paint の下に置いた層なので、上の `draw` が使うのは方向どおり。
+- **G11 の STOP (a) `ZoomPan`**：設計（`REWORK_DESIGN.md` の 5.12・API-10）どおり、コードを改名する。付属書 U の手順から改名が抜けていた。文書は直さない。
+  - 新しい unit **X7**（X5 を統合に入れた後。所有は `crates/kivact-types`、`crates/kivact-interaction`、`ViewTransform` の全利用者（`crates/`・`examples/`・`dev/`・`templates/`））：
+    - `kivact_types::ViewTransform` を `ZoomPan` に改名する（file `view_transform.rs` は `zoom_pan.rs`）。
+    - `kivact::interaction::ZoomPan` が正の path。`ViewTransform` の名前と別名は残さない。
+    - doc の文の「view transform」は、zoom-pan の状態という意味に直す。
+  - 完了：`rg -w ViewTransform crates examples dev templates` が何も返さず、`interaction_zoom_pan` の e2e が通る。
