@@ -332,7 +332,7 @@ pub enum ListEdge {
 impl Variant for ListEdge {}
 
 /// Show separators between the rows of a list when true.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub struct ListDividers(pub bool);
 
 impl Variant for ListDividers {}
@@ -526,19 +526,19 @@ pub struct TableRowHover(pub bool);
 impl Variant for TableRowHover {}
 
 /// Whether alternating static table rows receive stripe paint.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub struct TableRowStriped(pub bool);
 
 impl Variant for TableRowStriped {}
 
 /// Vertical alignment of a static table cell's content.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub struct TableCellAlign(pub Align);
 
 impl Variant for TableCellAlign {}
 
 /// Whether a static table cell paints a separator.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub struct TableCellDivider(pub bool);
 
 impl Variant for TableCellDivider {}

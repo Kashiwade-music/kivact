@@ -3,46 +3,45 @@ use kivact::Prop;
 use kivact::style::{Length, Theme, ThemeVar, use_theme};
 
 /// The space `s0`: 0 px.
-pub(crate) static SPACE_S0_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s0", 0.0);
+pub static SPACE_S0_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s0", 0.0);
 /// The space `s0_5`: 2 px.
-pub(crate) static SPACE_S0_5_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s0_5", 2.0);
+pub static SPACE_S0_5_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s0_5", 2.0);
 /// The space `s1`: 4 px.
-pub(crate) static SPACE_S1_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s1", 4.0);
+pub static SPACE_S1_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s1", 4.0);
 /// The space `s1_5`: 6 px.
-pub(crate) static SPACE_S1_5_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s1_5", 6.0);
+pub static SPACE_S1_5_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s1_5", 6.0);
 /// The space `s2`: 8 px.
-pub(crate) static SPACE_S2_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s2", 8.0);
+pub static SPACE_S2_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s2", 8.0);
 /// The space `s3`: 12 px.
-pub(crate) static SPACE_S3_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s3", 12.0);
+pub static SPACE_S3_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s3", 12.0);
 /// The space `s4`: 16 px.
-pub(crate) static SPACE_S4_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s4", 16.0);
+pub static SPACE_S4_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s4", 16.0);
 /// The space `s5`: 20 px.
-pub(crate) static SPACE_S5_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s5", 20.0);
+pub static SPACE_S5_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s5", 20.0);
 /// The space `s6`: 24 px.
-pub(crate) static SPACE_S6_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s6", 24.0);
+pub static SPACE_S6_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s6", 24.0);
 /// The space `s7`: 28 px.
-pub(crate) static SPACE_S7_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s7", 28.0);
+pub static SPACE_S7_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s7", 28.0);
 /// The space `s8`: 32 px.
-pub(crate) static SPACE_S8_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s8", 32.0);
+pub static SPACE_S8_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s8", 32.0);
 /// The space `s9`: 36 px.
-pub(crate) static SPACE_S9_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s9", 36.0);
+pub static SPACE_S9_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s9", 36.0);
 /// The space `s10`: 40 px.
-pub(crate) static SPACE_S10_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s10", 40.0);
+pub static SPACE_S10_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s10", 40.0);
 /// The space `s11`: 44 px.
-pub(crate) static SPACE_S11_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s11", 44.0);
+pub static SPACE_S11_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s11", 44.0);
 /// The space `s12`: 48 px.
-pub(crate) static SPACE_S12_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s12", 48.0);
+pub static SPACE_S12_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_s12", 48.0);
 /// The padding of a card: 12 px.
-pub(crate) static SPACE_CARD_PADDING_VAR: ThemeVar<f64> =
-    ThemeVar::new("soft.space_card_padding", 12.0);
+pub static SPACE_CARD_PADDING_VAR: ThemeVar<f64> = ThemeVar::new("soft.space_card_padding", 12.0);
 /// The padding of a section: 12 px.
-pub(crate) static SPACE_SECTION_PADDING_VAR: ThemeVar<f64> =
+pub static SPACE_SECTION_PADDING_VAR: ThemeVar<f64> =
     ThemeVar::new("soft.space_section_padding", 12.0);
 /// The padding of a dialog: 16 px.
-pub(crate) static SPACE_DIALOG_PADDING_VAR: ThemeVar<f64> =
+pub static SPACE_DIALOG_PADDING_VAR: ThemeVar<f64> =
     ThemeVar::new("soft.space_dialog_padding", 16.0);
 /// The gutter between an overlay and the edge of the viewport: 16 px.
-pub(crate) static SPACE_LAYER_VIEWPORT_GUTTER_VAR: ThemeVar<f64> =
+pub static SPACE_LAYER_VIEWPORT_GUTTER_VAR: ThemeVar<f64> =
     ThemeVar::new("soft.space_layer_viewport_gutter", 16.0);
 
 /// The space `s0`.

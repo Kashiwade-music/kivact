@@ -40,7 +40,7 @@ pub fn theme(mode: ThemeMode) -> Theme {
 }
 
 fn build(mode: ThemeMode) -> Theme {
-    let theme = crate::color::set_colors(Theme::light().with_mode(mode), mode);
+    let theme = crate::tokens::set_colors(Theme::light().with_mode(mode), mode);
     let theme = s::set_space(theme);
     let theme = r::set_radius(theme);
     let theme = set_core(theme);
