@@ -183,3 +183,11 @@
   - `migrating-to-rework.md`（英日）の表の旧名の列は、旧名なので残す（G15 の 5.12 の検査が旧名を探す）。
   - `timeline-and-arrangement.md`、`node-graph.md`（英日）、`show-app-rendered-images.md` は `ZoomPan` に直す。X7 の所有に、この 4 file を足す。
 - **dev/tests の Role の 80 字超 4 件**（`e2e_core/state_styles.rs`・`theme_vars.rs`、`e2e_ui/ui_sidebar.rs`・`ui_tabs_overflow.rs`）：X7 に足す。80 字以内に縮める。
+
+## 5. 設計者の答え（2026-11-22、三度目：kivact-docs の残り 9 件）
+
+- 新しい unit **G16**（W11b の guide の修正。X5・X7 の後の統合から切る）。所有：`docs/for-kivact-user/{en,jp}/how-to-guide/custom-controls.md` と、progress_ring の E0277 が出る guide の file（全体の log で確かめて決める）。
+- `custom-controls.md` の `CopyButton`：`#[component] fn copy_button` が `CopyButton` という型を作るので、machine の snapshot の struct の名前が重なっている。文書のほうを直し、snapshot の struct を別の名前にする（例：`CopyInput`）。E0560・E0609・E0026・E0308 は、この重なりから来ているはずなので、直した後に残るものを確かめる。直した近くの散文に「`#[component] fn x` は型 `X` を作る」の一文が無ければ足す（英日）。
+- `u32: From<i32>`（E0277）：直す前に、どの式か（file・行・式）を返すこと。素の整数の literal（`5` など）を `u32` の prop に渡して落ちているなら、文書に `_u32` を足して済ませない。React・Python の利用者が書く形で落ちる API の問題なので、私が決める。それ以外（文書の型の誤り）なら文書を直してよい。
+- 完了：`cargo check -p kivact-docs`（絞り無し）が通り、全体の `cargo xtask check --no-write` が 0 件。
+- 以後、guide を直す unit の tier a には `cargo check -p kivact-docs` を入れる（G08 の漏れの再発を防ぐ）。

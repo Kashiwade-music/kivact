@@ -1703,3 +1703,7 @@ lane P（heading の variant、styled_text の node_ref、chat_composer の Shif
 ## 設計者の答え（2026-11-22、二度目）
 
 付属書 X の 4 章に書いた（sheet は kinds ← edit_text ← props ← decl・folded、theme は vars を data の葉にし Theme を取る解決を value へ、docs の ViewTransform と dev/tests の Role 4 件は X7）。xtask-core の branch fix/kashiwade/component-generated-type（94e1bbb）は push した。
+
+## 設計者の答え（2026-11-22、三度目）
+
+付属書 X の 5 章に書いた（kivact-docs の残り 9 件は新しい unit G16。CopyButton は文書の struct の改名、u32 の E0277 は式を返させて私が決める、guide の unit の tier a に kivact-docs の check を入れる）。
