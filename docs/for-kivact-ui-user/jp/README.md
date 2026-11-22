@@ -16,6 +16,8 @@ Kivact は開発初期の段階にあり、API は予告なく変わります。
 | Creative | `kivact-ui-creative` | ダークな編集ツールのような、密度の高いコンパクトな見た目（ライトモードもあります） | 制作ツール: プロパティパネル、数値欄、カラーピッカー、ドック |
 | Soft | `kivact-ui-soft` | ライトとダークに対応した Astryx Neutral | 丸みのある操作部品とニュートラルな配色を使うアプリ |
 
+プロットは `kivact-plot` クレートにあり、すべてのキットで使えます: [数値データをプロットする](../../for-kivact-user/jp/how-to-guide/plot.md)。
+
 使うキットのチュートリアルから始め、具体的な作業があるときにそのキットの作業別ガイドを使います。
 
 | キット | チュートリアル（アプリを作る） | 作業別ガイド（1 つの作業ごと） | 動かして見る |
@@ -42,7 +44,7 @@ use kivact::style::ThemeMode;
 
 fn app() -> impl IntoView {
     column((
-        text_input("Name", signal(String::new())),
+        text_input(signal(String::new())).label("Name"),
         button("Save").variant(kivact::ui::ButtonVariant::Primary),
     ))
     .style(style().gap(12).padding(24))
@@ -59,7 +61,7 @@ fn main() -> kivact::Result<()> {
 
 ## リファレンス
 
-キットのコンポーネント、オプション、トークンの一覧は API ドキュメントにあります。手元で生成します。
+キットのコンポーネント、オプション、テーマの変数の一覧は API ドキュメントにあります。手元で生成します。
 
 ```text
 cargo doc -p kivact-ui-pop --open

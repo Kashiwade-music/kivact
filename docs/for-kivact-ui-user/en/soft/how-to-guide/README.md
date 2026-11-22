@@ -6,5 +6,5 @@
 - [Navigation](navigation.md)
 - [Overlays](overlays.md)
 - [Data display](data-display.md)
-- [Theme and tokens](theme-and-tokens.md)
+- [Theme and variables](theme-and-tokens.md)
 - [Motion](motion.md)

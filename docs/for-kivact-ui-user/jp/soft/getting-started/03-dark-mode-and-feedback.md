@@ -11,6 +11,7 @@ use kivact::style::{provide_theme};
 use kivact::view::{show};
 use kivact_ui_soft as soft;
 
+#[component]
 fn settings_feedback() -> impl IntoView {
     let dark = signal(false);
     let saved = signal(false);
@@ -29,7 +30,7 @@ fn settings_feedback() -> impl IntoView {
                         .on_dismiss(move || saved.set(false))
                 }),
             ))
-            .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
+            .style(style().gap(soft::SPACE_S3))
         },
     )
 }

@@ -12,30 +12,34 @@ use kivact::style::{ThemeMode, rgb};
 use kivact::view::EditPhase;
 use kivact_ui_creative as ui;
 
-fn inspector() -> impl IntoView {
+#[component]
+fn inspector() -> impl Element {
     let x = signal(120.0);
     let opacity = signal(0.8);
     let fill = signal(rgb(0x8b7cff));
     let easing = signal(ui::CubicBezier::default());
 
-    // X の編集 1 回につき元に戻す手順を 1 つ記録する: (編集前の値, 編集後の値)
+    // One undo step per edit of X: (value before, value after).
     let started = signal(0.0);
     let history = signal(Vec::<(f64, f64)>::new());
     let record = move |phase: EditPhase| match phase {
-        EditPhase::Begin => started.set(x.get_untracked()),
+        EditPhase::Begin => started.set(x.get()),
         EditPhase::Commit => {
-            history.update(|steps| steps.push((started.get_untracked(), x.get_untracked())));
+            history.update(|steps| steps.push((started.get(), x.get())));
         }
         EditPhase::Cancel => {}
     };
     let undo = move || {
-        if let Some((before, _)) = history.update(|steps| steps.pop()) {
+        if let Some((before, _)) = history.with(|steps| steps.last().copied()) {
+            history.update(|steps| {
+                steps.pop();
+            });
             x.set(before);
         }
     };
 
     ui::panel(
-        "インスペクター",
+        "Inspector",
         column((
             ui::property_row(
                 "X",
@@ -49,32 +53,30 @@ fn inspector() -> impl IntoView {
                     .on_edit(record),
             ),
             ui::property_row(
-                "不透明度",
-                ui::number("不透明度", opacity)
+                "Opacity",
+                ui::number("Opacity", opacity)
                     .range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range"))
                     .step(0.01)
                     .precision(2)
                     .label_visible(false),
             ),
             ui::property_row(
-                "フェード",
-                ui::value_slider("フェード", opacity)
+                "Fade",
+                ui::value_slider("Fade", opacity)
                     .range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range"))
                     .step(0.01)
                     .precision(2)
                     .label_visible(false),
             ),
-            ui::property_row("塗り", ui::color_popup("塗り", fill)),
+            ui::property_row("Fill", ui::color_popup("Fill", fill)),
             ui::bezier_curve(easing),
             text(move || {
                 let e = easing.get();
-                format!("イージング {:.2}, {:.2}, {:.2}, {:.2}", e.x1, e.y1, e.x2, e.y2)
+                format!("ease {:.2}, {:.2}, {:.2}, {:.2}", e.x1, e.y1, e.x2, e.y2)
             }),
             row((
-                button("X を元に戻す")
-                    .disabled(move || history.get().is_empty())
-                    .on_press(undo),
-                text(move || format!("元に戻せる手順: {} 件", history.get().len())),
+                button("Undo X").disabled(move || history.get().is_empty()).on_press(undo),
+                text(move || format!("{} undo step(s)", history.get().len())),
             ))
             .style(style().gap(8)),
         )).role(kivact::view::Role::List)
@@ -84,7 +86,7 @@ fn inspector() -> impl IntoView {
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("レイヤーインスペクター")
+    App::new("Layer inspector")
         .theme(ui::theme(ThemeMode::Dark))
         .run(inspector)
 }
@@ -107,7 +109,7 @@ fn main() -> kivact::Result<()> {
 - **`on_edit` は編集を 3 つの段階で報告します。** `EditPhase::Begin` は編集の最初の書き込みの*前*に届くので、開始時の値を覚えておく場所です。`Commit` は最後の書き込みの後に届き、元に戻す手順を確定する場所です。`Cancel` は、部品が開始時の値をすでに書き戻した後に届きます。元に戻すものはなく、覚えておいた値を捨てるだけです。ドラッグは長くても 1 回の編集で、キー 1 回、ホイール 1 目盛り、入力 1 回もそれぞれ 1 回の編集です。支援技術からの操作も同じ段階を通るので、これらを使った履歴は値を変えるあらゆる方法をカバーします。
 - **`move` クロージャ。** `record` と `undo` は `move` を付けて、シグナルのハンドルを所有します。ハンドルは `Copy` なので、クロージャへ move した後でも同じ `x` を使えます。
 - **`color_popup(label, color)`** は、押すと `color_wheel` のポップアップを開くスウォッチのボタンです。1 つのトランザクションとして働き、`Esc` で開いたときの色に戻り、外側のクリックで確定します。
-- **`bezier_curve(binding)`** は `CubicBezier` を編集します。両端が (0, 0) と (1, 1) に固定されたイージング曲線の制御点です。これも値を引数で受け取り、`on_edit` で段階を報告します。
+- **`bezier_curve(signal)`** は `CubicBezier` を編集します。両端が (0, 0) と (1, 1) に固定されたイージング曲線の制御点です。これも値を引数で受け取り、`on_edit` で段階を報告します。
 - **`value_slider`** は、塗りつぶしたトラックの形をした数値フィールドです。`ui::knob` と `ui::fader` は同じ部品の別の形で、同じ引数を取ります。つまみ付きの通常のスライダーは `kivact::ui::slider` です。値に独自の文字列やカーブが要るときは、どれも `format` と `mapping` を受け取ります。詳しくは[ノブとフェーダーの表示・写像・微調整](../how-to-guide/knobs-and-faders.md)を参照してください。
 
 ## 次へ

@@ -17,9 +17,9 @@ fn main() -> kivact::Result<()> {
                 kivact::ui::heading("Settings", 1),
                 soft::styled_text("Manage your profile and appearance."),
             ))
-            .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
+            .style(style().gap(soft::SPACE_S3))
         })
 }
 ```
 
-If you supply Figtree, register it before opening the window. See the theme and tokens guide for how to style your own surfaces.
+If you supply Figtree, register it before opening the window. See the theme and variables guide for how to style your own surfaces.

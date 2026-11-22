@@ -88,7 +88,8 @@ fn apply(
     }
 }
 
-fn graph_panel() -> impl IntoView {
+#[component]
+fn graph_panel() -> impl Element {
     let nodes = signal(initial_nodes());
     let links = signal(vec![ui::NodeLink::new(1, 0, 2, 0), ui::NodeLink::new(2, 0, 3, 0)]);
     let state = ui::NodeState::new();
@@ -97,14 +98,15 @@ fn graph_panel() -> impl IntoView {
     let snapshot = signal(None::<(Vec<ui::NodeData>, Vec<ui::NodeLink>)>);
     let on_edit = move |event: ui::EditorEvent<ui::NodeRequest>| match event {
         ui::EditorEvent::Begin => {
-            snapshot.set(Some((nodes.get_untracked(), links.get_untracked())));
+            snapshot.set(Some((nodes.get(), links.get())));
         }
         ui::EditorEvent::Request(request) => {
             nodes.update(|n| links.update(|l| apply(n, l, request)));
         }
         ui::EditorEvent::Commit => snapshot.set(None),
         ui::EditorEvent::Cancel => {
-            if let Some((old_nodes, old_links)) = snapshot.update(|saved| saved.take()) {
+            if let Some((old_nodes, old_links)) = snapshot.with(|saved| saved.clone()) {
+                snapshot.set(None);
                 nodes.set(old_nodes);
                 links.set(old_links);
             }
@@ -135,7 +137,7 @@ Run it and drag a node. Drag from an output socket (right edge) to a compatible 
 | Draws nodes, sockets, links and the in-progress link | Store nodes and links, give each node a unique `id` |
 | Highlights targets with `can_connect` and reports `Connect` only if it returns `true` | Check the rules *again* in `apply`; `Connect` reaches you without duplicate or input-replacement handling |
 | Reports `Move`, `Connect`, `Disconnect`, `Delete`, `ToggleMute` and `Control` requests | Apply, constrain or ignore each one |
-| Keeps selection (`NodeState::selection`, `NodeState::link`) and pan/zoom (`NodeState::transform`) as bindings | Replace those bindings with your own signals to read or persist them |
+| Keeps selection (`NodeState::selection`, `NodeState::link`) and pan/zoom (`NodeState::transform`) in signals it creates | Pass your own signals instead, to read or persist them |
 
 A few details that matter in practice:
 
@@ -171,7 +173,7 @@ For a node that is only labeled text, `NodeData::parameters(["ViewLayer"])` list
 
 ## Keep the view state
 
-`NodeState` is a `Copy` struct of three bindings: `selection` (node ids), `link` (the selected link) and `transform` (a `ViewTransform` with the pan offset and scale). To restore the view when a document opens, create your own signals and build the struct with them:
+`NodeState` is a `Copy` struct of three signals: `selection` (node ids), `link` (the selected link) and `transform` (a `ViewTransform` with the pan offset and scale). To restore the view when a document opens, create your own signals and build the struct with them:
 
 ```rust,no_run
 use kivact::interaction::ViewTransform;
@@ -181,8 +183,8 @@ use kivact_ui_creative as ui;
 let transform = signal(ViewTransform::default());
 let selection = signal(Vec::<u64>::new());
 let state = ui::NodeState {
-    transform: transform.into_binding(),
-    selection: selection.into_binding(),
+    transform,
+    selection,
     ..ui::NodeState::new()
 };
 # let _ = state;

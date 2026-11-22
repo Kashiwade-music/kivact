@@ -34,7 +34,8 @@ fn render(tint: f64) -> Pixels {
     Pixels::new(WIDTH, HEIGHT, rgba)
 }
 
-fn viewer() -> impl IntoView {
+#[component]
+fn viewer() -> impl Element {
     let tint = signal(0.5);
     let transform = signal(ViewTransform::default());
     let zoom = use_zoom_pan(transform);
@@ -50,7 +51,7 @@ fn viewer() -> impl IntoView {
             button("Fit").on_press(move || {
                 transform.set(ViewTransform::fit(
                     Size::new(WIDTH as f64, HEIGHT as f64),
-                    surface.get_untracked(),
+                    surface.get(),
                 ));
             }),
             text(move || {
@@ -148,7 +149,8 @@ fn start_renderer() -> Signal<Pixels> {
     image
 }
 
-fn live_view() -> impl IntoView {
+#[component]
+fn live_view() -> impl Element {
     let image = start_renderer();
     kivact::view::viewport(image)
         .pixelated(true)

@@ -13,7 +13,8 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_creative as ui;
 
-fn workspace() -> impl IntoView {
+#[component]
+fn workspace() -> impl Element {
     let layout = signal(ui::DockLayout::new(ui::DockNode::split(
         ui::DockAxis::Horizontal,
         [
@@ -83,18 +84,24 @@ fn commands(layout: Signal<ui::DockLayout<&'static str>>) {
         l.insert(
             ui::DockTab::new("history", "History").icon("clock"),
             ui::DockPlacement::Edge(ui::DockSide::Right),
-        )
+        );
     });
     // Put it next to the preview, as a tab.
     layout.update(|l| {
         l.move_tab(
             &"history",
             ui::DockPlacement::Tabs { container: "preview", index: None },
-        )
+        );
     });
-    layout.update(|l| l.maximize(&"viewport"));
-    layout.update(|l| l.restore());
-    layout.update(|l| l.close(&"history").is_some());
+    layout.update(|l| {
+        l.maximize(&"viewport");
+    });
+    layout.update(|l| {
+        l.restore();
+    });
+    layout.update(|l| {
+        l.close(&"history");
+    });
 }
 ```
 
@@ -106,7 +113,8 @@ fn commands(layout: Signal<ui::DockLayout<&'static str>>) {
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn dock_with_hooks(layout: Signal<ui::DockLayout<&'static str>>) -> impl IntoView {
+#[component]
+fn dock_with_hooks(layout: Signal<ui::DockLayout<&'static str>>) -> impl Element {
     ui::dock(layout, |panel: &'static str| text(panel))
         // After a tab is closed (the layout is already updated): release its resources.
         .on_close(move |key| {
@@ -121,7 +129,7 @@ fn dock_with_hooks(layout: Signal<ui::DockLayout<&'static str>>) -> impl IntoVie
                         l.insert(
                             ui::DockTab::new("copy", format!("{key} copy")),
                             ui::DockPlacement::Tabs { container: key, index: None },
-                        )
+                        );
                     });
                 }
             },
@@ -162,7 +170,8 @@ fn apply_drop(items: &mut Vec<ui::TreeItem>, drop: ui::TreeDrop) {
     items.insert(at, moved);
 }
 
-fn scene_outliner() -> impl IntoView {
+#[component]
+fn scene_outliner() -> impl Element {
     let items = signal(vec![
         ui::TreeItem::new(1, None, "Scene", "folder"),
         ui::TreeItem::new(2, Some(1), "Camera", "camera"),
@@ -174,7 +183,7 @@ fn scene_outliner() -> impl IntoView {
     let snapshot = signal(None::<Vec<ui::TreeItem>>);
 
     column((
-        kivact::ui::text_input("Filter", filter),
+        kivact::ui::text_input(filter).label("Filter"),
         ui::outliner(items, state)
             .filter(filter)
             .on_rename(move |(id, name): (u64, String)| {
@@ -186,7 +195,7 @@ fn scene_outliner() -> impl IntoView {
             })
             .on_item_drop(move |drop| items.update(|all| apply_drop(all, drop)))
             .on_restriction(move |event| match event {
-                ui::EditorEvent::Begin => snapshot.set(Some(items.get_untracked())),
+                ui::EditorEvent::Begin => snapshot.set(Some(items.get())),
                 ui::EditorEvent::Request(change) => items.update(|all| {
                     for item in all.iter_mut().filter(|item| change.ids.contains(&item.id)) {
                         match change.flag {
@@ -198,7 +207,8 @@ fn scene_outliner() -> impl IntoView {
                 }),
                 ui::EditorEvent::Commit => snapshot.set(None),
                 ui::EditorEvent::Cancel => {
-                    if let Some(before) = snapshot.update(|saved| saved.take()) {
+                    if let Some(before) = snapshot.with(|saved| saved.clone()) {
+                        snapshot.set(None);
                         items.set(before);
                     }
                 }
@@ -228,7 +238,8 @@ fn main() -> kivact::Result<()> {
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn sections() -> impl IntoView {
+#[component]
+fn sections() -> impl Element {
     let panels = signal(vec![
         ui::InspectorPanel::new(1, "Transform"),
         ui::InspectorPanel::new(2, "Appearance").collapsed(),
@@ -237,7 +248,7 @@ fn sections() -> impl IntoView {
     let opacity = signal(1.0);
 
     ui::panel_group(panels, move |panel: Value<ui::InspectorPanel>| {
-        match panel.get_untracked().id {
+        match panel.get().id {
             1 => ui::property_row("X", ui::number("X", position).label_visible(false)).into_view(),
             _ => ui::property_row(
                 "Opacity",
@@ -259,7 +270,8 @@ The bodies stay mounted while a section is collapsed or reordered, so a field ke
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn add_node_button() -> impl IntoView {
+#[component]
+fn add_node_button() -> impl Element {
     let last = signal(String::from("nothing yet"));
     let picker = ui::search_picker(vec![
         ui::PickerItem::new("blur", "Blur").section("Filter").shortcut("Shift B"),

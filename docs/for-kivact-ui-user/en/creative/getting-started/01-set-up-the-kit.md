@@ -28,7 +28,8 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_creative as ui;
 
-fn inspector() -> impl IntoView {
+#[component]
+fn inspector() -> impl Element {
     let x = signal(120.0);
     ui::panel(
         "Inspector",

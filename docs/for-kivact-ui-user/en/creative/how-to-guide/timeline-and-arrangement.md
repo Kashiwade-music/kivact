@@ -42,7 +42,8 @@ fn apply(clips: &mut Vec<ui::Clip>, request: ui::TimeRequest) {
     }
 }
 
-fn timeline_panel() -> impl IntoView {
+#[component]
+fn timeline_panel() -> impl Element {
     let clips = signal(vec![
         ui::Clip::new(1, 10, 0.0, 48.0, "Intro").color(rgb(0x8b7cff)),
         ui::Clip::new(2, 10, 60.0, 72.0, "Verse").color(rgb(0x3ad3e0)),
@@ -53,7 +54,7 @@ fn timeline_panel() -> impl IntoView {
     // View state the app owns: the playhead is the app's time.
     let playhead = signal(0.0);
     let state = ui::TimeState {
-        playhead: playhead.into_binding(),
+        playhead,
         ..ui::TimeState::new()
     };
 
@@ -61,15 +62,17 @@ fn timeline_panel() -> impl IntoView {
     let snapshot = signal(None::<Vec<ui::Clip>>);
     let undo = signal(Vec::<Vec<ui::Clip>>::new());
     let on_edit = move |event: ui::EditorEvent<ui::TimeRequest>| match event {
-        ui::EditorEvent::Begin => snapshot.set(Some(clips.get_untracked())),
+        ui::EditorEvent::Begin => snapshot.set(Some(clips.get())),
         ui::EditorEvent::Request(request) => clips.update(|all| apply(all, request)),
         ui::EditorEvent::Commit => {
-            if let Some(before) = snapshot.update(|saved| saved.take()) {
+            if let Some(before) = snapshot.with(|saved| saved.clone()) {
+                snapshot.set(None);
                 undo.update(|steps| steps.push(before));
             }
         }
         ui::EditorEvent::Cancel => {
-            if let Some(before) = snapshot.update(|saved| saved.take()) {
+            if let Some(before) = snapshot.with(|saved| saved.clone()) {
+                snapshot.set(None);
                 clips.set(before);
             }
         }
@@ -108,7 +111,7 @@ Drag a clip, trim an edge, click the ruler to move the playhead, select a clip a
 
 ### Time belongs to the app
 
-The editors never advance time. The playhead is the binding in `TimeState` that *you* provide:
+The editors never advance time. The playhead is the signal in `TimeState` that *you* provide:
 
 - When the user moves the playhead, the editor writes it. Read it, for example to seek your player.
 - When your clock runs, you write it. Drive it from your player while playing:
@@ -120,7 +123,7 @@ use std::time::Duration;
 async fn run_clock(playing: Signal<bool>, playhead: Signal<f64>) {
     loop {
         kivact::task::sleep(Duration::from_millis(1000 / 24)).await;
-        if playing.get_untracked() {
+        if playing.get() {
             playhead.update(|frame| *frame += 1.0);
         }
     }
@@ -152,7 +155,8 @@ Call `start_clock` once from a component's setup. The task ends with the compone
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn keys_panel() -> impl IntoView {
+#[component]
+fn keys_panel() -> impl Element {
     let keys = signal(vec![
         ui::Keyframe::new(1, 1, 0.0, "Start"),
         ui::Keyframe::new(2, 1, 24.0, "Hold").duration(12.0),
@@ -210,14 +214,15 @@ fn apply(curves: &mut [ui::Curve], request: &ui::GraphRequest) {
     }
 }
 
-fn graph_panel() -> impl IntoView {
+#[component]
+fn graph_panel() -> impl Element {
     let curves = signal(vec![ui::Curve::new(
         1,
         "Opacity",
         vec![ui::CurveKey::new(1, 0.0, 0.0), ui::CurveKey::new(2, 48.0, 1.0)],
     )]);
     ui::graph_editor(curves, ui::GraphState::new())
-        .step(1.0, 0.01)
+        .time_step(1.0).value_step(0.01)
         .on_edit(move |event| {
             if let ui::EditorEvent::Request(request) = event {
                 curves.update(|all| apply(all, &request));
@@ -283,7 +288,8 @@ fn apply(
     }
 }
 
-fn arrangement_panel() -> impl IntoView {
+#[component]
+fn arrangement_panel() -> impl Element {
     let clips = signal(vec![
         ui::Clip::new(1, 1, 0.0, 8.0, "Drums"),
         ui::Clip::new(2, 2, 4.0, 8.0, "Bass"),
@@ -313,9 +319,11 @@ The kit draws transport buttons, channel strips and meters, but it plays no audi
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::rgb;
+use kivact::view::Orientation;
 use kivact_ui_creative as ui;
 
-fn mixer_panel() -> impl IntoView {
+#[component]
+fn mixer_panel() -> impl Element {
     let transport = signal(ui::TransportState::default());
     let drums = ui::ChannelState::new();
     let level = signal(0.4); // the final level your audio engine measures, 0..1
@@ -332,7 +340,7 @@ fn mixer_panel() -> impl IntoView {
 }
 ```
 
-`TransportState` holds only `playing`, `recording` and `cycling`. `ChannelState` holds `gain`, `pan`, `mute` and `solo` as bindings. The strip shows the `level` you give it unchanged, without applying gain or mute, so apply DSP in your engine and pass the result. Routing choices and insert names are also yours: `.routes(labels, route)` shows a selector only if `labels` is not empty, and `.inserts(names)` lists names.
+`TransportState` holds only `playing`, `recording` and `cycling`. `ChannelState` holds `gain`, `pan`, `mute` and `solo` as signals. The strip shows the `level` you give it unchanged, without applying gain or mute, so apply DSP in your engine and pass the result. Routing choices and insert names are also yours: `.routes(labels, route)` shows a selector only if `labels` is not empty, and `.inserts(names)` lists names.
 
 ## See also
 
@@ -342,4 +350,4 @@ fn mixer_panel() -> impl IntoView {
 - Full API: `cargo doc -p kivact-ui-creative --open`
 - The catalog's timeline, animation and mixer chapters: `cargo run -p kivact-ui-creative-catalog`
 
-Time and arrangement editors use a single `transform: Binding<kivact::interaction::ViewTransform>`. Its `scale` is horizontal pixels per logical time unit (pixels per beat for arrangement), and its `offset` is pixel scrolling. Lane heights remain unscaled. A setup-time `transform.project(|pose| &pose.scale, |pose| &mut pose.scale)` binding can connect a zoom slider to the same pose. Domain wheel mappings and sidebar anchors remain part of the time editor.
+Time and arrangement editors use a single `transform: Signal<kivact::interaction::ViewTransform>`. Its `scale` is horizontal pixels per logical time unit (pixels per beat for arrangement), and its `offset` is pixel scrolling. Lane heights remain unscaled. A setup-time `bind!(transform.scale)` signal can connect a zoom slider to the same pose. Domain wheel mappings and sidebar anchors remain part of the time editor.

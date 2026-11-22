@@ -20,12 +20,13 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_creative as ui;
 
-fn root() -> impl IntoView {
-    text("クリエイティブツールへようこそ")
+#[component]
+fn root() -> impl Element {
+    text("Hello, creative tools")
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("Creative アプリ")
+    App::new("Creative app")
         .theme(ui::theme(ThemeMode::Dark))
         .run(root)
 }
@@ -61,6 +62,7 @@ use kivact::style::ThemeMode;
 use kivact::style::provide_theme;
 use kivact_ui_creative as ui;
 
+#[component]
 fn themed() -> impl IntoView {
     let dark = signal(true);
     let accent = signal(ui::Accent::Iris);
@@ -72,7 +74,7 @@ fn themed() -> impl IntoView {
         },
         move || {
             column((
-                kivact::ui::switch("ダークモード", dark),
+                kivact::ui::switch("Dark mode", dark),
                 row((
                     button("Iris").on_press(move || accent.set(ui::Accent::Iris)),
                     button("Lime").on_press(move || accent.set(ui::Accent::Lime)),
@@ -80,20 +82,20 @@ fn themed() -> impl IntoView {
                 ))
                 .style(style().gap(6)),
             ))
-            // `provide_theme` 自身はノードを作らないので、最上位のノードに色を付ける。
+            // `provide_theme` makes no node of its own, so color the top node.
             .style(
                 style()
                     .gap(10)
                     .padding(16)
-                    .background(ui::ColorName::Canvas)
-                    .color(ui::ColorName::Text),
+                    .background(ui::color::CANVAS)
+                    .color(ui::color::TEXT),
             )
         },
     )
 }
 ```
 
-`ui::ColorName` は、キット独自のパレットをスタイルの値にしたものです（`Canvas`・`Island`・`Header`・`Field`・`Hair`・`Text`・`Muted`・`Accent` など）。スタイルが色を受け取る場所ならどこでも使え、テーマを切り替えると自動で追従します。テーマを読むクロージャは要りません。
+キット独自の色はテーマの変数で、`ui::color` が各色の `const` を持ちます（`CANVAS`・`ISLAND`・`HEADER`・`FIELD`・`HAIR`・`TEXT`・`MUTED`・`ACCENT` など）。各 `const` には同じ名前の `_VAR` の static（例：`ui::color::ACCENT_VAR`）があり、`theme.set` で変えられます。スタイルが色を受け取る場所ならどこでも使え、テーマを切り替えると自動で追従します。テーマを読むクロージャは要りません。
 
 ## 自分のフォントを使う
 
@@ -101,32 +103,23 @@ fn themed() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
-use kivact::style::theme::Typography;
+use kivact::style::{FontFamily, Theme, ThemeMode, font};
 use kivact_ui_creative as ui;
 
-/// `font` はフォントファイルのバイト列。たとえば
-/// `include_bytes!("../assets/Geist[wght].ttf")`。
-fn app_with_font(font: &'static [u8]) -> App {
-    let theme = ui::theme(ThemeMode::Dark);
+fn theme(mode: ThemeMode) -> Theme {
+    ui::theme(mode)
+        .set(&font::FAMILY_VAR, FontFamily::from("Geist"))
+        .set(&ui::MONO_FAMILY_VAR, FontFamily::from("Geist Mono"))
+}
 
-    // キットのトークン: ファミリ名を変えて、テーマへ戻す。
-    let mut tokens = (*theme.ext::<ui::Tokens>()).clone();
-    tokens.body_font = "Geist".into();
-    tokens.mono_font = "Geist Mono".into();
-
-    // コアのテキストスタイルも、本文のファミリに合わせる。
-    let text = Typography {
-        family: Some(tokens.body_font.clone()),
-        ..theme.text().clone()
-    };
-    let theme = theme.with_text(text).with(tokens);
-
-    App::new("フォント").font(font).theme(theme)
+/// `fonts` are the bytes of font files, for example
+/// `include_bytes!("../assets/Geist[wght].ttf")`.
+fn app_with_fonts(fonts: &[&'static [u8]]) -> App {
+    App::new("Fonts").theme(theme(ThemeMode::Dark).with_fonts(fonts.iter().copied()))
 }
 ```
 
-`body_font` はラベルに、`mono_font` は数値やコードに使われます。ファミリ名は、フォントファイルの中に記録されている名前にしてください。使うフォントファイルごとに、`.font(..)` を 1 回ずつ呼びます。参考として、キットのカタログは Geist、Geist Mono、Noto Sans JP でまさにこれを行っています。
+`font::FAMILY_VAR` はラベルのファミリ、`ui::MONO_FAMILY_VAR` は数値やコードのファミリです。ファミリ名は、フォントファイルの中に記録されている名前にしてください。使うフォントファイルは、`with_fonts` に 1 つずつ渡します。参考として、キットのカタログは Geist、Geist Mono、Noto Sans JP でまさにこれを行っています。
 
 ## アイコンを描く・追加する
 
@@ -142,11 +135,11 @@ use kivact_ui_creative as ui;
 static NODE: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 9-9 9-9-9z"/></svg>"#;
 
 fn main() -> kivact::Result<()> {
-    // 自分の画像に、好きな名前を付けて登録する。
+    // Your own image under a name of your choice.
     let theme = ui::theme(ThemeMode::Dark).with_icon("node", Asset::from(NODE));
-    App::new("アイコン").theme(theme).run(|| {
-        row((icon("play"), icon("node"), text("ノードを再生")))
-            .style(style().gap(8).padding(12))
+    App::new("Icons").theme(theme).run(|| {
+        row((icon("play"), icon("node"), text("Play the node")))
+        .style(style().gap(8).padding(12))
     })
 }
 ```
@@ -167,10 +160,10 @@ use kivact_ui_creative as ui;
 fn translated(app: App) -> App {
     app.messages(
         Messages::new()
-            .with("creative.dock.close_panel", "パネルを閉じる")
-            .with("creative.dock.maximize", "パネルを最大化")
-            .with("creative.transport.play", "再生")
-            .with("creative.outliner.label", "階層"),
+            .with("creative.dock.close_panel", "Fermer le panneau")
+            .with("creative.dock.maximize", "Agrandir le panneau")
+            .with("creative.transport.play", "Lecture")
+            .with("creative.outliner.label", "Hiérarchie"),
     )
 }
 ```

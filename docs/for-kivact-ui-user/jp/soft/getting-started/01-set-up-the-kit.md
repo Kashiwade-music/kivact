@@ -17,9 +17,9 @@ fn main() -> kivact::Result<()> {
                 kivact::ui::heading("Settings", 1),
                 soft::styled_text("Manage your profile and appearance."),
             ))
-            .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
+            .style(style().gap(soft::SPACE_S3))
         })
 }
 ```
 
-Figtree を使う場合は、ウィンドウを開く前にフォントを登録します。独自のサーフェスにスタイルを適用する方法は、テーマとトークンのガイドを参照してください。
+Figtree を使う場合は、ウィンドウを開く前にフォントを登録します。独自のサーフェスにスタイルを適用する方法は、テーマと変数のガイドを参照してください。
