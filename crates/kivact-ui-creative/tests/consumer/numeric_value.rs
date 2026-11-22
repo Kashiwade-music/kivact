@@ -384,3 +384,33 @@ fn a_mixed_value_does_not_call_the_formatter() {
     screen.get_by_text("Mixed");
     assert_eq!(*calls.borrow(), 0);
 }
+
+#[test]
+fn a_value_slider_keeps_its_value_across_a_theme_change() {
+    let (screen, (theme, amount)) =
+        kivact::test::render_with_handle(crate::support::options(), || {
+            let theme = signal(ui::theme(kivact::style::ThemeMode::Dark));
+            let amount = signal(0.5);
+            (
+                (theme, amount),
+                kivact::style::provide_theme(theme, move || {
+                    ui::value_slider("Opacity", amount).range(
+                        kivact::interaction::ScalarRange::new(0.0, 1.0)
+                            .expect("invariant: finite ordered control range"),
+                    )
+                }),
+            )
+        });
+    let before = screen.snapshot();
+    theme.set(ui::theme_with(
+        kivact::style::ThemeMode::Dark,
+        ui::ThemeOptions {
+            accent: ui::Accent::Aqua,
+            density: ui::Density::Compact,
+        },
+    ));
+    screen.run_until_idle();
+    assert_eq!(screen.snapshot(), before);
+    assert_eq!(amount.get_untracked(), 0.5);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

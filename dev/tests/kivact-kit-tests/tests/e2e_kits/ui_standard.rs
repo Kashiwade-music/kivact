@@ -8,10 +8,12 @@
 //! the recipe, and local painting without additional semantic nodes.
 
 use kivact::prelude::*;
-use kivact::style::Direction;
+use kivact::style::{FlexDirection, control};
 use kivact::test::{RenderOptions, Screen};
-use kivact::ui::Look;
-use kivact::ui::{ButtonState, TextInputState, UiRecipes};
+use kivact::ui::theme::{
+    ButtonState, ButtonTheme, CalendarTheme, DataTableTheme, Look, NumberInputTheme, TagInputTheme,
+    TextInputState, TextInputTheme,
+};
 use kivact::ui::{DataColumn, calendar, data_table};
 use kivact::view::A11yAction;
 use kivact_public_api_tests::paint::{distance, pixel};
@@ -21,10 +23,6 @@ const RED: u32 = 0xff0000;
 const GREEN: u32 = 0x00ff00;
 const BLUE: u32 = 0x0000ff;
 const YELLOW: u32 = 0xffff00;
-
-fn theme_with(recipes: UiRecipes) -> Theme {
-    Theme::light().with(recipes)
-}
 
 fn options(theme: Theme) -> RenderOptions {
     RenderOptions::from_env().theme(theme).reduced_motion()
@@ -150,7 +148,8 @@ fn a_text_input_is_a_named_text_box_bound_to_its_signal() {
         (
             (name, submitted),
             column((
-                text_input("Name", name)
+                text_input(name)
+                    .label("Name")
                     .placeholder("Your name")
                     .on_submit(move || submitted.update(|n| *n += 1)),
                 text(move || format!("Hello, {}", name.get())),
@@ -176,12 +175,9 @@ fn a_text_input_is_a_named_text_box_bound_to_its_signal() {
 
 #[test]
 fn the_tokens_of_the_theme_re_skin_every_component() {
-    let orange = Theme::light();
-    let colors = kivact::style::theme::Palette {
-        accent: rgb(0xff8800),
-        ..orange.colors().clone()
-    };
-    let orange = orange.with_colors(colors).with_control_height(40.0);
+    let orange = Theme::light()
+        .set(&color::ACCENT_VAR, rgb(0xff8800))
+        .set(&control::HEIGHT_VAR, 40.0);
     let screen = kivact::test::render_with(options(orange), || {
         row((
             button("Go").test_id("go"),
@@ -203,17 +199,14 @@ fn the_tokens_of_the_theme_re_skin_every_component() {
 // Recipes.
 
 fn flat_button(_: &Theme, state: &Look<ButtonState>) -> Style {
-    let variant = state
-        .variant::<ButtonVariant>()
-        .copied()
-        .unwrap_or_default();
+    let variant = state.variant::<ButtonVariant>().unwrap_or_default();
     style()
         .size(200, 40)
         .background(match variant {
             ButtonVariant::Danger => rgb(BLUE),
             _ => rgb(RED),
         })
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
         .color(Color::WHITE)
@@ -223,25 +216,35 @@ fn plain_input(_: &Theme, _: &Look<TextInputState>) -> Style {
     style().height(36).background(rgb(YELLOW))
 }
 
-/// The default recipes with the button replaced.
-fn recipes_with_button(
+/// The button's root recipe replaced by `recipe`; its other recipes are the
+/// library defaults.
+fn button_theme(
     recipe: impl Fn(&Theme, &Look<ButtonState>) -> Style + Send + Sync + 'static,
-) -> UiRecipes {
-    UiRecipes::default().button(|_| recipe)
+) -> ButtonTheme {
+    ButtonTheme::default().root(move |theme, look, _| recipe(theme, look))
+}
+
+/// The text input's root recipe replaced by `recipe`.
+fn text_input_theme(
+    recipe: impl Fn(&Theme, &Look<TextInputState>) -> Style + Send + Sync + 'static,
+) -> TextInputTheme {
+    TextInputTheme::default().root(move |theme, look, _| recipe(theme, look))
 }
 
 #[test]
 fn a_recipe_in_the_theme_replaces_the_look_of_its_component_only() {
-    let recipes = UiRecipes::default()
-        .button(|_| flat_button)
-        .text_input(|_| plain_input);
-    let screen = kivact::test::render_with(options(theme_with(recipes)), || {
+    let theme = Theme::light()
+        .with(button_theme(flat_button))
+        .with(text_input_theme(plain_input));
+    let screen = kivact::test::render_with(options(theme), || {
         column((
             button("Go").test_id("go"),
             button("Stop")
                 .variant(ButtonVariant::Danger)
                 .test_id("stop"),
-            text_input("Name", signal(String::new())).test_id("name"),
+            text_input(signal(String::new()))
+                .label("Name")
+                .test_id("name"),
             checkbox("Ready", signal(false)).test_id("ready"),
         ))
         .style(style().gap(8).padding(8).align_items(Align::Start))
@@ -266,19 +269,21 @@ fn a_recipe_in_the_theme_replaces_the_look_of_its_component_only() {
 
 #[test]
 fn what_the_caller_sets_comes_after_the_recipe_and_wins() {
-    let recipes = recipes_with_button(flat_button);
-    let screen = kivact::test::render_with(options(theme_with(recipes)), || {
-        column((
-            button("Plain").test_id("plain"),
-            button("Mine")
-                .style(style().background(rgb(GREEN)).width(100))
-                .test_id("mine"),
-            button("Themed")
-                .style(move || style().height(50))
-                .test_id("themed"),
-        ))
-        .style(style().gap(8).padding(8).align_items(Align::Start))
-    });
+    let screen = kivact::test::render_with(
+        options(Theme::light().with(button_theme(flat_button))),
+        || {
+            column((
+                button("Plain").test_id("plain"),
+                button("Mine")
+                    .style(style().background(rgb(GREEN)).width(100))
+                    .test_id("mine"),
+                button("Themed")
+                    .style(move || style().height(50))
+                    .test_id("themed"),
+            ))
+            .style(style().gap(8).padding(8).align_items(Align::Start))
+        },
+    );
     let size = |id: &str| screen.get_by_test_id(id).rect().expect("laid out");
     assert_eq!(pixel_mid(&screen, "plain", 4.0), RED);
     assert_eq!(
@@ -326,8 +331,10 @@ fn a_kits_theme_gives_the_standard_components_the_kits_look() {
     );
     // The kit's recipes are the same table a caller can read back.
     let theme = kivact_ui_pop::theme(kivact::style::ThemeMode::Light);
-    let recipes = theme.ext::<UiRecipes>();
-    assert_ne!(*recipes, UiRecipes::default());
+    assert!(
+        *theme.ext::<ButtonTheme>() != ButtonTheme::default(),
+        "the kit installs its own button recipes"
+    );
     assert!(kit.errors().is_empty(), "{:?}", kit.errors());
 }
 
@@ -406,28 +413,28 @@ fn table_row_selected_is_exposed_and_styled() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Prop)]
 struct Marked;
-impl kivact::ui::Variant for Marked {}
+impl kivact::ui::theme::Variant for Marked {}
+
+/// A recipe that paints red when the component has the `Marked` variant.
+fn red_when_marked(base: Style, look: &Look<kivact::custom::PartState>) -> Style {
+    match look.variant::<Marked>() {
+        Some(Marked) => base.background(rgb(0xff0000)),
+        None => base,
+    }
+}
 
 #[test]
 fn a_variant_given_after_construction_reaches_the_root_recipe() {
-    let recipes = UiRecipes::default().number_input(|table| {
-        table.root(|prev| {
-            move |theme: &Theme, look: &Look<kivact::custom::PartState>| match look
-                .variant::<Marked>()
-            {
-                Some(Marked) => prev(theme, look).background(rgb(0xff0000)),
-                None => prev(theme, look),
-            }
-        })
-    });
-    let screen = kivact::test::render_with(options(theme_with(recipes)), || {
+    let theme = Theme::light()
+        .with(NumberInputTheme::default().root(|_, look, base| red_when_marked(base, look)));
+    let screen = kivact::test::render_with(options(theme), || {
         kivact::ui::number_input(
-            "Count",
             signal(1.0),
             kivact::interaction::ScalarRange::new(0.0, 9.0).expect("a valid range"),
         )
+        .label("Count")
         .variant(Marked)
         .test_id("count")
     });
@@ -440,18 +447,11 @@ fn a_variant_given_after_construction_reaches_the_root_recipe() {
 
 #[test]
 fn a_variant_given_after_construction_reaches_the_tag_input_recipe() {
-    let recipes = UiRecipes::default().tag_input(|table| {
-        table.root(|prev| {
-            move |theme: &Theme, look: &Look<kivact::custom::PartState>| match look
-                .variant::<Marked>()
-            {
-                Some(Marked) => prev(theme, look).background(rgb(0xff0000)),
-                None => prev(theme, look),
-            }
-        })
-    });
-    let screen = kivact::test::render_with(options(theme_with(recipes)), || {
-        kivact::ui::tag_input("Labels", signal(vec!["rust".to_string()]))
+    let theme = Theme::light()
+        .with(TagInputTheme::default().root(|_, look, base| red_when_marked(base, look)));
+    let screen = kivact::test::render_with(options(theme), || {
+        kivact::ui::tag_input(signal(vec!["rust".to_string()]))
+            .label("Labels")
             .variant(Marked)
             .test_id("tags")
     });
@@ -464,17 +464,9 @@ fn a_variant_given_after_construction_reaches_the_tag_input_recipe() {
 
 #[test]
 fn a_variant_given_after_construction_reaches_the_data_table_recipe() {
-    let recipes = UiRecipes::default().data_table(|table| {
-        table.frame(|prev| {
-            move |theme: &Theme, look: &Look<kivact::custom::PartState>| match look
-                .variant::<Marked>()
-            {
-                Some(Marked) => prev(theme, look).background(rgb(0xff0000)),
-                None => prev(theme, look),
-            }
-        })
-    });
-    let screen = kivact::test::render_with(options(theme_with(recipes)), || {
+    let theme = Theme::light()
+        .with(DataTableTheme::default().frame(|_, look, base| red_when_marked(base, look)));
+    let screen = kivact::test::render_with(options(theme), || {
         data_table(
             signal(vec![(1u32, "Alpha")]),
             |row: &(u32, &'static str)| row.0,
@@ -494,17 +486,9 @@ fn a_variant_given_after_construction_reaches_the_data_table_recipe() {
 
 #[test]
 fn a_variant_given_after_construction_reaches_the_calendar_recipe() {
-    let recipes = UiRecipes::default().calendar(|table| {
-        table.root(|prev| {
-            move |theme: &Theme, look: &Look<kivact::custom::PartState>| match look
-                .variant::<Marked>()
-            {
-                Some(Marked) => prev(theme, look).background(rgb(0xff0000)),
-                None => prev(theme, look),
-            }
-        })
-    });
-    let screen = kivact::test::render_with(options(theme_with(recipes)), || {
+    let theme = Theme::light()
+        .with(CalendarTheme::default().root(|_, look, base| red_when_marked(base, look)));
+    let screen = kivact::test::render_with(options(theme), || {
         calendar(signal(None::<kivact::i18n::CalendarDate>))
             .variant(Marked)
             .test_id("calendar")
