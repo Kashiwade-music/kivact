@@ -89,8 +89,9 @@ impl PartialEq for Merged {
 enum Layers {
     /// A node whose states can change (disabled, selected, forced, or host
     /// states it reports): the layers' closures run again only when what
-    /// they read changes, not when a state does.
-    Memo(Value<Merged>),
+    /// they read changes, not when a state does. Its compiled styles are
+    /// cached, since a state change compiles again from the same merge.
+    Memo(Value<Merged>, CompileCache),
     /// A node without such states: its style effect runs again only when
     /// the layers' reads or the theme change, so the effect merges the
     /// layers itself and no merged copy is kept per node.
@@ -99,9 +100,11 @@ enum Layers {
 
 /// The last two compiled styles of a node, by merged style, theme and
 /// interactive state. Pressing and releasing alternate between two states,
-/// and compiling is a pure function of these three.
+/// and compiling is a pure function of these three. Only a [`Layers::Memo`]
+/// node has one, and its entries are allocated when first compiled: an
+/// entry holds a whole compiled style, too large to keep inline per node.
 #[derive(Default)]
-struct CompileCache(RefCell<[Option<CompileEntry>; 2]>);
+struct CompileCache(RefCell<Vec<CompileEntry>>);
 
 /// One entry of [`CompileCache`]. It holds the merged style, so its address
 /// cannot be reused while the entry lives.
@@ -124,19 +127,23 @@ impl CompileCache {
         let mut slots = self.0.borrow_mut();
         let hit = slots
             .iter()
-            .flatten()
             .find(|e| Rc::ptr_eq(&e.merged, merged) && e.state == state && e.theme == *theme);
         if let Some(hit) = hit {
             return hit.compiled.clone();
         }
         let compiled = kivact_style::internal::compile_style(merged.0.clone(), theme, state);
-        slots.swap(0, 1);
-        slots[0] = Some(CompileEntry {
-            merged: merged.clone(),
-            theme: theme.clone(),
-            state,
-            compiled: compiled.clone(),
-        });
+        if slots.len() == 2 {
+            slots.pop();
+        }
+        slots.insert(
+            0,
+            CompileEntry {
+                merged: merged.clone(),
+                theme: theme.clone(),
+                state,
+                compiled: compiled.clone(),
+            },
+        );
         compiled
     }
 }
@@ -150,9 +157,10 @@ fn keep_merged(source: &RefCell<Layers>, owner: kivact_runtime::Owner, hook: &St
             let (layers, variants) = (layers.clone(), variants.clone());
             Some(Layers::Memo(
                 owner.with_setup(|| merged_memo(hook.clone(), layers, variants)),
+                CompileCache::default(),
             ))
         }
-        Layers::Memo(_) => None,
+        Layers::Memo(..) => None,
     };
     if let Some(next) = next {
         *source.borrow_mut() = next;
@@ -261,11 +269,11 @@ pub(crate) fn bind_style(
         Layers::Memo(
             cx.owner
                 .with_setup(|| merged_memo(hook.clone(), layers, variants)),
+            CompileCache::default(),
         )
     } else {
         Layers::Direct(layers, variants)
     });
-    let cache = CompileCache::default();
     let weak = cx.weak();
     // The host states the engine reports for this node, once its style asks
     // for them (see `track_states`).
@@ -286,7 +294,7 @@ pub(crate) fn bind_style(
                     active: reported.get().map(|sig| sig.get()).unwrap_or_default(),
                 };
                 match &*source.borrow() {
-                    Layers::Memo(merged) => {
+                    Layers::Memo(merged, cache) => {
                         let merged = merged.with(|m| m.0.clone());
                         let duplicates = merged.1;
                         (cache.compile(theme, &merged, state), duplicates)

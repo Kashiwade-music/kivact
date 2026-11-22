@@ -1737,3 +1737,15 @@ lane P（heading の variant、styled_text の node_ref、chat_composer の Shif
 
 - 1・2 は G15 の lane（`wt/rw-W11c-G1`）で直す。所有にこの file 群を足す。直した後に 2.5 の検査をもう一度走らせ、出力が (i)〜(vii) だけになることを確かめる。
 - worktree の後片付け（submodule を含むので `git worktree remove` が拒否する分）は、Orchestrator は行わない。公開に向けた整理のときに設計者が行う。
+
+## 設計者の答え（2026-11-22、CP3）
+
+1. **AC-2・K2 の後退**：原因は設計者が特定し、直した（統合の次の commit）。`bind_style`（`crates/kivact-core/src/view/mount/style.rs`）の style の effect の closure が、`CompileCache`（`[Option<CompileEntry>; 2]`。1 件が `CompiledStyle` と `Theme` を丸ごと持つ）を inline に抱えていた。memo を使わない node（`Layers::Direct`）でも、node ごとに約 5.3 KB を確保していた（P1 の `2ac77244` から）。cache を `Layers::Memo` の中に移し、entry は最初に compile したときに heap に置く（`Vec`、2 件まで）。kv_heap の node あたりの live bytes（直す前 → 直した後、基点）：box 8633 → 3425（3740）、text 2691（2971）、button 33974 → 18420（20412）、row 47780 → 27018（23418）。
+   - row に残る差：taffy の cache が column から node ごとの `Box` に移っただけ（`compute_child_layout::closure` の行。合計は基点と同じ）、n=3000 での `Vec` の容量の段（`NodeStore::reserve`・`Slots::push`）、`Style` の `Vec` の最初の容量（`Style::push`、row あたり約 800 B）。この 3 つは直さない。
+   - 直した commit で KPI を測り直す（`B0-CP3b`・`CP3b`）。測り直しも設計者が行う。
+2. **AC-2・改善の必達の未達**（K2 text・K3 continuous CPU・K4 work p95）：CP3b の結果で決める。K3・K4 は 3 回中 1 回で満たし、残りも必達との差が 0.12 以内なので、CP3b で後退が無ければ、改善の未達として PR の下書きに書いて完了とする。K2 text は改善の対象の経路（text の node）が基点とほぼ同じ形のままなので、同じく未達として書く。
+3. **AC-2・K6 basic-catalog の大きさ**（1.039・1.044、1 回）：catalog は改修で部品と頁が増えている（kit の拡張）。後退として扱わず、理由を PR の下書きに書く。
+4. **AC-1**：GPU の e2e の失敗 4 件は、「基点の失敗」の 4 件と同じなので、例外として認める。PR の下書きに既知の失敗として書く。
+5. **作業指示書 2.5 節**（`` の byte、`constant_value` の行の `EXCL`）：本文は直さない（公開に向けた整理で作業指示書ごと消す）。Orchestrator が直して走らせた検査を、AC-4 の結果として認める。
+6. **(vii)(b) の分類**：`RadialExtent::Radii`（CSS の radial の大きさ）と外部の型 13 行（taffy・D3D12 の `Dimension`、`proc_macro2::Spacing`）は (vii)(b) でよい。外部の型は、そもそも消した名前の対象外。
+7. **後片付け**：設計者が行う。W: の空きが 0 になったので、merge 済みで clean な lane（`rw-W11x-X1`〜`X7`・`rw-G16`・`rw-W11c-G1`）と `rw-kpi-cp2` の `target/` を先に消した。worktree そのものは公開に向けた整理で消す。
