@@ -306,3 +306,20 @@
 - 判断待ち：なし（W10 の差戻しは答え済み）。
 - 注意：worktree の片付けは未実施（上の W10 の節に一覧）。merge 済みを確かめてから消す。
 - 注意：前の Orchestrator の古い tier b の script（`V:/kv-target/logs/w10-tierb.sh`）の結果は使わない。CRLF の file は `git -c core.autocrlf=false` で commit し、commit 前に `git diff --stat` と `git ls-files --eol` を確かめる。
+
+## 引継ぎ（W11a・W11b・W11x の統合の後、2026-11-22。Orchestrator の作業の区切り）
+
+- 統合 HEAD：ffc8fc62（origin へ push する）。
+- 統合へ merge 済み：W11a（G01・G13・G14・K44・L12）、W11b（G02〜G12 と各 lane の fix。G04 の tooltip の setter は文に残した）、W11x（X6 の policy と xtask-core、X1〜X5、X7 の ZoomPan 改名、X2 の color と tokens、X5 の sheet と theme の循環）、G16 の部分（custom-controls の CopyButton → CopyInput）。
+- 全体の xtask（統合）：X5・X7 の後に 13 件、その後 kivact-docs の生成コードの 9 件、G16 の後の残りは 2 件（custom-components の progress_ring の u32 の literal。en は 558 行、jp は 473 行、`progress_ring(3, 10)`）。統合の全体の実行（V:/kv-target/logs-W11x/integ-full-after-X5.log）は空で終わっていた。
+- 設計者の判断待ち：progress_ring の u32 の literal。`_u32` を足さない（設計者の答え 5 章の規則）。
+- 次にすること（順）：
+  1. 設計者の答えを G16（worktree W:/w/kv-wt/rw-G16、branch wt/rw-G16）で実施し、commit して統合へ merge する。
+  2. 全体の `cargo xtask check --no-write`（統合。CARGO_TARGET_DIR=V:/kv-target/rw-main）が 0 件になることを確かめる。
+  3. W11b と W11x の最後の tier b（2.3 の W11a 以降の形：fmt、xtask、clippy workspace all-targets all-features、test workspace（gpu-interop-producer だけ除く）、`cargo check -p kivact-docs --all-targets --all-features`、rg の state-fields）。
+  4. CP3（5.2 節）：tier c、AC-4 の検査（2.5）、xtask の state、KPI（B0-CP3 は基点 worktree W:/w/kv-wt/rw-kpi-base の c9518946、CP3 は統合。`cargo xtask kpi-compare`）、PR_DRAFT.md（X5 の破壊的な変更の 1 行を含む：kivact_style::text::StyledRange の path を削除し、正の path は kivact_style::StyledRange）。
+  5. 後片付け：W11x と G16 の worktree と branch（merge 済みを確かめてから）。wt/rw-W8-U3 は未 commit の変更があるので残す（設計者が中身を見て決める）。
+- 注意：
+  - V:/kv-check-out.txt（G10 の subagent が作った。削除は拒否された）は、user が手で消す。
+  - xtask-core の branch fix/kashiwade/component-generated-type（94e1bbb）は設計者が push 済み。
+  - この file は改行が混在しているため、追記は CRLF で、commit は `-c core.autocrlf=false` で行った。
