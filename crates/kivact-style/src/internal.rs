@@ -75,13 +75,7 @@ pub fn resolve_color(color: crate::Color, theme: &Theme) -> p::Rgba {
     color.resolve(theme)
 }
 
-/// The theme in effect for the current owner, if there is one: like
-/// [`crate::use_theme`] but never a misuse and untracked (animation and
-/// luminance read it outside setup).
-pub fn try_use_theme() -> Option<Theme> {
-    let owner = kivact_runtime::Owner::try_ambient()?;
-    theme_of(owner).map(|theme| kivact_runtime::untrack(|| theme.get()))
-}
+pub use crate::theme::value::try_use_theme;
 
 #[cfg(test)]
 mod tests {

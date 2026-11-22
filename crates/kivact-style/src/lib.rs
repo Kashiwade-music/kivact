@@ -54,11 +54,12 @@ pub use kivact_types::{ThemeVar, VarValue};
 pub use paint::Background;
 pub use resolve::{CompiledStyle, Interactive};
 pub use sheet::{
-    FlexDirection, Justify, Overflow, Position, ScrollbarWidth, Style, TransitionProp, style,
+    FlexDirection, Justify, Overflow, Position, ScrollbarWidth, Style, StyledRange, TransitionProp,
+    style,
 };
 pub use text::{
-    FontFeature, FontKerning, LineHeight, StyledRange, TextDecorationLine, TextDecorationStyle,
-    TextOverflow, TextTransform,
+    FontFeature, FontKerning, LineHeight, TextDecorationLine, TextDecorationStyle, TextOverflow,
+    TextTransform,
 };
 pub use theme::value::{Theme, ThemeExtension, ThemeMode, ThemeRef, use_theme};
 pub use theme::{FontFamily, ThemeValue};

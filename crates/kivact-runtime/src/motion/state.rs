@@ -136,10 +136,12 @@ impl Drop for MotionToken {
     }
 }
 
-// xtask-allow(state): loops and anims hold every registration by id; running_loops and running_anims hold the ids whose phase is running and are written only by those phase changes; clock is the frame request phase; next_id allocates ids and time_scale is a DevTools setting
+// xtask-allow(state): loops and anims hold every registration by id; running_loops and running_anims hold the ids whose phase is running and are written only by those phase changes; clock is the frame request phase; next_id allocates ids and time_scale is a DevTools setting; env is written once by Runtime::new before the App runs
 /// Per-App frame clock and weak registrations driven by host frame ticks.
 #[derive(Default)]
 pub struct MotionState {
+    /// The environment the host gives, set once when the App is created.
+    env: kivact_types::cell::Deferred<MotionEnv>,
     clock: RefCell<FrameClock>,
     /// Every live frame loop by id (DevTools, stats, the clock shift).
     loops: RefCell<BTreeMap<u64, Weak<LoopCell>>>,
@@ -167,6 +169,24 @@ pub(super) fn owner_source(owner: Owner) -> Option<&'static std::panic::Location
 }
 
 impl MotionState {
+    /// The motion state of `rt`, installed when the App was created.
+    pub(crate) fn of(rt: &Runtime) -> &MotionState {
+        rt.extension::<MotionState>()
+    }
+
+    /// Install the environment the host gave (`AppParts::motion_env`); the
+    /// first one is kept.
+    pub(crate) fn set_env(&self, env: MotionEnv) {
+        self.env.get_or_init(|| env);
+    }
+
+    /// The environment, installed by `Runtime::new` before any user code runs.
+    pub(crate) fn env(&self) -> &MotionEnv {
+        self.env
+            .get()
+            .expect("invariant: Runtime::new installs the motion environment before the App runs")
+    }
+
     /// Set how fast motion time runs (0 pauses, 1 is normal) from now on.
     pub fn set_time_scale(&self, rt: &Runtime, scale: f64) {
         self.time_scale
@@ -634,6 +654,7 @@ mod tests {
     use std::panic::Location;
     use std::rc::Rc;
 
+    use super::MotionState;
     use crate::reactive::host_types::Host;
 
     struct Quiet;
@@ -646,7 +667,7 @@ mod tests {
         let rt = crate::driver::Runtime::register(
             Rc::new(Quiet),
             0,
-            crate::driver::TaskState::new(None, crate::driver::ThreadWaker::new(|| {})),
+            crate::reactive::extensions::test_extensions().with(MotionState::default()),
         );
         let at = Location::caller();
         assert_eq!(rt.create_owner(None, at), rt.root);

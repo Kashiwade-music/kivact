@@ -6,17 +6,29 @@
 //! host that runs the App's turns.
 
 use kivact_types::cell::Registry;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::panic::Location;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::task::Waker;
+use std::time::SystemTime;
 
 use super::executor::Executor;
+use crate::reactive::Runtime;
+use crate::reactive::extensions::TurnWork;
 use crate::task::worker_pool::Pool;
-use crate::{Owned, OwnerId};
+use crate::{Owned, Owner, OwnerId, Value};
+
+/// One shared clock: the owner that holds its signal and timer task, and
+/// how many live callers use it (`task::clock`).
+pub(crate) struct ClockEntry {
+    pub(super) every_ns: u64,
+    pub(super) owner: Owner,
+    pub(super) value: Value<SystemTime>,
+    pub(super) users: Cell<u32>,
+}
 
 /// Arrival identity of a registered timer.
 pub(crate) type TimerId = u64;
@@ -122,7 +134,7 @@ pub struct TaskState {
     /// The mark and waker other threads use to reach the mailboxes.
     pub(crate) remote_wake: super::remote::RemoteWake,
     /// The shared clocks and their users (`task::clock`).
-    pub(super) clocks: RefCell<Vec<Rc<super::clock::ClockEntry>>>,
+    pub(super) clocks: RefCell<Vec<Rc<ClockEntry>>>,
     /// The blocking pool, created on first use.
     pub(super) pool: RefCell<PoolState>,
 }
@@ -144,6 +156,11 @@ impl TaskState {
             clocks: RefCell::new(Vec::new()),
             pool: RefCell::new(PoolState::NotStarted),
         }
+    }
+
+    /// The task subsystem of `rt`, installed when the App was created.
+    pub(crate) fn of(rt: &Runtime) -> &TaskState {
+        rt.extension::<Rc<TaskState>>()
     }
 
     /// Whether a spawned future is ready to be polled (the next turn has
@@ -195,6 +212,30 @@ impl TaskState {
         if let PoolState::Running(p) = pool {
             p.shutdown();
         }
+    }
+}
+
+impl TurnWork for TaskState {
+    fn ready_work(&self) -> bool {
+        self.has_ready()
+    }
+
+    fn mail_waiting(&self) -> bool {
+        self.remote_wake.is_pending()
+    }
+
+    /// Deliver every open mailbox once, as host code of `rt`, when another
+    /// thread sent mail.
+    fn deliver_mail(&self, rt: &Runtime) {
+        if !self.remote_wake.take() {
+            return;
+        }
+        let inboxes: Vec<Rc<dyn super::remote::Deliver>> = self.remotes.borrow().clone();
+        rt.enter(|| {
+            for inbox in inboxes {
+                inbox.deliver();
+            }
+        });
     }
 }
 

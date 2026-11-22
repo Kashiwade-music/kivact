@@ -55,14 +55,14 @@ impl Runtime {
             || self.has_user_effects()
             || !self.deferred.borrow().is_empty()
             || self.has_later_reports()
-            || self.tasks.has_ready()
+            || self.work().ready_work()
     }
 
     /// Whether another thread sent values or notifications
     /// (`task::remote`, `task::remote_trigger`) that the next turn delivers.
     /// The host runs a turn for them even without an event.
     pub fn has_mail(&self) -> bool {
-        self.tasks.remote_wake.is_pending()
+        self.work().mail_waiting()
     }
 
     /// Whether a turn was requested of the host and has not started.
@@ -112,15 +112,7 @@ impl Runtime {
     /// Deliver what other threads sent (`task::remote`, `task::remote_trigger`):
     /// every mailbox once, at the start of the turn.
     fn deliver_remotes(&self) {
-        if !self.tasks.remote_wake.take() {
-            return;
-        }
-        let inboxes: Vec<Rc<dyn crate::task::Deliver>> = self.tasks.remotes.borrow().clone();
-        self.enter(|| {
-            for inbox in inboxes {
-                inbox.deliver();
-            }
-        });
+        self.work().deliver_mail(self);
     }
     /// Route `err` to the nearest error boundary of `owner`, or, without an
     /// owner or a boundary, to the App's default sink (`tracing` and

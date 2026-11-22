@@ -165,7 +165,7 @@ effect = ["asset", "color", "geometry", "length", "path", "shader", "theme"]
 paint = ["asset", "color", "geometry", "length", "shader", "theme"]
 shader = ["asset", "color", "geometry", "paint", "theme"]
 text = ["color", "effect", "paint", "theme"]
-draw = ["asset", "color", "effect", "geometry", "paint", "path", "shader", "text", "theme", "transform"]
+draw = ["asset", "color", "effect", "geometry", "length", "paint", "path", "shader", "text", "theme", "transform"]
 sheet = ["color", "draw", "effect", "geometry", "grid", "length", "paint", "text", "theme", "transform"]
 resolve = [
     "color", "draw", "effect", "geometry", "grid", "length", "paint", "sheet", "text", "theme",

@@ -372,12 +372,3 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextRareFields, theme: &T
     t.placeholder_color = color(x.placeholder_color);
     dropped
 }
-
-/// The style of a UTF-8 byte range within one editing line: its text
-/// properties (color, decoration, weight, ...) and `background`, as a
-/// [`Style`](crate::Style). A span of rich text takes the same vocabulary.
-#[derive(Clone, Debug, PartialEq)]
-pub struct StyledRange {
-    pub range: std::ops::Range<usize>,
-    pub style: crate::Style,
-}

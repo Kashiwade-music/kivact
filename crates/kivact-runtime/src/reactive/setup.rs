@@ -29,9 +29,10 @@ use std::rc::Rc;
 use crate::HandlerResult;
 use crate::reactive::arena::Key;
 use crate::reactive::data::{
-    Callback, CallbackFn, EffectKind, LensCell, Runtime, Signal, SignalRepr, Value, Var,
+    Callback, EffectKind, LensCell, Runtime, Signal, SignalRepr, Value, Var,
 };
 use crate::reactive::error::{ErrorKind, misuse_at};
+use crate::reactive::handler::CallbackFn;
 use crate::reactive::props::IntoValue;
 use crate::reactive::registry::current_runtime;
 use crate::reactive::scope::{owner_scope, setup_scope};
