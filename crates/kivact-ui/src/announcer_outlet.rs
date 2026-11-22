@@ -14,7 +14,7 @@ use kivact_macros::component;
 #[component]
 pub fn announcer_outlet(announcer: Announcer) -> impl Element {
     let root = with_base_recipe_style(
-        node().hit_testable(false),
+        node().hit_testable(false).test_id("kivact.announcer"),
         |r: &AnnouncerOutletTheme| r.root_recipe(),
         &Variants::default(),
         || (),
