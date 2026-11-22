@@ -20,6 +20,7 @@ use kivact::prelude::*;
 use kivact::interaction::Tone;
 use kivact_ui_pop as pop;
 
+#[component]
 fn payment_status(failed: Signal<bool>) -> impl IntoView {
     show(failed, || {
         {let tone=kivact::state::IntoValue::into_value(Tone::Danger); kivact::ui::alert("Payment failed").tone(tone).icon(kivact::view::icon(move || kivact::style::Icon::named(match tone.get() { kivact::interaction::Tone::Danger=>"alert-circle", kivact::interaction::Tone::Warning=>"alert-triangle",kivact::interaction::Tone::Success=>"circle-check",_=>"info-circle"}))).description("Your card was declined. Update it and try again.").actions(button("Update card").variant(kivact::ui::ButtonVariant::Outline))}
@@ -37,20 +38,20 @@ has no close button: if people should be able to dismiss it, add a button in
 ## Show a toast
 
 A toast is a short message that appears in a corner and goes away after a few
-seconds. Two parts work together: a `toaster`, the queue, and a `toast_region`,
+seconds. Two parts work together: a toaster (`use_toaster()`), the queue, and a `toast_region`,
 which draws it. Create the toaster once in setup, mount one region near the
 root, and push messages from anywhere.
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::interaction::{Toast, Tone, toaster};
+use kivact::interaction::{Toast, Tone, use_toaster};
 use kivact::ui::{toast_region};
 use kivact_ui_pop as pop;
 use std::time::Duration;
 
 fn app() -> impl IntoView {
-    let toaster = toaster().max_visible(3);
+    let toaster = use_toaster().max_visible(3);
     column((
         button("Save").on_press(move || {
             toaster.push(
@@ -84,7 +85,7 @@ fn main() -> kivact::Result<()> {
 - `max_visible(n)` limits how many show at once; call it where you create
   the toaster.
 - The region is part of the app, not of one screen. Put it once at the root, and
-  call `toaster()` once there and pass the `ToasterApi` (it is `Copy`) to the
+  call `use_toaster()` once there and pass the `ToasterApi` (it is `Copy`) to the
   code that pushes.
 
 ## Keep a history of notifications
@@ -97,7 +98,8 @@ shows while any item is unread.
 use kivact::prelude::*;
 use kivact_ui_pop as pop;
 
-fn bell() -> impl IntoView {
+#[component]
+fn bell() -> impl Element {
     let items = signal(vec![
         pop::NotificationItem {
             unread: true,
@@ -134,7 +136,8 @@ data, say so and offer the next action:
 use kivact::prelude::*;
 use kivact_ui_pop as pop;
 
-fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
+#[component]
+fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl Element {
     column((
         show(loading, || kivact::ui::skeleton().lines(3)),
         show(move || !loading.get() && count.get() == 0, || {
@@ -178,24 +181,26 @@ is a core topic, covered in the core guide on asynchronous work.
   `cargo doc -p kivact --open`; all Pop components: `cargo doc -p kivact-ui-pop
   --open`
 
-Use standard `chat_thread`, `chat_message(author)`, `chat_composer` and `typing_indicator` for message logs. `PopBubble` selects compact conversation bubbles; `.sender(..)` is independent of the author, `.content(..)` accepts views and `.time(..)` preserves application-formatted timestamps. For grouped paragraphs, render individual messages with `ChatBubbleGroup::First`, `Middle` and `Last`, an avatar on the first and time on the last. The shared log owns scroll following; the application owns message history, streaming and revisions. `pop::thread` remains a conversation-preview row, with selection, unread count and a preview. Standard `code_block` provides line numbering, highlighting, wrapping and copy feedback.
+Use standard `chat_thread`, `chat_message(author)`, `chat_composer` and `typing_indicator` for message logs. `ChatBubbleVariant` selects compact conversation bubbles; `.sender(..)` is independent of the author, `.content(..)` accepts views and `.time(..)` preserves application-formatted timestamps. For grouped paragraphs, render individual messages with `ChatBubbleGroup::First`, `Middle` and `Last`, an avatar on the first and time on the last. The shared log owns scroll following; the application owns message history, streaming and revisions. `pop::thread` remains a conversation-preview row, with selection, unread count and a preview. Standard `code_block` provides line numbering, highlighting, wrapping and copy feedback.
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_pop as pop;
-fn conversation() -> impl IntoView {
+#[component]
+fn conversation() -> impl Element {
     let draft=signal(String::new());
     let sent=signal(Vec::<String>::new());
     kivact::ui::chat_thread((
         kivact::ui::chat_message("Haruka").content(text("The report is ready."))
-            .time("09:12").variant(pop::PopBubble),
+            .time("09:12").variant(pop::ChatBubbleVariant),
         for_index(sent,|_,message|kivact::ui::chat_message("You")
             .sender(kivact::ui::ChatSender::User)
-            .content(text(message)).variant(pop::PopBubble)),
+            .content(text(message)).variant(pop::ChatBubbleVariant)),
     )).composer(kivact::ui::chat_composer(draft)
         .on_submit(move|message|sent.update(|sent|sent.push(message))))
 }
-fn source() -> impl IntoView {
+#[component]
+fn source() -> impl Element {
     kivact::ui::code_block("let answer = 42;".to_owned())
         .title("Example").language("Rust").line_numbers(true).wrap(true)
 }

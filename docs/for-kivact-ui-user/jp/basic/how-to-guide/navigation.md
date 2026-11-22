@@ -14,33 +14,33 @@
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn shell() -> impl IntoView {
+#[component]
+fn shell() -> impl Element {
     let open = signal(true);
     let page = signal("home");
     let entry = move |key: &'static str, label: &'static str, name: &'static str| {
-        basic::sidebar_menu_button(label)
+        kivact::ui::sidebar_menu_button(label)
             .icon(icon(name))
             .active(move || page.get() == key)
             .on_press(move || page.set(key))
     };
-    let sidebar = basic::sidebar()
-        .collapsible(basic::SidebarCollapsible::Icon)
+    let sidebar = kivact::ui::sidebar()
         .rail(true)
         .header(basic::large("Acme Inc"))
         .content({
-            basic::sidebar_group("Application").content({
-                basic::sidebar_menu((
-                    entry("home", "Home", "house"),
-                    entry("inbox", "Inbox", "inbox"),
-                    entry("settings", "Settings", "settings"),
-                ))
+            kivact::ui::sidebar_group("Application").content({
+                kivact::ui::sidebar_menu(vec![
+                    entry("home", "Home", "house").into_view(),
+                    entry("inbox", "Inbox", "inbox").into_view(),
+                    entry("settings", "Settings", "settings").into_view(),
+                ])
             })
         });
     let content = column((
         row((
-            basic::sidebar_trigger(),
+            kivact::ui::sidebar_trigger(),
             basic::separator()
-                .orientation(Orientation::Vertical)
+                .orientation(kivact::view::Orientation::Vertical)
                 .style(style().height(16)),
             kivact::ui::breadcrumb(move || vec![
                 kivact::interaction::ListItem::new("root", "Acme"),
@@ -51,12 +51,16 @@ fn shell() -> impl IntoView {
         .style(style().height(48).padding_x(12).gap(8).align_items(Align::Center)),
         kivact::ui::heading(move || page.get().to_string(), 4).style(style().padding(12)),
     ))
-    .style(style().grow(1));
-    column(basic::sidebar_provider(open, sidebar, content)).style(
+    .style(style().flex_grow(1));
+    column(
+        kivact::ui::sidebar_provider(open, sidebar, content)
+            .collapsible(kivact::ui::SidebarCollapsible::Icon),
+    )
+    .style(
         style()
             .size(pct(100), pct(100))
-            .background(basic::ColorName::Background)
-            .color(basic::ColorName::Foreground),
+            .background(basic::BACKGROUND)
+            .color(basic::FOREGROUND),
     )
 }
 ```
@@ -77,7 +81,8 @@ fn shell() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn account() -> impl IntoView {
+#[component]
+fn account() -> impl Element {
     let current = signal("account");
     let options = vec![
         ListItem::new("account", "Account"),
@@ -108,7 +113,8 @@ fn account() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn trail() -> impl IntoView {
+#[component]
+fn trail() -> impl Element {
     let at = signal(String::from("Components"));
     kivact::ui::breadcrumb(move || vec![
         kivact::interaction::ListItem::new("home", "Home"),
@@ -130,7 +136,8 @@ fn trail() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn bar() -> impl IntoView {
+#[component]
+fn bar() -> impl Element {
     let last = signal(String::from("Nothing chosen yet."));
     column((
         basic::menubar(vec![
@@ -167,7 +174,8 @@ fn bar() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn top_nav() -> impl IntoView {
+#[component]
+fn top_nav() -> impl Element {
     let clicks = signal(0usize);
     let getting_started = move || {
         column((
@@ -198,7 +206,8 @@ fn top_nav() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn pager() -> impl IntoView {
+#[component]
+fn pager() -> impl Element {
     let page = signal(0usize);
     column((
         kivact::ui::pagination(12usize, page),

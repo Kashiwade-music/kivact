@@ -13,42 +13,43 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_pop as pop;
 
-fn sign_up() -> impl IntoView {
+#[component]
+fn sign_up() -> impl Element {
     let name = signal(String::new());
     let email = signal(String::new());
     let plan = signal(Some("team"));
     let terms = signal(false);
 
     kivact::ui::card((
-        text("新規アカウント").style(style().font_size(20).weight(600)),
+        text("New account").style(style().font_size(20).font_weight(600)),
         field(
-            "名前",
-            text_input("名前", name).placeholder("お名前を入力"),
+            "Name",
+            text_input(name).label("Name").placeholder("Your full name"),
         )
-        .hint("請求書に表示されます。"),
+        .hint("Shown on your invoices."),
         field(
-            "メールアドレス",
-            text_input("メールアドレス", email).placeholder("you@example.com"),
+            "Email",
+            text_input(email).label("Email").placeholder("you@example.com"),
         ),
         field(
-            "プラン",
+            "Plan",
             radio_group(
-                "プラン",
+                "Plan",
                 vec![
-                    ListItem::new("solo", "ソロ"),
-                    ListItem::new("team", "チーム"),
-                    ListItem::new("business", "ビジネス"),
+                    ListItem::new("solo", "Solo"),
+                    ListItem::new("team", "Team"),
+                    ListItem::new("business", "Business"),
                 ],
                 plan,
             )
-            .orientation(Orientation::Horizontal)
+            .orientation(kivact::view::Orientation::Horizontal)
             .variant(kivact::ui::RadioGroupVariant::Segmented),
         )
-        .hint("プランはあとから変更できます。"),
-        checkbox("利用規約に同意します", terms),
+        .hint("You can change the plan later."),
+        checkbox("I accept the terms", terms),
         row((
-            button("キャンセル").variant(pop::ButtonTone::Soft),
-            button("アカウントを作成").variant(pop::ButtonTone::Accent),
+            button("Cancel").variant(pop::ButtonTone::Soft),
+            button("Create account").variant(pop::ButtonTone::Accent),
         ))
         .style(style().gap(8).justify_content(Justify::End)),
     ))

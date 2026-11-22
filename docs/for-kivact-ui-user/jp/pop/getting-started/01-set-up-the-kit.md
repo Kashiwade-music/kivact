@@ -37,12 +37,13 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_pop as pop;
 
-fn sign_up() -> impl IntoView {
+#[component]
+fn sign_up() -> impl Element {
     let name = signal(String::new());
     kivact::ui::card((
-        text("新規アカウント").style(style().font_size(20).weight(600)),
-        text_input("名前", name),
-        button("アカウントを作成"),
+        text("New account").style(style().font_size(20).font_weight(600)),
+        text_input(name).label("Name"),
+        button("Create account"),
     ))
     .style(style().width(360).margin(24).gap(12))
 }

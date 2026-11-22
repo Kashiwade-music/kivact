@@ -16,14 +16,14 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_game::{self as game, Density, ThemeOptions};
 
-fn app() -> impl IntoView {
-    column((text("Console"), button("Run").variant(game::Slant)))
+fn app() -> impl Element {
+    column((text("Console"), button("Run").variant(kivact::ui::Slant)))
         .style(style().gap(12).padding(24))
 }
 
 fn main() -> kivact::Result<()> {
     App::new("Console")
-        .theme(game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Compact }))
+        .theme(game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Compact, ..Default::default() }))
         .run(app)
 }
 ```
@@ -44,7 +44,7 @@ icons, so `icon("shield-check")` draws one. You choose `ThemeMode::Light` or
 | Table row height | 42 px | 32 px |
 | Panel padding | 20 px | 14 px |
 
-The colors, the font families and the rest of the tokens stay the same. Use `Compact` for dense
+The colors and the font families stay the same. Use `Compact` for dense
 tools and `Comfortable` for menus a player reads at a distance.
 
 ## Switch mode and density at run time
@@ -65,21 +65,21 @@ fn app() -> impl IntoView {
     let theme = move || {
         let mode = if dark.get() { ThemeMode::Dark } else { ThemeMode::Light };
         let density = if compact.get() { Density::Compact } else { Density::Comfortable };
-        game::theme_with(mode, ThemeOptions { density })
+        game::theme_with(mode, ThemeOptions { density, ..Default::default() })
     };
     provide_theme(theme, move || {
         column((
             switch("Dark", dark),
             switch("Compact", compact),
-            text_input("Callsign", signal(String::new())),
+            text_input(signal(String::new())).label("Callsign"),
         ))
         .style(
             style()
                 .gap(12)
                 .padding(24)
                 .height(pct(100))
-                .background(game::ColorName::Canvas)
-                .color(ColorToken::Text),
+                .background(game::color::CANVAS)
+                .color(kivact::style::color::TEXT),
         )
     })
 }
@@ -90,104 +90,92 @@ fn main() -> kivact::Result<()> {
 ```
 
 `provide_theme` creates no node and paints nothing, so give the top node of the
-subtree the page colors. `game::ColorName::Canvas` is the kit's page background,
+subtree the page colors. `game::color::CANVAS` is the kit's page background,
 and it follows the theme as it switches.
 
 ## Change colors and fonts
 
-The kit's own values are in `game::Tokens`, a plain struct with public fields:
-the font families `display_family` and `mono_family`, the colors `yellow`,
-`cyan`, `navy`, `canvas` and others, and the metrics `control_height`,
-`row_height` and `padding`. Copy the tokens, change fields and install them with
-`Theme::with`:
+The kit's own values are theme variables. A color is a `ThemeVar<Color>` static in
+`kivact_ui_game::color`, such as `CYAN_VAR`, and a font family is a `ThemeVar<FontFamily>`
+static in `kivact_ui_game::fonts`: `DISPLAY_FAMILY_VAR` for headings, buttons and numbers,
+and `MONO_FAMILY_VAR` for codes and identifiers. The `const` of the same name (`CYAN`)
+reads the variable in a style. Change a variable with `Theme::set`, which returns the
+theme, so you can chain several calls:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
-use kivact::style::theme::Typography;
+use kivact::style::{FontFamily, ThemeMode, rgb};
 use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 fn console_theme() -> Theme {
-    let theme = game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Compact });
-
-    // The kit's own tokens: display and monospaced families, an accent color.
-    let mut tokens = (*theme.ext::<game::Tokens>()).clone();
-    tokens.display_family = "Barlow Condensed".into();
-    tokens.mono_family = "JetBrains Mono".into();
-    tokens.yellow = rgb(0xffb300);
-
-    // Kivact's shared type settings: the font of ordinary text.
-    let text = Typography {
-        family: Some("Noto Sans JP".into()),
-        ..theme.text().clone()
-    };
-    theme.with(tokens).with_text(text)
+    game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Compact, ..Default::default() })
+        // The kit's own variables: an accent color and the display and monospaced families.
+        .set(&game::color::CYAN_VAR, rgb(0xffb300))
+        .set(&game::fonts::DISPLAY_FAMILY_VAR, FontFamily::from("Barlow Condensed"))
+        .set(&game::fonts::MONO_FAMILY_VAR, FontFamily::from("JetBrains Mono"))
 }
 
 /// The font files are yours to embed, for example
 /// `include_bytes!("../assets/BarlowCondensed-Bold.ttf")`.
-fn application(display: &'static [u8], mono: &'static [u8], text: &'static [u8]) -> App {
+fn application(display: &'static [u8], mono: &'static [u8]) -> App {
     App::new("Console")
-        .fonts([display, mono, text])
-        .theme(console_theme())
+        .theme(console_theme().with_fonts([display, mono]))
 }
 # fn main() {}
 ```
 
-- `display_family` is used by buttons, tabs, headings and big numbers;
-  `mono_family` by `game::mono`, KPI captions and the table captions.
+- `DISPLAY_FAMILY_VAR` is used by buttons, tabs, headings and big numbers;
+  `MONO_FAMILY_VAR` by `game::mono`, KPI captions and the table captions.
   Both default to `sans-serif` and `monospace`.
-- Fonts belong to the application: register each file with `App::fonts` and use
+- Fonts belong to the application: pass the font files to `Theme::with_fonts` and use
   the family name written inside the font, not the file name.
-- Choose the density with `theme_with` before customizing the theme tokens.
+- `ThemeOptions` also has `display_font` and `mono_font` fields, which set the two
+  families when you build the theme with `theme_with`.
+- Choose the density with `theme_with` before you change the variables.
 
 The kit's brand colors for the standard parts (accent, success, warning,
-danger, border) live in the theme's palette (`theme.colors()` and
-`.with_colors(..)`), because the standard components read the palette. The
-tokens hold what the kit adds on top. To recolor the accent everywhere,
-change `colors.accent` as well as the token you care about:
+danger, border) are the theme variables of `kivact::style::color`, because the
+standard components read them. To recolor the accent everywhere, set
+`color::ACCENT_VAR` as well as the kit variable you care about:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
+use kivact::style::{ThemeMode, color, rgb};
 use kivact_ui_game as game;
 
 fn orange_theme() -> Theme {
-    let theme = game::theme(ThemeMode::Dark);
-    let mut colors = theme.colors().clone();
-    colors.accent = rgb(0xff6a00);
-    theme.with_colors(colors)
+    game::theme(ThemeMode::Dark).set(&color::ACCENT_VAR, rgb(0xff6a00))
 }
 # fn main() {}
 ```
 
 ## Use the kit's colors in your own components
 
-Pass `game::ColorName::..` anywhere a style takes a color: the value is looked up
-in the theme the node is painted in, so it follows theme switches without a
+Pass `game::color::NAVY` or any other `game::color::*` constant anywhere a style takes a color: the value is read
+from the theme the node is painted in, so it follows theme switches without a
 closure.
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
-fn warning_strip(message: &'static str) -> Node {
+#[component]
+fn warning_strip(message: Value<String>) -> impl Element {
     row((game::mono("WARN"), text(message))).style(
         style()
             .gap(10)
             .padding(8)
-            .background(game::ColorName::Navy)
-            .color(game::ColorName::Yellow)
-            .border_left(3, game::ColorName::Cyan),
+            .background(game::color::NAVY)
+            .color(game::color::YELLOW)
+            .border_left(3, game::color::CYAN),
     )
 }
 # fn main() {}
 ```
 
-The standard `ColorToken::Surface`, `Text`, `TextMuted`, `Border`, `Accent`
-and `Danger` work with every theme and are the right choice for a component
-you want to use in other kits too. Read a `Tokens` field by hand only when you
-need to compute a new color from it.
+The standard `kivact::style::color::SURFACE`, `TEXT`, `TEXT_MUTED`, `BORDER`, `ACCENT`
+and `DANGER` work with every theme and are the right choice for a component
+you want to use in other kits too.
 
 ## Replace the kit's texts
 

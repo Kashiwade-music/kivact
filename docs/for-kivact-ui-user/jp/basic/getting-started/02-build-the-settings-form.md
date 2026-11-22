@@ -12,98 +12,94 @@
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::theme::Typography;
-use kivact::style::{Direction, Theme, ThemeMode};
+use kivact::style::{FlexDirection, FontFamily, Theme, ThemeMode, font};
 use kivact_ui_basic as basic;
 
 fn theme(mode: ThemeMode) -> Theme {
-    let theme = basic::theme(mode);
-    let text = Typography {
-        family: Some("Inter, 'Noto Sans JP', sans-serif".into()),
-        ..theme.text().clone()
-    };
-    theme.with_text(text)
+    basic::theme(mode).set(&font::FAMILY_VAR, FontFamily::from("Inter, sans-serif"))
 }
 
 fn fonts() -> Vec<&'static [u8]> {
     Vec::new()
 }
 
+#[component]
 fn profile_card(
     name: Signal<String>,
     saved_name: Signal<String>,
     language: Signal<Option<&'static str>>,
-) -> impl IntoView {
+) -> impl Element {
     let languages = vec![
         ListItem::new("en", "English"),
-        ListItem::new("ja", "日本語"),
-        ListItem::new("de", "Deutsch"),
+        ListItem::new("ja", "Japanese"),
+        ListItem::new("de", "German"),
     ];
     let changed = move || name.get() != saved_name.get();
     kivact::ui::card({
         basic::field_group((
-            field("表示名", text_input("表示名", name)).hint("公開ページに表示されます。"),
-            field("言語", select("言語", languages, language)),
+            field("Display name", text_input(name))
+                .hint("Shown on your public page."),
+            field("Language", select(languages, language)),
         ))
     })
     .header(
         row((
             column((
-                text("プロフィール")
-                    .style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
-                text("ほかの人にどう見えるかを決めます。").style(
+                text("Profile").style(style().font_size(14).line_height(20.0 / 14.0).font_weight(500)),
+                text("Choose how others see you.").style(
                     style()
                         .line_height(1.625)
-                        .color(basic::ColorName::MutedForeground),
+                        .color(basic::MUTED_FOREGROUND),
                 ),
             ))
-            .style(style().gap(4).grow(1).min_width(0)),
+            .style(style().gap(4).flex_grow(1).min_width(0)),
             row({
                 show(changed, || {
-                    kivact::ui::badge("未保存の変更").variant(basic::BadgeVariant::Secondary)
+                    kivact::ui::badge("Unsaved changes").variant(basic::BadgeVariant::Secondary)
                 })
             })
-            .style(style().align_self(Align::Start).shrink(0)),
+            .style(style().align_self(Align::Start).flex_shrink(0)),
         ))
         .style(style().align_items(Align::Start).gap(8)),
     )
     .style(style().width(420))
 }
 
+#[component]
 fn notifications_card(
     digest: Signal<bool>,
     mentions: Signal<bool>,
     reminder: Signal<Option<&'static str>>,
-) -> impl IntoView {
+) -> impl Element {
     let reminders = vec![
-        ListItem::new("daily", "毎日"),
-        ListItem::new("weekly", "毎週"),
-        ListItem::new("never", "なし"),
+        ListItem::new("daily", "Daily"),
+        ListItem::new("weekly", "Weekly"),
+        ListItem::new("never", "Never"),
     ];
     kivact::ui::card({
         basic::field_group((
             field(
-                "週間ダイジェスト",
-                switch("週間ダイジェスト", digest).hide_label(true),
+                "Weekly digest",
+                switch("Weekly digest", digest).hide_label(true),
             )
-            .hint("毎週月曜日に、1 週間のまとめが届きます。")
+            .hint("A summary of your week, every Monday.")
             .style(
                 style()
-                    .direction(Direction::Row)
+                    .flex_direction(FlexDirection::Row)
                     .align_items(Align::Center)
                     .gap(12),
             ),
-            field("メンション", switch("メンション", mentions).hide_label(true))
-                .hint("自分宛てのメンションを知らせます。")
+            field("Mentions", switch("Mentions", mentions).hide_label(true))
+                .hint("Tell me when someone mentions me.")
                 .style(
                     style()
-                        .direction(Direction::Row)
+                        .flex_direction(FlexDirection::Row)
                         .align_items(Align::Center)
                         .gap(12),
                 ),
             basic::field_separator(),
             field(
-                "リマインダー",
+                "Reminders",
                 kivact::ui::toggle_group("Options", reminders, reminder)
                     .variant(basic::ToggleVariant::Outline),
             ),
@@ -111,38 +107,39 @@ fn notifications_card(
     })
     .header(
         column((
-            text("通知").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
-            text("受け取りたいお知らせを選びます。").style(
+            text("Notifications").style(style().font_size(14).line_height(20.0 / 14.0).font_weight(500)),
+            text("Choose what you want to hear about.").style(
                 style()
                     .line_height(1.625)
-                    .color(basic::ColorName::MutedForeground),
+                    .color(basic::MUTED_FOREGROUND),
             ),
         ))
-        .style(style().gap(4).grow(1).min_width(0)),
+        .style(style().gap(4).flex_grow(1).min_width(0)),
     )
     .style(style().width(420))
 }
 
-fn settings() -> impl IntoView {
+#[component]
+fn settings() -> impl Element {
     let name = signal(String::from("Ada"));
     let saved_name = signal(String::from("Ada"));
-    let language = signal(Some("ja"));
+    let language = signal(Some("en"));
     let digest = signal(true);
     let mentions = signal(false);
     let reminder = signal(Some("weekly"));
     column((
-        kivact::ui::heading("設定", 3),
-        basic::muted("プロフィールと通知を管理します。"),
+        kivact::ui::heading("Settings", 3),
+        basic::muted("Manage your profile and notifications."),
         row((
             profile_card(name, saved_name, language),
             notifications_card(digest, mentions, reminder),
         ))
         .style(style().gap(16).align_items(Align::Start)),
         row((
-            button("保存")
+            button("Save")
                 .icon(icon("check"))
                 .on_press(move || saved_name.set(name.get())),
-            basic::muted(move || format!("保存済みの名前: {}", saved_name.get())),
+            basic::muted(move || format!("Saved name: {}", saved_name.get())),
         ))
         .style(style().gap(12).align_items(Align::Center)),
     ))
@@ -151,17 +148,15 @@ fn settings() -> impl IntoView {
             .size(pct(100), pct(100))
             .padding(24)
             .gap(16)
-            .background(basic::ColorName::Background)
-            .color(basic::ColorName::Foreground),
+            .background(basic::BACKGROUND)
+            .color(basic::FOREGROUND),
     )
 }
 
 fn main() -> kivact::Result<()> {
-    let mut app = App::new("設定").theme(theme(ThemeMode::Light));
-    for font in fonts() {
-        app = app.font(font);
-    }
-    app.run(settings)
+    App::new("Settings")
+        .theme(theme(ThemeMode::Light).with_fonts(fonts()))
+        .run(settings)
 }
 ```
 

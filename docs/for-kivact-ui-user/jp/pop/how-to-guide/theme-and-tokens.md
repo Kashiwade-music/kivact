@@ -37,7 +37,7 @@ fn main() -> kivact::Result<()> {
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::style::provide_theme;
+use kivact::style::{color, provide_theme};
 use kivact_ui_pop as pop;
 
 fn app() -> impl IntoView {
@@ -52,15 +52,15 @@ fn app() -> impl IntoView {
     provide_theme(theme, move || {
         column((
             checkbox("Dark mode", dark),
-            text_input("Search", signal(String::new())),
+            text_input(signal(String::new())).label("Search"),
         ))
         .style(
             style()
                 .gap(12)
                 .padding(24)
                 .height(pct(100))
-                .background(pop::ColorName::Background)
-                .color(pop::ColorName::Text),
+                .background(color::SURFACE)
+                .color(color::TEXT),
         )
     })
 }
@@ -78,16 +78,11 @@ fn main() -> kivact::Result<()> {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
+use kivact::style::{Theme, ThemeMode, color, rgb};
 use kivact_ui_pop as pop;
 
 fn brand_theme() -> Theme {
-    let theme = pop::theme(ThemeMode::Light);
-    let mut tokens = (*theme.ext::<pop::Tokens>()).clone();
-    tokens.blue = rgb(0x0f766e);
-    let mut colors = theme.colors().clone();
-    colors.accent = tokens.blue;
-    theme.with(tokens).with_colors(colors)
+    pop::theme(ThemeMode::Light).set(&color::ACCENT_VAR, rgb(0x0f766e))
 }
 
 fn main() -> kivact::Result<()> {
@@ -107,22 +102,19 @@ fn main() -> kivact::Result<()> {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::use_theme;
-use kivact_ui_pop as pop;
+use kivact::style::{color, radius, use_theme};
 
-fn highlight(content: impl IntoView) -> Node {
+#[component]
+fn highlight(content: View) -> impl IntoView {
     column(content).style(move || {
-        let theme = use_theme().get();
-        let tokens = theme.ext::<pop::Tokens>();
-        let (background, foreground) = tokens.hue(pop::Hue::Yellow);
+        let accent = use_theme().get().get(&color::ACCENT_VAR);
         style()
             .padding(12)
-            .radius(tokens.control_radius)
-            .background(background)
-            .color(foreground)
+            .border_radius(radius::MD)
+            .background(accent.with_alpha(0.15))
+            .color(color::TEXT)
     })
 }
-# fn main() {}
 ```
 
 単純な色だけなら、キットは不要です。`ColorToken::Surface`、`Text`、`TextMuted`、`Border`、`Accent`、`Danger` は共通のパレットから来て、どのテーマでも動きます。これだけを使うコンポーネントは、他のキットでもそのまま使えます。
@@ -133,23 +125,19 @@ fn highlight(content: impl IntoView) -> Node {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
-use kivact::style::theme::Typography;
+use kivact::style::{FontFamily, Theme, ThemeMode, font};
 use kivact_ui_pop as pop;
 
 fn themed() -> Theme {
-    let theme = pop::theme(ThemeMode::Light);
-    let text = Typography {
-        family: Some("Inter, 'Noto Sans JP', sans-serif".into()),
-        ..theme.text().clone()
-    };
-    theme.with_text(text)
+    // `Inter` and `Noto Sans JP` are the families the catalog uses.
+    pop::theme(ThemeMode::Light)
+        .set(&font::FAMILY_VAR, FontFamily::from("Inter, 'Noto Sans JP', sans-serif"))
 }
 
 /// `inter` and `noto` are font files you embed, for example
 /// `include_bytes!("../assets/Inter.ttf")`.
 fn application(inter: &'static [u8], noto: &'static [u8]) -> App {
-    App::new("Pop").font(inter).font(noto).theme(themed())
+    App::new("Pop").theme(themed().with_fonts([inter, noto]))
 }
 # fn main() {}
 ```
@@ -171,10 +159,11 @@ Pop テーマでは標準のドロップ先を使います。ファイル選択�
 ```rust,no_run
 use kivact::prelude::*;
 
-fn upload() -> impl IntoView {
+#[component]
+fn upload() -> impl Element {
     kivact::ui::dropzone("Upload")
-        .multiple()
-        .pick_on_press()
+        .multiple(true)
+        .pick_on_press(true)
         .icon(icon("cloud-upload").style(style().size(24, 24)))
         .hint("PNG, PDF")
         .on_files(|files| {

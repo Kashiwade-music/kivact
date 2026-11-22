@@ -21,28 +21,29 @@ struct Order {
     total: f64,
 }
 
-fn orders() -> impl IntoView {
+#[component]
+fn orders() -> impl Element {
     let rows = signal(vec![
         Order { id: 1, customer: "Haruka Sato", status: "Paid", total: 120.0 },
         Order { id: 2, customer: "Ren Mori", status: "Pending", total: 48.5 },
         Order { id: 3, customer: "Aoi Ito", status: "Paid", total: 310.0 },
     ]);
-    data_table(
+    kivact::ui::data_table(
         rows,
         |order: &Order| order.id,
         vec![
-            DataColumn::new("Customer", |order: &Order| order.customer.to_owned()).sortable(),
-            DataColumn::new("Status", |order: &Order| order.status.to_owned()).cell(
+            kivact::ui::DataColumn::new("Customer", |order: &Order| order.customer.to_owned()).sortable(),
+            kivact::ui::DataColumn::new("Status", |order: &Order| order.status.to_owned()).cell(
                 |order: &Order| {
                     let hue = if order.status == "Paid" {
                         pop::Hue::Mint
                     } else {
                         pop::Hue::Yellow
                     };
-                    kivact::ui::badge(order.status).variant(pop::BadgeHue::new(hue))
+                    kivact::ui::badge(order.status).variant(hue)
                 },
             ),
-            DataColumn::new("Total", |order: &Order| format!("${:.2}", order.total))
+            kivact::ui::DataColumn::new("Total", |order: &Order| format!("${:.2}", order.total))
                 .compare(|a, b| a.total.total_cmp(&b.total))
                 .numeric(true),
         ],
@@ -79,22 +80,23 @@ struct Order {
     total: f64,
 }
 
-fn orders(rows: Signal<Vec<Order>>) -> impl IntoView {
+#[component]
+fn orders(rows: Signal<Vec<Order>>) -> impl Element {
     let selected = signal(Vec::<u32>::new());
     let query = signal(String::new());
     let page = signal(0_usize);
     let sort = signal(Some((1_usize, SortOrder::Descending)));
     column((
-        data_table(
+        kivact::ui::data_table(
             rows,
             |order: &Order| order.id,
             vec![
-                DataColumn::new("Customer", |order: &Order| order.customer.clone())
+                kivact::ui::DataColumn::new("Customer", |order: &Order| order.customer.clone())
                     .sortable()
                     .filter(|order, query| {
                         order.customer.to_lowercase().contains(&query.to_lowercase())
                     }),
-                DataColumn::new("Total", |order: &Order| format!("${:.2}", order.total))
+                kivact::ui::DataColumn::new("Total", |order: &Order| format!("${:.2}", order.total))
                     .compare(|a, b| a.total.total_cmp(&b.total))
                     .numeric(true),
             ],
@@ -131,21 +133,22 @@ struct Order {
     customer: String,
 }
 
-fn orders(rows: Signal<Vec<Order>>) -> impl IntoView {
+#[component]
+fn orders(rows: Signal<Vec<Order>>) -> impl Element {
     let selected = signal(Vec::<u32>::new());
     let query = signal(String::new());
-    data_table(
+    kivact::ui::data_table(
         rows,
         |order: &Order| order.id,
-        vec![DataColumn::new("Customer", |order: &Order| order.customer.clone()).sortable()],
+        vec![kivact::ui::DataColumn::new("Customer", |order: &Order| order.customer.clone()).sortable()],
     )
     .selection(selected)
     .filter(query)
     .toolbar(move |_context| {
         row((
-            text_input("Filter orders", query)
+            text_input(query).label("Filter orders")
                 .placeholder("Search customers")
-                .style(style().grow(1)),
+                .style(style().flex_grow(1)),
             button("Delete selected")
                 .variant(pop::ButtonTone::Soft)
                 .disabled(move || selected.with(Vec::is_empty))

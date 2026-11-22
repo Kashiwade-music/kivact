@@ -9,20 +9,14 @@
 `profile_card` と `notifications_card` はステップ 2 のものです。`settings` は `dark` signal を受け取るようになり、新しい `root` 関数がテーマを設定します。
 
 ```rust,test_harness
-use kivact::interaction::{DialogMode, Toast, Tone, toaster};
+use kivact::interaction::{Toast, Tone, use_toaster};
 use kivact::prelude::*;
-use kivact::style::theme::Typography;
-use kivact::style::{Direction, Theme, ThemeMode};
-use kivact::ui::toast_region;
+use kivact::style::{FlexDirection, FontFamily, Theme, ThemeMode, font};
+use kivact::ui::{DialogKind, toast_region};
 use kivact_ui_basic as basic;
 
 fn theme(mode: ThemeMode) -> Theme {
-    let theme = basic::theme(mode);
-    let text = Typography {
-        family: Some("Inter, 'Noto Sans JP', sans-serif".into()),
-        ..theme.text().clone()
-    };
-    theme.with_text(text)
+    basic::theme(mode).set(&font::FAMILY_VAR, FontFamily::from("Inter, sans-serif"))
 }
 
 fn fonts() -> Vec<&'static [u8]> {
@@ -33,37 +27,37 @@ fn profile_card(
     name: Signal<String>,
     saved_name: Signal<String>,
     language: Signal<Option<&'static str>>,
-) -> impl IntoView {
+) -> impl Element {
     let languages = vec![
         ListItem::new("en", "English"),
-        ListItem::new("ja", "日本語"),
-        ListItem::new("de", "Deutsch"),
+        ListItem::new("ja", "Japanese"),
+        ListItem::new("de", "German"),
     ];
     let changed = move || name.get() != saved_name.get();
     kivact::ui::card({
         basic::field_group((
-            field("表示名", text_input("表示名", name)).hint("公開ページに表示されます。"),
-            field("言語", select("言語", languages, language)),
+            field("Display name", text_input(name))
+                .hint("Shown on your public page."),
+            field("Language", select(languages, language)),
         ))
     })
     .header(
         row((
             column((
-                text("プロフィール")
-                    .style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
-                text("ほかの人にどう見えるかを決めます。").style(
+                text("Profile").style(style().font_size(14).line_height(20.0 / 14.0).font_weight(500)),
+                text("Choose how others see you.").style(
                     style()
                         .line_height(1.625)
-                        .color(basic::ColorName::MutedForeground),
+                        .color(basic::MUTED_FOREGROUND),
                 ),
             ))
-            .style(style().gap(4).grow(1).min_width(0)),
+            .style(style().gap(4).flex_grow(1).min_width(0)),
             row({
                 show(changed, || {
-                    kivact::ui::badge("未保存の変更").variant(basic::BadgeVariant::Secondary)
+                    kivact::ui::badge("Unsaved changes").variant(basic::BadgeVariant::Secondary)
                 })
             })
-            .style(style().align_self(Align::Start).shrink(0)),
+            .style(style().align_self(Align::Start).flex_shrink(0)),
         ))
         .style(style().align_items(Align::Start).gap(8)),
     )
@@ -74,36 +68,36 @@ fn notifications_card(
     digest: Signal<bool>,
     mentions: Signal<bool>,
     reminder: Signal<Option<&'static str>>,
-) -> impl IntoView {
+) -> impl Element {
     let reminders = vec![
-        ListItem::new("daily", "毎日"),
-        ListItem::new("weekly", "毎週"),
-        ListItem::new("never", "なし"),
+        ListItem::new("daily", "Daily"),
+        ListItem::new("weekly", "Weekly"),
+        ListItem::new("never", "Never"),
     ];
     kivact::ui::card({
         basic::field_group((
             field(
-                "週間ダイジェスト",
-                switch("週間ダイジェスト", digest).hide_label(true),
+                "Weekly digest",
+                switch("Weekly digest", digest).hide_label(true),
             )
-            .hint("毎週月曜日に、1 週間のまとめが届きます。")
+            .hint("A summary of your week, every Monday.")
             .style(
                 style()
-                    .direction(Direction::Row)
+                    .flex_direction(FlexDirection::Row)
                     .align_items(Align::Center)
                     .gap(12),
             ),
-            field("メンション", switch("メンション", mentions).hide_label(true))
-                .hint("自分宛てのメンションを知らせます。")
+            field("Mentions", switch("Mentions", mentions).hide_label(true))
+                .hint("Tell me when someone mentions me.")
                 .style(
                     style()
-                        .direction(Direction::Row)
+                        .flex_direction(FlexDirection::Row)
                         .align_items(Align::Center)
                         .gap(12),
                 ),
             basic::field_separator(),
             field(
-                "リマインダー",
+                "Reminders",
                 kivact::ui::toggle_group("Options", reminders, reminder)
                     .variant(basic::ToggleVariant::Outline),
             ),
@@ -111,22 +105,23 @@ fn notifications_card(
     })
     .header(
         column((
-            text("通知").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
-            text("受け取りたいお知らせを選びます。").style(
+            text("Notifications").style(style().font_size(14).line_height(20.0 / 14.0).font_weight(500)),
+            text("Choose what you want to hear about.").style(
                 style()
                     .line_height(1.625)
-                    .color(basic::ColorName::MutedForeground),
+                    .color(basic::MUTED_FOREGROUND),
             ),
         ))
-        .style(style().gap(4).grow(1).min_width(0)),
+        .style(style().gap(4).flex_grow(1).min_width(0)),
     )
     .style(style().width(420))
 }
 
-fn settings(dark: Signal<bool>) -> impl IntoView {
+#[component]
+fn settings(dark: Signal<bool>) -> impl Element {
     let name = signal(String::from("Ada"));
     let saved_name = signal(String::from("Ada"));
-    let language = signal(Some("ja"));
+    let language = signal(Some("en"));
     let digest = signal(true);
     let mentions = signal(false);
     let reminder = signal(Some("weekly"));
@@ -134,11 +129,11 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
     column((
         row((
             column((
-                kivact::ui::heading("設定", 3),
-                basic::muted("プロフィールと通知を管理します。"),
+                kivact::ui::heading("Settings", 3),
+                basic::muted("Manage your profile and notifications."),
             ))
-            .style(style().grow(1).gap(8)),
-            switch("ダークモード", dark),
+            .style(style().flex_grow(1).gap(8)),
+            switch("Dark mode", dark),
         ))
         .style(style().align_items(Align::Center)),
         row((
@@ -147,57 +142,58 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
         ))
         .style(style().gap(16).align_items(Align::Start)),
         row((
-            button("保存").icon(icon("check")).on_press(move || {
+            button("Save").icon(icon("check")).on_press(move || {
                 saved_name.set(name.get());
-                toaster().push(
-                    Toast::new("設定を保存しました")
+                use_toaster().push(
+                    Toast::new("Settings saved")
                         .tone(Tone::Success)
-                        .body(format!("表示名: {}", name.get())),
+                        .body(format!("Display name: {}", name.get())),
                 );
             }),
-            basic::muted(move || format!("保存済みの名前: {}", saved_name.get())),
+            basic::muted(move || format!("Saved name: {}", saved_name.get())),
         ))
         .style(style().gap(12).align_items(Align::Center)),
         basic::separator(),
-        kivact::ui::alert("危険な操作")
-            .variant(basic::AlertLook::Destructive)
+        kivact::ui::alert("Danger zone")
+            .variant(basic::AlertTone::Destructive)
             .icon(icon("triangle-alert"))
-            .description("アカウントを削除すると、元に戻せません。")
+            .description("Deleting your account cannot be undone.")
             .actions({
-                button("アカウントを削除")
+                button("Delete account")
                     .variant(kivact::ui::ButtonVariant::Danger)
                     .on_press(move || confirm_delete.set(true))
             })
             .style(style().width(856)),
-        dialog("アカウントを削除しますか？", confirm_delete)
-            .mode(DialogMode::AlertModal)
+        dialog("Delete your account?", confirm_delete)
+            .mode(DialogKind::AlertModal)
             .closable(false)
-            .description("すべての設定が削除されます。")
+            .description("All of your settings will be removed.")
             .footer(move || {
                 (
-                    button("キャンセル")
+                    button("Cancel")
                         .variant(kivact::ui::ButtonVariant::Outline)
                         .on_press(move || confirm_delete.set(false)),
-                    button("削除")
+                    button("Delete")
                         .variant(kivact::ui::ButtonVariant::Danger)
                         .on_press(move || {
                             confirm_delete.set(false);
-                            toaster().push(Toast::new("アカウントを削除しました"));
+                            use_toaster().push(Toast::new("Account deleted"));
                         }),
                 )
             }),
-        toast_region(toaster()).hold_all_on_hover(true),
+        toast_region(use_toaster()).hold_all_on_hover(true),
     ))
     .style(
         style()
             .size(pct(100), pct(100))
             .padding(24)
             .gap(16)
-            .background(basic::ColorName::Background)
-            .color(basic::ColorName::Foreground),
+            .background(basic::BACKGROUND)
+            .color(basic::FOREGROUND),
     )
 }
 
+#[component]
 fn root() -> impl IntoView {
     let dark = signal(false);
     kivact::style::provide_theme(
@@ -213,11 +209,9 @@ fn root() -> impl IntoView {
 }
 
 fn main() -> kivact::Result<()> {
-    let mut app = App::new("設定").theme(theme(ThemeMode::Light));
-    for font in fonts() {
-        app = app.font(font);
-    }
-    app.run(root)
+    App::new("Settings")
+        .theme(theme(ThemeMode::Light).with_fonts(fonts()))
+        .run(root)
 }
 
 #[cfg(test)]
@@ -233,15 +227,15 @@ mod tests {
     #[test]
     fn saving_shows_a_toast_and_clears_the_badge() {
         let screen = render_with(options(), root);
-        assert!(screen.query_by_text("未保存の変更").is_none());
+        assert!(screen.query_by_text("Unsaved changes").is_none());
         screen
-            .get_by_role(Role::TextBox, "表示名")
-            .type_text("さん");
-        screen.get_by_text("未保存の変更");
-        screen.get_by_role(Role::Button, "保存").click();
-        screen.get_by_role(Role::Status, "設定を保存しました");
-        screen.get_by_text("保存済みの名前: Adaさん");
-        assert!(screen.query_by_text("未保存の変更").is_none());
+            .get_by_role(Role::TextBox, "Display name")
+            .type_text(" Lovelace");
+        screen.get_by_text("Unsaved changes");
+        screen.get_by_role(Role::Button, "Save").click();
+        screen.get_by_role(Role::Status, "Settings saved");
+        screen.get_by_text("Saved name: Ada Lovelace");
+        assert!(screen.query_by_text("Unsaved changes").is_none());
     }
 
     #[test]
@@ -251,11 +245,11 @@ mod tests {
             screen.screenshot().pixel(4, 4).expect("inside the frame")
         };
         assert_eq!(top_left(&screen) & 0xff, 0xff, "light page");
-        screen.get_by_role(Role::Switch, "ダークモード").click();
+        screen.get_by_role(Role::Switch, "Dark mode").click();
         assert!(top_left(&screen) & 0xff < 0x20, "dark page");
         assert_eq!(
             screen
-                .get_by_role(Role::TextBox, "表示名")
+                .get_by_role(Role::TextBox, "Display name")
                 .value()
                 .as_deref(),
             Some("Ada")
@@ -265,23 +259,23 @@ mod tests {
     #[test]
     fn deleting_asks_first() {
         let screen = render_with(options(), root);
-        screen.get_by_role(Role::Button, "アカウントを削除").click();
-        screen.get_by_role(Role::AlertDialog, "アカウントを削除しますか？");
-        screen.get_by_role(Role::Button, "キャンセル").click();
+        screen.get_by_role(Role::Button, "Delete account").click();
+        screen.get_by_role(Role::AlertDialog, "Delete your account?");
+        screen.get_by_role(Role::Button, "Cancel").click();
         assert!(
             screen
-                .query_by_role(Role::AlertDialog, "アカウントを削除しますか？")
+                .query_by_role(Role::AlertDialog, "Delete your account?")
                 .is_none()
         );
         assert!(
             screen
-                .query_by_role(Role::Status, "アカウントを削除しました")
+                .query_by_role(Role::Status, "Account deleted")
                 .is_none()
         );
 
-        screen.get_by_role(Role::Button, "アカウントを削除").click();
-        screen.get_by_role(Role::Button, "削除").click();
-        screen.get_by_role(Role::Status, "アカウントを削除しました");
+        screen.get_by_role(Role::Button, "Delete account").click();
+        screen.get_by_role(Role::Button, "Delete").click();
+        screen.get_by_role(Role::Status, "Account deleted");
     }
 }
 ```
@@ -295,7 +289,7 @@ mod tests {
 ## 仕組み
 
 - **テーマの切り替え。** `provide_theme(theme, child)` は、その内側の部分木にテーマを与えます。第 1 引数は `dark` を読むクロージャなので、`dark` が変わるたびにテーマが作り直され、すべてのスタイルが色を解決し直します。コンポーネントは再マウントされないので、状態を保ちます。テーマが変わりうるときは、固定の `Theme` ではなく、このようなクロージャを渡します。
-- **トースト。** `toast_region(toaster())` は一度だけマウントします。トーストが現れる場所です。以降は、どのハンドラからでも `toaster().push(Toast::new(title))` と呼べます。`.tone(..)` でアイコンと緊急度を選び、`.body(..)` で 2 行目を足します。トーストは 5 秒で自動的に閉じ、ポインターが乗っている間は止まり、閉じるボタンも持ちます。
+- **トースト。** `toast_region(use_toaster())` は一度だけマウントします。トーストが現れる場所です。以降は、どのハンドラからでも `use_toaster().push(Toast::new(title))` と呼べます。`.tone(..)` でアイコンと緊急度を選び、`.body(..)` で 2 行目を足します。トーストは 5 秒で自動的に閉じ、ポインターが乗っている間は止まり、閉じるボタンも持ちます。
 - **アラートダイアログ。** `dialog(title, open)` は標準のダイアログで、`.mode(DialogMode::AlertModal)` にするとキットのアラートダイアログになります。`open` はふつうの `signal(bool)` です。ボタンが `true` にし、`.footer(..)` のボタンが `false` にします。`.closable(false)` は、アラートダイアログが持たない閉じるボタンを取り除きます。
 - **alert とアラートダイアログの違い。** `kivact::ui::alert(..)` はページに置く静的な囲み（「危険な操作」の枠）です。ダイアログは、操作を中断させるポップアップです。
 

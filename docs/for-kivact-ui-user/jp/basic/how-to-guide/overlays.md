@@ -4,7 +4,7 @@
 
 このガイドでは、ページの上に何かを重ねる方法を説明します。ダイアログ、確認、横からのシート、下からのドロワー、ポップオーバー、ホバーカード、メニュー、トーストです。[チュートリアル](../getting-started/README.md)を終えていて、アプリが `basic::theme` を使っていることを前提にしています。
 
-これらの多くは、キット独自のコンポーネントではありません。ダイアログ、アラートダイアログ、シート、ポップオーバーは、標準の `dialog(title, open)` の `.mode(..)` を変えたもの、メニューは標準の `menu(..)`、トーストは標準の `toast_region` と `toaster` です。テーマがそれらを Lyra の見た目で描きます。スワイプドロワーも標準の `kivact::ui::dialog` を使います。ホバープレビューは標準の `kivact::ui::hover_card` を Basic の surface recipe で描きます。
+これらの多くは、キット独自のコンポーネントではありません。ダイアログ、アラートダイアログ、シート、ポップオーバーは、標準の `dialog(title, open)` に `.mode(..)` を付けたもの、メニューは標準の `menu(..)`、トーストは標準の `toast_region` と `use_toaster` です。テーマがそれらを Lyra の見た目で描きます。スワイプドロワーも標準の `kivact::ui::dialog` を使います。ホバープレビューは標準の `kivact::ui::hover_card` を Basic の surface recipe で描きます。
 
 すべてに共通する決まりが 2 つあります。
 
@@ -16,7 +16,8 @@
 ```rust,no_run
 use kivact::prelude::*;
 
-fn edit_profile() -> impl IntoView {
+#[component]
+fn edit_profile() -> impl Element {
     let open = signal(false);
     let name = signal(String::from("Ada"));
     column((
@@ -25,7 +26,7 @@ fn edit_profile() -> impl IntoView {
             .on_press(move || open.set(true)),
         dialog("Edit profile", open)
             .description("Make changes to your profile here.")
-            .content(move || text_input("Name", name))
+            .content(move || text_input(name).label("Name"))
             .footer(move || button("Save changes").on_press(move || open.set(false))),
     ))
 }
@@ -39,10 +40,11 @@ fn edit_profile() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::interaction::DialogMode;
+use kivact::ui::DialogKind;
 use kivact_ui_basic as basic;
 
-fn delete_chat() -> impl IntoView {
+#[component]
+fn delete_chat() -> impl Element {
     let open = signal(false);
     let deleted = signal(false);
     column((
@@ -51,7 +53,7 @@ fn delete_chat() -> impl IntoView {
             .on_press(move || open.set(true)),
         basic::muted(move || if deleted.get() { "Chat deleted." } else { "Chat kept." }),
         dialog("Delete chat?", open)
-            .mode(DialogMode::AlertModal)
+            .mode(DialogKind::AlertModal)
             .closable(false)
             .description("This will permanently delete this conversation.")
             .footer(move || {
@@ -74,7 +76,7 @@ fn delete_chat() -> impl IntoView {
 
 フッターはボタンのタプルを返します。フォーカスは最初のボタンに当たるので、安全な選択肢（キャンセル）を先に置いてください。アラートダイアログのバリエーションは次のとおりです。
 
-- `.variant(basic::AlertDialogSize::Sm)` は、幅 320 px の中央寄せの狭いダイアログにします。幅を分け合うには、フッターの 2 つのボタンに `style().grow(1).basis(0)` を付けます。
+- `.variant(basic::AlertDialogSize::Sm)` は、幅 320 px の中央寄せの狭いダイアログにします。幅を分け合うには、フッターの 2 つのボタンに `style().flex_grow(1).flex_basis(0)` を付けます。
 - `.media(|| icon("trash-2").style(style().size(24, 24)))` は、タイトルの脇にアイコンを表示します。
 
 ## 端からシートを開く
@@ -83,18 +85,19 @@ fn delete_chat() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::interaction::{DialogMode};
+use kivact::ui::DialogKind;
 use kivact::geometry::{Edge};
 use kivact_ui_basic as basic;
 
-fn notifications() -> impl IntoView {
+#[component]
+fn notifications() -> impl Element {
     let open = signal(false);
     column((
         button("Notifications")
             .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         dialog("Notifications", open)
-            .mode(DialogMode::Drawer(Edge::Right))
+            .mode(DialogKind::Drawer(Edge::Right))
             .description("Choose what you want to hear about.")
             .content(|| basic::muted("No new notifications."))
             .footer(move || button("Close").on_press(move || open.set(false))),
@@ -108,7 +111,8 @@ fn notifications() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn move_goal() -> impl IntoView {
+#[component]
+fn move_goal() -> impl Element {
     let open = signal(false);
     let goal = signal(350);
     column((
@@ -116,7 +120,7 @@ fn move_goal() -> impl IntoView {
             .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         kivact::ui::dialog("Move goal", open)
-            .mode(kivact::interaction::DialogMode::Drawer(kivact::geometry::Edge::Bottom))
+            .mode(kivact::ui::DialogKind::Drawer(kivact::geometry::Edge::Bottom))
             .variant(basic::DrawerVariant::Drawer)
             .closable(false)
             .description("Set your daily activity goal.")
@@ -140,20 +144,29 @@ fn move_goal() -> impl IntoView {
 ポップオーバーは、種類が `Popover` のダイアログです。`.attach(trigger)` は、ポップオーバーをトリガーの位置に置き、トリガーに開閉の役目を与えます。戻り値は、トリガーとポップオーバーをまとめたもので、ボタンを置きたい場所にそのまま置きます。
 
 ```rust,no_run
+use kivact::interaction::use_popup;
 use kivact::prelude::*;
-use kivact::interaction::DialogMode;
-use kivact::view::{OverlayAlign, Placement};
+use kivact::view::Placement;
 
-fn dimensions() -> impl IntoView {
+#[component]
+fn dimensions() -> impl Element {
     let open = signal(false);
     let width = signal(String::from("100%"));
-    dialog("Dimensions", open)
-        .mode(DialogMode::Popover)
-        .description("Set the dimensions for the layer.")
-        .placement(Placement::Below)
-        .align(OverlayAlign::Start)
-        .content(move || text_input("Width", width))
-        .attach(button("Open popover").variant(kivact::ui::ButtonVariant::Outline))
+    let anchor = node_ref();
+    let popup = use_popup(open).anchor(anchor);
+    column((
+        button("Open popover")
+            .variant(kivact::ui::ButtonVariant::Outline)
+            .node_ref(anchor)
+            .on_press(move || open.set(true)),
+        popup.surface(Placement::Below, move || {
+            column((
+                kivact::ui::heading("Dimensions", 4),
+                text_input(width).label("Width"),
+            ))
+            .style(style().gap(8).width(240))
+        }),
+    ))
 }
 ```
 
@@ -170,10 +183,11 @@ fn dimensions() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
+#[component]
 fn mention() -> impl IntoView {
     kivact::ui::hover_card(|| {
         column((
-            text("@kivact").style(style().weight(600)),
+            text("@kivact").style(style().font_weight(600)),
             basic::muted("A native GUI framework for Rust."),
         ))
         .style(style().gap(8))
@@ -192,7 +206,8 @@ fn mention() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn account_menu() -> impl IntoView {
+#[component]
+fn account_menu() -> impl Element {
     let picked = signal(String::from("Nothing chosen yet."));
     let entries = vec![
         MenuEntry::heading("My account"),
@@ -212,12 +227,13 @@ fn account_menu() -> impl IntoView {
     .style(style().gap(12))
 }
 
+#[component]
 fn context_menu() -> impl IntoView {
     let area = node()
         .role(Role::Group)
         .name("Notes")
         .focusable(true)
-        .style(style().width(240).height(96).border(1, basic::ColorName::Border))
+        .style(style().width(240).height(96).border(1, basic::BORDER))
         .child(text("Right click here"));
     menu("Notes menu", vec![MenuEntry::item("copy", "Copy"), MenuEntry::item("paste", "Paste")]).on_activate(|_key: &'static str| {})
     .attach_context(area)
@@ -230,6 +246,7 @@ fn context_menu() -> impl IntoView {
 ```rust,no_run
 use kivact::prelude::*;
 
+#[component]
 fn view_menu() -> impl IntoView {
     let status = signal(true);
     let position = signal("bottom");
@@ -258,27 +275,28 @@ fn view_menu() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::interaction::{Toast, Tone, toaster};
+use kivact::interaction::{Toast, Tone, use_toaster};
 use kivact::ui::{toast_region};
 
-fn root() -> impl IntoView {
+#[component]
+fn root() -> impl Element {
     column((
         button("Create event")
             .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(|| {
-                toaster().push(
+                use_toaster().push(
                     Toast::new("Event has been created")
                         .tone(Tone::Success)
                         .body("Sunday, December 03, 2023 at 9:00 AM"),
                 );
             }),
-        toast_region(toaster()).hold_all_on_hover(true),
+        toast_region(use_toaster()).hold_all_on_hover(true),
     ))
 }
 ```
 
 - `.tone(..)` は `Neutral`（アイコンなし）、`Success`、`Info`、`Warning`、`Danger` です。テーマがトーンのアイコンを描きます。`Warning` と `Danger` は、スクリーンリーダーにより緊急のものとして通知されます。
-- トーストは 5 秒で閉じます。`.duration(Some(Duration::from_secs(2)))` で変え、`.duration(None)` にすると、閉じられるまで残ります。`push` は id を返し、`toaster().dismiss(id)` でそのトーストを消せます。
+- トーストは 5 秒で閉じます。`.duration(Some(Duration::from_secs(2)))` で変え、`.duration(None)` にすると、閉じられるまで残ります。`push` は id を返し、`use_toaster().dismiss(id)` でそのトーストを消せます。
 - `.action("Undo", move || ..)` はボタンを足します。押すとクロージャが実行され、トーストが閉じます。クロージャはトーストが所有するので、押下のハンドラの中で作って積めます。
 - 処理中を示すトーストには、`.icon(|| kivact::ui::spinner())` と `.duration(None)` を使い、処理が終わったら閉じます。
 - 複数のトーストは、最新のものの後ろに最大 3 つまで重なります。ポインターが乗るか、フォーカスが入ると一覧に開きます。`hold_all_on_hover(true)` を付けると、開いている間はすべてのトーストの時間が止まります。

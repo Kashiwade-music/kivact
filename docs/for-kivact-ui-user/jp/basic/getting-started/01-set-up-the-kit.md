@@ -30,46 +30,39 @@ Kivact は Rust 1.98.1、edition 2024 でビルドします（リポジトリの
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::theme::Typography;
-use kivact::style::{Theme, ThemeMode};
+use kivact::style::{FontFamily, Theme, ThemeMode, font};
 use kivact_ui_basic as basic;
 
-/// キットのテーマに、文字の family として Inter を指定したもの。
+/// The kit theme with Inter as the text family.
 fn theme(mode: ThemeMode) -> Theme {
-    let theme = basic::theme(mode);
-    let text = Typography {
-        family: Some("Inter, 'Noto Sans JP', sans-serif".into()),
-        ..theme.text().clone()
-    };
-    theme.with_text(text)
+    basic::theme(mode).set(&font::FAMILY_VAR, FontFamily::from("Inter, sans-serif"))
 }
 
-/// アプリに登録するフォントファイル。今は空で、ウィンドウはシステムのフォントを使います。
+/// Font files to register with the app. Empty for now: the window uses the system font.
 fn fonts() -> Vec<&'static [u8]> {
     Vec::new()
 }
 
-fn settings() -> impl IntoView {
+#[component]
+fn settings() -> impl Element {
     column((
-        kivact::ui::heading("設定", 3),
-        basic::muted("プロフィールと通知を管理します。"),
+        kivact::ui::heading("Settings", 3),
+        basic::muted("Manage your profile and notifications."),
     ))
     .style(
         style()
             .size(pct(100), pct(100))
             .padding(24)
             .gap(8)
-            .background(basic::ColorName::Background)
-            .color(basic::ColorName::Foreground),
+            .background(basic::BACKGROUND)
+            .color(basic::FOREGROUND),
     )
 }
 
 fn main() -> kivact::Result<()> {
-    let mut app = App::new("設定").theme(theme(ThemeMode::Light));
-    for font in fonts() {
-        app = app.font(font);
-    }
-    app.run(settings)
+    App::new("Settings")
+        .theme(theme(ThemeMode::Light).with_fonts(fonts()))
+        .run(settings)
 }
 ```
 
@@ -79,8 +72,8 @@ fn main() -> kivact::Result<()> {
 
 - `basic::theme(mode)` は Kivact の `Theme` を返します。キットの配色、余白、12 px の文字、そして標準コントロール（button、switch、入力欄、select、dialog など）の描き方（recipe）をまとめたものです。これを `App::theme` に渡すだけで、アプリ内のすべての標準コンポーネントが Lyra の見た目になります。
 - `kivact::ui::heading(value, 3)` と `basic::muted` はキットのタイポグラフィ用の関数です。どちらも view の部品である `Node` を返すので、好きな場所に置けます。
-- `basic::ColorName` はキットの配色の名前（`Background`、`Foreground` など）です。これを使ったスタイルは、描画するときに有効なテーマから色を読みます。ステップ 3 でテーマを切り替えたときに色が追従するのはそのためです。ルートの view に背景色と文字色を塗っているのは、CSS で `body` に色を指定するのと同じで、ウィンドウ全体をテーマの色にするためです。
-- `fonts()` はアプリが使うフォントファイルを返す場所です。キットはフォントを同梱しません。`theme` 関数の `Typography` は文字の family に `Inter` を指定し、代わりの候補として日本語用の `Noto Sans JP` と `sans-serif` を並べています。Inter を登録するまではシステムのフォントが使われますが、このチュートリアルはそのまま最後まで進められます。
+- `basic::BACKGROUND` や `basic::FOREGROUND` などのキットの色の変数は、テーマの変数です。これを使ったスタイルは、描画するときに有効なテーマから色を読みます。ステップ 3 でテーマを切り替えたときに色が追従するのはそのためです。ルートの view に背景色と文字色を塗っているのは、CSS で `body` に色を指定するのと同じく、ウィンドウ全体がテーマに追従するためです。
+- `fonts()` はアプリが使うフォントファイルを返す場所です。キットはフォントを同梱しません。`theme` 関数は `font::FAMILY_VAR` に `Inter` を指定し、代わりの候補として `sans-serif` を並べています。Inter を登録するまではシステムのフォントが使われますが、このチュートリアルの内容はすべて動きます。
 
 ## ダークの配色を試す
 

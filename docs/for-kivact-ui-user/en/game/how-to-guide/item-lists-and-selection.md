@@ -17,7 +17,8 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_game as game;
 
-fn inventory() -> impl IntoView {
+#[component]
+fn inventory() -> impl Element {
     let selected = signal(Some(2_u32));
     let items = vec![
         ListItem::new(1, "Rail Rifle").with_description("POWER 42").with_icon("bolt"),
@@ -65,7 +66,8 @@ struct Weapon {
     ammo: u32,
 }
 
-fn weapons(all: Signal<Vec<Weapon>>, selected: Signal<Option<u32>>) -> impl IntoView {
+#[component]
+fn weapons(all: Signal<Vec<Weapon>>, selected: Signal<Option<u32>>) -> impl Element {
     let rows = memo(move || {
         all.with(|all| {
             all.iter()
@@ -90,7 +92,8 @@ one, and Shift extends from the last one.
 ```rust,no_run
 use kivact::prelude::*;
 
-fn squad() -> impl IntoView {
+#[component]
+fn squad() -> impl Element {
     let picked = signal(vec![1_u32]);
     list(
         "Squad",
@@ -115,7 +118,8 @@ says whether the row is selected or active:
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
-fn missions() -> impl IntoView {
+#[component]
+fn missions() -> impl Element {
     let selected = signal(Some("alpha"));
     list(
         "Missions",
@@ -145,7 +149,8 @@ use kivact::prelude::*;
 use kivact::interaction::TreeNode;
 use kivact_ui_game as game;
 
-fn files() -> impl IntoView {
+#[component]
+fn files() -> impl Element {
     let selected = signal(Some("save-1".to_owned()));
     let expanded = signal(vec!["saves".to_owned()]);
     let nodes = vec![
@@ -170,13 +175,13 @@ fn files() -> impl IntoView {
                 }
             })
             .item(|item, _| {
-                let key = item.get_untracked().key;
+                let key = item.get().key;
                 let label = match key.as_str() {
                     "save-1" => "slot-1.sav", "save-2" => "slot-2.sav",
                     "readme" => "README.txt", "saves" => "saves", _ => "mods",
                 };
-                row((text(label).style(style().grow(1)), game::mono(if key == "save-2" { "M" } else { "" })))
-                    .style(style().grow(1))
+                row((text(label).style(style().flex_grow(1)), game::mono(if key == "save-2" { "M" } else { "" })))
+                    .style(style().flex_grow(1))
             }),
         game::mono(move || format!("OPEN {}", selected.get().unwrap_or_default())),
     )).style(style().gap(12).width(300).margin(24))
@@ -186,9 +191,9 @@ fn files() -> impl IntoView {
 
 ## Show records in a table
 
-`data_table(rows, key, columns)` is the standard table; the Game theme draws it
-as a console table. `game::GameCellVariant` gives a column's cells a console look
-through `.cell(..)`:
+`kivact::ui::data_table(rows, key, columns)` is the standard table; the Game theme draws it
+as a console table. The kit's cell components, such as `game::badge_cell`, give a column's cells a
+console look through `.cell(..)`:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -203,22 +208,23 @@ struct Unit {
     hp: f64,
 }
 
-fn units(rows: Signal<Vec<Unit>>) -> impl IntoView {
+#[component]
+fn units(rows: Signal<Vec<Unit>>) -> impl Element {
     let selected = signal(Vec::<u32>::new());
-    data_table(
+    kivact::ui::data_table(
         rows,
         |unit: &Unit| unit.id,
         vec![
-            DataColumn::new("Unit", |unit: &Unit| unit.name.to_owned()).sortable(),
-            DataColumn::new("Status", |unit: &Unit| unit.status.to_owned()).cell(|unit: &Unit| {
-                game::GameCellVariant::Badge {
-                    label: unit.status.to_owned(),
-                    tone: if unit.status == "ALIVE" { Tone::Success } else { Tone::Danger },
-                }
+            kivact::ui::DataColumn::new("Unit", |unit: &Unit| unit.name.to_owned()).sortable(),
+            kivact::ui::DataColumn::new("Status", |unit: &Unit| unit.status.to_owned()).cell(|unit: &Unit| {
+                game::badge_cell(
+                    unit.status.to_owned(),
+                    if unit.status == "ALIVE" { Tone::Success } else { Tone::Danger },
+                )
             }),
-            DataColumn::new("HP", |unit: &Unit| format!("{:.0}", unit.hp))
+            kivact::ui::DataColumn::new("HP", |unit: &Unit| format!("{:.0}", unit.hp))
                 .compare(|a, b| a.hp.total_cmp(&b.hp))
-                .cell(|unit: &Unit| game::GameCellVariant::Progress { value: unit.hp, tone: Tone::Info })
+                .cell(|unit: &Unit| game::progress_cell(unit.hp, Tone::Info))
                 .numeric(true),
         ],
     )
@@ -231,9 +237,9 @@ The table keeps nothing but what you pass: the rows, the selection, and (with
 `.sort(..)`, `.filter(..)`, `.page(..)`) the sort, the search text and the page.
 `.toolbar(|context| view)` replaces the area above the table, for example with
 bulk actions on the selected rows, and `.footer(|context| view)` the area
-below. Cells: `GameCellVariant::Identifier`, `Detail { title, description }`,
-`User { name, initials, color }`, `Badge { label, tone }` and
-`Progress { value, tone }` (0 to 100).
+below. Cells: `game::identifier_cell(value)`, `game::detail_cell(title, description)`,
+`game::user_cell(name, initials, color)`, `game::badge_cell(label, tone)` and
+`game::progress_cell(value, tone)` (0 to 100).
 
 ## See also
 

@@ -6,7 +6,7 @@ Game テーマで標準の `kivact::ui` 部品を使います。recipe が斜め
 
 ## 進捗を見せる
 
-進捗の値は 0 から 1 の割合です。ゲージはアプリケーションの値を `value / total` に変換し、全体が 0 の場合を処理します。`game::GaugeSegments` に同じリアクティブな全体数を渡すとバーの本数が決まります。この variant は進捗の状態を所有しません。円には `ProgressVariant::Ring` を使い、小さなキャプションを添えられます。`game::Striped` は棒に動く斜線を加えます。
+進捗の値は 0 から 1 の割合です。ゲージはアプリケーションの値を全体に対する割合（`count / total`）に変換します。`game::GaugeSegments(n)` はバーの本数を普通の `usize` で指定し、ゲージを作るときに読まれるので、そのゲージの全体数は固定です。ゲージは進捗の状態を所有しません。円には `ProgressVariant::Ring` を使い、小さなキャプションを添えられます。`kivact::ui::Striped` は棒に動く斜線を加えます。
 
 ```rust,no_run
 use kivact::interaction::Tone;
@@ -14,21 +14,15 @@ use kivact::prelude::*;
 use kivact::ui::{self, ProgressVariant};
 use kivact_ui_game as game;
 
-fn meters() -> impl IntoView {
+#[component]
+fn meters() -> impl Element {
     let bars = signal(7usize);
-    let total = signal(10usize);
     let percent = signal(76.0);
     row((
-        ui::progress(move || {
-            Some(if total.get() == 0 {
-                0.0
-            } else {
-                bars.get() as f64 / total.get() as f64
-            })
-        })
-        .name("Hull")
-        .variant(ProgressVariant::Gauge)
-        .variant(game::GaugeSegments(total.into_value()))
+        ui::progress(move || Some(bars.get() as f64 / 10.0))
+            .name("Hull")
+            .variant(ProgressVariant::Gauge)
+            .variant(game::GaugeSegments(10))
         .variant(Tone::Danger),
         ui::progress(move || Some(percent.get() / 100.0))
             .name("Shield")
@@ -43,7 +37,7 @@ fn meters() -> impl IntoView {
         ui::progress(move || Some(percent.get() / 100.0))
             .name("Upload")
             .moving(true)
-            .variant(game::Striped),
+            .variant(kivact::ui::Striped),
     ))
     .style(style().gap(16))
 }
@@ -61,7 +55,8 @@ use kivact::prelude::*;
 use kivact::style::Align;
 use kivact_ui_game as game;
 
-fn accuracy() -> impl IntoView {
+#[component]
+fn accuracy() -> impl Element {
     let target = signal(87.5);
     let shown = Animated::from(
         0.0,
@@ -76,7 +71,7 @@ fn accuracy() -> impl IntoView {
         .value_content(
             row((
                 text(formatted),
-                text("%").style(style().font_size(16).color(ColorToken::TextMuted)),
+                text("%").style(style().font_size(16).color(kivact::style::color::TEXT_MUTED)),
             ))
             .style(style().gap(2).align_items(Align::Baseline)),
         )
@@ -95,7 +90,8 @@ use kivact::interaction::Tone;
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
-fn statuses() -> impl IntoView {
+#[component]
+fn statuses() -> impl Element {
     row((
         kivact::ui::badge("RUNNING").tone(Tone::Info),
         kivact::ui::badge("v2.4.1")
@@ -113,7 +109,7 @@ fn statuses() -> impl IntoView {
 
 ## フィードバックを見せる
 
-`alert(title)` は説明、アイコン、操作、開くたびに作る詳細を持てます。`.open(binding)` でアプリケーションを唯一の表示状態の所有者にします。setter は閉じる要求を拒否できます。`.on_dismiss(..)` は受け入れられた操作が完了してフォーカスが戻った後の通知です。`.dismiss_content(..)` は操作の見た目、`.dismiss_label(..)` はアクセシブルな名前です。既定は assertive ですが、情報やバナーには明示的に polite な状態通知を選べます。
+`alert(title)` は説明、アイコン、操作、開くたびに作る詳細を持てます。`.open(signal)` でアプリケーションを唯一の表示状態の所有者にします。setter は閉じる要求を拒否できます。`.on_dismiss(..)` は受け入れられた操作が完了してフォーカスが戻った後の通知です。`.dismiss_content(..)` は操作の見た目、`.dismiss_label(..)` はアクセシブルな名前です。既定は assertive ですが、情報やバナーには明示的に polite な状態通知を選べます。
 
 バナーは `AlertVariant::Banner` で、縞の見出しと全幅の紺色の面を描きます。空状態は操作とイラストを持てます（`.icon(())` は Game recipe のイラストです）。`SkeletonVariant::Rows` はカットコーナーのアバターと 2 本のキャプションを表示します。標準スケルトンがアニメーションを所有し、動きを減らす設定で止まります。
 
@@ -122,7 +118,8 @@ use kivact::interaction::Tone;
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
-fn warning() -> impl IntoView {
+#[component]
+fn warning() -> impl Element {
     let visible = signal(true);
     column((
         kivact::ui::alert("Low fuel")
@@ -154,7 +151,7 @@ fn warning() -> impl IntoView {
 # fn main() {}
 ```
 
-短時間のメッセージは `kivact::ui::toast_region(toaster())` と `Toast::new(label).tone(tone)` です。文言はアプリケーションが渡します。
+短時間のメッセージは `kivact::ui::toast_region(use_toaster())` と `Toast::new(label).tone(tone)` です。文言はアプリケーションが渡します。
 
 ## 用語と詳細を組み合わせる
 
@@ -165,7 +162,8 @@ use kivact::interaction::Tone;
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
-fn details() -> impl IntoView {
+#[component]
+fn details() -> impl Element {
     column((
         kivact::ui::description_list((
             kivact::ui::description("PILOT", game::mono("Mika")),

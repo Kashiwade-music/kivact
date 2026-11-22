@@ -13,8 +13,7 @@ Replace `src/main.rs` with the complete program, tests included:
 ```rust,test_harness
 use kivact::interaction::Tone;
 use kivact::prelude::*;
-use kivact::style::Align;
-use kivact::style::ThemeMode;
+use kivact::style::{Align, FontStyle, ThemeMode};
 use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -42,7 +41,8 @@ fn item(id: u32, slot: Slot, name: &'static str, power: u32) -> Item {
     }
 }
 
-fn loadout() -> impl IntoView {
+#[component]
+fn loadout() -> impl Element {
     let items = signal(vec![
         item(1, Slot::Weapons, "Rail Rifle", 42),
         item(2, Slot::Weapons, "Pulse Blade", 35),
@@ -105,22 +105,22 @@ fn loadout() -> impl IntoView {
                 text("01").style(move || {
                     let t = kivact::style::use_theme().get();
                     style()
-                        .font_family(t.ext::<game::Tokens>().display_family.as_str())
+                        .font_family(t.get(&game::fonts::DISPLAY_FAMILY_VAR).as_str().unwrap_or_default())
                         .font_size(34)
                         .line_height(0.9)
-                        .weight(800)
-                        .italic(true)
-                        .color(ColorToken::Accent)
+                        .font_weight(800)
+                        .font_style(FontStyle::Italic)
+                        .color(kivact::style::color::ACCENT)
                 }),
                 kivact::ui::heading("LOADOUT", 2).variant(game::HeadingVariant::Section),
-                text("Squad 04").style(style().font_size(12).color(ColorToken::TextMuted)),
+                text("Squad 04").style(style().font_size(12).color(kivact::style::color::TEXT_MUTED)),
             ))
             .style(
                 style()
                     .gap(14)
                     .align_items(Align::End)
                     .padding_bottom(10)
-                    .border_bottom(2, ColorToken::Text),
+                    .border_bottom(2, kivact::style::color::TEXT),
             )
             .draw_over(|d, s| {
                 d.fill_path(
@@ -130,7 +130,7 @@ fn loadout() -> impl IntoView {
                         .line_to(kivact::geometry::Point::new(s.width - 2., s.height + 6.))
                         .line_to(kivact::geometry::Point::new(s.width - 46., s.height + 6.))
                         .close(),
-                    d.theme().ext::<game::Tokens>().yellow,
+                    game::color::YELLOW,
                 )
             }),
             kivact::ui::badge("READY").tone(Tone::Success),
@@ -142,7 +142,7 @@ fn loadout() -> impl IntoView {
                 ],
                 slot,
             )
-            .variant(game::Boxed)
+            .variant(game::TabsVariant::Boxed)
             .content(panel),
             kivact::ui::description_list(
                 (vec![
@@ -167,27 +167,15 @@ fn loadout() -> impl IntoView {
             ),
             row((
                 button("Equip")
-                    .variant(game::Slant)
+                    .variant(kivact::ui::Slant)
                     .disabled(move || chosen.get().is_none())
                     .on_press(equip),
                 game::mono(move || format!("TOTAL POWER {}", total.get())),
-                {
-                    let total: kivact::state::Value<usize> =
-                        kivact::state::IntoValue::into_value(10);
-                    let value: kivact::state::Value<usize> =
-                        kivact::state::IntoValue::into_value(bars);
-                    kivact::ui::progress(move || {
-                        Some(if total.get() == 0 {
-                            0.0
-                        } else {
-                            value.get() as f64 / total.get() as f64
-                        })
-                    })
+                kivact::ui::progress(move || Some(bars.get() as f64 / 10.0))
                     .name("Total power")
                     .variant(kivact::ui::ProgressVariant::Gauge)
-                    .variant(game::GaugeSegments(total))
-                    .variant(Tone::Info)
-                },
+                    .variant(game::GaugeSegments(10))
+                    .variant(Tone::Info),
             ))
             .style(style().gap(16).align_items(Align::Center)),
         ))
@@ -202,6 +190,7 @@ fn main() -> kivact::Result<()> {
             ThemeMode::Dark,
             ThemeOptions {
                 density: Density::Comfortable,
+                ..Default::default()
             },
         ))
         .run(loadout)
@@ -219,6 +208,7 @@ mod tests {
                 ThemeMode::Dark,
                 ThemeOptions {
                     density: Density::Comfortable,
+                    ..Default::default()
                 },
             ));
         render_with(options, loadout)
@@ -282,7 +272,7 @@ edges and a selection edge.
 **`tabs(label, tab_items, selected_key)`** is a standard component too. The
 selected tab is always one of the tabs, so the signal holds the key itself
 (`Slot`), not an `Option`. Any type that is `Clone + Eq + Hash` works as a key,
-and an `enum` is a good fit. `.variant(game::Boxed)` is the Game kit's boxed
+and an `enum` is a good fit. `.variant(game::TabsVariant::Boxed)` is the Game kit's boxed
 look; without it the tabs are underlined. `.content(|key| view)` builds the
 panel for the open tab each time the tab changes.
 

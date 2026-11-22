@@ -11,8 +11,7 @@
 ```rust,test_harness
 use kivact::interaction::Tone;
 use kivact::prelude::*;
-use kivact::style::Align;
-use kivact::style::ThemeMode;
+use kivact::style::{Align, FontStyle, ThemeMode};
 use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -40,17 +39,18 @@ fn item(id: u32, slot: Slot, name: &'static str, power: u32) -> Item {
     }
 }
 
-fn loadout() -> impl IntoView {
+#[component]
+fn loadout() -> impl Element {
     let items = signal(vec![
-        item(1, Slot::Weapons, "レールライフル", 42),
-        item(2, Slot::Weapons, "パルスブレード", 35),
-        item(3, Slot::Armor, "プレートベスト", 30),
-        item(4, Slot::Armor, "ゴーストクローク", 18),
+        item(1, Slot::Weapons, "Rail Rifle", 42),
+        item(2, Slot::Weapons, "Pulse Blade", 35),
+        item(3, Slot::Armor, "Plate Vest", 30),
+        item(4, Slot::Armor, "Ghost Cloak", 18),
     ]);
     let slot = signal(Slot::Weapons);
     let selected = signal(None::<u32>);
 
-    // 見ているアイテム。開いているタブのものだけが対象です。
+    // The item being looked at, if it belongs to the open tab.
     let chosen = memo(move || {
         let id = selected.get()?;
         items.with(|all| {
@@ -67,7 +67,8 @@ fn loadout() -> impl IntoView {
                 .sum::<u32>()
         })
     });
-    // 威力 10 ごとにゲージのバーが 1 本点灯します。
+
+    // One bar of the gauge for every ten points of power.
     let bars = memo(move || (total.get() / 10) as usize);
 
     let equip = move || {
@@ -86,14 +87,14 @@ fn loadout() -> impl IntoView {
                 all.iter()
                     .filter(|i| i.slot == slot)
                     .map(|i| {
-                        let mark = if i.equipped { " / 装備中" } else { "" };
+                        let mark = if i.equipped { " / EQUIPPED" } else { "" };
                         ListItem::new(i.id, i.name)
-                            .with_description(format!("威力 {}{mark}", i.power))
+                            .with_description(format!("POWER {}{mark}", i.power))
                     })
                     .collect::<Vec<_>>()
             })
         });
-        list("アイテム", rows, selected)
+        list("Items", rows, selected)
     };
 
     game::hud(
@@ -102,22 +103,22 @@ fn loadout() -> impl IntoView {
                 text("01").style(move || {
                     let t = kivact::style::use_theme().get();
                     style()
-                        .font_family(t.ext::<game::Tokens>().display_family.as_str())
+                        .font_family(t.get(&game::fonts::DISPLAY_FAMILY_VAR).as_str().unwrap_or_default())
                         .font_size(34)
                         .line_height(0.9)
-                        .weight(800)
-                        .italic(true)
-                        .color(ColorToken::Accent)
+                        .font_weight(800)
+                        .font_style(FontStyle::Italic)
+                        .color(kivact::style::color::ACCENT)
                 }),
                 kivact::ui::heading("LOADOUT", 2).variant(game::HeadingVariant::Section),
-                text("Squad 04").style(style().font_size(12).color(ColorToken::TextMuted)),
+                text("Squad 04").style(style().font_size(12).color(kivact::style::color::TEXT_MUTED)),
             ))
             .style(
                 style()
                     .gap(14)
                     .align_items(Align::End)
                     .padding_bottom(10)
-                    .border_bottom(2, ColorToken::Text),
+                    .border_bottom(2, kivact::style::color::TEXT),
             )
             .draw_over(|d, s| {
                 d.fill_path(
@@ -127,31 +128,31 @@ fn loadout() -> impl IntoView {
                         .line_to(kivact::geometry::Point::new(s.width - 2., s.height + 6.))
                         .line_to(kivact::geometry::Point::new(s.width - 46., s.height + 6.))
                         .close(),
-                    d.theme().ext::<game::Tokens>().yellow,
+                    game::color::YELLOW,
                 )
             }),
-            kivact::ui::badge("準備完了").tone(Tone::Success),
+            kivact::ui::badge("READY").tone(Tone::Success),
             tabs(
-                "スロット",
+                "Slot",
                 vec![
-                    ListItem::new(Slot::Weapons, "武器"),
-                    ListItem::new(Slot::Armor, "防具"),
+                    ListItem::new(Slot::Weapons, "WEAPONS"),
+                    ListItem::new(Slot::Armor, "ARMOR"),
                 ],
                 slot,
             )
-            .variant(game::Boxed)
+            .variant(game::TabsVariant::Boxed)
             .content(panel),
             kivact::ui::description_list(
                 (vec![
                     (
-                        "名前".to_owned(),
+                        "NAME".to_owned(),
                         game::mono(move || {
                             chosen.get().map_or("-".to_owned(), |i| i.name.to_owned())
                         })
                         .into_view(),
                     ),
                     (
-                        "威力".to_owned(),
+                        "POWER".to_owned(),
                         game::mono(move || {
                             chosen.get().map_or("-".to_owned(), |i| i.power.to_string())
                         })
@@ -163,28 +164,16 @@ fn loadout() -> impl IntoView {
                 .collect::<Vec<_>>(),
             ),
             row((
-                button("装備")
-                    .variant(game::Slant)
+                button("Equip")
+                    .variant(kivact::ui::Slant)
                     .disabled(move || chosen.get().is_none())
                     .on_press(equip),
-                game::mono(move || format!("合計威力 {}", total.get())),
-                {
-                    let total: kivact::state::Value<usize> =
-                        kivact::state::IntoValue::into_value(10);
-                    let value: kivact::state::Value<usize> =
-                        kivact::state::IntoValue::into_value(bars);
-                    kivact::ui::progress(move || {
-                        Some(if total.get() == 0 {
-                            0.0
-                        } else {
-                            value.get() as f64 / total.get() as f64
-                        })
-                    })
-                    .name("合計威力")
+                game::mono(move || format!("TOTAL POWER {}", total.get())),
+                kivact::ui::progress(move || Some(bars.get() as f64 / 10.0))
+                    .name("Total power")
                     .variant(kivact::ui::ProgressVariant::Gauge)
-                    .variant(game::GaugeSegments(total))
-                    .variant(Tone::Info)
-                },
+                    .variant(game::GaugeSegments(10))
+                    .variant(Tone::Info),
             ))
             .style(style().gap(16).align_items(Align::Center)),
         ))
@@ -199,6 +188,7 @@ fn main() -> kivact::Result<()> {
             ThemeMode::Dark,
             ThemeOptions {
                 density: Density::Comfortable,
+                ..Default::default()
             },
         ))
         .run(loadout)
@@ -216,6 +206,7 @@ mod tests {
                 ThemeMode::Dark,
                 ThemeOptions {
                     density: Density::Comfortable,
+                    ..Default::default()
                 },
             ));
         render_with(options, loadout)
@@ -224,12 +215,12 @@ mod tests {
     #[test]
     fn equipping_a_weapon_adds_its_power() {
         let screen = mount();
-        screen.get_by_text("合計威力 0");
-        assert!(screen.get_by_role(Role::Button, "装備").is_disabled());
-        screen.get_by_role(Role::Option, "レールライフル").click();
-        screen.get_by_role(Role::Button, "装備").click();
-        screen.get_by_text("合計威力 42");
-        let gauge = screen.get_by_role(Role::ProgressBar, "合計威力");
+        screen.get_by_text("TOTAL POWER 0");
+        assert!(screen.get_by_role(Role::Button, "Equip").is_disabled());
+        screen.get_by_role(Role::Option, "Rail Rifle").click();
+        screen.get_by_role(Role::Button, "Equip").click();
+        screen.get_by_text("TOTAL POWER 42");
+        let gauge = screen.get_by_role(Role::ProgressBar, "Total power");
         assert_eq!(gauge.value_range().2, Some(0.4));
         assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
@@ -237,16 +228,16 @@ mod tests {
     #[test]
     fn a_second_weapon_replaces_the_first_and_armor_adds_up() {
         let screen = mount();
-        screen.get_by_role(Role::Option, "レールライフル").click();
-        screen.get_by_role(Role::Button, "装備").click();
-        screen.get_by_role(Role::Option, "パルスブレード").click();
-        screen.get_by_role(Role::Button, "装備").click();
-        screen.get_by_text("合計威力 35");
+        screen.get_by_role(Role::Option, "Rail Rifle").click();
+        screen.get_by_role(Role::Button, "Equip").click();
+        screen.get_by_role(Role::Option, "Pulse Blade").click();
+        screen.get_by_role(Role::Button, "Equip").click();
+        screen.get_by_text("TOTAL POWER 35");
 
-        screen.get_by_role(Role::Tab, "防具").click();
-        screen.get_by_role(Role::Option, "プレートベスト").click();
-        screen.get_by_role(Role::Button, "装備").click();
-        screen.get_by_text("合計威力 65");
+        screen.get_by_role(Role::Tab, "ARMOR").click();
+        screen.get_by_role(Role::Option, "Plate Vest").click();
+        screen.get_by_role(Role::Button, "Equip").click();
+        screen.get_by_text("TOTAL POWER 65");
     }
 }
 ```
@@ -261,7 +252,7 @@ mod tests {
 
 **`list(label, items, selected)`** は標準コンポーネントで、キーボード移動、先頭文字検索、選択を備えた選択肢の一覧です。第 1 引数は支援技術向けに一覧の名前を付けるもので、画面には表示されません。各行は `ListItem::new(key, label)` に任意の `.with_description(..)` を付けたもので、キー（ここでは `u32`）が `selected` に入ります。行は `memo` から作るので、`items` が変わると一覧が作り直されます。Game テーマは、行を直線的な角と選択の縁取りで描きます。
 
-**`tabs(label, tab_items, selected_key)`** も標準コンポーネントです。選択中のタブは必ずタブのどれかなので、シグナルは `Option` ではなくキーそのもの（`Slot`）を持ちます。`Clone + Eq + Hash` を満たす型ならキーに使え、`enum` は最適な選択です。`.variant(game::Boxed)` は Game キットの箱型の見た目で、指定しないと下線タブになります。`.content(|key| view)` は、タブが切り替わるたびに、開いたタブのパネルを作ります。
+**`tabs(label, tab_items, selected_key)`** も標準コンポーネントです。選択中のタブは必ずタブのどれかなので、シグナルは `Option` ではなくキーそのもの（`Slot`）を持ちます。`Clone + Eq + Hash` を満たす型ならキーに使え、`enum` は最適な選択です。`.variant(game::TabsVariant::Boxed)` は Game キットの箱型の見た目で、指定しないと下線タブになります。`.content(|key| view)` は、タブが切り替わるたびに、開いたタブのパネルを作ります。
 
 **ゲージ**はステップ 2 のものを使い、今度は合計の威力を、10 ポイントにつき 1 本で表します。`bars` は `total` から導き出した `memo` なので、ゲージは装備の変更に追従します。
 

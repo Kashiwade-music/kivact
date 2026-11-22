@@ -17,7 +17,8 @@ use kivact::style::ThemeMode;
 use kivact::interaction::Tone;
 use kivact_ui_pop as pop;
 
-fn sign_up(today: CalendarDate) -> impl IntoView {
+#[component]
+fn sign_up(today: CalendarDate) -> impl Element {
     let name = signal(String::new());
     let email = signal(String::new());
     let plan = signal(Some("team"));
@@ -56,13 +57,13 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
     });
 
     kivact::ui::card((
-        text("New account").style(style().font_size(20).weight(600)),
-        field("Name", text_input("Name", name).placeholder("Your full name"))
+        text("New account").style(style().font_size(20).font_weight(600)),
+        field("Name", text_input(name).placeholder("Your full name"))
             .hint("Shown on your invoices.")
             .error(name_error),
         field(
             "Email",
-            text_input("Email", email).placeholder("you@example.com"),
+            text_input(email).label("Email").placeholder("you@example.com"),
         )
         .error(email_error),
         field(
@@ -76,23 +77,23 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
                 ],
                 plan,
             )
-            .orientation(Orientation::Horizontal)
+            .orientation(kivact::view::Orientation::Horizontal)
             .variant(kivact::ui::RadioGroupVariant::Segmented),
         ),
-        { let value: kivact::state::Binding<kivact::i18n::CalendarDate> = kivact::state::IntoBinding::into_binding(birth); let value = kivact::state::binding(move || Some(value.get()),move |day| {if let Some(day)=day {value.set(day);}}); kivact::ui::date_input("Birth date",value).calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(birth_valid),
+        { let value = kivact::state::binding(move || Some(birth.get()), move |day| { if let Some(day) = day { birth.set(day); } }); kivact::ui::date_input(value).label("Birth date").calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(birth_valid),
         show(move || birth_error.get().is_some(), move || {
             text(move || birth_error.get().unwrap_or_default())
-                .style(style().font_size(12).color(ColorToken::Danger))
+                .style(style().font_size(12).color(kivact::style::color::DANGER))
         }),
-        { let value: kivact::state::Binding<kivact::i18n::CalendarDate> = kivact::state::IntoBinding::into_binding(start); let value = kivact::state::binding(move || Some(value.get()),move |day| {if let Some(day)=day {value.set(day);}}); kivact::ui::date_input("Start date",value).calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(start_valid),
+        { let value = kivact::state::binding(move || Some(start.get()), move |day| { if let Some(day) = day { start.set(day); } }); kivact::ui::date_input(value).label("Start date").calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(start_valid),
         show(move || start_error.get().is_some(), move || {
             text(move || start_error.get().unwrap_or_default())
-                .style(style().font_size(12).color(ColorToken::Danger))
+                .style(style().font_size(12).color(kivact::style::color::DANGER))
         }),
         checkbox("I accept the terms", terms),
         show(move || attempted.get() && !terms.get(), || {
             text("Accept the terms to continue")
-                .style(style().font_size(12).color(ColorToken::Danger))
+                .style(style().font_size(12).color(kivact::style::color::DANGER))
         }),
         row((
             button("Cancel").variant(pop::ButtonTone::Soft),
@@ -220,7 +221,7 @@ with Ctrl+A and types.
 You now have a form in the Pop look with typed state, field errors, real date
 inputs and a passing test. To go further:
 
-- [Set up the Pop theme and tokens](../how-to-guide/theme-and-tokens.md) for
+- [Set up the Pop theme and variables](../how-to-guide/theme-and-tokens.md) for
   dark mode and custom colors.
 - [Pick dates and ranges](../how-to-guide/dates-and-calendars.md) for ranges,
   a calendar on its own and event dots.

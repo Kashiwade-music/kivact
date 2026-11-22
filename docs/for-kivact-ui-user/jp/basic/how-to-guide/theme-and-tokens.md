@@ -33,6 +33,7 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_basic as basic;
 
+#[component]
 fn root() -> impl IntoView {
     let dark = signal(false);
     kivact::style::provide_theme(
@@ -43,15 +44,15 @@ fn root() -> impl IntoView {
             column((
                 switch("Dark mode", dark),
                 button("Save"),
-                text_input("Name", signal(String::from("Ada"))),
+                text_input(signal(String::from("Ada"))).label("Name"),
             ))
             .style(
                 style()
                     .size(pct(100), pct(100))
                     .padding(24)
                     .gap(12)
-                    .background(basic::ColorName::Background)
-                    .color(basic::ColorName::Foreground),
+                    .background(basic::BACKGROUND)
+                    .color(basic::FOREGROUND),
             )
         },
     )
@@ -73,26 +74,16 @@ fn main() -> kivact::Result<()> {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::theme::Typography;
-use kivact::style::{Theme, ThemeMode};
+use kivact::style::{FontFamily, Theme, ThemeMode, font};
 use kivact_ui_basic as basic;
 
 fn theme(mode: ThemeMode) -> Theme {
-    let theme = basic::theme(mode);
-    let text = Typography {
-        // 日本語、中国語、韓国語を表示するアプリでは、Inter の後ろに CJK 用の family を足します。
-        family: Some("Inter, 'Noto Sans JP', sans-serif".into()),
-        ..theme.text().clone()
-    };
-    theme.with_text(text)
+    // Add a CJK family after Inter when the app shows Japanese, Chinese or Korean.
+    basic::theme(mode).set(&font::FAMILY_VAR, FontFamily::from("Inter, 'Noto Sans JP', sans-serif"))
 }
 
 fn app(fonts: &[&'static [u8]]) -> App {
-    let mut app = App::new("Basic").theme(theme(ThemeMode::Light));
-    for &font in fonts {
-        app = app.font(font);
-    }
-    app
+    App::new("Basic").theme(theme(ThemeMode::Light).with_fonts(fonts.iter().copied()))
 }
 ```
 
@@ -124,13 +115,14 @@ fn main() -> kivact::Result<()> {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn banner() -> impl IntoView {
+#[component]
+fn banner() -> impl Element {
     text("Heads up").style(
         style()
             .padding(12)
-            .background(basic::ColorName::Muted)
-            .color(basic::ColorName::MutedForeground)
-            .border(1, basic::ColorName::Border),
+            .background(basic::MUTED)
+            .color(basic::MUTED_FOREGROUND)
+            .border(1, basic::BORDER),
     )
 }
 ```
@@ -142,10 +134,11 @@ use kivact::prelude::*;
 use kivact::style::use_theme;
 use kivact_ui_basic as basic;
 
-fn tinted() -> impl IntoView {
+#[component]
+fn tinted() -> impl Element {
     text("Tinted").style(|| {
-        let tokens = use_theme().get().ext::<basic::Tokens>();
-        style().padding(12).background(tokens.primary.with_alpha(0.1))
+        let primary = use_theme().get().get(&basic::PRIMARY_VAR);
+        style().padding(12).background(primary.with_alpha(0.1))
     })
 }
 ```
@@ -160,11 +153,10 @@ use kivact::style::{Theme, ThemeMode, rgb};
 use kivact_ui_basic as basic;
 
 fn blue_theme(mode: ThemeMode) -> Theme {
-    let mut tokens = basic::Tokens::new(mode);
-    tokens.primary = rgb(0x2563eb);
-    tokens.primary_foreground = rgb(0xffffff);
-    tokens.ring = rgb(0x93c5fd);
-    basic::theme(mode).with(tokens)
+    basic::theme(mode)
+        .set(&basic::PRIMARY_VAR, rgb(0x2563eb))
+        .set(&basic::PRIMARY_FOREGROUND_VAR, rgb(0xffffff))
+        .set(&basic::RING_VAR, rgb(0x93c5fd))
 }
 
 fn main() -> kivact::Result<()> {
@@ -187,15 +179,11 @@ recipe は、コンポーネントの状態をスタイルに変える関数で�
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::{Theme, ThemeMode};
-use kivact::ui::{ButtonState, Look, UiRecipes};
+use kivact::ui::theme::ButtonTheme;
 use kivact_ui_basic as basic;
 
 fn rounded_buttons(mode: ThemeMode) -> Theme {
-    let theme = basic::theme(mode);
-    let recipes = (*theme.ext::<UiRecipes>()).clone().button(|current| {
-        move |theme: &Theme, look: &Look<ButtonState>| current(theme, look).radius(8)
-    });
-    theme.with(recipes)
+    basic::theme(mode).with(ButtonTheme::default().root(|_theme, _look, base| base.border_radius(8)))
 }
 ```
 
@@ -209,7 +197,8 @@ fn rounded_buttons(mode: ThemeMode) -> Theme {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn toolbar() -> impl IntoView {
+#[component]
+fn toolbar() -> impl Element {
     assert!(basic::ICON_NAMES.contains(&"settings"));
     row((
         button("Download").icon(icon("download")),

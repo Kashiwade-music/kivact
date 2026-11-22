@@ -44,11 +44,12 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_pop as pop;
 
-fn sign_up() -> impl IntoView {
+#[component]
+fn sign_up() -> impl Element {
     let name = signal(String::new());
     kivact::ui::card((
-        text("New account").style(style().font_size(20).weight(600)),
-        text_input("Name", name),
+        text("New account").style(style().font_size(20).font_weight(600)),
+        text_input(name).label("Name"),
         button("Create account"),
     ))
     .style(style().width(360).margin(24).gap(12))
@@ -90,7 +91,7 @@ Pop works with the font that Kivact bundles, so you need nothing more for this
 tutorial. The kit's own catalog also registers Inter, Barlow and Noto Sans JP
 with `App::font` to match the original design. Fonts belong to the
 application. See
-[Set up the Pop theme and tokens](../how-to-guide/theme-and-tokens.md) if you
+[Set up the Pop theme and variables](../how-to-guide/theme-and-tokens.md) if you
 want to do the same.
 
 Next: [Step 2: Build the form](02-build-the-form.md)

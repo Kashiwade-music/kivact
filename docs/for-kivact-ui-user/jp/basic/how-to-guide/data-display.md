@@ -14,7 +14,8 @@
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn invoices() -> impl IntoView {
+#[component]
+fn invoices() -> impl Element {
     kivact::ui::table((
         kivact::ui::table_header((kivact::ui::table_row((
             kivact::ui::table_head("Invoice").width(110.0),
@@ -41,7 +42,7 @@ fn invoices() -> impl IntoView {
         text("A list of recent invoices.").style(
             style()
                 .margin_top(16)
-                .color(basic::ColorName::MutedForeground)
+                .color(basic::MUTED_FOREGROUND)
                 .text_align(kivact::style::TextAlign::Center),
         ),
     ))
@@ -66,7 +67,8 @@ struct Payment {
     amount: f64,
 }
 
-fn payments() -> impl IntoView {
+#[component]
+fn payments() -> impl Element {
     let data = vec![
         Payment {
             id: 1,
@@ -89,16 +91,16 @@ fn payments() -> impl IntoView {
     let sort = signal(None);
     let page = signal(0_usize);
     let columns = vec![
-        DataColumn::new("Email", |p: &Payment| p.email.to_string())
+        kivact::ui::DataColumn::new("Email", |p: &Payment| p.email.to_string())
             .compare(|a, b| a.email.cmp(b.email))
             .filter(|p: &Payment, q: &str| p.email.contains(q)),
-        DataColumn::new("Amount", |p: &Payment| format!("${:.2}", p.amount))
+        kivact::ui::DataColumn::new("Amount", |p: &Payment| format!("${:.2}", p.amount))
             .compare(|a, b| a.amount.total_cmp(&b.amount))
             .numeric(true),
     ];
     column((
-        text_input("Filter emails", query).placeholder("Filter emails..."),
-        data_table(data, |p: &Payment| p.id, columns)
+        text_input(query).label("Filter emails").placeholder("Filter emails..."),
+        kivact::ui::data_table(data, |p: &Payment| p.id, columns)
             .row_label(|p: &Payment| p.email.to_string())
             .filter(query)
             .selection(selected)
@@ -124,7 +126,8 @@ fn payments() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn visitors() -> impl IntoView {
+#[component]
+fn visitors() -> impl Element {
     let config = basic::ChartConfig::new([
         basic::ChartSeries::new("desktop", "Desktop"),
         basic::ChartSeries::new("mobile", "Mobile"),
@@ -141,14 +144,14 @@ fn visitors() -> impl IntoView {
     )
     .header(
         column((
-            text("Bar chart").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
+            text("Bar chart").style(style().font_size(14).line_height(20.0 / 14.0).font_weight(500)),
             text("January - March").style(
                 style()
                     .line_height(1.625)
-                    .color(basic::ColorName::MutedForeground),
+                    .color(basic::MUTED_FOREGROUND),
             ),
         ))
-        .style(style().gap(4).grow(1).min_width(0)),
+        .style(style().gap(4).flex_grow(1).min_width(0)),
     )
     .style(style().width(560))
 }
@@ -168,7 +171,8 @@ fn visitors() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn people() -> impl IntoView {
+#[component]
+fn people() -> impl Element {
     column((
         row((
             kivact::ui::badge("Active"),
@@ -203,11 +207,14 @@ fn people() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn snippet() -> impl IntoView {
+#[component]
+fn snippet() -> impl Element {
     let source = "fn main() {\n    println!(\"Hello, Kivact!\");\n}";
-    let parsed=basic::rust_source(source);
+    let tokens = kivact::ui::rust_tokens(source);
     kivact::ui::code_block(source.to_string())
-        .highlight(move || (parsed.clone(), kivact::style::use_tokens::<basic::Tokens>().code.clone()), basic::rust_lines)
+        .highlight(kivact::ui::highlighter(tokens, |tokens, text, index: &usize| {
+            basic::rust_lines(tokens, text, index)
+        }))
         .title("main.rs")
         .line_numbers(true)
         .style(style().width(pct(100)))
@@ -215,7 +222,7 @@ fn snippet() -> impl IntoView {
 ```
 
 - `.max_height(..)` は長いブロックをスクロールにし、`.variant(basic::CodeBlockSize::Sm)` はコンパクトなサイズ、`.footer(..)` はブロックの下に 1 行足します。
-- ほかの言語は、行を自分で組み立てます。`CodeLine` は `CodeSpan::new(text, CodeTone::Keyword)` などの並びです（トーンは `Plain`、`Keyword`、`String`、`Number`、`Comment`、`Function`、`Type`、`Macro`、`Lifetime`、`Punctuation`、`Attribute`）。色はテーマのトークンの `code` フィールドです。
+- ほかの言語は、行を自分で組み立てます。`CodeLine` は `CodeSpan::new(text, kivact::ui::SyntaxKind::Keyword)` などの並びです（トーンは `Plain`、`Keyword`、`String`、`Number`、`Comment`、`Function`、`Type`、`Macro`、`Lifetime`、`Punctuation`、`Attribute`）。色はテーマのトークンの `code` フィールドです。
 - コードのフォントは `Geist Mono` です。[テーマとトークン](theme-and-tokens.md)の説明に従って登録してください。登録しないときは、システムの等幅フォントが使われます。
 - コピーに成功すると、ボタンが少しの間「Copied」になります。この文言は `code_block.*` のメッセージから来ます。
 
@@ -227,11 +234,12 @@ fn snippet() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn conversation() -> impl IntoView {
+#[component]
+fn conversation() -> impl Element {
     kivact::ui::chat_thread(column((
         kivact::ui::chat_message("Ada")
             .content("Lunch at noon?")
-            .variant(basic::BubbleVariant::Secondary),
+            .variant(basic::ChatBubbleVariant::Secondary),
         kivact::ui::chat_message("You")
             .content("Sounds good.")
             .align(kivact::ui::ChatAlign::End),
