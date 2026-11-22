@@ -1,4 +1,5 @@
-//! Role: Style Astryx Neutral's dialogs: the modal, alert, drawer and popover kinds, with their scrim and parts.
+//! Role: Style Astryx Neutral's dialogs: the modal, alert, drawer and popover kinds, with
+//! their scrim and parts.
 use crate::color as c;
 use crate::metrics as m;
 use crate::motion::MEDIUM;

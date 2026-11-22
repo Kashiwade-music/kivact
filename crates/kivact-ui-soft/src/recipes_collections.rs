@@ -1,4 +1,5 @@
-//! Role: Install Astryx Neutral's recipes of the collection group: lists, trees, item lists and cards, and the table, group and carousel recipes.
+//! Role: Install Astryx Neutral's recipes of the collection group: lists, trees, item
+//! lists and cards, and the table, group and carousel recipes.
 use crate::color as c;
 use crate::metrics as m;
 use crate::motion::{FAST, FAST_MIN};

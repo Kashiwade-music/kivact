@@ -101,7 +101,7 @@ impl App {
         let (settings, theme) = self.into_embed_settings(at)?;
         let opened = kivact_engine::embed::embed_native(window, options, hooks, move |closing| {
             crate::launch::Launch::new(
-                settings.with_theme(theme),
+                App::with_settings(settings, theme).into_launch(),
                 crate::launch::LaunchPolicy::embedded(closing),
                 move || root().into_view(),
             )

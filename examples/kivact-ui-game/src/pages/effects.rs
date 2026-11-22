@@ -1,4 +1,5 @@
-//! Role: The Effects page of the game catalog: Three-dimensional tilts, filters, shaders, timelines and scroll-linked motion.
+//! Role: The Effects page of the game catalog: three-dimensional tilts, filters.
+//! Shaders, timelines and scroll-linked motion.
 
 use crate::support::common::{cards, display_family, specimen};
 use catalog_shell::{Example, Page};

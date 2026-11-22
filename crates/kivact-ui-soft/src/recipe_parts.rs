@@ -1,4 +1,5 @@
-//! Role: Share Astryx Neutral transitions, focus rings, field frames and composited control fills between recipes.
+//! Role: Share Astryx Neutral transitions, focus rings, field frames and composited
+//! control fills between recipes.
 use crate::color as c;
 use crate::metrics as m;
 use crate::motion::{EASE_STANDARD, FAST, FAST_MAX, MEDIUM_MAX};

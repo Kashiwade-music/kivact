@@ -1,4 +1,5 @@
-//! Role: Install Astryx Neutral's recipes of the table group: the static table's rows and cells, and the data table's frame, header, rows, cells and sort mark.
+//! Role: Install Astryx Neutral's recipes of the table group: the static table's rows and
+//! cells, and the data table's frame, header, rows, cells and sort mark.
 use crate::color as c;
 use crate::metrics as m;
 use crate::recipe_parts::{body_text, fast, ring};

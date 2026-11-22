@@ -1,4 +1,4 @@
-//! Role: Test-only hooks of the driver: the bundled test font, a GPU probe and a device loss.
+//! Role: Test-only hooks of the driver: the bundled font, a GPU probe, a device loss.
 
 use std::sync::Arc;
 

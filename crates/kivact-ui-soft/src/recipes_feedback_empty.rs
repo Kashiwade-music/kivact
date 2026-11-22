@@ -1,4 +1,5 @@
-//! Role: Style Astryx Neutral's empty states: a centered column of icon, title, description and actions, in regular or compact spacing.
+//! Role: Style Astryx Neutral's empty states: a centered column of icon, title,
+//! description and actions, in regular or compact spacing.
 use crate::color as c;
 use crate::space as s;
 use crate::type_scale as t;

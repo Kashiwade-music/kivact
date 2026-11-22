@@ -1,4 +1,5 @@
-//! Role: The Pop looks of the metrics: headings, stat cards, trend charts and term-detail rows.
+//! Role: The Pop looks of the metrics: headings, stat cards, trend charts and term-detail
+//! rows.
 
 use crate::color;
 use crate::variants::Hue;

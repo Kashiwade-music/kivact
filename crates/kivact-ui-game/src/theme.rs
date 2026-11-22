@@ -1,23 +1,13 @@
-//! Role: The console's theme: its color, length and font variables, its icons and its recipe tables.
+//! Role: The console's theme: its color, length and font variables, icons and recipes.
 use crate::color as kit;
 use crate::fonts::{DISPLAY_FAMILY_VAR, MONO_FAMILY_VAR};
+use crate::size::Density;
 use kivact::style::{
-    Color, FontFamily, LineHeight, Theme, ThemeMode, color, control, font, radius, rgb, rgba, space,
+    FontFamily, LineHeight, Theme, ThemeMode, color, control, font, radius, rgb, rgba, space,
 };
 use kivact::ui::theme::{
-    SparklineFill, SparklineTheme, avatar_group, button_group, item_list, skeleton, spinner, table,
-    toolbar, tree,
+    avatar_group, button_group, item_list, skeleton, spinner, table, toolbar, tree,
 };
-
-/// Comfortable or compact metrics.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Density {
-    /// The comfortable metrics: 34 px controls and 42 px rows.
-    #[default]
-    Comfortable,
-    /// The compact metrics: 28 px controls and 32 px rows.
-    Compact,
-}
 
 /// Options of the console theme. The default options give [`theme`].
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -178,9 +168,4 @@ fn install_recipes(theme: Theme) -> Theme {
     let theme = crate::recipes_feedback::install(theme);
     let theme = crate::recipes_metrics::install(theme);
     crate::recipes_input::install(theme)
-}
-
-/// The sparkline's fill: the primary tint, solid.
-pub(crate) fn sparkline_table() -> SparklineTheme {
-    SparklineTheme::default().fill(SparklineFill::Solid(Color::var(&kit::PRIMARY_WEAK_VAR)))
 }

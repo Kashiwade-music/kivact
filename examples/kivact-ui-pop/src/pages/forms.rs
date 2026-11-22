@@ -1,4 +1,5 @@
-//! Role: The forms page: text inputs, selection editors, checks, switches, sliders and uploads.
+//! Role: The forms page: text inputs, selection editors, checks, switches, sliders and
+//! uploads.
 
 use super::common::*;
 use catalog_shell::{Example, Page};

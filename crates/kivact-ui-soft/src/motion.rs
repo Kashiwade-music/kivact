@@ -1,4 +1,5 @@
-//! Role: The transition durations (ms) and easing curves of Astryx Neutral (crate-private).
+//! Role: The transition durations (ms) and easing curves of Astryx Neutral
+//! (crate-private).
 use kivact::motion::Easing;
 
 pub(crate) const FAST_MIN: u64 = 95;

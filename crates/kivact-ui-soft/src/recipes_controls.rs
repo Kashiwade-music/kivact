@@ -1,4 +1,5 @@
-//! Role: Style the Astryx Neutral buttons and toggle buttons (the controls group's action parts).
+//! Role: Style the Astryx Neutral buttons and toggle buttons (the controls group's action
+//! parts).
 use crate::color as c;
 use crate::metrics as m;
 use crate::radius as r;

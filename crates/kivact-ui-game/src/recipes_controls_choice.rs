@@ -1,7 +1,7 @@
 //! Role: Draw the console's radio group, slider and splitter recipes.
 use crate::choice_style;
 use crate::color::{LINE_STRONG, SURFACE_3, TEXT_3};
-use crate::recipes_controls::{button_style, diamond};
+use crate::control_parts::{button_style, diamond};
 use crate::variants::ChoiceCard;
 use kivact::draw::{LineCap, LineJoin, Path, Stroke};
 use kivact::geometry::{Point, Rect, Size};

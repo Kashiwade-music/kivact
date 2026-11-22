@@ -1,4 +1,5 @@
-//! Role: Style the Astryx Neutral checkboxes and switches (the controls group's choice parts).
+//! Role: Style the Astryx Neutral checkboxes and switches (the controls group's choice
+//! parts).
 use crate::color as c;
 use crate::metrics as m;
 use crate::radius as r;

@@ -1,4 +1,5 @@
-//! Role: The Inputs page of the game catalog: Text, number, validated and file inputs, with tags and the entry of a value.
+//! Role: The Inputs page of the game catalog: text, number and validated inputs.
+//! File inputs, with tags and the entry of a value.
 
 use crate::support::common::{cards, line, list, specimen, strings, suppress_search_shortcut};
 use catalog_shell::{Example, Page};

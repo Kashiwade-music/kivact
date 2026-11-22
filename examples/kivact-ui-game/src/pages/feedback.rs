@@ -1,4 +1,5 @@
-//! Role: The Feedback page of the game catalog: Alerts, toasts, loading states and empty states.
+//! Role: The Feedback page of the game catalog: alerts, toasts, loading states.
+//! Empty states.
 
 use crate::support::common::{cards, line, list, specimen, wide};
 use crate::support::dialogs::overlay_layer;

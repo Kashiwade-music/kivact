@@ -5,8 +5,8 @@ use kivact::view::{
     PointerPhase, WheelEvent,
 };
 
-use super::builder::NumericKind;
 use super::machine;
+use super::types::NumericKind;
 use super::view::NumericView;
 
 fn sane_factor(factor: f64) -> f64 {

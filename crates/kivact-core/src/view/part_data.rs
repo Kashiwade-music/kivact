@@ -7,7 +7,7 @@ use kivact_runtime::UiError;
 
 use crate::state::{Signal, Value};
 use crate::view::NodeRef;
-use crate::view::part::HeldInput;
+use crate::view::{Key, PointerId};
 
 /// Final constraints of the node or canvas region to which a part is attached.
 ///
@@ -249,4 +249,26 @@ impl std::fmt::Debug for PartState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("PartState").field(&self.get()).finish()
     }
+}
+
+/// The input a part holds: the press it is in and where the pointer is.
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct HeldInput {
+    pub(crate) press: Press,
+    pub(crate) hover: Hover,
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum Press {
+    #[default]
+    Idle,
+    Pointer(PointerId),
+    Key(Key),
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum Hover {
+    #[default]
+    Outside,
+    Inside,
 }

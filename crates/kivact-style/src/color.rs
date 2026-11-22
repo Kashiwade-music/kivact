@@ -1,4 +1,4 @@
-//! Role: The core color variables of a theme (`color::ACCENT`), with the light theme's values as fallbacks.
+//! Role: The core color variables of a theme (`color::ACCENT`), with light fallbacks.
 
 use crate::color_value::{Color, rgb, rgba};
 use kivact_types::ThemeVar;

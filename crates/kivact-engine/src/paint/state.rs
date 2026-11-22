@@ -171,7 +171,7 @@ thread_local! {
     /// A node whose kept drawing a redraw mark does not forget: the test
     /// driver's injected invalidation fault (`ArvaneTestHost::keep_stale_draw`),
     /// which the debug check of kept drawings must catch.
-    pub(crate) static KEEP_STALE_DRAW: std::cell::Cell<Option<NodeId>> = const { std::cell::Cell::new(None) };
+    static KEEP_STALE_DRAW: std::cell::Cell<Option<NodeId>> = const { std::cell::Cell::new(None) };
 }
 
 #[cfg(feature = "testing")]
@@ -179,7 +179,31 @@ thread_local! {
     /// A child the hit test's candidates leave out: the test driver's
     /// injected fault (`ArvaneTestHost::drop_hit_candidate`), which the
     /// debug self-check's complete walk must catch.
-    pub(crate) static DROP_HIT_CANDIDATE: std::cell::Cell<Option<NodeId>> = const { std::cell::Cell::new(None) };
+    static DROP_HIT_CANDIDATE: std::cell::Cell<Option<NodeId>> = const { std::cell::Cell::new(None) };
+}
+
+/// The node whose kept drawing a redraw mark does not forget (none by default).
+#[cfg(feature = "testing")]
+pub(crate) fn keep_stale_draw() -> Option<NodeId> {
+    KEEP_STALE_DRAW.with(std::cell::Cell::get)
+}
+
+/// Set the node whose kept drawing a redraw mark does not forget (`None`: none).
+#[cfg(feature = "testing")]
+pub(crate) fn set_keep_stale_draw(node: Option<NodeId>) {
+    KEEP_STALE_DRAW.with(|kept| kept.set(node));
+}
+
+/// The child the hit test's candidates leave out (none by default).
+#[cfg(feature = "testing")]
+pub(crate) fn drop_hit_candidate() -> Option<NodeId> {
+    DROP_HIT_CANDIDATE.with(std::cell::Cell::get)
+}
+
+/// Set the child the hit test's candidates leave out (`None`: none).
+#[cfg(feature = "testing")]
+pub(crate) fn set_drop_hit_candidate(node: Option<NodeId>) {
+    DROP_HIT_CANDIDATE.with(|dropped| dropped.set(node));
 }
 
 /// The sizes of a window's paint list and draw cache (the test driver reads them).

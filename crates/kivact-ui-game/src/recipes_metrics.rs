@@ -30,7 +30,7 @@ pub(crate) fn install(theme: Theme) -> Theme {
                 .term(description_term)
                 .detail(description_detail),
         )
-        .with(crate::theme::sparkline_table())
+        .with(crate::sparkline::sparkline_table())
 }
 
 pub(crate) fn stat_root(t: &Theme, s: &Look<StatState>, base: Style) -> Style {

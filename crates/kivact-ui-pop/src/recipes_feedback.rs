@@ -1,4 +1,5 @@
-//! Role: The Pop looks of the feedback and indicators: toasts, alerts, empty states, cards,
+//! Role: The Pop looks of the feedback and indicators: toasts, alerts, empty states,
+//! cards,
 //! badges, avatars, loading indicators, skeletons and key caps.
 
 use crate::color;

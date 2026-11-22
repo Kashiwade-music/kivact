@@ -1,4 +1,4 @@
-//! Role: The Creative kit's length variables (the control row and the gap) and their density values.
+//! Role: The Creative kit's length variables (control row and gap) and density values.
 
 use crate::options::Density;
 use kivact::style::{Length, Theme, ThemeVar};

@@ -1,4 +1,4 @@
-//! Role: The basic kit's color variables (shadcn/ui Neutral) and the values a theme sets for them.
+//! Role: The basic kit's color variables (shadcn/ui Neutral) and their theme values.
 
 use kivact::style::{Color, Theme, ThemeMode, ThemeVar, rgb, rgba};
 

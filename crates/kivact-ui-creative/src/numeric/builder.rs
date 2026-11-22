@@ -1,33 +1,14 @@
-//! Role: The numeric components (number, value_slider, knob, fader) and the options they resolve.
+//! Role: The numeric components (number, value_slider, knob, fader) and their options.
 
 use super::text::{Formatter, TextParser};
+use super::types::{NumericKind, PropertyState, Setup};
 use crate::color::{FIELD, TEXT};
 use crate::size::ROW;
-use kivact::Prop;
 use kivact::component;
 use kivact::interaction::{ScalarMapping, ScalarRange, ScalarStep};
 use kivact::state::{Callback, IntoValue, Signal, Value, memo};
 use kivact::style::{Color, Cursor, Style, color, style};
 use kivact::view::{EditPhase, Node, Orientation, Role, node};
-
-/// Numeric geometry, with identical binding and keyboard behavior.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum NumericKind {
-    Number,
-    Slider,
-    Knob,
-    Fader,
-}
-
-/// Animation-state tint used by the source inspector.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
-pub enum PropertyState {
-    #[default]
-    Plain,
-    Keyed,
-    Animated,
-    Driven,
-}
 
 /// The props of a numeric component besides its label, value and kind, as
 /// its builder function receives them.
@@ -50,31 +31,6 @@ struct Options {
     on_edit: Option<Callback<EditPhase>>,
     drag_distance: Option<Value<f64>>,
     text_entry: bool,
-}
-
-/// The resolved state a numeric control mounts with: every default applied.
-pub(super) struct Setup {
-    pub(super) label: Value<String>,
-    pub(super) state: Signal<f64>,
-    pub(super) kind: NumericKind,
-    pub(super) range: Value<ScalarRange>,
-    pub(super) step: Value<ScalarStep>,
-    pub(super) reset: Value<f64>,
-    pub(super) precision: Value<usize>,
-    pub(super) unit: Value<String>,
-    pub(super) tint: Value<PropertyState>,
-    pub(super) mapping: ScalarMapping,
-    pub(super) format: Option<Formatter>,
-    pub(super) drag_distance: Option<Value<f64>>,
-    pub(super) text_entry: bool,
-    pub(super) timecode: Option<Value<u32>>,
-    pub(super) label_visible: Value<bool>,
-    pub(super) accent: Option<Value<Color>>,
-    pub(super) bipolar: Value<bool>,
-    pub(super) horizontal: Value<bool>,
-    pub(super) edit: Option<Callback<EditPhase>>,
-    pub(super) text_parser: Option<TextParser>,
-    pub(super) mixed: Value<bool>,
 }
 
 /// A field editing `value` through its label and typed text: horizontal drag

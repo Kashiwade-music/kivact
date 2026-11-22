@@ -629,7 +629,7 @@ impl LoopCell {
 
 #[cfg(test)]
 mod tests {
-    //! Role: A registration leaves every motion map when its owner is disposed, without any diagnostic call.
+    //! Role: A registration leaves every motion map when its owner is disposed.
 
     use std::panic::Location;
     use std::rc::Rc;

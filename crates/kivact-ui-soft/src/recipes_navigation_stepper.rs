@@ -1,4 +1,5 @@
-//! Role: Install Astryx Neutral's stepper recipes: the progress list, its items and connectors, the indicators, the labels and the collapsed controls.
+//! Role: Install Astryx Neutral's stepper recipes: the progress list, its items and
+//! connectors, the indicators, the labels and the collapsed controls.
 use crate::color as c;
 use crate::metrics as m;
 use crate::motion::FAST;

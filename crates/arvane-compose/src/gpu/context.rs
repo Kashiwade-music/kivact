@@ -3,9 +3,9 @@
 //! The window's frame state starts empty; the device (adapter, pipelines,
 //! imports) is shared by every window's context.
 
-use super::device::GpuDevice;
 use super::export_pool::Exports;
 use super::state::GpuContext;
+use super::state::GpuDevice;
 use super::targets::Pool;
 use crate::cache::CacheIndex;
 use std::collections::HashMap;

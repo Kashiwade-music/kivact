@@ -15,6 +15,7 @@
 
 #![forbid(unsafe_code)]
 
+mod accent;
 mod audio;
 mod bezier;
 pub mod color;
@@ -65,6 +66,7 @@ pub use crate::editors::node::model::{
 pub use crate::editors::node::view_state::NodeState;
 pub use crate::editors::shared::model::{Clip, EditorContext, EditorFocus, ItemTime, Lane};
 pub use crate::editors::time::model::{Keyframe, TimeRequest};
+pub use accent::Accent;
 pub use audio::view_state::ChannelState;
 pub use audio::{Meter, MixerStrip, Transport, TransportState, meter, mixer_strip, transport};
 pub use bezier::{BezierCurve, CubicBezier, bezier_curve};
@@ -98,7 +100,7 @@ pub use numeric::{
     Fader, Knob, Number, NumericKind, PropertyState, ValueSlider, evaluate_expression, fader, knob,
     number, value_slider,
 };
-pub use options::{Accent, Density, LabelTone};
+pub use options::{Density, LabelTone};
 pub use outliner::{Outliner, OutlinerCell, OutlinerState, outliner};
 pub use outliner_data::{Restriction, RestrictionFlag, TreeDrop, TreeItem};
 pub use panel_group::{InspectorPanel, panel_group};

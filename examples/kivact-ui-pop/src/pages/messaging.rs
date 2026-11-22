@@ -1,4 +1,5 @@
-//! Role: The messaging page: a conversation with a student, its quick replies and a thread list.
+//! Role: The messaging page: a conversation with a student, its quick replies and a
+//! thread list.
 
 use super::common::*;
 use catalog_shell::{Example, Page};

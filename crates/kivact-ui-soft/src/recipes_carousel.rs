@@ -1,4 +1,5 @@
-//! Role: Install Astryx Neutral's carousel recipes: the translated track, the scrolling viewport and the edge controls.
+//! Role: Install Astryx Neutral's carousel recipes: the translated track, the scrolling
+//! viewport and the edge controls.
 use crate::color as c;
 use crate::metrics as m;
 use crate::radius as r;

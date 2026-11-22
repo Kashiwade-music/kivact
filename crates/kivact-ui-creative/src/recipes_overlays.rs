@@ -1,4 +1,5 @@
-//! Role: Creative appearance of the standard select, menu, dialog and tooltip: the floating surfaces of the kit.
+//! Role: Creative appearance of the standard select, menu, dialog and tooltip.
+//! These are the floating surfaces of the kit.
 use crate::color;
 use crate::fonts::mono_family;
 use crate::recipe_parts::{button_style, field_style, glass_style};

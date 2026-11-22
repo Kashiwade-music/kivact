@@ -1,8 +1,8 @@
-//! Role: The style declaration list: how declarations are pushed, merged, named and classed.
+//! Role: The style declaration list: push, merge, name and classify declarations.
 
 use kivact_types::StyleState;
 
-pub(crate) use super::props::Decl;
+use super::props::Decl;
 
 /// Whether a declaration can be a host-evaluated paint delta of a state
 /// (`Delta`) or must be compiled into the node's style (`Rest`, ST-05).

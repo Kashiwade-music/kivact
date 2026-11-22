@@ -1,4 +1,5 @@
-//! Role: The design tokens page: the colors, the type scale and the radii and shadows of the Pop theme.
+//! Role: The design tokens page: the colors, the type scale and the radii and shadows of
+//! the Pop theme.
 
 use super::common::*;
 use catalog_shell::{Example, Page};

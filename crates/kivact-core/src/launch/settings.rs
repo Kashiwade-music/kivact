@@ -1,5 +1,4 @@
 //! Role: Application settings that cross the embedded UI thread boundary.
-use crate::App;
 use crate::i18n::{Locale, Messages};
 use crate::platform::AppHandle;
 use kivact_style::Theme;
@@ -28,11 +27,32 @@ pub(crate) struct AppSettings {
     pub(crate) handle: AppHandle,
 }
 
-impl AppSettings {
-    pub(crate) fn with_theme(self, theme: Theme) -> App {
-        App {
-            theme: kivact_runtime::Prop::constant(theme),
-            settings: self,
-        }
+/// What a launch takes from an App: its theme and its settings. `App` turns
+/// into it (`App::into_launch`), so the launch never names `App`.
+pub(crate) struct LaunchApp {
+    pub(crate) theme: kivact_runtime::Prop<Theme>,
+    pub(crate) settings: AppSettings,
+}
+
+impl LaunchApp {
+    /// The handle that ends this App's run from any thread.
+    pub(crate) fn handle(&self) -> AppHandle {
+        self.settings.handle.clone()
+    }
+
+    pub(crate) fn into_view_settings(
+        self,
+    ) -> (
+        kivact_runtime::Prop<Theme>,
+        Option<Locale>,
+        Messages,
+        &'static Location<'static>,
+    ) {
+        (
+            self.theme,
+            self.settings.locale,
+            self.settings.messages,
+            self.settings.theme_at,
+        )
     }
 }

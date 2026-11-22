@@ -1,5 +1,5 @@
 //! Role: Decide a swipe toward an edge and whether its release dismisses.
-use super::{SwipeDismissPolicy, SwipePhase};
+use super::types::{SwipeDismissPolicy, SwipePhase};
 use crate::DragVelocity;
 use kivact_core::geometry::{Edge, Point, Rect};
 use kivact_core::state::{Machine as MachineTrait, Step};

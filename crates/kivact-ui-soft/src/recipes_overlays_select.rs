@@ -1,4 +1,5 @@
-//! Role: Style Astryx Neutral's select and combobox: the trigger, the popup, the option rows and the keyed suggestion list.
+//! Role: Style Astryx Neutral's select and combobox: the trigger, the popup, the option
+//! rows and the keyed suggestion list.
 use crate::color as c;
 use crate::metrics as m;
 use crate::motion::{EASE_ENTRANCE, EASE_STANDARD, FAST, FAST_MAX};

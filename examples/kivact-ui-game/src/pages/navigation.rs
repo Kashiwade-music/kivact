@@ -1,4 +1,5 @@
-//! Role: The Navigation page of the game catalog: Tabs, wizard steps, pagination and vertical navigation.
+//! Role: The Navigation page of the game catalog: tabs, wizard steps, pagination.
+//! Vertical navigation.
 
 use crate::support::common::{cards, choice_options, list, specimen, strings, wide};
 use catalog_shell::{Example, Page};

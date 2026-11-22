@@ -1,4 +1,5 @@
-//! Role: Install Astryx Neutral's recipes of the input group: the input group, the tag input, the drop zone and the date and time inputs.
+//! Role: Install Astryx Neutral's recipes of the input group: the input group, the tag
+//! input, the drop zone and the date and time inputs.
 use crate::color as c;
 use crate::metrics as m;
 use crate::radius as r;

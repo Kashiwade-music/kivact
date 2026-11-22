@@ -1,4 +1,4 @@
-//! Role: Shared Vulkan barriers, memory selection, timeline construction and adapter identity.
+//! Role: Shared Vulkan barriers, memory selection, timelines and adapter identity.
 
 use ash::vk;
 
@@ -83,7 +83,7 @@ pub(crate) unsafe fn timeline(
         .semaphore_type(vk::SemaphoreType::TIMELINE)
         .initial_value(0);
     let mut export =
-        vk::ExportSemaphoreCreateInfo::default().handle_types(crate::vulkan::SEMAPHORE_HANDLE);
+        vk::ExportSemaphoreCreateInfo::default().handle_types(super::contract::SEMAPHORE_HANDLE);
     let mut info = vk::SemaphoreCreateInfo::default().push_next(&mut kind);
     if external {
         info = info.push_next(&mut export);

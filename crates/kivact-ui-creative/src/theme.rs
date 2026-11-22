@@ -1,7 +1,8 @@
 //! Role: Construct the Creative theme: its variables, its recipes and its icon set.
+use crate::accent::Accent;
 use crate::color;
 use crate::fonts::MONO_FAMILY_VAR;
-use crate::options::{Accent, Density};
+use crate::options::Density;
 use crate::recipes_collections;
 use crate::recipes_controls;
 use crate::recipes_feedback;

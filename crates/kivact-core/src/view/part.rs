@@ -16,7 +16,9 @@ use std::rc::Rc;
 use crate::state::{Value, memo, on_cleanup, signal};
 use crate::view::element_data::Common;
 use crate::view::owner::Owner;
-use crate::view::part_data::{Availability, Focus, LivePart, PartBinding, PartMount};
+use crate::view::part_data::{
+    Availability, Focus, HeldInput, Hover, LivePart, PartBinding, PartMount, Press,
+};
 use crate::view::{ButtonPress, Key, MouseButton, PointerPhase, node_ref};
 use kivact_runtime::driver::EffectKind;
 
@@ -28,28 +30,6 @@ pub use super::part_data::{PartFacts, PartState};
 pub struct Part<S: kivact_runtime::PropValue> {
     state: Value<S>,
     apply: Box<dyn FnOnce(crate::view::element_data::Node) -> crate::view::element_data::Node>,
-}
-
-/// The input a part holds: the press it is in and where the pointer is.
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
-pub(crate) struct HeldInput {
-    press: Press,
-    hover: Hover,
-}
-
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
-enum Press {
-    #[default]
-    Idle,
-    Pointer(crate::view::PointerId),
-    Key(Key),
-}
-
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
-enum Hover {
-    #[default]
-    Outside,
-    Inside,
 }
 
 /// Create a setup-owned semantic and input attachment for one target.

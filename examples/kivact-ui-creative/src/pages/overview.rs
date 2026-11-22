@@ -1,4 +1,4 @@
-//! Role: The overview page of the Creative catalog: the kit's status, accent and transport chrome.
+//! Role: The overview page of the Creative catalog: status, accent and transport.
 
 use super::chrome::{
     accent_controls, application_menus, catalog_status, performance_meters, transport_readout,

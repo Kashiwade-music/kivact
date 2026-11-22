@@ -1,4 +1,5 @@
-//! Role: Style Astryx Neutral's menu: the trigger, the top, submenu and context surfaces, the item rows and their marks.
+//! Role: Style Astryx Neutral's menu: the trigger, the top, submenu and context surfaces,
+//! the item rows and their marks.
 use crate::color as c;
 use crate::metrics as m;
 use crate::motion::{FAST, FAST_MIN};

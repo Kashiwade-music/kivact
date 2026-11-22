@@ -1,4 +1,4 @@
-//! Role: Creative typography and read-only description styling for the standard heading, stat and description list.
+//! Role: Creative typography and read-only styling of heading, stat and description list.
 use crate::color;
 use crate::fonts::mono_family;
 use crate::size::ROW;

@@ -931,7 +931,7 @@ impl Runtime {
 
 #[cfg(test)]
 mod meta_tests {
-    //! Role: Node diagnostics are kept with the devtools feature from the start, and without it only while recording.
+    //! Role: Node diagnostics: kept with devtools from the start, else while recording.
 
     use std::panic::Location;
     use std::rc::Rc;

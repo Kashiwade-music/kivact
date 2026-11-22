@@ -137,7 +137,7 @@ impl Writer {
 
     /// Totals of the client's mutations and the last committed revision.
     pub fn stats(&self) -> WriteStats {
-        super::stats_of(&self.app.borrow())
+        super::stats::stats_of(&self.app.borrow())
     }
 
     /// Operations awaiting a revision, grouped by changed node.

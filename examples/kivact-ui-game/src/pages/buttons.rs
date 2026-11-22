@@ -1,4 +1,5 @@
-//! Role: The Buttons page of the game catalog: Primary and secondary actions, their sizes, states, groups and toolbars.
+//! Role: The Buttons page of the game catalog: primary and secondary actions.
+//! Their sizes, states, groups and toolbars.
 
 use crate::support::common::{cards, choice_options, line, list, segmented, specimen};
 use crate::support::dialogs::overlay_layer;

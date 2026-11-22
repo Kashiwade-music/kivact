@@ -1,4 +1,5 @@
-//! Role: The style helpers the Creative recipes share: the control, field, glass and tab looks, the tone colors and the splitter.
+//! Role: The style helpers the Creative recipes share: control, field and tab looks.
+//! Also the glass look, the tone colors and the splitter.
 use crate::color::{
     ACCENT, ACCENT_HIGH, BUTTON_PRESSED, BUTTON_SURFACE, CANVAS, CONTROL_BORDER, CONTROL_SHADOW,
     FIELD, HAIR, MUTED, OVERLAY_BORDER, OVERLAY_SURFACE, SELECTION, STRONG, SUCCESS, TEXT,

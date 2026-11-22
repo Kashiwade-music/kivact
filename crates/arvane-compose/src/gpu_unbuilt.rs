@@ -1,4 +1,5 @@
-//! Role: The GPU executor's public names when feature `gpu` is not built: no device exists, so every call fails.
+//! Role: The GPU executor's public names without feature `gpu`: every call fails.
+//! No device exists in this build, so no call can succeed.
 //!
 //! [`GpuDevice`] is uninhabited. [`GpuContext`] and [`SurfaceConfigurer`] are not,
 //! so that code which only the `gpu` build reaches does not look unreachable here:

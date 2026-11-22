@@ -1,4 +1,5 @@
-//! Role: One window's part of the GPU renderer: its context and swapchain on the driver's device.
+//! Role: One window's part of the GPU renderer: its context and swapchain.
+//! Both sit on the driver's device.
 //!
 //! A window that wants the GPU ([`WindowGpu::Waiting`]) makes its context and
 //! its surface (on the window's thread) once the driver has a device, and a

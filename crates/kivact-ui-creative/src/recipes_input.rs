@@ -1,4 +1,5 @@
-//! Role: Creative appearance of the standard input group: a muted label and addons in the header surface.
+//! Role: Creative appearance of the standard input group: a muted label and addons.
+//! The addons sit on the header surface.
 use crate::color;
 use kivact::style::{Style, Theme};
 use kivact::ui::theme::{InputGroupState, InputGroupTheme, Look};

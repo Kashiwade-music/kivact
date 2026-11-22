@@ -4,7 +4,7 @@
 //! takes. The surface, text and border colors fall back to the core colors
 //! (`kivact::style::color`), so a theme that sets the core colors moves them too.
 
-use crate::options::Accent;
+use crate::accent::Accent;
 use kivact::style::{Color, Theme, ThemeMode, ThemeVar, color, rgb, rgba};
 
 pub static CANVAS_VAR: ThemeVar<Color> = ThemeVar::new("creative.canvas", rgb(0xeceef1));

@@ -31,6 +31,5 @@ mod compile;
 mod describe;
 mod paint;
 
-pub(crate) use compile::Resolve;
 pub use compile::{CompiledStyle, Interactive, compile_style};
 pub use describe::{describe_state_styles, describe_style};

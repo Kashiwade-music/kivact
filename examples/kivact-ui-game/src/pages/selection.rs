@@ -1,4 +1,5 @@
-//! Role: The Selection page of the game catalog: Checkboxes, radio groups, switches, selects, sliders and selectable cards.
+//! Role: The Selection page of the game catalog: checkboxes, radio groups, switches.
+//! Selects, sliders and selectable cards.
 
 use crate::support::common::{
     cards, choice_options, line, list, meta, segmented, specimen, suppress_search_shortcut,

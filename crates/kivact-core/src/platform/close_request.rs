@@ -8,13 +8,9 @@
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_runtime::{Handler, IntoHandler, Owner};
+use kivact_runtime::{IntoHandler, Owner};
 
-/// One `on_close_request` handler and the owner it runs under.
-pub(crate) struct Registration {
-    pub(crate) owner: Owner,
-    pub(crate) handler: Handler<()>,
-}
+use crate::view::state::Registration;
 
 /// Ask before the window this component is in closes: the handler runs when
 /// the user asks to close that window (title bar button, Alt+F4) and keeps

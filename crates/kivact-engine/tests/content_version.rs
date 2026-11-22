@@ -1,4 +1,4 @@
-//! Role: Tests that an unchanged layer keeps its content version and a changed one bumps it.
+//! Role: Tests that an unchanged layer keeps its content version; a changed one bumps it.
 
 use arvane_protocol::LayerKey;
 use kivact_engine::api::Client;

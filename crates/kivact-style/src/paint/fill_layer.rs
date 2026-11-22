@@ -3,7 +3,7 @@
 use super::canvas_gradient::{CanvasGradient, CanvasShape};
 use super::gradient::{Gradient, GradientKind, RadialExtent, RadialSize};
 use super::layer::{Paint, PaintImage, PaintSize, ShaderPaint};
-use crate::resolve::Resolve;
+use crate::length::Resolve;
 use crate::shader::data::pack;
 use crate::theme::value::Theme;
 use kivact_types as p;

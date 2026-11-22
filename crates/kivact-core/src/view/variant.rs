@@ -1,4 +1,4 @@
-//! Role: Variants: the looks a component takes with `.variant(..)`, kept on its root node.
+//! Role: Variants: the looks a component takes with `.variant(..)`, on its root node.
 
 use std::any::{Any, TypeId};
 use std::rc::Rc;

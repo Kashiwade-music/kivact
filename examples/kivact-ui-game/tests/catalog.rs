@@ -1,4 +1,5 @@
-//! Role: The game catalog's tests: every page opens cleanly, and the controls of its pages change real values.
+//! Role: The game catalog's tests: every page opens cleanly.
+//! The controls of its pages change real values.
 
 use catalog_shell::check::{
     every_page_character_is_in_the_fonts, every_page_opens_cleanly, mount, open,

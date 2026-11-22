@@ -1,4 +1,4 @@
-//! Role: Lyra recipes of the radio group, slider, splitter, split, toggle, progress and disclosure.
+//! Role: Lyra recipes of the radio, slider, splitter, toggle, progress and disclosure.
 //!
 //! The looks of radio-group.tsx, slider.tsx, resizable.tsx's handle and grip,
 //! toggle.tsx, progress.tsx and accordion.tsx. The button, check and field

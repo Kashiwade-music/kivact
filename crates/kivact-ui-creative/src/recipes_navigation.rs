@@ -1,4 +1,5 @@
-//! Role: Creative appearance of the standard tabs: a recessed track with tabs that light up when selected.
+//! Role: Creative appearance of the standard tabs: a recessed track and lit tabs.
+//! A tab lights up when it is selected.
 use crate::recipe_parts::{tab_option_style, tab_track_style};
 use kivact::interaction::{TabListState, TabState};
 use kivact::style::{Style, Theme, style};

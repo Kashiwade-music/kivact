@@ -1,4 +1,5 @@
-//! Role: The Data Display page of the game catalog: KPI tiles, status badges, progress, avatars, activity and property lists.
+//! Role: The Data Display page of the game catalog: KPI tiles, status badges.
+//! Progress, avatars, activity and property lists.
 
 use crate::support::common::{cards, display_family, line, list, specimen};
 use crate::support::dialogs::overlay_layer;

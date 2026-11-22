@@ -1,4 +1,4 @@
-//! Role: The core control metrics of a theme: control height, disabled opacity and overlay margin.
+//! Role: The core control metrics of a theme: height, disabled opacity, overlay margin.
 
 use kivact_types::{Length, ThemeVar};
 

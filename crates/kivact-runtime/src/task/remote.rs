@@ -12,13 +12,14 @@
 use std::panic::Location;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::driver::{Runtime, ThreadWaker};
 use crate::{Owner, Signal, Trigger};
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(PoisonError::into_inner)
+    m.lock()
+        .expect("remote mailbox lock poisoned: a panic already happened")
 }
 
 /// What an App's remotes share with other threads: whether a mailbox has

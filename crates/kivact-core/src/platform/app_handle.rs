@@ -11,7 +11,7 @@ use std::panic::Location;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use kivact_runtime::Owner;
-use kivact_runtime::driver::{Runtime, ThreadWaker};
+use kivact_runtime::driver::ThreadWaker;
 
 /// Ends a running App from any thread, like the user closing its main window.
 ///
@@ -107,13 +107,6 @@ pub fn app_handle() -> AppHandle {
 /// The App's handle, installed as a runtime extension so `app_handle` returns
 /// the handle of the App whose code is running.
 pub(crate) struct AppHandleExt(pub(crate) AppHandle);
-
-impl AppHandleExt {
-    /// The handle of `rt`'s App.
-    pub(crate) fn of(rt: &Runtime) -> &Self {
-        &crate::app_state::AppState::of(rt).handle
-    }
-}
 
 /// The single owner of "this run was asked to end from outside".
 struct AppLink {

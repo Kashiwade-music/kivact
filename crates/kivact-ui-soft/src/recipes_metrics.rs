@@ -1,4 +1,5 @@
-//! Role: Install Astryx Neutral's recipes of the metrics group: the heading, the stat and the description list.
+//! Role: Install Astryx Neutral's recipes of the metrics group: the heading, the stat and
+//! the description list.
 use crate::color as c;
 use crate::radius as r;
 use crate::recipe_parts::text;

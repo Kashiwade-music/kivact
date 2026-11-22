@@ -1,4 +1,4 @@
-//! Role: The DevTools text form of each style property: how its value is shown and parsed.
+//! Role: The DevTools text form of each style property: shown and parsed.
 
 use kivact_types::{Align, Display, FontStyle, Justify, Length, TextAlign, ThemeVar};
 

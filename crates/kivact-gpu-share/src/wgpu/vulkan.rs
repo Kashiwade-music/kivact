@@ -42,7 +42,7 @@ pub(crate) fn open(
     adapter: ::wgpu::Adapter,
     desc: &::wgpu::DeviceDescriptor<'_>,
 ) -> Result<(::wgpu::Adapter, ::wgpu::Device, ::wgpu::Queue), Error> {
-    let (device, queue) = crate::device::open_vulkan(&adapter, desc)?
+    let (device, queue) = crate::vulkan::open::open_vulkan(&adapter, desc)?
         .ok_or_else(|| Error::Mismatch("the adapter cannot share Vulkan textures".into()))?;
     Ok((adapter, device, queue))
 }
