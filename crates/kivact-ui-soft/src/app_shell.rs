@@ -15,13 +15,11 @@ use crate::type_scale as t;
 use kivact::Prop;
 use kivact::component;
 use kivact::custom::Caller;
-use kivact::state::Callback;
 use kivact::state::IntoValue;
 use kivact::state::Machine;
 use kivact::state::Signal;
 use kivact::state::Step;
 use kivact::state::Value;
-use kivact::state::callback;
 use kivact::state::machine;
 use kivact::state::memo;
 use kivact::state::provide;
@@ -37,7 +35,6 @@ use kivact::style::style;
 use kivact::ui::sidebar_provider;
 use kivact::ui::theme::Variant;
 use kivact::view::Element;
-use kivact::view::HandlerResult;
 use kivact::view::IntoView;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
@@ -94,7 +91,6 @@ pub(crate) fn shell_nav_mode() -> ShellNavMode {
 pub struct MobileNavConfig {
     has_toggle: bool,
     open: Option<Signal<bool>>,
-    on_change: Option<Callback<bool>>,
     content: Option<ViewFn>,
     breakpoint: Option<Breakpoint>,
 }
@@ -104,7 +100,6 @@ impl Default for MobileNavConfig {
         Self {
             has_toggle: true,
             open: None,
-            on_change: None,
             content: None,
             breakpoint: Some(Breakpoint::Md),
         }
@@ -120,14 +115,6 @@ impl MobileNavConfig {
     /// Bind drawer openness to caller state; omission creates initially closed local state.
     pub fn open(mut self, open: Signal<bool>) -> Self {
         self.open = Some(open);
-        self
-    }
-    /// Call a retained callback when an accepted drawer change changes the bound open value.
-    pub fn on_open_change<R: HandlerResult>(
-        mut self,
-        change: impl Fn(bool) -> R + 'static,
-    ) -> Self {
-        self.on_change = Some(callback(change));
         self
     }
     /// Supply a reusable mobile drawer content factory instead of the default navigation content.
@@ -297,9 +284,6 @@ fn configure_mobile(
             move |open| {
                 if open != value.get() {
                     value.set(open);
-                    if let Some(change) = config.on_change {
-                        change.call(open);
-                    }
                 }
             },
         ))

@@ -206,8 +206,8 @@ impl TextEditApi {
     }
 
     /// Commit a draft on Enter or a valid changed blur; Escape restores it.
-    pub fn on_draft_commit<R: HandlerResult>(self, f: impl Fn(String) -> R + 'static) -> Self {
-        self.setup("TextEditApi::on_draft_commit")
+    pub fn on_commit<R: HandlerResult>(self, f: impl Fn(String) -> R + 'static) -> Self {
+        self.setup("TextEditApi::on_commit")
             .options
             .update(|options| options.draft_commit = Some(callback(f)));
         self

@@ -285,7 +285,7 @@ fn rename_field(
                             message("creative.outliner.rename", "Rename tree item"),
                             signal(item.get_untracked().label),
                         )
-                        .on_draft_commit(move |name| {
+                        .on_commit(move |name| {
                             if let Some(callback) = on_rename {
                                 callback.call((id, name));
                             }

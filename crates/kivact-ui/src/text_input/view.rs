@@ -144,7 +144,7 @@ pub fn text_input(
         editing = editing.on_submit(submit);
     }
     if let Some(commit) = on_commit {
-        editing = editing.on_draft_commit(move |text: String| commit.invoke(text));
+        editing = editing.on_commit(move |text: String| commit.invoke(text));
     }
     if let Some(edit) = on_edit {
         editing = editing.on_edit(move |phase: EditPhase| edit.invoke(phase));
