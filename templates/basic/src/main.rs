@@ -6,9 +6,8 @@
 
 use kivact::prelude::*;
 
-/// A component is a function returning a view; `#[component]` also makes a
-/// builder for its props. The setup runs once; dynamic parts are closures
-/// over Copy handles.
+/// A component: a function marked `#[component]`. Its body runs once;
+/// the parts that change are closures over Copy handles.
 #[component]
 fn counter(initial: i32) -> impl Element {
     let count = signal(initial);
