@@ -1,4 +1,5 @@
-//! Role: The Pop looks of the input parts: input groups, tag inputs, dropzones and the date fields.
+//! Role: The Pop looks of the input parts: input groups, tag inputs, dropzones and the
+//! date fields.
 
 use crate::color;
 use crate::variants::Hue;

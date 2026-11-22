@@ -1,4 +1,5 @@
-//! Role: The table data: the student fixture, its columns, the toolbar and the footer of the table page.
+//! Role: The table data: the student fixture, its columns, the toolbar and the footer of
+//! the table page.
 
 use super::common::*;
 use kivact::prelude::*;

@@ -1,4 +1,5 @@
-//! Role: Install Astryx Neutral's recipes of the code group: the code block's frame, header, source and gutter.
+//! Role: Install Astryx Neutral's recipes of the code group: the code block's frame,
+//! header, source and gutter.
 use crate::color as c;
 use crate::metrics as m;
 use crate::radius as r;

@@ -1,4 +1,5 @@
-//! Role: The Pop looks of the collections: lists, data tables, item lists, tables, trees and action groups.
+//! Role: The Pop looks of the collections: lists, data tables, item lists, tables, trees
+//! and action groups.
 //!
 //! A rounded surface with 40 px headers, 52 px rows and 160 px columns that
 //! scroll sideways, muted on hover and selection, drawn by `kivact::ui`.

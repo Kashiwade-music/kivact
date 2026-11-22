@@ -1,4 +1,5 @@
-//! Role: Install Astryx Neutral's recipes of the calendar group: the calendar, and the field and wheel of the date and time inputs.
+//! Role: Install Astryx Neutral's recipes of the calendar group: the calendar, and the
+//! field and wheel of the date and time inputs.
 use crate::color as c;
 use crate::radius as r;
 use crate::space as s;

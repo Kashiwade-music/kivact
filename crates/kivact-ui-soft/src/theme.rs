@@ -1,4 +1,5 @@
-//! Role: The Astryx Neutral theme: the kit's variables on the core theme and on the standard components, for each appearance.
+//! Role: The Astryx Neutral theme: the kit's variables on the core theme and on the
+//! standard components, for each appearance.
 use crate::color as c;
 use crate::metrics as m;
 use crate::motion::{EASE_STANDARD, FAST, MEDIUM, MEDIUM_MIN, SLOW_MIN};
@@ -52,7 +53,7 @@ fn build(mode: ThemeMode) -> Theme {
     let theme = crate::recipes_collections::install(theme);
     let theme = crate::recipes_navigation::install(theme);
     // Before `settings`: `settings` re-installs the tables it tunes.
-    let theme = crate::recipes_feedback::install(theme);
+    let theme = crate::recipes_feedback::install(theme, self::theme);
     let theme = crate::recipes_metrics::install(theme);
     let theme = crate::recipes_chat::install(theme);
     let theme = crate::recipes_input::install(theme);

@@ -1,4 +1,5 @@
-//! Role: The Pop looks of the standard controls: buttons, toggles, progress, disclosure and sliders.
+//! Role: The Pop looks of the standard controls: buttons, toggles, progress, disclosure
+//! and sliders.
 //!
 //! The check, switch and radio rows are in [`recipes_controls_check`](crate::recipes_controls_check),
 //! the text fields in [`recipes_controls_field`](crate::recipes_controls_field).

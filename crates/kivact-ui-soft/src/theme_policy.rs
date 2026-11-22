@@ -1,4 +1,5 @@
-//! Role: The interaction policy of Astryx Neutral: timings, gestures and motion of the standard interactions (crate-private).
+//! Role: The interaction policy of Astryx Neutral: timings, gestures and motion of the
+//! standard interactions (crate-private).
 use std::time::Duration;
 
 use crate::motion::{EASE_STANDARD, FAST};

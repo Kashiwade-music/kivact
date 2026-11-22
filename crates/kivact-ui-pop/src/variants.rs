@@ -1,4 +1,5 @@
-//! Role: The Pop variants of the standard components: the values a component takes with `.variant(..)`.
+//! Role: The Pop variants of the standard components: the values a component takes with
+//! `.variant(..)`.
 //!
 //! Another theme ignores every variant here and draws the plain look.
 

@@ -1,4 +1,5 @@
-//! Role: The Pop looks of the navigation: breadcrumbs, pagination, navigation menus, steppers and tabs.
+//! Role: The Pop looks of the navigation: breadcrumbs, pagination, navigation menus,
+//! steppers and tabs.
 //!
 //! The diamond progress steps of a stepper are the [`DiamondSteps`](crate::DiamondSteps) variant.
 

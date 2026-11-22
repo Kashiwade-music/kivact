@@ -1,4 +1,6 @@
-//! Role: Astryx Neutral as a Kivact UI kit: the look of every standard component, an app frame (shell, top and side navigation), and content parts (markdown, rich blocks, chat tools, tables).
+//! Role: Astryx Neutral as a Kivact UI kit: the look of every standard component, an app
+//! frame (shell, top and side navigation), and content parts (markdown, rich
+//! blocks, chat tools, tables).
 //!
 //! ```no_run
 //! use kivact::prelude::*;

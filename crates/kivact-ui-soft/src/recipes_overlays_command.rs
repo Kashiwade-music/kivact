@@ -1,4 +1,5 @@
-//! Role: Style Astryx Neutral's command palette: its scrim and panel, the search field, the grouped rows and the footer.
+//! Role: Style Astryx Neutral's command palette: its scrim and panel, the search field,
+//! the grouped rows and the footer.
 use crate::color as c;
 use crate::metrics as m;
 use crate::radius as r;

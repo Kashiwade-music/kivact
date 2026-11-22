@@ -1,4 +1,5 @@
-//! Role: Style Astryx Neutral text fields, number inputs and field text (the controls group's input parts).
+//! Role: Style Astryx Neutral text fields, number inputs and field text (the controls
+//! group's input parts).
 use crate::color as c;
 use crate::metrics as m;
 use crate::recipe_parts::{editor, flat, frame, text};

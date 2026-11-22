@@ -1,4 +1,5 @@
-//! Role: Install Astryx Neutral's recipes of the navigation group: the navigation menu's bar, triggers, panels and links.
+//! Role: Install Astryx Neutral's recipes of the navigation group: the navigation menu's
+//! bar, triggers, panels and links.
 use crate::color as c;
 use crate::metrics as m;
 use crate::motion::FAST_MAX;

@@ -1,4 +1,5 @@
-//! Role: The font families, weights, sizes and typography roles of Astryx Neutral (crate-private).
+//! Role: The font families, weights, sizes and typography roles of Astryx Neutral
+//! (crate-private).
 
 /// A typography role's size, line height, weight and family.
 #[derive(Clone, Copy, Debug, PartialEq)]

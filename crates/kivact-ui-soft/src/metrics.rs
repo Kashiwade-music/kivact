@@ -1,4 +1,5 @@
-//! Role: The control, icon and interaction metrics of Astryx Neutral, in logical px (crate-private).
+//! Role: The control, icon and interaction metrics of Astryx Neutral, in logical px
+//! (crate-private).
 
 pub(crate) const CONTROL_XS: f64 = 24.0;
 pub(crate) const CONTROL_SM: f64 = 28.0;

@@ -1,4 +1,5 @@
-//! Role: Present pagination facts as the page text, the item range and the polite page status.
+//! Role: Present pagination facts as the page text, the item range and the polite page
+//! status.
 use kivact::state::Value;
 use kivact::style::{Position, style};
 use kivact::ui::theme::PaginationSummary;

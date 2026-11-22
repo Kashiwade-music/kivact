@@ -1,4 +1,5 @@
-//! Role: Install Astryx Neutral's recipes of the groups: joined buttons, toggle groups and toolbars.
+//! Role: Install Astryx Neutral's recipes of the groups: joined buttons, toggle groups
+//! and toolbars.
 use crate::color as c;
 use crate::metrics as m;
 use crate::radius as r;

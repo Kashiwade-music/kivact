@@ -1,4 +1,5 @@
-//! Role: The selection page: segmented radio groups, toggle buttons and tabs with keyed choices.
+//! Role: The selection page: segmented radio groups, toggle buttons and tabs with keyed
+//! choices.
 
 use super::common::*;
 use catalog_shell::{Example, Page};
