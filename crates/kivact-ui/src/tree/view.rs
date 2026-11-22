@@ -177,15 +177,16 @@ fn row_marker<K: kivact_core::state::ItemKey>(
             .on_press(move || behavior.toggle(key.clone()))
             .child(match marker_content {
                 Some(content) => content(recipe_state.into_value()),
-                None => text(move || {
-                    if state.get().branch.is_expanded() {
-                        "⌄"
+                None => kivact_core::view::icon(move || {
+                    kivact_core::style::Icon::named(if state.get().branch.is_expanded() {
+                        "chevron-down"
                     } else if rtl {
-                        "‹"
+                        "chevron-left"
                     } else {
-                        "›"
-                    }
+                        "chevron-right"
+                    })
                 })
+                .style(style().size(16, 16))
                 .into_view(),
             })
     } else {
