@@ -166,3 +166,20 @@
     - `kivact::interaction::ZoomPan` が正の path。`ViewTransform` の名前と別名は残さない。
     - doc の文の「view transform」は、zoom-pan の状態という意味に直す。
   - 完了：`rg -w ViewTransform crates examples dev templates` が何も返さず、`interaction_zoom_pan` の e2e が通る。
+
+## 4. 設計者の答え（2026-11-22、二度目：X5 の残りの循環 2 件と、持ち主の無い分）
+
+- **X5 sheet の循環 {decl, props, edit_text, folded}**：`Decl::State(_, Box<Style>)` と `Style { decls: Vec<Decl> }` は互いを含む一つの再帰の data なので、同じ module に置く。辺は `kinds ← edit_text ← props ← {decl, folded, shorthands, styled_range}` の一方向にする。
+  - `sheet/kinds.rs`（新、葉）：`PropClass`・`PropGroup`（今 `decl.rs`）と `ScrollbarWidth`（今 `folded.rs`。公開の path `kivact_style::ScrollbarWidth` は変えない）。sheet の他の module を使わない。
+  - `sheet/edit_text.rs`：`EditText` の trait と impl だけにする（`kinds` を使う）。`StyleProperty`（`fn(&Style)` を持つ）は `props.rs` へ移す。
+  - `sheet/props.rs`（宣言の表）：`style_props!` の表、`Decl`、`Style` の struct、`Style::push`（生成された setter が呼ぶ唯一の土台）、手書きの行の `extra_name`・`extra_class`、`StyleProperty` を置く。`decl` は使わない。
+  - `sheet/decl.rs`：`Style` の上の操作（merge、診断の名前と分類など）だけにし、`props` を使う。Role を「宣言の列の操作」に直す。
+  - `sheet.rs` の `pub use` は移した先を指す（公開の path と名前は変えない）。
+- **X5 theme の循環 {theme::value, theme::vars}**：`vars.rs` を data の葉にし、`Theme` を取る解決を `value.rs` へ移す。
+  - `value.rs` へ移すもの：`held`・`lookup`・`ends` と `VarTable::problems`（`Theme::var_problems` の中身にする）。
+  - `vars.rs` に残すもの：`FontFamily`・`VarSlot`・`ThemeValue`・`VarTable` と、`Theme` を取らない `next_of`。`vars.rs` は `value` を使わない。
+  - `value.rs` は 1000 行（code の行）に収まること。収まらなければ返す。
+- **docs に残る `ViewTransform`（X7 に足す）**：
+  - `migrating-to-rework.md`（英日）の表の旧名の列は、旧名なので残す（G15 の 5.12 の検査が旧名を探す）。
+  - `timeline-and-arrangement.md`、`node-graph.md`（英日）、`show-app-rendered-images.md` は `ZoomPan` に直す。X7 の所有に、この 4 file を足す。
+- **dev/tests の Role の 80 字超 4 件**（`e2e_core/state_styles.rs`・`theme_vars.rs`、`e2e_ui/ui_sidebar.rs`・`ui_tabs_overflow.rs`）：X7 に足す。80 字以内に縮める。
