@@ -323,3 +323,254 @@
   - V:/kv-check-out.txt（G10 の subagent が作った。削除は拒否された）は、user が手で消す。
   - xtask-core の branch fix/kashiwade/component-generated-type（94e1bbb）は設計者が push 済み。
   - この file は改行が混在しているため、追記は CRLF で、commit は `-c core.autocrlf=false` で行った。
+
+## W11c・CP3 の結果（統合 `1ad8547c`、2026-11-22。CP3 は未完了：AC-2 が未達）
+
+- 統合の経路：`fea5c860`（ui_machine の allowed_types の path）→ `9165c2ab`（OPEN の改行）→ `cb82a4fb`（G15 の差戻しの答え）→ `1ad8547c`（G15 の merge。lane `wt/rw-W11c-G1` の `713fcb11`（G15）と `77a9d83c`（答えの fix）、merge `3f354dd8`）。G16 は `ac173f32`（`5e05c9fa` の merge）。
+- G15 の内容：CONTRIBUTING・dev/README・`[rework.pending]`・`pending.rs`・`--strict`・notes の削除。`TextEditApi::on_draft_commit` → `on_commit`（UI-13、別名は無し）。soft の drawer の `on_open_change` と `on_change` の field の削除。文書・comment の旧名の改名。
+- tier c（`V:/kv-target/logs-CP3/`、統合 `1ad8547c`）：fmt exit 0。xtask（`cargo xtask check --no-write`）exit 0（`ok`）。clippy（workspace、all-targets、all-features、`-D warnings`）exit 0。test（workspace、`gpu-interop-producer`・`kivact-docs` を除く、all-features）1762 passed、0 failed。gpu-interop-producer exit 0。`cargo check -p kivact-docs --all-targets --all-features` exit 0。kivact-docs の doctest（`--all-features`、`--test-threads=1`）62 passed、0 failed（G15 の fix で同じ確認をした全体は 71 passed：1 + 8 + 62）。test（workspace、`--no-default-features`）1721 passed、0 failed。GPU e2e（`e2e_core`・`e2e_native`、`KIVACT_TEST_GPU=1`、`MirrorMode::Required`）504 passed、4 failed、1 ignored。失敗の 4 件（`app_handle::close_during_setup_exits_after_the_first_turn`、`compositor::idle_window_redraws_whole_after_release`、`frame_sources::incremental_frames_match_a_fresh_render`、`layout_scroll::a_long_list_draws_what_reaches_its_viewport_from_rows_outside_it`）は、OPEN.md の「基点の失敗」（基点でも失敗）。gpu-screen exit 0。`check-features.sh` exit 0。`--no-default-features --lib` の check（kivact・kivact-offscreen・arvane-render・arvane-compose・kivact-style）exit 0。wgpu・naga が出ないこと exit 0。
+- AC-3：`cargo xtask check --no-write` が全 workspace で 0 件。`legacy:` の印は 0 件。`xtask-allow(state-fields)` は 0 件。
+- AC-4（2.5、`V:/kv-target/logs-CP3/ac4-final.out`）：231 行。すべて (i)〜(vii) か、下の判断の分類に当たる（全件は下の一覧）。
+- KPI（`rework/kpi/`）：基点 `c9518946`（`B0-CP3`、`B0-CP3-r2`、`B0-CP3-r3`）と統合 `1ad8547c`（`CP3`、`CP3-r2`、`CP3-r3`）を、続けて 3 回ずつ測った。比と判定は `CP3-ratio.md`・`CP3-r2-ratio.md`・`CP3-r3-ratio.md`（`cargo xtask kpi-compare`）。K2 の診断の `AcceptedTree` は、1 回目の組（`B0-CP3`・`CP3`）は両方に 4 件、2 回目と 3 回目の組は両方に 0 件（組の中では一致）。3 回中 2 回で判定した結果：
+  - 後退（必達 ≤ 1.02 を満たさない。3 回とも）：K2 3000 rows idle WS（1.461・1.641・1.647）、K2 per_item box（1.981・2.440・2.434）、K2 per_item button（1.667・1.875・1.884）、K2 per_item row（1.573・1.881・1.867）。
+  - 後退（K6 の binary の大きさ。1 回で判定）：K6 basic-catalog default（1.039）、K6 basic-catalog no-gpu（1.044）。
+  - 改善の必達の未達：K2 per_item text（≤ 0.95。1.004・0.997・0.996。3 回とも）、K3 3000 rows continuous CPU（≤ 0.85。0.852・0.971 の 2 回、0.781 の 1 回は満たす）、K4 3000 rows work p95（≤ 0.80。0.835・0.837 の 2 回、0.793 の 1 回は満たす）。
+  - 3 回中 1 回だけ後退したが、2 回は満たした（判定は ok）：K1 basic catalog startup（r1 のみ 1.063）、K1 kv_startup main_to_first_present（r3 のみ 1.079）、K2 counter idle WS（r1 のみ 1.037）、K5 counter click p95（r1 のみ 1.175）。
+- AC-2 は未達（後退 6 行、改善の必達の未達 3 行）。CP3 の完了は設計者の判断待ち（`rework/OPEN.md` に「KPI の後退」「KPI の未達」として送る）。
+- 判断（Orchestrator の判断。表で判断したもの）：
+  - 2.5 の regex の `\b` が 0x08（backspace）の byte になっていた（作業指示書 2.5 の 281・282 行の `(with_)?…` と `TestFonts::Only|App::fonts?|…` の行）。0.5 節の「script が機械的に壊れる」の行で、`\b` に直して実行した（`\b(with_)?…`・`TestFonts::Only|\bApp::fonts?\b|\.fonts\(TestFonts`。作業指示書の本文は直していない。設計者が直す）。
+  - 2.5 の `constant_value` の行（`rg -n -w constant_value …`）に `EXCL` が無く、移行の表の 2 行が出ていた。0.5 節の同じ行で `"${EXCL[@]}"` を足した。
+  - (vii)(b) の分類：`RadialExtent::Radii`（kivact-style の pub enum。CSS の radial の大きさ）は、答えの `RadialSize::Radii` と同じ概念として (vii)(b)（subagent の判断。設計者に確認）。外部の型の `Dimension`（taffy・Windows D3D12）と `proc_macro2::Spacing` は、別の概念の公開の名前として (vii)(b)（外部の型 13 行）。
+- 残した行の一覧（AC-4、231 行。file・行・分類・理由。`V:/kv-target/logs-CP3/final-classified.txt` と同じ）：
+- crates\arvane-protocol\src\paint.rs:69 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- examples\kivact-ui-game\src\support\state.rs:13 | (vii)(b) | game example の Overlay::Palette（command palette の overlay。別の概念の名前。(v) にも当たる）
+- crates\arvane-native\src\port\x11.rs:14 | (vii)(a) | arvane-native の非公開の module notifier と Notifier（公開されない識別子）
+- examples\kivact-ui-game\src\support\dialogs.rs:224 | (vii)(b) | game example の Overlay::Palette（command palette の overlay。別の概念の名前。(v) にも当たる）
+- crates\arvane-native\src\port\x11\window.rs:4 | (vii)(a) | arvane-native の非公開の module notifier と Notifier（公開されない識別子）
+- crates\arvane-native\src\port\x11\window.rs:31 | (vii)(a) | arvane-native の非公開の module notifier と Notifier（公開されない識別子）
+- crates\arvane-native\src\port\x11\window.rs:55 | (vii)(a) | arvane-native の非公開の module notifier と Notifier（公開されない識別子）
+- crates\arvane-native\src\port\x11\thread.rs:5 | (vii)(a) | arvane-native の非公開の module notifier と Notifier（公開されない識別子）
+- crates\arvane-native\src\port\x11\thread.rs:20 | (vii)(a) | arvane-native の非公開の module notifier と Notifier（公開されない識別子）
+- crates\arvane-native\src\port\x11\thread.rs:77 | (vii)(a) | arvane-native の非公開の module notifier と Notifier（公開されない識別子）
+- crates\arvane-native\src\port\x11\thread.rs:92 | (vii)(a) | arvane-native の非公開の module notifier と Notifier（公開されない識別子）
+- crates\arvane-native\src\port\x11\thread.rs:116 | (vii)(a) | arvane-native の非公開の module notifier と Notifier（公開されない識別子）
+- crates\arvane-native\src\port\x11\thread.rs:182 | (vii)(a) | arvane-native の非公開の module notifier と Notifier（公開されない識別子）
+- dev\xtask\src\interaction_view.rs:55 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- examples\kivact-ui-game\src\pages\overlays.rs:92 | (vii)(b) | game example の Overlay::Palette（command palette の overlay。別の概念の名前。(v) にも当たる）
+- examples\kivact-ui-game\src\pages\overlays.rs:131 | (vii)(b) | game example の Overlay::Palette（command palette の overlay。別の概念の名前。(v) にも当たる）
+- crates\arvane-render\src\convert.rs:104 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- dev\xtask\src\docs_pairs.rs:9 | 外部の型 | proc_macro2::Spacing（外部の型。表で判断した Orchestrator の決定）
+- dev\xtask\src\docs_pairs.rs:142 | 外部の型 | proc_macro2::Spacing（外部の型。表で判断した Orchestrator の決定）
+- crates\arvane-native\src\port\x11\notifier.rs:9 | (vii)(a) | arvane-native の非公開の module notifier と Notifier（公開されない識別子）
+- crates\arvane-native\src\port\x11\notifier.rs:24 | (vii)(a) | arvane-native の非公開の module notifier と Notifier（公開されない識別子）
+- examples\kivact-ui-game\src\pages\buttons.rs:128 | (vii)(b) | game example の Overlay::Palette（command palette の overlay。別の概念の名前。(v) にも当たる）
+- crates\arvane-native\src\port\x11\conn.rs:141 | (vii)(a) | arvane-native の非公開の module notifier と Notifier（公開されない識別子）
+- crates\kivact-devtools\src\widgets\counters_chart.rs:7 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- crates\kivact-ui-soft\src\variants.rs:41 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-ui-soft\src\variants.rs:81 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-ui-soft\src\variants.rs:240 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-ui-soft\src\variants.rs:488 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-ui-soft\src\variants.rs:592 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- examples\kivact-ui-basic\src\docs\code_block.rs:13 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- dev\tests\kivact-public-api\tests\e2e_ui\ui_toolbar.rs:138 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- dev\tests\kivact-public-api\tests\e2e_ui\ui_toolbar.rs:147 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- examples\kivact-ui-basic\src\docs\toggle_group.rs:26 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- examples\kivact-ui-creative\src\pages\controls.rs:389 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- examples\kivact-ui-creative\src\pages\controls.rs:390 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- crates\kivact-ui-creative\src\feedback.rs:107 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- docs\for-kivact-ui-user\en\game\how-to-guide\item-lists-and-selection.md:145 | (v) | 文書の英語・日本語の本文の語（API を指さない prose）
+- examples\kivact-ui-soft\src\pages\command_palette.rs:1 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- examples\kivact-ui-soft\src\pages\command_palette.rs:8 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- examples\kivact-ui-soft\src\pages\command_palette.rs:14 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- crates\kivact-ui-soft\src\layout.rs:26 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-core\src\view\node_modifiers.rs:127 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-core\src\state.rs:1 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-core\src\view\drawable.rs:8 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-core\src\view\node_status.rs:9 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-core\src\view\node_status.rs:25 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-core\src\view\node_ref.rs:246 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-core\src\view\node_ref.rs:354 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-core\src\view\boundary.rs:314 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-core\src\view\boundary.rs:337 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-core\src\view\drawable\registry.rs:3 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-core\src\view\element_data.rs:366 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-core\src\view\flow\error_boundary.rs:49 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- examples\kivact-ui-pop\src\pages\feedback.rs:161 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- examples\kivact-ui-pop\src\pages\feedback.rs:168 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- dev\tests\kivact-public-api\tests\e2e_core\async_tests.rs:228 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- dev\tests\kivact-public-api\tests\e2e_core\view.rs:24 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- dev\tests\kivact-public-api\tests\e2e_core\view.rs:39 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- crates\kivact-ui-basic\src\variants.rs:70 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- dev\tests\kivact-public-api\tests\e2e_core\runtime.rs:3 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-types\src\scene\shape.rs:25 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-types\src\scene\shape.rs:83 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-types\src\scene\shape.rs:413 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-interaction\src\collection\membership.rs:83 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-types\src\paint.rs:310 | (vii)(b) | RadialExtent/RadialSize の Radii variant（CSS の radial-gradient の大きさ。別の概念。設計者の答え 6 の (b)）
+- crates\kivact-engine\src\lower\sanitize.rs:92 | (vii)(b) | RadialExtent/RadialSize の Radii variant（CSS の radial-gradient の大きさ。別の概念。設計者の答え 6 の (b)）
+- crates\kivact-engine\src\lower\fill.rs:758 | (vii)(b) | RadialExtent/RadialSize の Radii variant（CSS の radial-gradient の大きさ。別の概念。設計者の答え 6 の (b)）
+- crates\kivact-engine\src\lower\fill.rs:762 | (vii)(b) | RadialExtent/RadialSize の Radii variant（CSS の radial-gradient の大きさ。別の概念。設計者の答え 6 の (b)）
+- crates\kivact-interaction\src\toggle.rs:95 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-interaction\src\drag\data.rs:68 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-interaction\src\list\handle.rs:23 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-interaction\src\scalar\handle.rs:117 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-interaction\src\scalar\data.rs:5 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-svg\src\fill.rs:126 | (vii)(b) | RadialExtent/RadialSize の Radii variant（CSS の radial-gradient の大きさ。別の概念。設計者の答え 6 の (b)）
+- crates\kivact-interaction\src\splitter\handle.rs:20 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-runtime\src\lib.rs:1 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-runtime\src\reactive.rs:1 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-style\src\sheet\kinds.rs:15 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\props.rs:212 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\props.rs:214 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\props.rs:216 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\props.rs:218 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\props.rs:220 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\props.rs:222 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\props.rs:224 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\props.rs:226 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\props.rs:227 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\props.rs:228 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\props.rs:229 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\props.rs:230 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\props.rs:233 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\props.rs:236 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-style\src\sheet\folded.rs:226 | (vii)(a) | PropGroup::Spacing（公開されない内部の group の variant）
+- crates\kivact-runtime\src\reactive\graph.rs:1 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-runtime\src\reactive\graph.rs:3 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-style\src\paint\gradient.rs:37 | (vii)(b) | RadialExtent/RadialSize の Radii variant（CSS の radial-gradient の大きさ。別の概念。設計者の答え 6 の (b)）
+- crates\kivact-style\src\paint\gradient.rs:189 | (vii)(b) | RadialExtent/RadialSize の Radii variant（CSS の radial-gradient の大きさ。別の概念。設計者の答え 6 の (b)）
+- crates\kivact-style\src\paint\gradient.rs:200 | (vii)(b) | RadialExtent/RadialSize の Radii variant（CSS の radial-gradient の大きさ。別の概念。設計者の答え 6 の (b)）
+- crates\kivact-style\src\paint\fill_layer.rs:118 | (vii)(b) | RadialExtent/RadialSize の Radii variant（CSS の radial-gradient の大きさ。別の概念。設計者の答え 6 の (b)）
+- crates\kivact-style\src\paint\fill_layer.rs:119 | (vii)(b) | RadialExtent/RadialSize の Radii variant（CSS の radial-gradient の大きさ。別の概念。設計者の答え 6 の (b)）
+- crates\kivact-style\src\paint\canvas_gradient.rs:129 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-ui\src\async_view\view.rs:15 | (v) | doc comment・コメントの英語の本文の語（Kivact の API を指さない）
+- crates\kivact-ui\src\async_view\view.rs:58 | (v) | 文字列の literal の中の語（button の label などの英語の語）
+- dev\tests\gpu-interop-producer\src\d3d12.rs:66 | 外部の型 | Windows API の D3D12 の Dimension（field 名。外部の型。表で判断した Orchestrator の決定）
+- crates\kivact-gpu-share\src\import\dx12.rs:81 | 外部の型 | Windows API の D3D12 の Dimension（field 名。外部の型。表で判断した Orchestrator の決定）
+- crates\kivact-gpu-share\src\d3d12\read_back.rs:47 | 外部の型 | Windows API の D3D12 の Dimension（field 名。外部の型。表で判断した Orchestrator の決定）
+- crates\kivact-gpu-share\src\d3d12\read_back.rs:130 | 外部の型 | Windows API の D3D12 の Dimension（field 名。外部の型。表で判断した Orchestrator の決定）
+- crates\kivact-gpu-share\src\d3d12\pool.rs:172 | 外部の型 | Windows API の D3D12 の Dimension（field 名。外部の型。表で判断した Orchestrator の決定）
+- crates\kivact-layout\src\style\convert.rs:7 | 外部の型 | taffy の Dimension（外部の型。表で判断した Orchestrator の決定）
+- crates\kivact-layout\src\style\node.rs:22 | 外部の型 | taffy の Dimension（外部の型。表で判断した Orchestrator の決定）
+- crates\kivact-layout\src\style\node.rs:91 | 外部の型 | taffy の Dimension（外部の型。表で判断した Orchestrator の決定）
+- crates\kivact-layout\src\style\node.rs:108 | 外部の型 | taffy の Dimension（外部の型。表で判断した Orchestrator の決定）
+- crates\kivact-layout\src\style\node.rs:249 | 外部の型 | taffy の Dimension（外部の型。表で判断した Orchestrator の決定）
+- crates\kivact-layout\src\style\node.rs:318 | 外部の型 | taffy の Dimension（外部の型。表で判断した Orchestrator の決定）
+- docs\for-kivact-user\jp\how-to-guide\effects.md:83 | (iii) | composite(..) の受け手が Layer の method ではない（MaskLayer・filter graph の primitive・Mix の accessor）
+- docs\for-kivact-user\en\how-to-guide\effects.md:109 | (iii) | composite(..) の受け手が Layer の method ではない（MaskLayer・filter graph の primitive・Mix の accessor）
+- crates\arvane-compose\src\gpu\graph.rs:335 | (iii) | composite(..) の受け手が Layer の method ではない（MaskLayer・filter graph の primitive・Mix の accessor）
+- dev\tests\kivact-public-api\tests\e2e_core\effects_filters.rs:131 | (iii) | composite(..) の受け手が Layer の method ではない（MaskLayer・filter graph の primitive・Mix の accessor）
+- dev\tests\kivact-public-api\tests\e2e_core\effects_filters.rs:226 | (iii) | composite(..) の受け手が Layer の method ではない（MaskLayer・filter graph の primitive・Mix の accessor）
+- crates\kivact-engine\src\lower\scene\layers.rs:43 | (iii) | composite(..) の受け手が Layer の method ではない（MaskLayer・filter graph の primitive・Mix の accessor）
+- crates\kivact-engine\src\lower\scene\layers.rs:232 | (iii) | composite(..) の受け手が Layer の method ではない（MaskLayer・filter graph の primitive・Mix の accessor）
+- crates/kivact-style/src\paint\gradient.rs:185 | (vii)(b) | Gradient::radius（受け手が Gradient。設計者の答え 6 の (b)）
+- docs\for-kivact-user\jp\how-to-guide\testing.md:415 | (vii)(b) | RenderOptions::fonts(TestFonts::System)（受け手が RenderOptions。App::fonts ではない。設計者の答え 5）
+- docs\for-kivact-user\en\how-to-guide\testing.md:488 | (vii)(b) | RenderOptions::fonts(TestFonts::System)（受け手が RenderOptions。App::fonts ではない。設計者の答え 5）
+- crates\kivact-engine\src\host\testing\test_host.rs:157 | (ii) | TestFonts::Only は公開の path ではない（engine・kivact-test の内部。設計者の答え 4）
+- crates\kivact-test\src\options.rs:228 | (ii) | TestFonts::Only は公開の path ではない（engine・kivact-test の内部。設計者の答え 4）
+- crates/kivact-ui-creative\tests\consumer\picker.rs:68 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui-basic\src\trace.rs:121 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-user\jp\how-to-guide\overlays.md:123 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-user\jp\how-to-guide\overlays.md:258 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui-soft\tests\consumer\overlay_interaction.rs:37 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui-game\src\overlays.rs:37 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-user\jp\how-to-guide\disclosure-and-previews.md:23 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-user\jp\how-to-guide\disclosure-and-previews.md:25 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui\src\date_input\view.rs:243 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui-creative\src\picker.rs:169 | (vi) | doc comment の例の .attach( で、受け手が tooltip ではない（picker・dialog・menu。設計者の答え 出力の扱い (vi)）
+- crates/kivact-ui\src\date_range_input\view.rs:249 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui\src\date_time_input\view.rs:85 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui\src\date_time_input\sheet.rs:42 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-user\en\how-to-guide\overlays.md:138 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-user\en\how-to-guide\overlays.md:299 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui\src\date_parts\trigger.rs:21 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui\src\dialog\view.rs:63 | (vi) | doc comment の例の .attach( で、受け手が tooltip ではない（picker・dialog・menu。設計者の答え 出力の扱い (vi)）
+- crates/kivact-ui\src\data_table\filters.rs:143 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-user\en\how-to-guide\disclosure-and-previews.md:24 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-user\en\how-to-guide\disclosure-and-previews.md:26 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui\src\time_input\view.rs:112 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui\src\tabs\view.rs:407 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui\src\menu.rs:5 | (vi) | doc comment の例の .attach( で、受け手が tooltip ではない（picker・dialog・menu。設計者の答え 出力の扱い (vi)）
+- crates/kivact-ui-soft\src\power_search.rs:139 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui-creative\src\feedback.rs:44 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui-creative\src\feedback.rs:81 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui-soft\src\more_menu.rs:88 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-soft\src\pages\overlays.rs:33 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-soft\src\pages\overlays.rs:117 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-soft\src\pages\overlays.rs:188 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates/kivact-ui-creative\src\dock\chrome.rs:385 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\jp\soft\how-to-guide\overlays.md:36 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\jp\soft\how-to-guide\navigation.md:41 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\jp\basic\how-to-guide\overlays.md:193 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\jp\basic\how-to-guide\overlays.md:201 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\jp\basic\how-to-guide\overlays.md:222 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\jp\basic\how-to-guide\overlays.md:264 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\jp\basic\how-to-guide\forms.md:196 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\jp\basic\how-to-guide\forms.md:212 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\jp\basic\how-to-guide\forms.md:228 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\jp\basic\how-to-guide\data-display.md:255 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\en\soft\how-to-guide\overlays.md:36 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\en\soft\how-to-guide\navigation.md:42 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\jp\creative\how-to-guide\panels-docks-and-outliners.md:289 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-creative\src\pages\controls.rs:363 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-creative\src\pages\controls.rs:377 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-creative\src\pages\chrome.rs:57 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-pop\src\pages\overlays.rs:79 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-creative\src\pages\feedback.rs:361 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-creative\src\pages\feedback.rs:376 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-pop\src\pages\buttons.rs:279 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-creative\src\pages\node_editor.rs:54 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\en\creative\how-to-guide\panels-docks-and-outliners.md:289 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-game\src\pages\buttons.rs:234 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\en\basic\how-to-guide\forms.md:196 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\en\basic\how-to-guide\forms.md:212 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\en\basic\how-to-guide\forms.md:228 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\en\basic\how-to-guide\data-display.md:255 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-game\src\pages\data_table.rs:288 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\en\basic\how-to-guide\overlays.md:193 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\en\basic\how-to-guide\overlays.md:201 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\en\basic\how-to-guide\overlays.md:222 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- docs\for-kivact-ui-user\en\basic\how-to-guide\overlays.md:264 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-game\src\pages\native_layout.rs:389 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-game\src\pages\overlays.rs:77 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-game\src\pages\overlays.rs:205 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\collapsible.rs:9 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\collapsible.rs:49 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\collapsible.rs:75 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\data_table.rs:112 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\data_table.rs:127 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\date_picker.rs:47 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\date_picker.rs:79 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\date_picker.rs:102 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\date_picker.rs:139 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\dropdown_menu.rs:60 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\dropdown_menu.rs:86 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\dropdown_menu.rs:107 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\dropdown_menu.rs:136 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\hover_card.rs:41 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\hover_card.rs:51 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\popover.rs:53 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\popover.rs:72 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- examples\kivact-ui-basic\src\docs\popover.rs:91 | (vi) | .attach( の受け手が tooltip ではない（menu・dialog・hover_card・picker・disclosure など。rg -B4 で確認）
+- crates\kivact-i18n\src\shared.rs:198 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-i18n\src\messages.rs:94 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-i18n\src\locale.rs:72 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-i18n\src\format.rs:103 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-i18n\src\date.rs:297 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-style\src\theme\value.rs:430 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-core\src\view\node_ref.rs:919 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-style\src\sheet\props.rs:127 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-core\src\state.rs:13 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-style\src\icon.rs:75 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-runtime\src\reactive\props.rs:90 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-runtime\src\reactive\props.rs:128 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-runtime\src\reactive\props.rs:160 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-runtime\src\reactive\props.rs:366 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-runtime\src\reactive\props.rs:397 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-runtime\src\reactive\props.rs:412 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-runtime\src\reactive\props.rs:430 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-runtime\src\reactive\props.rs:541 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-runtime\src\reactive\handles.rs:411 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-style\src\draw\image.rs:81 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- crates\kivact-style\src\color_value\value.rs:69 | (i) | constant_value（4.7 節の許す場所。設計者の答え 3 の 4 箇所と、その内部の利用を含む）
+- 次にすること：設計者の答え（AC-2 の 6 後退と 3 改善未達）を待つ。後退・未達が解けたら、その fix を lane で直して統合へ merge し、tier c と KPI を測り直す（本節の手順）。worktree の後片付けは設計者（submodule を含むため `git worktree remove` が拒否する。`rw-W11c-G1` を含む）。CP3 の完了は、AC-1〜AC-5 がそろい、`rework/OPEN.md` の「差戻し」「KPI の後退」「KPI の未達」「台帳」が空になってから宣言する。
