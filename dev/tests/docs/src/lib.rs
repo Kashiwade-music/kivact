@@ -8,6 +8,9 @@
 //! Blocks that are not Rust use ```` ```text ````. The Japanese guides are kept
 //! equal to the English ones by `cargo xtask check` (`docs-pairs`).
 //!
+//! Set `KIVACT_DOCS_ONLY` to a comma-separated list of paths under `docs/`
+//! (files or directories, or `README.md`) to generate only those guides.
+//!
 //! A block that shows an app together with its `#[cfg(test)] mod tests` is
 //! `test_harness`: rustdoc builds it with `--test`, so the tests compile and
 //! run while `main` (which opens a window) is never called. A unit test of

@@ -41,21 +41,44 @@ fn main() {
     let copies = out.join("guides");
     fs::create_dir_all(&copies).expect("OUT_DIR is writable");
     let mut output = Output::default();
+    let only = only();
     let readme = root.join("README.md");
     println!("cargo::rerun-if-changed={}", readme.display());
-    guide(&mut output, &copies, "readme", "readme", &readme, None);
+    if included(only.as_deref(), "README.md") {
+        guide(&mut output, &copies, "readme", "readme", &readme, None);
+    }
     for tree in TREES {
+        if !included(only.as_deref(), tree) {
+            continue;
+        }
         let dir = root.join("docs").join(tree);
         println!("cargo::rerun-if-changed={}", dir.display());
         let name = module_name(tree);
-        directory(&mut output, &copies, &name, &name, &dir);
+        directory(
+            &mut output,
+            &copies,
+            &name,
+            &name,
+            &dir,
+            tree,
+            only.as_deref(),
+        );
     }
     fs::write(out.join("guides.rs"), output.guides).expect("OUT_DIR is writable");
     fs::write(out.join("checked.rs"), output.checked).expect("OUT_DIR is writable");
 }
 
-/// `name` is the nested module of `dir`; `prefix` its flat path for the checked blocks.
-fn directory(output: &mut Output, copies: &Path, name: &str, prefix: &str, dir: &Path) {
+/// `name` is the nested module of `dir`; `prefix` its flat path for the checked blocks;
+/// `rel` the path of `dir` under `docs/`, which the `KIVACT_DOCS_ONLY` filter `only` matches.
+fn directory(
+    output: &mut Output,
+    copies: &Path,
+    name: &str,
+    prefix: &str,
+    dir: &Path,
+    rel: &str,
+    only: Option<&[String]>,
+) {
     let mut entries: Vec<PathBuf> = fs::read_dir(dir)
         .expect("guide directory is readable")
         .map(|entry| entry.expect("guide directory is readable").path())
@@ -74,10 +97,14 @@ fn directory(output: &mut Output, copies: &Path, name: &str, prefix: &str, dir: 
             .file_name()
             .and_then(|n| n.to_str())
             .expect("UTF-8 file name");
+        let child_rel = format!("{rel}/{file}");
+        if !included(only, &child_rel) {
+            continue;
+        }
         if path.is_dir() {
             let child = module_name(file);
             let flat = format!("{prefix}_{}", child.trim_start_matches('_'));
-            directory(output, copies, &child, &flat, &path);
+            directory(output, copies, &child, &flat, &path, &child_rel, only);
         } else if let Some(stem) = file.strip_suffix(".md") {
             let feature = FEATURE_GUIDES
                 .iter()
@@ -236,4 +263,34 @@ fn slash(path: &Path) -> String {
     let text = path.to_str().expect("UTF-8 path").replace('\\', "/");
     // `canonicalize` on Windows returns a verbatim `//?/` path; include_str! accepts the plain one.
     text.strip_prefix("//?/").unwrap_or(&text).to_string()
+}
+
+/// `KIVACT_DOCS_ONLY`: comma-separated paths under `docs/` (a guide such as
+/// `for-kivact-user/en/how-to-guide/forms.md`, or a directory such as
+/// `for-kivact-user/en/getting-started`) and `README.md` for the root README.
+/// When it is set, only those guides become doctest modules, so a change to
+/// a few guides is checked without compiling every example.
+fn only() -> Option<Vec<String>> {
+    println!("cargo::rerun-if-env-changed=KIVACT_DOCS_ONLY");
+    let value = std::env::var("KIVACT_DOCS_ONLY").ok()?;
+    Some(
+        value
+            .split(',')
+            .map(|path| path.trim().trim_end_matches('/').to_owned())
+            .filter(|path| !path.is_empty())
+            .collect(),
+    )
+}
+
+/// Whether the guide or directory at `rel` (relative to `docs/`, `/`-separated,
+/// or `README.md`) is generated under the `KIVACT_DOCS_ONLY` filter.
+fn included(only: Option<&[String]>, rel: &str) -> bool {
+    match only {
+        None => true,
+        Some(paths) => paths.iter().any(|path| {
+            rel == path
+                || rel.starts_with(&format!("{path}/"))
+                || path.starts_with(&format!("{rel}/"))
+        }),
+    }
 }
