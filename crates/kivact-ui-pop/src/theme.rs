@@ -1,4 +1,5 @@
-//! Role: The Pop theme: the kit's variables, the core variables they set, and the recipes of the standard components.
+//! Role: The Pop theme: the kit's variables, the core variables they set, and the recipes
+//! of the standard components.
 
 use crate::color;
 use crate::icons;

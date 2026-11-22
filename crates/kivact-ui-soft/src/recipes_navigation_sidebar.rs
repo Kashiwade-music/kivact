@@ -1,4 +1,5 @@
-//! Role: Install Astryx Neutral's sidebar recipes: the group labels, the menu rows and their icons, the content and the footer.
+//! Role: Install Astryx Neutral's sidebar recipes: the group labels, the menu rows and
+//! their icons, the content and the footer.
 use crate::color as c;
 use crate::metrics as m;
 use crate::recipe_parts::ring;

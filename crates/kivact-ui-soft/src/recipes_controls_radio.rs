@@ -1,4 +1,5 @@
-//! Role: Style the Astryx Neutral radio groups, their items and the segmented control the group can show as.
+//! Role: Style the Astryx Neutral radio groups, their items and the segmented control the
+//! group can show as.
 use crate::color as c;
 use crate::metrics as m;
 use crate::radius as r;

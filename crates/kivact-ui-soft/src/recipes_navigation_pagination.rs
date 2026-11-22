@@ -1,4 +1,5 @@
-//! Role: Install Astryx Neutral's pagination recipes: the bar, its controls, its page items, dots, arrows and summary.
+//! Role: Install Astryx Neutral's pagination recipes: the bar, its controls, its page
+//! items, dots, arrows and summary.
 use crate::color as c;
 use crate::metrics as m;
 use crate::motion::FAST;

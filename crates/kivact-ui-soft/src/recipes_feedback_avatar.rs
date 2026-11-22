@@ -1,4 +1,5 @@
-//! Role: Style Astryx Neutral's avatars and avatar groups: the frame, the picture, the presence marker and the overflow count.
+//! Role: Style Astryx Neutral's avatars and avatar groups: the frame, the picture, the
+//! presence marker and the overflow count.
 use crate::color as c;
 use crate::metrics::status_metrics;
 use crate::radius as r;

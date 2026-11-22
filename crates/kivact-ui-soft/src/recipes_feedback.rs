@@ -1,4 +1,6 @@
-//! Role: Install Astryx Neutral's recipes of the feedback group: the toast, the badge, the skeleton, the spinner and the key caps, with the alert, the empty state and the avatars.
+//! Role: Install Astryx Neutral's recipes of the feedback group: the toast, the badge,
+//! the skeleton, the spinner and the key caps, with the alert, the empty state and
+//! the avatars.
 use crate::color as c;
 use crate::metrics as m;
 use crate::motion::FAST;
@@ -76,13 +78,19 @@ fn text(theme: &Theme, look: &Look<ToastState>, _base: Style) -> Style {
 }
 
 /// The close button: the inverted surface's hover, pressed and focus colors, around the `x` icon.
-fn close(theme: &Theme, look: &Look<ToastState>, _base: Style) -> Style {
+/// `kit` gives the kit's theme in a mode, so the colors come from the inverted mode's theme.
+fn close(
+    kit: fn(ThemeMode) -> Theme,
+    theme: &Theme,
+    look: &Look<ToastState>,
+    _base: Style,
+) -> Style {
     let inverted = if theme.mode() == ThemeMode::Dark && look.tone != Tone::Danger {
         ThemeMode::Light
     } else {
         ThemeMode::Dark
     };
-    let media = crate::theme::theme(inverted);
+    let media = kit(inverted);
     let overhang = (m::CONTROL_SM - t::BODY.line_height_px) / 2.0;
     style()
         .size(m::CONTROL_SM, m::CONTROL_SM)
@@ -243,8 +251,9 @@ fn key(_theme: &Theme, _look: &Look<KbdKeyState>, _base: Style) -> Style {
         .text_wrap(false)
 }
 
-/// Install the kit's recipes of the feedback group.
-pub(crate) fn install(theme: Theme) -> Theme {
+/// Install the kit's recipes of the feedback group. `kit` is the kit's theme for a mode,
+/// which the close button reads for the inverted surface.
+pub(crate) fn install(theme: Theme, kit: fn(ThemeMode) -> Theme) -> Theme {
     let theme = theme
         .with(
             ToastTheme::default()
@@ -253,7 +262,7 @@ pub(crate) fn install(theme: Theme) -> Theme {
                 .toast(card)
                 .title(text)
                 .body(text)
-                .close(close)
+                .close(move |theme, look, base| close(kit, theme, look, base))
                 .icon(icon),
         )
         .with(BadgeTheme::default().root(badge))

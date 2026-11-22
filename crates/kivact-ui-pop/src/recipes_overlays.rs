@@ -1,4 +1,5 @@
-//! Role: The Pop looks of the overlays: select, menu, dialog, tooltip and command palette.
+//! Role: The Pop looks of the overlays: select, menu, dialog, tooltip and command
+//! palette.
 
 use crate::color;
 use crate::recipe_parts::{button_style, chrome};

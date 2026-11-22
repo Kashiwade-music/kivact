@@ -1,4 +1,5 @@
-//! Role: Install Astryx Neutral's recipes of the chat group: the message, the thread and the composer.
+//! Role: Install Astryx Neutral's recipes of the chat group: the message, the thread and
+//! the composer.
 use crate::color as c;
 use crate::radius as r;
 use crate::recipe_parts::shadowed;

@@ -1,4 +1,5 @@
-//! Role: Style Astryx Neutral's standard alerts: the banner surface, its header, its content and its controls.
+//! Role: Style Astryx Neutral's standard alerts: the banner surface, its header, its
+//! content and its controls.
 use crate::color as c;
 use crate::radius as r;
 use crate::recipe_parts::ring;

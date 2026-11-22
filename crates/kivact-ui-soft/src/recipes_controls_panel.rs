@@ -1,4 +1,5 @@
-//! Role: Style Astryx Neutral disclosures, splitters and splits (the controls group's panel parts).
+//! Role: Style Astryx Neutral disclosures, splitters and splits (the controls group's
+//! panel parts).
 use crate::color as c;
 use crate::metrics as m;
 use crate::radius as r;

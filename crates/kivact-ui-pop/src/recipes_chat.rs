@@ -1,4 +1,5 @@
-//! Role: The Pop looks of the conversation: bubbles, the thread, the composer and the typing indicator.
+//! Role: The Pop looks of the conversation: bubbles, the thread, the composer and the
+//! typing indicator.
 
 use crate::color;
 use crate::variants::ChatBubbleVariant;

@@ -1,9 +1,11 @@
-//! Role: Soft's variant values for the standard components: each look is one type that a caller gives with `.variant(..)`.
+//! Role: Soft's variant values for the standard components: each look is one type that a
+//! caller gives with `.variant(..)`.
 use crate::space::Space;
 use kivact::Prop;
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Color};
-use kivact::ui::{AvatarShape, ControlSize, theme::Variant};
+use kivact::ui::theme::Variant;
+use kivact::ui::{AvatarShape, ControlSize};
 use kivact::view::Orientation;
 
 /// Surface elevation of a Soft surface; `None` keeps the style without shadows.

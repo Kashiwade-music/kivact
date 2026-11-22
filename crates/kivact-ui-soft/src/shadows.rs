@@ -1,4 +1,5 @@
-//! Role: The elevation and inset shadows of Astryx Neutral, in front-to-back drawing order (crate-private).
+//! Role: The elevation and inset shadows of Astryx Neutral, in front-to-back drawing
+//! order (crate-private).
 use crate::color::{
     input_focus_color, input_hover_color, shadow_black, shadow_error, shadow_white,
 };

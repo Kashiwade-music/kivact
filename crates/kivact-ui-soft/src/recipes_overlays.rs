@@ -1,4 +1,5 @@
-//! Role: Install Astryx Neutral's recipes of the overlays group: the pickers, the menus, the dialogs and the popups.
+//! Role: Install Astryx Neutral's recipes of the overlays group: the pickers, the menus,
+//! the dialogs and the popups.
 use crate::color as c;
 use crate::radius as r;
 use crate::recipe_parts::{anchored, body_text, shadowed};
