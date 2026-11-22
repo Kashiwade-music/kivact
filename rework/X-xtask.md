@@ -191,3 +191,15 @@
 - `u32: From<i32>`（E0277）：直す前に、どの式か（file・行・式）を返すこと。素の整数の literal（`5` など）を `u32` の prop に渡して落ちているなら、文書に `_u32` を足して済ませない。React・Python の利用者が書く形で落ちる API の問題なので、私が決める。それ以外（文書の型の誤り）なら文書を直してよい。
 - 完了：`cargo check -p kivact-docs`（絞り無し）が通り、全体の `cargo xtask check --no-write` が 0 件。
 - 以後、guide を直す unit の tier a には `cargo check -p kivact-docs` を入れる（G08 の漏れの再発を防ぐ）。
+
+## 6. 設計者の答え（2026-11-22、四度目：`progress_ring(3, 10)` の u32）
+
+- 原因：`#[component]` は、`Value`・`Signal` などで包まない型の prop（`PropKind::Other`）を `impl Into<T>` で受ける。`u32` の prop に素の literal `3` を渡すと、`Into<u32>` を持つ整数の型が複数あるので literal の型が決まらず、i32 に落ちて `u32: From<i32>` になる。React・Python の利用者が書く `progress_ring(3, 10)` が通らないのは API の問題なので、文書ではなく macro を直す。
+- 直し（G16 に足す。所有に `crates/kivact-macros/src/{parse.rs,expand/kinds.rs}` と `#[component]` の doc を足す）：
+  - 型が素の整数（`u8`・`u16`・`u32`・`u64`・`u128`・`usize`・`i8`・`i16`・`i32`・`i64`・`i128`・`isize`）の prop は、書いた型のまま受ける（`impl Into<T>` にしない）。こうすると literal は書いた型に決まる。
+  - `PropKind::Param` を `PropKind::AsIs` に改名し、「書いたとおりに受ける：component の型引数か、素の整数」の意味にする。`kind()` が整数の型にも `AsIs` を返す。
+  - 浮動小数（`f32`・`f64`）は今の `impl Into<T>` のままにする（`3` も `3.0` も通る）。
+  - `#[component]` の doc の prop の受け方の表に、この 1 行を足す（英文。整数は書いた型で受け、literal はそのまま通る）。
+  - macro の test に、`u32` の prop へ素の literal を渡す呼出しが compile する例を足す。
+  - workspace で、別の整数の型を `Into` で `u32` などの prop に渡していた呼出しが落ちたら、呼出し元で型を合わせる（`.into()` か literal の型）。
+  - 文書の `progress_ring(3, 10)` は書き換えない（英日）。

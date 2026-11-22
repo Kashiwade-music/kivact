@@ -1707,3 +1707,7 @@ lane P（heading の variant、styled_text の node_ref、chat_composer の Shif
 ## 設計者の答え（2026-11-22、三度目）
 
 付属書 X の 5 章に書いた（kivact-docs の残り 9 件は新しい unit G16。CopyButton は文書の struct の改名、u32 の E0277 は式を返させて私が決める、guide の unit の tier a に kivact-docs の check を入れる）。
+
+## 設計者の答え（2026-11-22、四度目）
+
+付属書 X の 6 章に書いた（`#[component]` の素の整数の prop は書いた型のまま受ける。`PropKind::Param` を `AsIs` に改名。文書の `progress_ring(3, 10)` は変えない）。
