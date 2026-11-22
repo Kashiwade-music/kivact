@@ -219,6 +219,34 @@ fn navigation_menu_show_is_idempotent_and_toggle_twice_returns() {
 }
 
 #[test]
+fn leaving_a_panel_keeps_another_panels_pending_open() {
+    let (screen, state) = mount(|| {
+        let menu = use_navigation_menu(signal(false));
+        let first = menu.panel();
+        let second = menu.panel();
+        let view = column((
+            button("Open first").on_press(move || first.hover()),
+            button("Wait for second")
+                .on_press(move || second.hover_after(std::time::Duration::from_millis(300))),
+            button("Leave first").on_press(move || first.leave()),
+        ));
+        (menu.state(), view)
+    });
+    press(&screen, "Open first");
+    assert_eq!(state.get_untracked(), NavOpen::Hover(0));
+    press(&screen, "Wait for second");
+    press(&screen, "Leave first");
+    assert_eq!(state.get_untracked(), NavOpen::Closed);
+    screen.advance(std::time::Duration::from_millis(400));
+    assert_eq!(
+        state.get_untracked(),
+        NavOpen::Hover(1),
+        "the close that the caller's open echoes must not cancel the second panel's pending open"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
 fn disclosure_popup_and_dialog_commands_are_idempotent() {
     use kivact::interaction::{DialogMode, use_dialog, use_disclosure, use_popup};
     let (screen, (disclosure, popup, dialog)) = mount(|| {

@@ -37,6 +37,8 @@ enum Event {
     Pin(usize),
     Close,
     ShowFirst,
+    /// The caller's `open` value changed; acts only when it differs from the machine's own open state.
+    Sync(bool),
     HoverAfter(usize, Duration),
     LeaveAfter(usize, Duration),
     HoverDue(usize),
@@ -76,6 +78,15 @@ impl MachineTrait for Machine {
             Event::ShowFirst if state.open == NavOpen::Closed => {
                 activate(*state, NavOpen::Pinned(0))
             }
+            // The machine's own writes to `open` come back here equal to its state: ignore them,
+            // so a stale echo never cancels another panel's pending timer.
+            Event::Sync(true) if state.open == NavOpen::Closed => {
+                activate(*state, NavOpen::Pinned(0))
+            }
+            Event::Sync(false) if state.open != NavOpen::Closed => {
+                activate(*state, NavOpen::Closed)
+            }
+            Event::Sync(_) => Step::stay(),
             Event::PanelRemoved(key) => remove_panel(*state, key),
             _ => Step::stay(),
         }
@@ -232,13 +243,7 @@ pub fn use_navigation_menu(open: Signal<bool>) -> NavigationMenuApi {
             }
         },
     );
-    machine.feed(open, |value| {
-        if value {
-            Event::ShowFirst
-        } else {
-            Event::Close
-        }
-    });
+    machine.feed(open, Event::Sync);
     NavigationMenuApi {
         machine,
         open,
