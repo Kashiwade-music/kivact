@@ -9,9 +9,7 @@
 //! field. Fields written only by constructors, `Default` and by-value
 //! builders are a passive record and need nothing. No name or derive
 //! exempts a type. A function with two or more state locals needs the same
-//! line before the function. A marker whose text starts with `legacy:` was
-//! converted mechanically from the replaced rule; the run reports how many
-//! are left (design 6.1, chapter 12 ST-01).
+//! line before the function.
 
 mod check;
 mod fields;
@@ -20,5 +18,5 @@ mod locals;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use check::{check, legacy_count};
+pub(crate) use check::check;
 pub(crate) use index::Index;

@@ -91,22 +91,13 @@ impl Scope<'_> {
                 .get(&rule.replace('-', "_"))
                 .and_then(toml::Value::as_table)
                 .unwrap_or(&empty);
-            let mut legacy = 0;
             for source in self.sources {
                 if !selected_source(source, options) {
                     continue;
                 }
-                if rule == "state" {
-                    legacy += crate::state::legacy_count(source);
-                }
                 let mut found = Vec::new();
                 self.run_rule(rule, source, settings, &mut found);
                 self.route(rule, &source.package, found, options, outcome);
-            }
-            if legacy > 0 {
-                outcome.notes.push(format!(
-                    "state: {legacy} legacy marker(s) (`// xtask-allow(state): legacy:`) are left to close (REWORK_DESIGN.md 6.1)"
-                ));
             }
         }
     }
