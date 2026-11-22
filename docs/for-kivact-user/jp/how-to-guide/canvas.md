@@ -12,11 +12,12 @@
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 
-fn badge() -> impl IntoView {
+#[component]
+fn badge() -> impl Element {
     canvas(|draw, size| {
         draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), rgb(0x20242c));
         draw.circle(Point::new(48.0, 48.0), 20, rgb(0x6699ff));
-        draw.rounded_rect(Rect::new(96.0, 28.0, 120.0, 40.0), 8.0, ColorToken::Accent);
+        draw.rounded_rect(Rect::new(96.0, 28.0, 120.0, 40.0), 8.0, color::ACCENT);
         draw.line(
             Point::new(12.0, 100.0),
             Point::new(size.width - 12.0, 100.0),
@@ -25,7 +26,7 @@ fn badge() -> impl IntoView {
         );
     })
     .style(style().size(240, 120))
-    .name("暗い背景に青い円とアクセント色の帯")
+    .name("A blue circle and an accent bar on a dark background")
 }
 
 fn main() -> kivact::Result<()> {
@@ -35,7 +36,7 @@ fn main() -> kivact::Result<()> {
 
 - キャンバスは自分の大きさを持ちません。`.style(style().size(w, h))` で大きさを与えるか、レイアウトに引き伸ばさせ、実際の大きさはクロージャの 2 番目の引数から読みます。最初の描画は大きさ 0 で行われ、レイアウト後にもう一度描かれるので、描画は常に `size` を基準にしてください。
 - キャンバスには `.name(..)` を付けます。スクリーンリーダーがその絵として読み上げる文字列になります。
-- 色は `rgb(0xrrggbb)`、`rgba(0xrrggbb, alpha)`、または `ColorToken::Accent` のようなテーマトークンで指定します。トークンはアクティブなテーマ（ライト、ダーク、独自テーマ）に従います。`Paint` に変換できるものは、ペイントを受け取る場所ならどこでも使えます。色、トークン、グラデーションのいずれも渡せます。
+- 色は `rgb(0xrrggbb)`、`rgba(0xrrggbb, alpha)`、または `color::ACCENT` のようなテーマ変数で指定します。テーマ変数はアクティブなテーマ（ライト、ダーク、独自テーマ）に従います。`Paint` に変換できるものは、ペイントを受け取る場所ならどこでも使えます。色、トークン、グラデーションのいずれも渡せます。
 - 線は幅（`2` は 2 ピクセル幅の実線）か、端・接合・破線を指定できる `Stroke` で指定します。
 
 ## パスを描く
@@ -46,7 +47,8 @@ fn main() -> kivact::Result<()> {
 use kivact::draw::{LineCap, LineJoin, Path, Stroke};
 use kivact::prelude::*;
 
-fn wave() -> impl IntoView {
+#[component]
+fn wave() -> impl Element {
     canvas(|draw, size| {
         let mid = size.height / 2.0;
         let wave = Path::new()
@@ -57,7 +59,7 @@ fn wave() -> impl IntoView {
                 Point::new(size.width - 8.0, mid),
             );
         let stroke = Stroke::new(4).cap(LineCap::Round).join(LineJoin::Round);
-        draw.stroke_path(&wave, &stroke, ColorToken::Accent);
+        draw.stroke_path(&wave, &stroke, color::ACCENT);
 
         let triangle = Path::new()
             .move_to(Point::new(20.0, 20.0))
@@ -68,7 +70,7 @@ fn wave() -> impl IntoView {
         draw.stroke_path(&triangle, &Stroke::new(2).dash([4.0, 3.0]), rgb(0xffffff));
     })
     .style(style().size(240, 120).background(rgb(0x20242c)))
-    .name("波と三角形")
+    .name("A wave and a triangle")
 }
 # fn main() -> kivact::Result<()> { App::new("Paths").run(wave) }
 ```
@@ -82,18 +84,19 @@ fn wave() -> impl IntoView {
 グラデーションには 2 種類あり、色の置き方が違います。
 
 ```rust,no_run
-use kivact::draw::{CanvasGradient, linear_gradient};
+use kivact::style::{CanvasGradient, linear_gradient};
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 
-fn gradients() -> impl IntoView {
+#[component]
+fn gradients() -> impl Element {
     canvas(|draw, size| {
-        // 1. CSS と同じく、塗る図形を基準にします。
+        // 1. Relative to the shape being filled, as in CSS.
         let sky = linear_gradient(180).colors([rgb(0x1e3a8a), rgb(0x93c5fd)]);
         draw.fill_rect(Rect::new(0.0, 0.0, size.width, 60.0), sky);
 
-        // 2. HTML の canvas と同じく、座標で配置します。同じグラデーションを
-        //    使った 2 つの図形は、同じ位置で同じ色になります。
+        // 2. Placed by coordinates, as in an HTML canvas. Two shapes that
+        //    use the same gradient show the same colors at the same spot.
         let ramp = CanvasGradient::linear(Point::new(0.0, 0.0), Point::new(size.width, 0.0))
             .stop(0.0, rgb(0xe5484d))
             .stop(1.0, rgb(0x3e63dd));
@@ -101,7 +104,7 @@ fn gradients() -> impl IntoView {
         draw.circle(Point::new(size.width / 2.0, 110.0), 16, ramp);
     })
     .style(style().size(240, 130))
-    .name("グラデーションの見本")
+    .name("Gradient samples")
 }
 # fn main() -> kivact::Result<()> { App::new("Gradients").run(gradients) }
 ```
@@ -118,7 +121,7 @@ use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::TextAlign;
 
-/// ラベルの幅に左右 12 px の余白を足した幅のピル。
+/// A pill exactly as wide as its label plus 12 px of padding.
 fn pill(draw: &mut Draw, label: &str, at: Point) {
     let style = TextFormat {
         size: 12.0,
@@ -128,25 +131,26 @@ fn pill(draw: &mut Draw, label: &str, at: Point) {
     };
     let metrics = draw.measure_text(label, &style);
     let rect = Rect::new(at.x, at.y, metrics.size.width + 12.0, metrics.size.height + 8.0);
-    draw.rounded_rect(rect, rect.height / 2.0, ColorToken::Accent);
+    draw.rounded_rect(rect, rect.height / 2.0, color::ACCENT);
     draw.text(label, Point::new(at.x + 6.0, at.y + 4.0), style);
 }
 
-fn labels() -> impl IntoView {
+#[component]
+fn labels() -> impl Element {
     canvas(|draw, size| {
-        pill(draw, "新着", Point::new(12.0, 12.0));
-        pill(draw, "進行中", Point::new(12.0, 44.0));
+        pill(draw, "New", Point::new(12.0, 12.0));
+        pill(draw, "In progress", Point::new(12.0, 44.0));
 
-        // 点を中心に置くときは、測らずに基準点を使います。
+        // Centered on a point: use the anchor instead of measuring.
         let centered = TextFormat {
             align: TextAlign::Center,
             baseline: TextBaseline::Middle,
             ..TextFormat::default()
         };
-        draw.text("中央", Point::new(size.width / 2.0, 100.0), centered);
+        draw.text("Centered", Point::new(size.width / 2.0, 100.0), centered);
     })
     .style(style().size(240, 120))
-    .name("ラベルの見本")
+    .name("Label samples")
 }
 # fn main() -> kivact::Result<()> { App::new("Labels").run(labels) }
 ```
@@ -161,20 +165,22 @@ fn labels() -> impl IntoView {
 
 ```rust,no_run
 # use kivact::view::canvas;
-# use kivact::draw::{Layer, Transform};
+# use kivact::draw::Layer;
+# use kivact::style::Transform;
 use kivact::geometry::{Point, Rect};
 # use kivact::prelude::*;
-fn spinner() -> impl IntoView {
+#[component]
+fn spinner() -> impl Element {
     canvas(|draw, size| {
         let center = Transform::new()
             .translate(size.width / 2.0, size.height / 2.0)
             .rotate(30);
         draw.layer(Layer::new().transform(center).opacity(0.8), |draw| {
-            draw.fill_rect(Rect::new(-20.0, -4.0, 40.0, 8.0), ColorToken::Accent);
+            draw.fill_rect(Rect::new(-20.0, -4.0, 40.0, 8.0), color::ACCENT);
         });
     })
     .style(style().size(80, 80))
-    .name("スピナー")
+    .name("Spinner")
 }
 # fn main() -> kivact::Result<()> { App::new("Layer").run(spinner) }
 ```
@@ -185,20 +191,22 @@ fn spinner() -> impl IntoView {
 
 - `transform_style(TransformStyle::Preserve3d)` は、グループの中に描いたレイヤーを、グループ自身の 3D の空間に保ちます（CSS の `transform-style: preserve-3d` と同じ）。
 - `backface_visibility(BackfaceVisibility::Hidden)` は、グループが 90 度を超えて回ったときに隠します。表だけが見えます。
-- `composite(Composite::…)` は、レイヤーが既に描かれたものとどう合成されるかを選びます（HTML の canvas の `globalCompositeOperation` と同じ）。`SourceIn` は、既存の画素の上にあるレイヤーの部分だけを残し、`DestinationOver` はレイヤーを既にある画素の後ろに描き、`Xor` は重ならない部分を残します。
+- `mix(Mix::Composite(..))` は、レイヤーが既に描かれたものとどう合成されるかを選びます（HTML の canvas の `globalCompositeOperation` と同じ）。`SourceIn` は、既存の画素の上にあるレイヤーの部分だけを残し、`DestinationOver` はレイヤーを既にある画素の後ろに描き、`Xor` は重ならない部分を残します。`Mix::Blend(BlendMode::..)` は代わりに混ぜ合わせます。1 つのレイヤーには 1 つの mix を指定します。
 
 `draw.border_image(rect, &image)` は九分割の枠を描きます。絵の四隅は変わらず、辺と中央が伸びるか繰り返して `rect` を埋めます。`BorderImage::new(source)` には、画像のバイト列（SVG も可）、ファイル名、グラデーションのいずれかを渡します。`.slice(n)` は絵のどこで切るかを絵の画素で指定し、`.width(..)` は画面での枠の大きさ、`.repeat(BorderImageRepeat::Round)` は辺の部分を整数回に収まるよう繰り返します。
 
 ```rust,no_run
-use kivact::draw::{BorderImage, Composite, Layer};
+use kivact::draw::{Composite, Layer, Mix};
+use kivact::style::{BorderImage, Transform};
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::{BackfaceVisibility, TransformStyle};
 
-fn tilted_panel() -> impl IntoView {
+#[component]
+fn tilted_panel() -> impl Element {
     canvas(|draw, size| {
         let centre = Point::new(size.width / 2.0, size.height / 2.0);
-        // パネルを縦の軸まわりに回し、400 px 離れた所から見る。
+        // The panel turns about its vertical axis, seen from 400 px away.
         let tilt = Transform::new()
             .translate(centre.x, centre.y)
             .perspective(400.0)
@@ -209,21 +217,21 @@ fn tilted_panel() -> impl IntoView {
                 .transform_style(TransformStyle::Preserve3d)
                 .backface_visibility(BackfaceVisibility::Hidden),
             |draw| {
-                draw.fill_rect(Rect::new(-60.0, -40.0, 120.0, 80.0), ColorToken::Accent);
+                draw.fill_rect(Rect::new(-60.0, -40.0, 120.0, 80.0), color::ACCENT);
             },
         );
 
-        // パネルが既にある所だけに描く枠。
+        // A frame drawn only where the panel already is.
         let frame = BorderImage::new(br##"<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"><rect width="12" height="12" fill="#f59e0b"/></svg>"##)
             .slice(4)
             .width(4)
-            .repeat(kivact::draw::BorderImageRepeat::Round);
-        draw.layer(Layer::new().composite(Composite::SourceIn), |draw| {
+            .repeat(kivact::style::BorderImageRepeat::Round);
+        draw.layer(Layer::new().mix(Mix::Composite(Composite::SourceIn)), |draw| {
             draw.border_image(Rect::new(0.0, 0.0, size.width, size.height), &frame);
         });
     })
     .style(style().size(240, 160))
-    .name("傾いたパネル")
+    .name("Tilted panel")
 }
 # fn main() -> kivact::Result<()> { App::new("Panel").run(tilted_panel) }
 ```
@@ -233,10 +241,12 @@ fn tilted_panel() -> impl IntoView {
 `layout_paragraph` で一度作った段落は 3 通りに描けます。その塗りには任意の paint を使えるので、グラデーションで文字を塗れます。`stroke_paragraph` は `Stroke` でグリフの縁を描き、`paragraph_path` はグリフの輪郭を `Path` として返します。その `Path` は塗っても線を引いてもかまいません。1 行のテキストなら、`draw.text_path(text, 位置, &format)` で輪郭を直接得られます。
 
 ```rust,no_run
-use kivact::draw::{Stroke, TextFormat, linear_gradient};
+use kivact::draw::{Stroke, TextFormat};
+use kivact::style::linear_gradient;
 use kivact::prelude::*;
 
-fn headline() -> impl IntoView {
+#[component]
+fn headline() -> impl Element {
     canvas(|draw, _size| {
         let format = TextFormat {
             size: 40.0,
@@ -246,17 +256,17 @@ fn headline() -> impl IntoView {
         let paragraph = draw.layout_paragraph("SHIFT", &format, None);
         let origin = Point::new(12.0, 8.0);
 
-        // 文字はグラデーションで塗り、その上から縁を描く。
+        // The letters take a gradient, then an outline is drawn over them.
         let fill = linear_gradient(90).colors([rgb(0xffb300), rgb(0xff5a6e)]);
         draw.paragraph(&paragraph, origin, fill);
         draw.stroke_paragraph(&paragraph, origin, &Stroke::new(2.0), rgb(0x1a1a1a));
 
-        // 同じ輪郭を path として、もう一度細く明るく描く。
+        // The same outline as a path, here drawn a second time, thin and bright.
         let outline = draw.paragraph_path(&paragraph, origin);
         draw.stroke_path(&outline, &Stroke::new(0.5), rgb(0xffffff));
     })
     .style(style().size(240, 64))
-    .name("見出し")
+    .name("Headline")
 }
 # fn main() -> kivact::Result<()> { App::new("Headline").run(headline) }
 ```
@@ -275,25 +285,26 @@ fn headline() -> impl IntoView {
 use kivact::draw::{LineJoin, Path, Stroke};
 use kivact::prelude::*;
 
-fn sparkline(values: Signal<Vec<f64>>) -> impl IntoView {
+#[component]
+fn sparkline(values: Signal<Vec<f64>>) -> impl Element {
     canvas(move |draw, size| {
-        let values = values.get(); // 読むことでこのキャンバスが購読します
+        let values = values.get(); // reading subscribes this canvas
         let step = size.width / values.len().saturating_sub(1).max(1) as f64;
         let path = values.iter().enumerate().fold(Path::new(), |path, (i, v)| {
             let point = Point::new(i as f64 * step, size.height * (1.0 - v.clamp(0.0, 1.0)));
             if i == 0 { path.move_to(point) } else { path.line_to(point) }
         });
-        draw.stroke_path(&path, &Stroke::new(2).join(LineJoin::Round), ColorToken::Accent);
+        draw.stroke_path(&path, &Stroke::new(2).join(LineJoin::Round), color::ACCENT);
     })
     .style(style().size(240, 60))
-    .name("推移を示す折れ線")
+    .name("Trend line")
 }
 
 fn app() -> impl IntoView {
     let values = signal(vec![0.5_f64]);
     column((
         sparkline(values),
-        button("点を追加").on_press(move || {
+        button("Add a point").on_press(move || {
             values.update(|v| v.push(((v.len() as f64) * 1.7).sin() * 0.5 + 0.5));
         }),
     ))
@@ -317,14 +328,16 @@ fn main() -> kivact::Result<()> {
 2. 描画のクロージャで、同じ `RegionId` に `draw.region(id, rect)` で形を与えます。
 
 ```rust,test_harness
-use kivact::draw::{RegionId};
+use kivact::draw::RegionId;
 use kivact::geometry::{Rect};
 use kivact::prelude::*;
 use kivact::custom::Part;
+use kivact::state::IntoValue;
 
-const SWATCHES: [(&str, u32); 3] = [("赤", 0xe5484d), ("緑", 0x30a46c), ("青", 0x3e63dd)];
+const SWATCHES: [(&str, u32); 3] = [("Red", 0xe5484d), ("Green", 0x30a46c), ("Blue", 0x3e63dd)];
 
-fn swatches() -> impl IntoView {
+#[component]
+fn swatches() -> impl Element {
     let chosen = signal(0usize);
 
     let mut board = canvas(move |draw, size| {
@@ -349,8 +362,8 @@ fn swatches() -> impl IntoView {
     }
 
     column((
-        board.style(style().size(168, 48)).name("色の見本"),
-        text(move || format!("選択中: {}", SWATCHES[chosen.get()].0)),
+        board.style(style().size(168, 48)).name("Color swatches"),
+        text(move || format!("Chosen: {}", SWATCHES[chosen.get()].0)),
     ))
     .style(style().gap(8).padding(12))
 }
@@ -366,10 +379,10 @@ mod tests {
     #[test]
     fn a_region_is_a_button_for_tests_and_screen_readers() {
         let screen = kivact::test::render(swatches);
-        screen.get_by_text("選択中: 赤");
-        screen.get_by_role(Role::Button, "緑").click();
-        screen.get_by_text("選択中: 緑");
-        assert!(screen.get_by_role(Role::Button, "緑").is_selected());
+        screen.get_by_text("Chosen: Red");
+        screen.get_by_role(Role::Button, "Green").click();
+        screen.get_by_text("Chosen: Green");
+        assert!(screen.get_by_role(Role::Button, "Green").is_selected());
     }
 }
 ```
@@ -395,22 +408,23 @@ use kivact::draw::{ImageOptions, Pixels};
 use kivact::geometry::{Rect};
 use kivact::prelude::*;
 
-fn renderer_preview() -> impl IntoView {
+#[component]
+fn renderer_preview() -> impl Element {
     let image = signal(None::<Pixels>);
     let (tx, rx) = async_channel::bounded(2);
 
-    // フレームの大きさは物理ピクセル: 論理サイズに表示倍率を掛けます。
+    // Frame size in physical pixels: logical size times the display scale.
     let scale = kivact::platform::scale_factor().get();
     let width = (320.0 * scale).ceil().max(1.0) as u32;
     let height = (180.0 * scale).ceil().max(1.0) as u32;
 
     std::thread::spawn(move || {
         for red in (0..=255u8).cycle() {
-            // この単色を、自前のレンダラーの出力に置き換えます。
+            // Replace this solid color with your renderer's output.
             let rgba = [red, 64, 128, 255]
                 .repeat(width as usize * height as usize);
             if tx.send_blocking(Pixels::new(width, height, rgba)).is_err() {
-                break; // ウィンドウが閉じられました
+                break; // the window closed
             }
             std::thread::sleep(Duration::from_millis(16));
         }
@@ -418,7 +432,7 @@ fn renderer_preview() -> impl IntoView {
 
     spawn(async move {
         while let Ok(mut newest) = rx.recv().await {
-            // UI が忙しい間にたまったフレームは読み飛ばします。
+            // Skip frames that piled up while the UI was busy.
             for _ in 0..rx.len() {
                 if let Ok(frame) = rx.try_recv() {
                     newest = frame;
@@ -435,7 +449,7 @@ fn renderer_preview() -> impl IntoView {
         }
     })
     .style(style().size(320, 180))
-    .name("レンダラーのプレビュー")
+    .name("Renderer preview")
 }
 
 fn main() -> kivact::Result<()> {
@@ -467,12 +481,12 @@ fn artwork(draw: &mut Draw, size: Size) {
 
 fn main() -> kivact::Result<()> {
     let mut renderer = Offscreen::new();
-    let image = renderer.render(640, 360, artwork)?;
+    let image = renderer.render(640.0, 360.0, artwork)?;
 
-    // 隙間なく詰めた RGBA で、上の行から順に、ストレート（乗算済みでない）アルファです。
+    // Tightly packed RGBA, top row first, straight (not premultiplied) alpha.
     assert_eq!(image.rgba.len(), 640 * 360 * 4);
     assert_eq!(&image.rgba[..4], &[0x10, 0x18, 0x20, 0xff]);
-    // `image.rgba` は、好みの PNG や image クレートで符号化してください。
+    // Encode `image.rgba` with the PNG or image crate of your choice.
     Ok(())
 }
 ```
@@ -494,19 +508,21 @@ fn artwork(draw: &mut Draw, size: Size) {
     draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), rgb(0x101820));
 }
 
-fn exporter() -> impl IntoView {
-    let export = action(ActionMode::Latest, |(width, height): (u32, u32)| async move {
+use kivact::task::blocking;
+#[component]
+fn exporter() -> impl Element {
+    let export = action(|(width, height): (f64, f64)| async move {
         let image = blocking(move || Offscreen::new().render(width, height, artwork)).await?;
-        // ここで `image` をディスクに書き出します（UI スレッドの外のままです）。
+        // Write `image` to disk here, still off the UI thread.
         Ok(image.rgba.len())
     });
     column((
-        button("1920 × 1080 で書き出す").on_press(move || export.run((1920, 1080))),
+        button("Export 1920 × 1080").on_press(move || export.run((1920.0, 1080.0))),
         dynamic(move || export.state(), |state| match state {
             AsyncState::Idle => text(""),
-            AsyncState::Pending => text("書き出し中…"),
-            AsyncState::Ready(bytes) => text(format!("{bytes} バイトを描画しました")),
-            AsyncState::Failed(error) => text(format!("失敗: {error}")),
+            AsyncState::Pending => text("Exporting…"),
+            AsyncState::Ready(bytes) => text(format!("Rendered {bytes} bytes")),
+            AsyncState::Failed(error) => text(format!("Failed: {error}")),
         }),
     ))
 }
@@ -534,9 +550,9 @@ fn main() -> kivact::Result<()> {
     let mut renderer = Offscreen::new();
     let document = renderer.render_svg(640.0, 360.0, artwork)?;
     assert!(document.starts_with("<?xml"));
-    let image = renderer.render(640, 360, artwork)?;
+    let image = renderer.render(640.0, 360.0, artwork)?;
     assert_eq!(image.rgba.len(), 640 * 360 * 4);
-    // `document` を `.svg` ファイルに書き出します。
+    // Write `document` to a `.svg` file here.
     Ok(())
 }
 ```
@@ -546,11 +562,7 @@ fn main() -> kivact::Result<()> {
 - 矩形、角丸の矩形、線、パス、図形、文字、クリップ、変換、不透明度つきの層、
   線形と放射状のグラデーション、画像は SVG の要素になります。画像は描いた大きさの
   PNG データ URI として埋め込まれます。
-- SVG で表せない命令は `ErrorKind::Unsupported` のエラーになり、黙って欠落させません。
-  層のブレンドモード、マスク、フィルタと 3D の変換、文字の装飾とフォント機能、
-  整形済みの段落、円錐グラデーション、キーワードで大きさを決めた放射状グラデーションが
-  これに当たります。大きさが正の有限な組でないときは `ErrorKind::Message` のエラーになり、
-  `paint` は呼ばれません。
+- SVG 1.1 と CSS で表せる機能（フォントの機能と variation、`mix-blend-mode`、文字の装飾、塗りと線）は書き出されます。同等のものが無い機能だけが `ErrorKind::Unsupported` のエラーになり、黙って欠落させることはありません。大きさが正の有限な組でないときは `ErrorKind::Message` のエラーになり、`paint` は呼ばれません。
 - SVG はフォントを埋め込みません。文字の計測のために `renderer.font(include_bytes!("…"))`
   で使うフォントを登録し、文書を見る環境にも同じフォントを同じファミリ名で入れてください。
 

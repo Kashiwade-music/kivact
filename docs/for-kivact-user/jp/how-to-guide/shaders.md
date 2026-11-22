@@ -9,7 +9,7 @@
 paint シェーダーは、ピクセルごとに色を返す WGSL の関数 `paint` です。Kivact はシェーダーを作るときにソースを検査するので、誤りは最初のフレームではなく、セットアップの時点で行と列付きで報告されます。ソースは文字列として `PaintShader::wgsl` に渡します。
 
 ```rust,no_run
-use kivact::draw::{PaintShader};
+use kivact::style::PaintShader;
 use kivact::geometry::Rect;
 use kivact::motion::FrameRate;
 use kivact::prelude::*;
@@ -24,8 +24,9 @@ fn paint(position: vec2<f32>, context: Context, params: Params) -> vec4<f32> {
 }
 "#;
 
-fn scanline_background() -> impl IntoView {
-    // セットアップで一度だけ作ります。検査に通らないシェーダーはここでエラーになります。
+#[component]
+fn scanline_background() -> impl Element {
+    // Built once, at setup: a shader that does not validate is an error here.
     let scanlines = PaintShader::wgsl(SCANLINES).expect("the scanline shader is valid");
 
     canvas(move |draw, size| {
@@ -38,9 +39,9 @@ fn scanline_background() -> impl IntoView {
         draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), paint);
     })
     .style(style().size(240, 96))
-    .name("走査線の背景")
+    .name("Scanline background")
 }
-# fn main() -> kivact::Result<()> { App::new("走査線").run(scanline_background) }
+# fn main() -> kivact::Result<()> { App::new("Scanlines").run(scanline_background) }
 ```
 
 - `ShaderPaint` は paint です。paint を受け付けるところならどこでも使えます。キャンバスの塗りや線、または `style().background(Paint::from(..))` による要素の背景です。
@@ -53,7 +54,7 @@ fn scanline_background() -> impl IntoView {
 フィルターのシェーダーは、要素自身のピクセルを受け取り、新しいピクセルを返します。`effect` という関数で書き、`content(position)` で要素のピクセルを読みます。
 
 ```rust,no_run
-use kivact::draw::{Filter, FilterShader};
+use kivact::style::{Filter, FilterShader};
 use kivact::prelude::*;
 
 const SCAN_FILTER: &str = r#"
@@ -64,19 +65,20 @@ fn effect(position: vec2<f32>, context: Context) -> vec4<f32> {
 }
 "#;
 
-fn status_panel() -> impl IntoView {
+#[component]
+fn status_panel() -> impl Element {
     let scan = FilterShader::wgsl(SCAN_FILTER).expect("the scan filter is valid");
 
-    column(text("状態: オンライン"))
+    column(text("Status: online"))
         .style(
             style()
                 .padding(16)
-                .radius(8)
-                .background(ColorToken::Surface)
+                .border_radius(8)
+                .background(color::SURFACE)
                 .filter(Filter::new().shader(scan.filter())),
         )
 }
-# fn main() -> kivact::Result<()> { App::new("状態").run(status_panel) }
+# fn main() -> kivact::Result<()> { App::new("Status").run(status_panel) }
 ```
 
 - `content(position)` は要素のピクセルで、ストレートアルファです。要素の外は透明です。シェーダーは要素の箱の外にピクセルを返すこともできます（グローなど）。その場合は `margin(px)` を指定して、余白を確保してください。
@@ -102,7 +104,7 @@ fn status_panel() -> impl IntoView {
 画像はスロット 0 から 3 を通して渡します。`image(スロット, ソース)` でスロットに結び付け、WGSL では `image(スロット, uv)` で読みます。読み出される値はストレートアルファで、双線形補間され、端では値が止まります。
 
 ```rust,no_run
-use kivact::draw::{PaintShader};
+use kivact::style::PaintShader;
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 
@@ -116,7 +118,8 @@ fn paint(position: vec2<f32>, context: Context) -> vec4<f32> {
 }
 "#;
 
-fn tinted_photo() -> impl IntoView {
+#[component]
+fn tinted_photo() -> impl Element {
     let shader = PaintShader::wgsl(TINT_PHOTO).expect("the photo shader is valid");
 
     canvas(move |draw, size| {
@@ -124,9 +127,9 @@ fn tinted_photo() -> impl IntoView {
         draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), paint);
     })
     .style(style().size(160, 80))
-    .name("色味を変えた写真")
+    .name("Tinted photo")
 }
-# fn main() -> kivact::Result<()> { App::new("写真").run(tinted_photo) }
+# fn main() -> kivact::Result<()> { App::new("Tinted photo").run(tinted_photo) }
 ```
 
 - 画像は、ほかの `Asset` と同じく一度だけ読み込まれます。`Asset` は paint のクロージャの中で作らず、セットアップで保持してください。
@@ -148,7 +151,7 @@ CPU の描画は WGSL を実行しません。代わりに、シェーダーが�
 - フィルターのシェーダーは CPU では実行されないため、要素はフィルターなしで描かれます。ユーザーが必ず見る必要のあるものを、フィルターのシェーダーに頼らないでください。
 - GPU がシェーダーのパイプラインを作れなかった場合は、CPU と同じように扱われ、その失敗は一度だけ報告されます。
 
-既定では、ウィンドウは初めて GPU を必要とするまで CPU で描きます（`GpuStart::OnDemand`）。シェーダーの最初の数 frame は fallback を表示し、device の準備ができるとシェーダーの絵に替わります。最初の frame からシェーダーを描く必要があるときは、`App::gpu_preference`（`kivact::launch`）で `GpuStart::AtLaunch` を選びます。
+既定では、ウィンドウは初めて GPU を必要とするまで CPU で描きます（`GpuStart::OnDemand`）。シェーダーの最初の数 frame は fallback を表示し、device の準備ができるとシェーダーの絵に替わります。最初の frame からシェーダーを描く必要があるときは、`App::gpu_preference`（`kivact::platform::GpuStart`）で `GpuStart::AtLaunch` を選びます。
 
 シェーダーが影響するのは描画だけです。ヒットテスト、フォーカス、スクリーンリーダーは、シェーダーがなかった場合と同じ要素を見ます。
 
