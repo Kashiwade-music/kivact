@@ -2,7 +2,7 @@
 
 [English](../../../en/pop/how-to-guide/status-and-figures.md)
 
-Pop テーマと標準の `kivact::ui` 部品を使います。アプリが整形済みの文字列と読み取り専用のグラフデータを渡し、キットが見た目を担当します。
+Pop テーマと標準の `kivact::ui` 部品を使います。アプリは整形済みの文字列と読み取り専用のグラフのデータを渡し、見た目はキットが担当します。
 
 ## 統計、見出し、詳細
 
@@ -32,13 +32,13 @@ fn summary() -> impl Element {
 }
 ```
 
-`stat(label, value)` はリアクティブな文字列を受け取ります。`.delta(..)` は整形済みの変化量、`.trend(Trend::Up | Down | Neutral)` はその意味です。`pop::pop::Hue` で任意のリアクティブな Pop の色相を指定できます。`.icon(..)`、`.chart(..)`、`.label_content(..)`、`.value_content(..)` は一度だけ構築するビューのスロットです。`kivact::ui::sparkline(points)` は標準のチャートを Pop の外観で描き、任意の chart スロットに置けます。
+`stat(label, value)` はリアクティブな文字列を受け取ります。`.delta(..)` は整形済みの変化量を、`.trend(Trend::Up | Down | Neutral)` はその意味を渡します。`pop::Hue` は統計の色相を選びます。`.icon(..)`、`.chart(..)`、`.label_content(..)`、`.value_content(..)` は、取り付けられるビューのスロットです。`kivact::ui::sparkline(points)` は標準のグラフを Pop の見た目で描き、どの chart のスロットにも置けます。
 
-`heading(text, level)` は見出しレベルを公開します。標準のバッジと `pop::SectionNumber` で節の番号を組み、説明文は見出しの横か下に置きます。`card(children)` は枠線付きの面です。統計の部品は数値の状態を別に持ちません。
+`heading(text, level)` は意味上の見出しレベルを公開します。節の番号は、標準のバッジに `pop::SectionNumber` を使って組み立て、任意の補足の文は見出しの横か下に置きます。`card(children)` は枠線付きの面を作ります。統計に、数値の状態を別に持たせる必要はありません。
 
-`description_list(..)` は `description(term, detail)` の行をまとめます。detail にはバッジ、ボタン、進捗リングなど任意のビューを置けます。`.term_content(..)` はアクセシブルな名前を保って表示内容だけを変えます。
+`description_list(..)` は `description(term, detail)` の行をまとめます。detail には、バッジ、ボタン、進捗リングを含む任意のビューを置けます。`.term_content(..)` は、支援技術の名前を保ったまま、見える項目名だけを変えます。
 
-`progress(Some(fraction))` は 0 から 1 の値、`None` は不定を表します。`ProgressVariant::Ring` は円と百分率、`Bar` は通常のバー、`Gauge` は分割したバーです。`.name(..)` は支援技術向けの名前です。固定の `pop::Hue` またはリアクティブな `pop::pop::Hue` で色を指定し、`pop::Striped` と `pop::Segments(n)` でバーの見た目も選べます。必要なら可視ラベルを隣に置きます。
+`progress(Some(fraction))` は 0 から 1 の値を受け取り、`None` は不定を表します。`ProgressVariant::Ring` は円と見える百分率を、`Bar` は通常のバーを、`Gauge` は区切られたバーを表示します。`.name(..)` は支援技術向けの名前を与えます。`pop::Hue` は、固定の値でもシグナルから読む値でも、色を選びます。`kivact::ui::Striped` と `pop::Segments(n)` は、バーの見た目の指定を保ちます。必要なら、部品の隣に見えるラベルを置いてください。
 
 ## レコードの行とアバター
 
@@ -58,13 +58,13 @@ fn customer() -> impl Element {
 }
 ```
 
-`item_row` はリスト項目を公開し、`.media(..)`、`.description(..)`、`.actions(..)` を持ちます。アイコンのタイルは `.media(icon("user")).variant(pop::pop::Hue::new(pop::Hue::Blue))` で作れます。
+`item_row` はリストの項目を公開し、`.media(..)`、`.description(..)`、`.actions(..)` のスロットを持ちます。アイコンのタイルは `.media(icon("user")).variant(pop::Hue::Blue)` で作れます。
 
-`AvatarLook` はピクセル直径、連続した色相角、halo、online の点を保持し、リアクティブな値も受け取ります。イニシャルは `.fallback_content(|| text("HS"))` に渡し、`look.decorations()` は `.status_content(..)` に一度だけ構築します。標準の画像、形、サイズ、意味を持つ状態の指定も使えます。
+`AvatarSize` と `AvatarHue` は、アバターのピクセル直径と連続した色相角を設定します。`pop::avatar_decorations()` は halo の環と online の点を描きます。`.status_content(..)` に取り付けてください。イニシャルは `.fallback_content(|| text("HS"))` で渡します。標準のアバターの画像、形、意味を持つ状態の指定も使えます。
 
 ## パンくずと工程
 
-パンくずはキーを持つ標準の `kivact::ui::breadcrumb` と `.separator(|| icon("chevron-right"))` を使います。工程の注記は `StepperItem::description` に渡します。`pop::DiamondSteps` は菱形の見た目を選び、`.min_step_width(0)` はすべての工程を表示します。標準のしきい値を有効にするとレスポンシブな折り畳み表示を使えます。
+Pop の経路表示には、キーを持つ `kivact::ui::breadcrumb` の項目と `.separator(|| icon("chevron-right"))` を使います。工程の注記は `StepperItem::description` に属します。`pop::DiamondSteps` は菱形の見た目を選び、`.min_step_width(0)` はすべての工程を表示させます。標準のしきい値は、画面幅に応じて折り畳む表示を有効にします。
 
 ```rust,no_run
 use kivact::prelude::*;

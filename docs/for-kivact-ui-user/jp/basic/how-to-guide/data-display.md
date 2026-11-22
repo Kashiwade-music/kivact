@@ -2,13 +2,13 @@
 
 [English](../../../en/basic/how-to-guide/data-display.md)
 
-このガイドでは、ユーザーが編集せずに読む情報の見せ方を説明します。小さな静的な表、並べ替えと絞り込みのできるデータテーブル、グラフ、状態を表すバッジ、アバター、コードのブロックです。[チュートリアル](../getting-started/README.md)を終えていることを前提にしています。
+この手引きでは、利用者が編集せず読むための情報の見せ方を説明します。小さな静的な表、並べ替えと絞り込みのできるデータテーブル、グラフ、状態のバッジ、アバター、コードのブロックです。[チュートリアル](../getting-started/README.md)を終えていることを前提にしています。
 
-キットがあなたのデータを所有することはありません。コレクションはふつうの `Vec`（またはその signal。変更に view が追従します）で渡し、ユーザーの操作（コピーの要求や選択）は、signal かコールバックを通じてアプリに返ってきます。
+キットはデータを持ちません。コレクションは普通の `Vec`（または、その変化に表示が追従するようシグナルに入れたもの）として渡します。利用者の操作（コピーの要求、選択）は、アプリが処理するシグナルかコールバックを通って戻ります。
 
-## 小さな静的な表を見せる
+## 小さな静的な表を出す
 
-`kivact::ui::table` は、手で配置する内容のための表です。ヘッダー、ボディ、必要ならフッターとキャプションから組み立てます。
+`kivact::ui::table` は、手で組んだ内容のための部品です。見出し、本体、必要なら末尾と見出しの文（caption）から組み立てます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -50,11 +50,11 @@ fn invoices() -> impl Element {
 }
 ```
 
-幅を固定したい列は、ヘッダーのセルと本体のセルに同じ `.width(..)` を付けます。ほかの列が残りを分け合います。行は選択可能にもできます。`kivact::ui::table_row(..).selected(move || chosen.get() == index).on_press(move || chosen.set(index))` です。
+固定の幅にしたい列は、見出しとセルに同じ `.width(..)` を与えます。ほかの列は残りを分け合います。行は選択できます。`kivact::ui::table_row(..).selected(move || chosen.get() == index).on_press(move || chosen.set(index))` のように書きます。
 
-## 多くの行を、並べ替え、絞り込み、選択、ページ分けつきで見せる
+## 並べ替え・絞り込み・選択・ページ送りのある多数の行を出す
 
-実データには、標準の `data_table(rows, key, columns)` を使います。テーマが Lyra の見た目で描きます。各 `DataColumn` は、タイトルとセルの文字を作る関数を持ち、修飾子で並べ替え（`.compare(..)`）、絞り込み（`.filter(..)`）、右寄せ（`.numeric(true)`）を足せます。
+実際のデータには、標準の `kivact::ui::data_table(rows, key, columns)` を使います。テーマは Lyra の見た目で描きます。各 `DataColumn` はタイトルと、セルのテキストを作る関数を持ちます。任意の修飾子で、並べ替え（`.compare(..)`）、絞り込み（`.filter(..)`）、右寄せ（`.numeric(true)`）を足せます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -112,15 +112,15 @@ fn payments() -> impl Element {
 }
 ```
 
-- 行の型は `Clone + PartialEq` が必要です。表は行を比較して、変わったところだけを更新するためです。key 関数（ここでは `p.id`）は、選択やフォーカスのために各行へ安定した同一性を与えます。選択は行番号ではなく key を持ちます。
-- `selection`、`sort`、`filter`、`page` は、どれもアプリが持つ任意の signal です。ユーザーがヘッダー、チェックボックス、ページのボタンを操作すると表がそれらを書き、アプリからも書けます（たとえば選択をクリアするとき）。`sort` は `Option<(列の番号, 方向)>` を持ちます。
-- `.row_label(..)` は、各行の accessible name を与えます。スクリーンリーダーが行のチェックボックスについて読み上げる名前です。
-- `.toolbar(|context| view)` は、表の上の領域を置き換えます。shadcn のデータテーブルのように、絞り込みの欄と「Columns」メニューを並べるときに使います。`.row_actions(width, |row| view)` は、行ごとの操作（「...」メニューなど）の列を右端に足します。カタログの Data Table のページに、どちらの例もあります。
-- 表自身の文言（`Filter...`、`No results found.`、`Page 1 of 3` など）は `data_table.*` のメッセージから来ており、置き換えられます。[テーマとトークン](theme-and-tokens.md)を参照してください。
+- 行の型には `Clone + PartialEq` が必要です。テーブルは、変わった部分だけを更新するために行を比べます。キーの関数（ここでは `p.id`）は、各行に選択とフォーカスのための安定した同一性を与えます。選択はキーを保持し、行の番号は保持しません。
+- `selection`、`sort`、`filter`、`page` は、どれもアプリが持つ任意のシグナルです。利用者が見出し、チェックボックス、ページのボタンをクリックすると、テーブルがそれらに書き込みます。アプリからも書き込めます（たとえば選択を消すなど）。`sort` は `Option<(列の番号, 向き)>` を持ちます。
+- `.row_label(..)` は各行のアクセシブルな名前を与えます。スクリーンリーダーは、そのチェックボックスについてこの名前を読み上げます。
+- `.toolbar(|context| view)` はテーブルの上の領域を置き換えます。shadcn のデータテーブルのように、絞り込みの欄と「列」のメニューを並べられます。`.row_actions(width, |row| view)` は末尾にコントロールの列（行ごとの「...」メニュー）を足します。カタログのデータテーブルのページで、両方の例を見られます。
+- テーブル自身の文言（`Filter...`、`No results found.`、`Page 1 of 3` など）は `data_table.*` のメッセージから来ており、置き換えられます。[テーマと変数](theme-and-tokens.md#フォントを選ぶ)を参照してください。
 
 ## グラフを描く
 
-`basic::chart(config, rows)` は、棒、積み上げ棒、折れ線、面、円、ドーナツ、レーダー、ラジアルのグラフを描きます。`ChartConfig` は系列に名前を付け、各 `ChartRow` はラベルと、系列ごとの値を持ちます。
+`basic::chart(config, rows)` は、棒、積み上げ棒、折れ線、面、円、ドーナツ、レーダー、放射のグラフを描きます。`ChartConfig` は系列の名前を持ち、各 `ChartRow` は見出しと、系列ごとに 1 つの値を持ちます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -157,15 +157,15 @@ fn visitors() -> impl Element {
 }
 ```
 
-- `.kind(..)` は `Bar`（既定）、`StackedBar`、`Line`、`Area`、`Pie`、`Donut`、`Radar`、`Radial` のどれかです。円、ドーナツ、ラジアルでは、各系列がすべての行にわたる値の合計に応じた扇形やリングになります。レーダーは、行ごとに 1 本の軸を持ちます。
-- 系列にはテーマの 5 色のグラフ色が順に使われるので、テーマを切り替えると色も変わります。1 つを固定するには `ChartSeries::new(..).color(rgb(0x2563eb))` を使います。
-- `.orientation(Orientation::Horizontal)` は棒を横向きにします。`.value_format(|v| format!("{v:.0}k"))` は、軸とツールチップでの値の書き方を変えます。既定では値はアプリのロケールで書かれ、千の位を区切り、小数は 3 桁までです（en-US では `1,234.5`、de-DE では `1.234,5`）。`.legend(false)`、`.grid(false)`、`.axis(false)`、`.tooltip(false)` は部品を消し、`.height(..)` は高さを決めます。
-- `data` に行の signal（`signal(Vec<ChartRow>)`）を渡すと、グラフがその場で更新されます。
-- ホバーすると、値を載せたツールチップが出ます。グラフにはアクセシビリティ用の要約もあり、文言は `basic.chart.*` のメッセージから来ます。
+- `.kind(..)` は `Bar`（既定）、`StackedBar`、`Line`、`Area`、`Pie`、`Donut`、`Radar`、`Radial` のどれかです。円、ドーナツ、放射のグラフでは、各系列は全行の値の合計で大きさが決まる扇形や輪になります。レーダーのグラフは、行ごとに 1 本の軸を持ちます。
+- 系列は、テーマの 5 つのグラフの色を順に使うので、テーマを切り替えると色も変わります。1 つを固定するには `ChartSeries::new(..).color(rgb(0x2563eb))` を指定します。
+- `.orientation(kivact::view::Orientation::Horizontal)` は棒を横に並べます。`.value_format(|v| format!("{v:.0}k"))` は、軸と吹き出しで値の読み方を変えます。既定では、値はアプリのロケールに従い、桁区切りと最大 3 桁の小数で表示されます（en-US なら `1,234.5`、de-DE なら `1.234,5`）。`.legend(false)`、`.grid(false)`、`.axis(false)`、`.tooltip(false)` は部品を消し、`.height(..)` は高さを決めます。
+- 行のシグナル（`signal(Vec<ChartRow>)`）を `data` に渡すと、グラフがその場で更新されます。
+- ホバーすると、値を示す吹き出しが出ます。グラフにはアクセシブルな要約もあり、その文言は `basic.chart.*` のメッセージから来ます。
 
 ## バッジで状態を、アバターで人を示す
 
-バッジは小さなラベルです。アバターは画像を表示し、画像がないときは代わりの文字を表示します。
+バッジは小さなラベルです。アバターは、画像があればそれを、なければ代わりの文字を表示します。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -195,13 +195,13 @@ fn people() -> impl Element {
 }
 ```
 
-- バッジのバリアントは `Default`、`Secondary`、`Destructive`、`Outline`、`Ghost`、`Link` です。`.on_press(..)` を付けると、バッジはボタンになります。
-- `kivact::ui::avatar(name).src(Some(asset))` は画像をリアクティブに読みます。代わりの文字をそのまま示すには `.fallback_content(|| text("CN"))` を使います。省略時は名前から頭文字を作ります。サイズは `ControlSize::Small`、`Medium`、`Large` です。`.status(Some(Tone::Success))` は状態の点、`.status_content(view)` は独自の印を置きます。`.name_tooltip(true)` は名前を tooltip に表示します。Basic theme は指定しない限り表示しません。
-- `kivact::ui::avatar_group(children)` はアバターを重ねます。`.max(limit)` は表示する子の数を制限し、`.total(count)` で未読み込みの参加者を含めた総人数を渡します。残りの人数は標準の overflow 部分が表示します。
+- バッジの variant は `Default`、`Secondary`、`Destructive`、`Outline`、`Ghost`、`Link` です。`.on_press(..)` を渡すと、バッジはボタンになります。
+- `kivact::ui::avatar(name).src(Some(asset))` は、リアクティブな画像を読みます。代わりの文字を正確に指定するには `.fallback_content(|| text("CN"))` を使います。指定がなければ、部品が名前からイニシャルを作ります。サイズは `ControlSize::Small`、`Medium`、`Large` です。`.status(Some(Tone::Success))` は意味を表す角の点を描き、`.status_content(view)` は独自の角のビューを受け取ります。`.name_tooltip(true)` は、名前を吹き出しで表示します。Basic のテーマは、頼まれない限りこれを出しません。
+- `kivact::ui::avatar_group(children)` は、アバターを重ねて並べます。`.max(limit)` は表示する子の数を制限し、`.total(count)` は、まだ読み込まれていない参加者を含めます。はみ出しの円は、実際の残りの数を示します。
 
-## コピーボタンつきでコードを見せる
+## コピーのボタン付きのコードを出す
 
-`kivact::ui::code_block(source)` が選択、スクロール、コピー通知を管理します。`basic::rust_source(source)` で Rust を一度解析し、その結果と現在の配色を `.highlight(.., basic::rust_lines)` に渡します。色分けしない場合は highlighter が不要です。`.on_copy(..)` は Core がクリップボードへ書き込んだ後の通知です。
+`kivact::ui::code_block(source)` が、選択、スクロール、クリップボードのフィードバックを持ちます。Rust のトークンは `kivact::ui::rust_tokens(source)` で一度だけ作り、`basic::rust_lines` と組み合わせて `kivact::ui::highlighter(tokens, ..)` に渡します。ただのコードなら、ハイライターは要りません。`.on_copy(..)` は、中核がクリップボードに書いたあとのコピーを観察します。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -221,14 +221,14 @@ fn snippet() -> impl Element {
 }
 ```
 
-- `.max_height(..)` は長いブロックをスクロールにし、`.variant(basic::CodeBlockSize::Sm)` はコンパクトなサイズ、`.footer(..)` はブロックの下に 1 行足します。
-- ほかの言語は、行を自分で組み立てます。`CodeLine` は `CodeSpan::new(text, kivact::ui::SyntaxKind::Keyword)` などの並びです（トーンは `Plain`、`Keyword`、`String`、`Number`、`Comment`、`Function`、`Type`、`Macro`、`Lifetime`、`Punctuation`、`Attribute`）。色はテーマのトークンの `code` フィールドです。
-- コードのフォントは `Geist Mono` です。[テーマとトークン](theme-and-tokens.md)の説明に従って登録してください。登録しないときは、システムの等幅フォントが使われます。
-- コピーに成功すると、ボタンが少しの間「Copied」になります。この文言は `code_block.*` のメッセージから来ます。
+- `.max_height(..)` は長いブロックをスクロールさせます。`.variant(basic::CodeBlockSize::Sm)` は小さいサイズ、`.footer(..)` はブロックの下に 1 行を足します。
+- ほかの言語では、`basic::CodeLine` と `basic::CodeSpan` で行を手で組みます。span の `kind` は `kivact::ui::SyntaxKind` か、普通の文字なら `None` です。色はテーマの構文の変数（`kivact::ui::theme::syntax`）です。
+- コードのフォントは `Geist Mono` です。[テーマと変数](theme-and-tokens.md#フォントを選ぶ)の説明に従って登録してください。登録しないときは、システムの等幅フォントが使われます。
+- コピーに成功すると、ボタンは少しのあいだ「Copied」と表示します。その語は `code_block.*` のメッセージから来ます。
 
-## 会話を表示する
+## 会話を出す
 
-発言ごとに `kivact::ui::chat_message(author)` を一つ使い、`.content(..)`、`.avatar(..)`、`.footer(..)`、`.align(ChatAlign::End)` を指定します。`basic::BubbleVariant` は Basic の7種類の配色です。単独の吹き出しは author を空にし、`.variant(basic::ChatLayout::Bubble)` を指定します。通常の発言行は既定の Message 配置を使います。リアクションには標準の `.reactions(..)` と `.reactions_side(..)` を使います。
+項目ごとに `kivact::ui::chat_message(author)` を 1 つずつ使い、必要に応じて `.content(..)`、`.avatar(..)`、`.footer(..)`、`.align(ChatAlign::End)` を付けます。`basic::ChatBubbleVariant` は Basic の色の扱いを選びます。単独の吹き出しは `.variant(basic::ChatLayout::Bubble)` と空の著者を使い、普通の行は既定の Message のレイアウトを使います。リアクションは標準の `.reactions(..)` と `.reactions_side(..)` のスロットを使います。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -248,20 +248,20 @@ fn conversation() -> impl Element {
 }
 ```
 
-`chat_thread` がログの意味、スクロール、末尾に戻る操作を提供します。親に高さを指定してください。Core は末尾を表示している間は追加された内容に追従し、読者が上に離れると追従を止めます。末尾へ戻るかジャンプ操作を使うと追従を再開します。
+`chat_thread` は、意味を持つログ、スクロール、最新へ移動する操作を提供します。高さに上限を与えてください。中核は、読者がスクロールして離れるまで新しい内容に追従し、読者が末尾に着くか移動の操作を使うと追従を再開します。
 
-## 処理の詳細を表示する
+## 活動の詳細を出す
 
-処理の行は通常の row で組み立てます。開閉する詳細は `kivact::ui::disclosure(label, open).variant(basic::DisclosureVariant::Trace).content(..).attach(trigger)` を使います。trigger にアイコン、題名、所要時間を置き、同じ open 束縛を読むことでシェブロンを回転できます。Core が押下、キー操作、展開の意味を管理し、Trace variant が薄い文字と縦の罫線を描きます。
+活動の行には普通の行を使います。展開できる詳細には、`kivact::ui::disclosure(label, open).variant(basic::DisclosureVariant::Trace).content(..).attach(trigger)` を使います。呼出し側は `trigger` にアイコン、タイトル、所要時間を渡します。同じ `open` のバインディングで、シェブロンを回転させられます。中核が操作、キーボード入力、展開の意味を持ち、Trace の variant は控えめな詳細と縦の線を描きます。
 
-## 関連項目
+## 関連
 
-- [フォーム](forms.md): 入力欄、ピッカー、検証。
-- [テーマとトークン](theme-and-tokens.md): グラフとコードの色はテーマのトークンに従います。
-- rustdoc: グラフ、表、コードブロックの型は `cargo doc -p kivact-ui-basic --open`、`data_table` は `cargo doc -p kivact-ui --open`。
+- [フォームを作る](forms.md): 入力、ピッカー、検証。
+- [テーマと変数](theme-and-tokens.md): グラフとコードの色はテーマの変数に従います。
+- リファレンス: グラフ、表、コードブロックの型は `cargo doc -p kivact-ui-basic --open`、`data_table` は `cargo doc -p kivact-ui --open`。
 
-`kivact::ui::item_list(children)` は標準の `item_row(title)` を並べます。枠とメディアの見た目は `.variant(basic::ItemVariant::Outline)`、`.variant(basic::ItemMediaVariant::Image)` で指定します。`basic::ItemSize::Sm` は画像を 40 px から 32 px にします。リアクティブな密度は `.variant(basic::ItemLook::default().size(size))` です。media、actions、header、footer は通常の view の slot です。
+`kivact::ui::item_list(children)` は、標準の `item_row(title)` の行をまとめます。`.variant(..)` で `basic::ItemVariant` と `basic::ItemMediaVariant` を設定します。`basic::ItemSize::Sm` は、40 px ではなく 32 px の画像を保ちます。メディア、操作、見出し、末尾は普通のビューのスロットのままです。
 
-標準カードは `kivact::ui::card(content)` と、通常の view を渡す `.header(..)`、`.media(..)`、`.footer(..)` で組み立てます。`basic::CardSize::Sm` は見た目の variant です。リアクティブな間隔とヘッダーの線には `.variant(basic::CardLook::default().size(size).header_bordered(bordered))` を使います。ヘッダー内の見出し・説明・操作は text と row/column で組み立てます。
+標準のカードは `kivact::ui::card(content)` を使い、`.header(..)`、`.media(..)`、`.footer(..)` に普通のビューを置きます。`basic::CardSize::Sm` は見た目の variant です。見出しの下に罫線を引くには `.variant(basic::CardHeaderBordered(true))` を使います。見出しのタイトル、説明、操作は、呼出し側が組み立てるテキストと行・列のビューです。
 
-見出しは `kivact::ui::heading(text, level)` で、Basic の元の文字組みを保ちます。進捗は `.variant(ProgressVariant::Bar)`、`Ring`、`Gauge` を選べ、どれも Basic の primary と muted の配色です。メディアの比率は、アプリ側のノードに `.style(style().aspect_ratio(width / height))` を指定します。統計と用語説明の一覧には標準の `stat`、`description_list` を使います。
+見出しには `kivact::ui::heading(text, level)` を使い、テーマは元の Basic の文字組みを保ちます。進捗は `.variant(..)` で `ProgressVariant::Bar`、`Ring`、`Gauge` に対応し、3 つとも Basic の primary と muted のパレットを使います。大きさを一定の比率にするには、呼出し側が持つノードのスタイルに `.aspect_ratio(width / height)` を置きます。統計と説明のリストは、標準の `stat` と `description_list` の部品を使います。

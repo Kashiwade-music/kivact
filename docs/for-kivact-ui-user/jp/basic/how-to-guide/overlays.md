@@ -2,16 +2,18 @@
 
 [English](../../../en/basic/how-to-guide/overlays.md)
 
-このガイドでは、ページの上に何かを重ねる方法を説明します。ダイアログ、確認、横からのシート、下からのドロワー、ポップオーバー、ホバーカード、メニュー、トーストです。[チュートリアル](../getting-started/README.md)を終えていて、アプリが `basic::theme` を使っていることを前提にしています。
+この手引きでは、ページの上に何かを重ねる方法を説明します。ダイアログ、確認、横のシート、下のドロワー、ポップオーバー、ホバーカード、メニュー、トーストです。[チュートリアル](../getting-started/README.md)を終えていて、アプリが `basic::theme` を使っていることを前提にしています。
 
-これらの多くは、キット独自のコンポーネントではありません。ダイアログ、アラートダイアログ、シート、ポップオーバーは、標準の `dialog(title, open)` に `.mode(..)` を付けたもの、メニューは標準の `menu(..)`、トーストは標準の `toast_region` と `use_toaster` です。テーマがそれらを Lyra の見た目で描きます。スワイプドロワーも標準の `kivact::ui::dialog` を使います。ホバープレビューは標準の `kivact::ui::hover_card` を Basic の surface recipe で描きます。
+これらのほとんどは、キット固有の部品ではありません。ダイアログ、アラートのダイアログ、シートは、`.mode(..)` を変えた標準の `dialog(title, open)` です。ポップオーバーは `use_popup` の面で、メニューは標準の `menu(..)`、トーストは標準の `toast_region` と `use_toaster` です。テーマが Lyra の見た目で描きます。スワイプできるドロワーもこの標準のダイアログを使います。ホバーのプレビューは、Basic の面の recipe を使う標準の `kivact::ui::hover_card` です。
 
-すべてに共通する決まりが 2 つあります。
+これらすべてに共通する 2 つの規則があります。
 
-- **開閉の状態はアプリが持ちます。** ダイアログ、シート、ドロワーは、`signal(bool)` が `true` の間だけ表示されます。ボタンが `true` にし、中のボタンが `false` にします。Escape キーでも閉じ（このとき `false` が書かれます）、フォーカスは開いたコントロールへ戻ります。
-- **中身は開くたびに作られます。** `.content(..)` と `.footer(..)` は、オーバーレイが開くときに実行される関数を取ります。閉じている間はコストがかからず、開き直すとまっさらな状態から始まります。残したい値は、クロージャの外の signal に持たせてください。
+- **開いた状態はアプリが持ちます。** ダイアログ、シート、ドロワーは、`signal(bool)` が `true` のあいだ表示されます。ボタンがそれを `true` にし、中のボタンが `false` にします。Escape でも閉じ（`false` を書き込み）、フォーカスは、それを開いたコントロールに戻ります。
+- **中身は開くたびに作ります。** `.content(..)` と `.footer(..)` は、重ねるものが開くときに実行される関数を受け取ります。そのため、閉じているものは何もコストがかからず、開き直すと新しく始まります。残すべきものは、クロージャの外のシグナルに持たせてください。
 
-## ダイアログを表示する
+## ダイアログを出す
+
+ダイアログはモーダルです。閉じるまでフォーカスは中に留まり、中身の最初にフォーカスできるコントロール（ここでは入力欄）から始まります。隅に閉じるボタンを描きます。`.closable(false)` で取り除けます。タイトルはダイアログのアクセシブルな名前でもあります。`.hide_title(true)` は名前を残したまま、見出しを表示しません。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -32,11 +34,9 @@ fn edit_profile() -> impl Element {
 }
 ```
 
-ダイアログはモーダルです。閉じるまでフォーカスは中に留まり、最初は中身の最初のフォーカス可能なコントロール（ここでは入力欄）に当たります。角に閉じるボタンが出ます。取り除くには `.closable(false)` を使います。タイトルはダイアログの accessible name にもなります。`.hide_title(true)` は、名前を残したまま見出しを表示しません。
-
 ## 確認を求める
 
-アラートダイアログは、種類が `AlertModal` のダイアログです。外側のクリックでは閉じないので、ユーザーはフッターのボタンのどれかで答える必要があります（Escape では取り消せます）。角の閉じるボタンは持たないので、`.closable(false)` を渡します。
+アラートのダイアログは、種類 `AlertModal` のダイアログです。外をクリックしても閉じないので、利用者は末尾のボタンのどれかで答えなければなりません（Escape ではまだ取り消せます）。隅に閉じるボタンはないので、`.closable(false)` を渡します。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -74,14 +74,14 @@ fn delete_chat() -> impl Element {
 }
 ```
 
-フッターはボタンのタプルを返します。フォーカスは最初のボタンに当たるので、安全な選択肢（キャンセル）を先に置いてください。アラートダイアログのバリエーションは次のとおりです。
+末尾はボタンのタプルを返します。フォーカスは最初のボタンから始まるので、安全な選択（Cancel）を先に置いてください。アラートのダイアログの variant は次のとおりです。
 
-- `.variant(basic::AlertDialogSize::Sm)` は、幅 320 px の中央寄せの狭いダイアログにします。幅を分け合うには、フッターの 2 つのボタンに `style().flex_grow(1).flex_basis(0)` を付けます。
-- `.media(|| icon("trash-2").style(style().size(24, 24)))` は、タイトルの脇にアイコンを表示します。
+- `.variant(basic::AlertDialogSize::Sm)` は、幅の狭い、中央に置かれた 320 px のダイアログにします。幅を分け合うには、末尾の両方のボタンに `style().flex_grow(1).flex_basis(0)` を与えます。
+- `.media(|| icon("trash-2").style(style().size(24, 24)))` は、タイトルの横にアイコンを表示します。
 
-## 端からシートを開く
+## シートを端から出す
 
-シートは、種類が `Drawer(side)` のダイアログです。
+シートは、種類 `Drawer(side)` のダイアログです。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -105,7 +105,7 @@ fn notifications() -> impl Element {
 }
 ```
 
-`Side` は `Left`、`Right`、`Top`、`Bottom` です。スワイプで閉じられる下からのパネルが欲しいときは、キットの `kivact::ui::dialog(title, open).mode(DialogMode::Drawer(Edge::Bottom))` を使います。`.description(..)`、`.content(..)`、`.footer(..)` と、`.mode(DialogMode::Drawer(Edge::..))`（既定は下）を同じように取ります。
+`Edge` は `Left`、`Right`、`Top`、`Bottom` のどれかです。利用者がスワイプして閉じられる下のパネルには、代わりにキットの `kivact::ui::dialog(title, open).mode(DialogKind::Drawer(Edge::Bottom))` を使います。同じ `.description(..)`、`.content(..)`、`.footer(..)` を受け取り、`.mode(DialogKind::Drawer(Edge::..))` の既定は下です。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -137,11 +137,11 @@ fn move_goal() -> impl Element {
 }
 ```
 
-`kivact::ui::dialog` と `kivact::ui::hover_card` は `Element` ではありません。置いた場所には何も描かないので、`.style(..)` や `.test_id(..)` は使えません。
+`kivact::ui::dialog` と `kivact::ui::hover_card` は `Element` ではありません。置いた場所では何も描かないので、`.style(..)` と `.test_id(..)` は効きません。
 
-## ボタンにポップオーバーを付ける
+## ポップオーバーをボタンに付ける
 
-ポップオーバーは、種類が `Popover` のダイアログです。`.attach(trigger)` は、ポップオーバーをトリガーの位置に置き、トリガーに開閉の役目を与えます。戻り値は、トリガーとポップオーバーをまとめたもので、ボタンを置きたい場所にそのまま置きます。
+ポップオーバーは、ページのノードに固定された面です。`use_popup(open)` は `open` のシグナルで開閉し、`.anchor(node)` は、そこから下がるノードを指定し、`surface(placement, content)` が面を作ります。トリガーには `.node_ref(..)` でノードを結び付けます。
 
 ```rust,no_run
 use kivact::interaction::use_popup;
@@ -170,14 +170,12 @@ fn dimensions() -> impl Element {
 }
 ```
 
-- `.placement(..)` はトリガーのどちら側か（`Above`、`Below`、`Start`、`End`）を、`.align(..)` は揃え方（`Start`、`Center`、`End`）を決めます。ウィンドウに収まらないときは、反対側に反転します。
-- ポップオーバーはモーダルではありません。Escape キー、外側のクリック、フォーカスがポップオーバーとトリガーの両方から外れたときに閉じます。
-- `.hide_title(true)` は、ちょっとした文章だけのポップオーバーに向きます。タイトルは accessible name として残ります。
-- トリガーへの修飾（`.style(..)`、`.test_id(..)`）は、`attach` の戻り値ではなく、渡すボタンに付けます。
+- `surface` に渡す `Placement`（`Above`、`Below`、`Start`、`End`）は、アンカーのどの側に出すかを決めます。ウィンドウに収まらないときは、反対側に回ります。
+- ポップオーバーはモーダルではありません。Escape、外のクリック、フォーカスがそれとトリガーの両方から離れたときに閉じます。
 
-## ホバーしたときにプレビューを出す
+## ホバーで中身を見せる
 
-`kivact::ui::hover_card` は、ポインターがトリガーの上で止まると開きます。600 ms 後に開き、ポインターが離れて 300 ms 後に閉じます。`.open_delay(..)` と `.close_delay(..)` で変えられます。
+`kivact::ui::hover_card` は、ポインターがトリガーの上に留まると開きます。600 ms で開き、ポインターが離れて 300 ms 後に閉じます。これらは `.open_delay(..)` と `.close_delay(..)` で変えられます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -196,11 +194,11 @@ fn mention() -> impl IntoView {
 }
 ```
 
-ポップオーバーと同じく `.placement(..)` と `.align(..)` を取ります。これはプレビュー用なので、ユーザーが操作する必要のある内容にはポップオーバーを使ってください。
+ポップオーバーと同じく、`.placement(..)` と `.align(..)` を受け取ります。これはプレビューなので、利用者が操作する必要があるものにはポップオーバーを使ってください。
 
 ## ボタンや右クリックからメニューを開く
 
-メニューは標準の `menu(label, entries).on_activate(choose)` です。`entries` は `MenuEntry` の一覧で、`choose` はユーザーが選んだ項目の key を受け取ります。`.attach(trigger)` はボタンから、`.attach_context(target)` は `target` の上の右クリックで開きます。
+メニューは標準の `menu(label, entries).on_activate(choose)` です。`entries` は `MenuEntry` の一覧で、`choose` は利用者が選んだ項目のキーを受け取ります。`.attach(trigger)` はボタンから開き、`.attach_context(target)` は `target` の上での右クリックで開きます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -240,8 +238,8 @@ fn context_menu() -> impl IntoView {
 }
 ```
 
-- 項目の種類は `item`、`checkbox(key, label, checked)`、`radio`、`heading`（見出し）、`separator`、`submenu(key, label, entries)` です。項目には `.icon(name)`、`.shortcut(text)`、`.disabled(true)`、`.destructive(true)` を付けられます。項目の種類に当てはまらない修飾は使い方の誤りです。
-- メニューは状態を持ちません。チェック項目やラジオ項目では、`entries` に signal を読むクロージャを渡し、`.keep_open(true)` を付けて、選んでもメニューが閉じないようにします。`choose` のクロージャが signal を更新し、次の一覧に新しい印が反映されます。
+- 項目の種類: `item`、`checkbox(key, label, checked)`、`radio`、`heading`（ラベル）、`separator`、`submenu(key, label, entries)`。項目は `.icon(name)`、`.shortcut(text)`、`.disabled(true)`、`.destructive(true)` を持てます。項目の種類に合わない修飾子は、使い方の誤りです。
+- メニューは状態を持ちません。チェックと選択の項目では、`entries` をシグナルを読むクロージャにし、選んでもメニューが閉じないように `.keep_open(true)` を足します。`choose` のクロージャがシグナルを更新すると、次の一覧が新しい印を表示します。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -267,11 +265,11 @@ fn view_menu() -> impl IntoView {
 }
 ```
 
-- ウィンドウの上端のメニューバーは `basic::menubar(menus).on_activate(choose)` です。[ナビゲーション](navigation.md)を参照してください。
+- ウィンドウの上部のメニューバーは `basic::menubar(menus).on_activate(choose)` です。[ナビゲーション](navigation.md)を参照してください。
 
 ## トーストを出す
 
-トーストの領域は、アプリのルート付近に一度だけマウントします。あとは、どのハンドラからでもトーストを積めます。
+トーストのリージョンは、アプリのルートの近くに一度だけ配置します。そうすると、どのハンドラーからもトーストを push できます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -295,15 +293,15 @@ fn root() -> impl Element {
 }
 ```
 
-- `.tone(..)` は `Neutral`（アイコンなし）、`Success`、`Info`、`Warning`、`Danger` です。テーマがトーンのアイコンを描きます。`Warning` と `Danger` は、スクリーンリーダーにより緊急のものとして通知されます。
-- トーストは 5 秒で閉じます。`.duration(Some(Duration::from_secs(2)))` で変え、`.duration(None)` にすると、閉じられるまで残ります。`push` は id を返し、`use_toaster().dismiss(id)` でそのトーストを消せます。
-- `.action("Undo", move || ..)` はボタンを足します。押すとクロージャが実行され、トーストが閉じます。クロージャはトーストが所有するので、押下のハンドラの中で作って積めます。
-- 処理中を示すトーストには、`.icon(|| kivact::ui::spinner())` と `.duration(None)` を使い、処理が終わったら閉じます。
-- 複数のトーストは、最新のものの後ろに最大 3 つまで重なります。ポインターが乗るか、フォーカスが入ると一覧に開きます。`hold_all_on_hover(true)` を付けると、開いている間はすべてのトーストの時間が止まります。
+- `.tone(..)` は `Neutral`（アイコンなし）、`Success`、`Info`、`Warning`、`Danger` です。テーマが色調のアイコンを描き、`Warning` と `Danger` は、スクリーンリーダーにより緊急に読み上げられます。
+- トーストは 5 秒後に閉じます。`.duration(Some(Duration::from_secs(2)))` で変えられ、`.duration(None)` は消されるまで残します。`push` は id を返します。`use_toaster().dismiss(id)` で、そのトーストを消せます。
+- `.action("Undo", move || ..)` はボタンを足します。押すとクロージャが実行され、トーストが消えます。クロージャはトーストのものなので、押したハンドラーがトーストを組み立てて push できます。
+- 作業の進行を示すトーストには、`.duration(None)` と一緒に `.icon(|| kivact::ui::spinner())` を使い、作業が終わったら消します。
+- 複数のトーストは、最新のものの後ろに、最大 3 つまで重なります。ポインターが載っているか、フォーカスが中にあると、一覧に開きます。`hold_all_on_hover(true)` を指定すると、開いているあいだは、すべてのトーストの時間が止まります。
 
-## 関連項目
+## 関連
 
-- [フォーム](forms.md): ダイアログの中身を field にし、閉じる前に検証する。
+- [フォームを作る](forms.md): ダイアログの中身を欄に入れ、閉じる前に検証します。
 - [ナビゲーション](navigation.md): メニューバー、ナビゲーションメニュー、サイドバー。
-- [テーマとトークン](theme-and-tokens.md): オーバーレイがテーマの切り替えに追従する仕組み。
-- rustdoc: `drawer` と `hover_card` は `cargo doc -p kivact-ui-basic --open`、`dialog`、`menu`、`Toast` は `cargo doc -p kivact-ui --open`。
+- [テーマと変数](theme-and-tokens.md): 重なる部品がテーマの切り替えに追従する仕組み。
+- リファレンス: `drawer` と `hover_card` は `cargo doc -p kivact-ui-basic --open`、`dialog`、`menu`、`Toast` は `cargo doc -p kivact-ui --open`。

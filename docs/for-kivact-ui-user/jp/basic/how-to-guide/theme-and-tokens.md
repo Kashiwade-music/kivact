@@ -2,7 +2,7 @@
 
 [English](../../../en/basic/how-to-guide/theme-and-tokens.md)
 
-このガイドでは、アプリに Basic の見た目を与える方法、実行中にライトとダークを切り替える方法、キットの色を読み書きする方法、標準コンポーネントの描き方を調整する方法、そして Lucide のアイコンの使い方を説明します。[チュートリアル](../getting-started/README.md)を終えていることを前提にしています。
+この手引きでは、アプリに Basic の見た目を与え、実行中にライトとダークを切り替え、キットの色を読み書きし、標準コンポーネントの描き方を調整し、Lucide のアイコンを使う方法を説明します。[チュートリアル](../getting-started/README.md)を終えていることを前提にしています。
 
 ## テーマを適用する
 
@@ -20,13 +20,13 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-テーマには、Neutral の配色、12 px の文字、角の丸みなし、32 px のコントロール、そして `kivact::ui` の標準コンポーネントすべて（`button`、`toggle`、`checkbox`、`switch`、`text_input`、`text_area`、`select`、`menu`、`dialog`、`tooltip`、`tabs`、`radio_group`、`slider`、`range_slider`、`toast_region`、`splitter`、`split`、`progress`、`disclosure`、`data_table` など）の描き方（recipe）が入っています。キットはこれらのコピーを持ちません。`kivact::ui::button` と `kivact::ui::card` が何の仲立ちもなく並べられるのも、テーマを変えると両方の見た目が変わるのも、そのためです。
+テーマは、Neutral のパレット、12 px の文字、角の四角い見た目、32 px の操作部品、そして `kivact::ui` のすべての標準コンポーネントの描き方（recipe）を持ちます。対象は `button`、`toggle`、`checkbox`、`switch`、`text_input`、`text_area`、`select`、`menu`、`dialog`、`tooltip`、`tabs`、`radio_group`、`slider`、`range_slider`、`toast_region`、`splitter`、`split`、`progress`、`disclosure`、`data_table` などです。キットはこれらの部品のコピーを持ちません。`kivact::ui::button` と `kivact::ui::card` を並べても糊は要らず、テーマを変えれば両方が一緒に描き替わるのはそのためです。
 
-見た目をウィンドウの一部に限りたいときは、その部分を `kivact::style::provide_theme(theme, || ..)` で包みます。外側の兄弟は、上から来たテーマのままです。
+見た目をウィンドウの一部だけに限るには、その部分を `kivact::style::provide_theme(theme, || ..)` で包みます。外側の兄弟は、上位のテーマを保ちます。
 
 ## 実行中にライトとダークを切り替える
 
-固定のテーマではなく、signal を読むクロージャを渡します。
+固定のテーマではなく、シグナルを読むクロージャを渡します。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -63,14 +63,14 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-- マウント済みのコンポーネントは作り直されずにスタイルだけが更新されるので、入力した文字、フォーカス、開いている状態は切り替えの後も残ります。
-- `provide_theme` は何も描きません。上のように、部分木のいちばん上のノードにページの色を自分で与えてください。色を持つノードの下にない文字は、`App` のテーマの文字色になります。
-- モードの保存はアプリの仕事です。次回の起動でも覚えておきたいときは、`dark` の値を自分で保存し、signal を作るときに読み戻します。
-- クロージャの中でテーマを作ってもコストはわずかです。キットはテーマの間で recipe の表とアイコンのセットを共有しているので、変わっていない表は再スタイルを起こしません。
+- 配置済みの部品は作り直されず描き替えられるので、入力中の文字、フォーカス、開いている状態は切り替えのあとも残ります。
+- `provide_theme` は何も描きません。サブツリーの最上位ノードには、上の例のようにページの色を自分で指定してください。色のないノードの下の文字は、`App` のテーマの色を受け取ります。
+- モードをどう保存するかはアプリが決めます。実行をまたいで覚えさせたいなら、`dark` の値を自分で保存し、シグナルを作るときに読み戻してください。
+- クロージャの中でテーマを組み立てても、コストはわずかです。キットはテーマのあいだで recipe の表とアイコンの集合を共有するので、表が変わらなければ何も描き替わりません。
 
 ## フォントを選ぶ
 
-キットはフォントを同梱しません。Inter に合わせた寸法で、コードブロックとインラインコードでは `Geist Mono` を求めます。フォントファイルを `App::font` で登録し、テーマの文字の family に名前を書きます。
+キットはフォントを同梱しません。Inter に合わせた大きさで、コードのブロックとインラインのコードには `Geist Mono` を指定します。本文のファミリーはテーマの `font::FAMILY_VAR` に書き、ファイルは `Theme::with_fonts` で登録します。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -87,9 +87,9 @@ fn app(fonts: &[&'static [u8]]) -> App {
 }
 ```
 
-`main` では、`include_bytes!` で読み込んだバイト列を渡します（`app(&[include_bytes!("../assets/Inter[opsz,wght].ttf") as &[u8], include_bytes!("../assets/GeistMono[wght].ttf")])`）。family 名はフォントファイルの中に書かれた名前で、ファイル名ではありません。登録していない family は、システムのフォントに置き換わります。
+`main` の中で `include_bytes!` のファイルからバイト列を渡します（`app(&[include_bytes!("../assets/Inter[opsz,wght].ttf") as &[u8], include_bytes!("../assets/GeistMono[wght].ttf")])`）。ファミリー名は、ファイル名ではなく、フォントファイルの中に書かれた名前です。登録していないファミリーは、システムのフォントに戻ります。
 
-コンポーネントが自分で表示する文言（Loading、Close、Copy、Next など）は英語です。`App::messages` で置き換えます。キーは `basic.` で始まり、キットの README に一覧があります。
+コンポーネントが自分で表示する文言（Loading、Close、Copy、Next など）は英語です。`App::messages` で差し替えます。キーには `basic.` の接頭辞が付き、キットの README に一覧があります。
 
 ```rust,no_run
 use kivact::i18n::Messages;
@@ -109,7 +109,7 @@ fn main() -> kivact::Result<()> {
 
 ## 自分のスタイルでキットの色を使う
 
-`basic::ColorName` はパレットの色の名前です（`Background`、`Foreground`、`Card`、`Primary`、`Secondary`、`Muted`、`MutedForeground`、`Accent`、`Destructive`、`Border`、`Input`、`Ring`、`Chart1` から `Chart5`、`Sidebar` 系の色、`Code` の構文色）。色を受け取るスタイルのメソッドにはすべてそのまま渡せます。ノードを描くときに有効なテーマから解決されるので、テーマの切り替えに追従します。
+キットの色は `kivact_ui_basic` の定数です。`basic::BACKGROUND`、`FOREGROUND`、`CARD`、`CARD_FOREGROUND`、`POPOVER`、`PRIMARY`、`PRIMARY_FOREGROUND`、`SECONDARY`、`MUTED`、`MUTED_FOREGROUND`、`ACCENT`、`DESTRUCTIVE`、`BORDER`、`INPUT`、`RING`、`CHART_1` から `CHART_5`、そして `SIDEBAR_*` の色があります。それぞれがテーマの変数です。色を受け取るスタイルのメソッドは、どれでもこれを受け取れます。描かれるときの、そのノードで有効なテーマから値が引かれるので、テーマの切り替えに追従します。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -127,7 +127,7 @@ fn banner() -> impl Element {
 }
 ```
 
-トークンから新しい色を計算したいとき（半透明の primary など）は、スタイルのクロージャの中で `basic::Tokens` を読みます。クロージャはテーマが変わるたびに再実行されます。
+テーマの色から新しい色を計算したいとき（半透明の primary など）は、スタイルのクロージャの中でテーマの変数を読みます。テーマが変わるたびに、クロージャは再実行されます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -145,7 +145,7 @@ fn tinted() -> impl Element {
 
 ## 色を変える
 
-`basic::Tokens::new(mode)` は、パレットをふつうのフィールドとして返します。変えたいものだけを書き換え、`Theme::with` で載せます。
+色はそれぞれ変数なので、キットが返すテーマに `Theme::set` を使って変えます。変数を設定すると、それを読むすべてのコンポーネントとスタイルが追従します。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -166,15 +166,16 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-トークンはモードごとにあります。アプリが切り替えを持つなら、両方のモードでカスタマイズしたパレットを作ってください。いくつか知っておくことがあります。
+気をつけることがいくつかあります。
 
-- フィールドは shadcn/ui の CSS 変数に対応します。`background`、`foreground`、`card`、`popover`、`primary`、`secondary`、`muted`、`accent`、`destructive`、`border`、`input`、`ring`、`chart`（5 色）、`sidebar_*` の色、`code`（コードブロックの構文色）です。
-- 変えた色は標準コンポーネントにも届きます。recipe が有効なテーマのトークンを読むからです。
-- `basic::theme` は、いくつかのトークンをコアのパレット（ページ、文字、accent、枠線、フォーカス、danger）にもコピーします。キット以外のコンポーネント（他のライブラリのものなど）はそのパレットを読みます。変えたトークンとそろえたいときは、パレットも `Theme::with_colors` に渡してください。
+- 変数は shadcn/ui の CSS の変数に対応します。`BACKGROUND`、`FOREGROUND`、`CARD`、`POPOVER`、`PRIMARY`、`SECONDARY`、`MUTED`、`ACCENT`、`DESTRUCTIVE`、`BORDER`、`INPUT`、`RING`、`CHART_1` から `CHART_5`、`SIDEBAR_*` の色、そのほかのキットの色です。それぞれ、`set` と `get` のための `_VAR` の static を持ちます。
+- アプリがライトとダークを切り替えるなら、それぞれのモードの値を別々に設定します。`blue_theme` が渡されたモードに対してテーマを作るように、モードごとにテーマを作ってください。
+- 変えた色は標準コンポーネントにも届きます。recipe が、有効なテーマの変数を読むからです。
+- キットは、自分の色から `kivact::style::color` の中核の色の変数（`ACCENT`、`TEXT`、`BORDER`、`FOCUS`、`DANGER` など）を設定するので、キットの外のコンポーネントもキットに従います。中核の色を 1 つだけ変えたいときは、`basic::theme` のあとで、その中核の変数に `set` します（例: `.set(&color::FOCUS_VAR, rgb(0x2563eb))`）。
 
-## 標準コンポーネントの描き方を調整する
+## 1 つの標準コンポーネントの描き方を調整する
 
-recipe は、コンポーネントの状態をスタイルに変える関数です。すべてのボタンの見た目を変えるには、テーマからキットの `UiRecipes` を取り出し、現在の recipe を呼んで何かを足す関数で recipe を置き換え、表を入れ直します。
+recipe は、部品の状態をスタイルに変えるルールです。すべてのボタンの見た目を変えるには、テーマに `ButtonTheme` の part を入れます。その `root` のクロージャは、キットが描くスタイルを受け取って、変えたスタイルを返します。そのため、キットのそれ以外の働き（variant、サイズ、ホバーやフォーカスの見た目）は残ります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -187,11 +188,11 @@ fn rounded_buttons(mode: ThemeMode) -> Theme {
 }
 ```
 
-置き換え関数は現在の recipe を受け取るので、キットがするほかのこと（バリアント、サイズ、ホバーやフォーカスの見た目）はそのまま残ります。1 つのインスタンスだけなら、recipe は使わず `.style(..)` を渡してください。呼び出し側のスタイルは、標準コンポーネントでもキット独自のビルダーでも、常にキットの既定より優先されます。
+1 つのインスタンスだけを変えたいときは、テーマには触れず `.style(..)` を渡します。呼出し側のスタイルは、標準コンポーネントでもキット自身のビルダーでも、常にキットの既定値より優先されます。
 
 ## アイコンを使う
 
-`basic::ICON_NAMES` の Lucide アイコン（`check`、`search`、`settings`、`trash-2` など約 125 個）はすべてテーマのアイコンセットに入っています。コアの `icon(name)` で描きます。
+`basic::ICON_NAMES` にある Lucide のアイコンは、約 125 の名前（`check`、`search`、`settings`、`trash-2` など）すべてがテーマのアイコンの集合に入っています。中核の `icon(name)` で描きます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -209,11 +210,11 @@ fn toolbar() -> impl Element {
 }
 ```
 
-- アイコンは 16 px で、現在の文字色で描かれます。小さなボタンのアイコンの枠のように、それより小さい箱の中では、収まるように縮みます。手で大きさを変えるときは、アイコンにサイズを指定します（`icon("info").style(style().size(24, 24))`）。
-- コンポーネントが 1 つの view を受けるスロットを持つ場合（`alert(..).with_icon(..)`、`badge(..).with_icon(..)`、`button(..).with_icon(..)`）は `icon(name)` を渡します。項目がレコードの場合（`ListItem`、`MenuEntry`）は、名前を文字列で渡します（`MenuEntry::item("save", "Save").with_icon("save")`）。
-- アイコンは飾りです。アイコンだけのボタンの accessible name はラベルから付くので、`button("Settings").with_icon(..).hide_label(true)` のようにラベルは残してください。
-- セットにない名前は何も描きません。デバッグビルドでは、足りない名前が呼び出した場所つきで報告されるので、綴りの間違いに気づけます。
-- 自分のアイコンは、SVG のバイト列から `with_icon` でテーマに足せます（ファイル内の線や塗りの色は、文字色に置き換えられます）。
+- アイコンは 16 px で、現在の文字色で描かれます。ボタンのアイコンの枠のような小さな箱では、収まるように縮みます。手で大きさを変えるには、サイズを指定します（`icon("info").style(style().size(24, 24))`）。
+- 1 つのビューを受け取る 1 つのスロット（`alert(..).icon(..)`、`badge(..).icon(..)`、`button(..).icon(..)`）には、`icon(name)` を渡します。項目がレコードのとき（`ListItem`、`MenuEntry`）は、名前を文字列で渡します（`MenuEntry::item("save", "Save").with_icon("save")`）。
+- アイコンは装飾です。アイコンだけのボタンは、アクセシブルな名前をラベルから受け取るので、`button("Settings").icon(..).hide_label(true)` と書いてラベルを残してください。
+- 集合にない名前は何も描きません。デバッグビルドでは、見つからない名前を呼出し元の場所に報告するので、綴りの間違いは見過ごされません。
+- 自分のアイコンを追加するには、SVG のバイト列を `with_icon` でテーマに入れます。ファイル内の線や塗りの色は、文字色に置き換えられます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -230,9 +231,9 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-## 関連項目
+## 関連
 
 - [オーバーレイ](overlays.md): このテーマでのダイアログ、シート、ポップオーバー、メニュー、トースト。
-- [ナビゲーション](navigation.md)、[データの表示](data-display.md)、[フォーム](forms.md): キットのコンポーネントの系統。
-- ソースつきのすべてのコンポーネント: リポジトリのクローンで `cargo run -p kivact-ui-basic-catalog`。
+- [ナビゲーション](navigation.md)、[データを表示する](data-display.md)、[フォームを作る](forms.md): キットのコンポーネントの各分野。
+- すべてのコンポーネントとそのソース: リポジトリのクローンで `cargo run -p kivact-ui-basic-catalog` を実行します。
 - API の全体: `cargo doc -p kivact-ui-basic --open`。

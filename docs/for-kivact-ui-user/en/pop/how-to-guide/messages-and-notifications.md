@@ -154,7 +154,7 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl Element {
 ```
 
 - `kivact::ui::skeleton().lines(n)` draws placeholder bars where text will appear.
-- `kivact::ui::spinner()` and `kivact::ui::spinner().variant(pop::SpinnerLook::Dots)` are small animated loaders; they
+- `kivact::ui::spinner()` and `kivact::ui::spinner().variant(pop::SpinnerVariant::Dots)` are small animated loaders; they
   are named "Loading" for screen readers (message `spinner.loading`).
 - `kivact::ui::empty_state(title).icon(pop::empty_illustration())` draws an illustration, a description and an
   optional action.

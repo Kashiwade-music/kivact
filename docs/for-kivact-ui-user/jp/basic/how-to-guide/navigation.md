@@ -2,13 +2,13 @@
 
 [English](../../../en/basic/how-to-guide/navigation.md)
 
-このガイドでは、ユーザーがアプリの中を移動する手段を作ります。サイドバーのあるアプリのシェル、ページ内のタブ、パンくず、メニューバー、上部のナビゲーションメニュー、ページ番号です。[チュートリアル](../getting-started/README.md)を終えていることを前提にしています。
+この手引きでは、利用者がアプリの中を移動できるようにする方法を説明します。サイドバーのあるアプリの枠、ページの中のタブ、パンくず、メニューバー、上部のナビゲーションメニュー、ページ番号です。[チュートリアル](../getting-started/README.md)を終えていることを前提にしています。
 
-これらのコンポーネントは、どれも現在の位置を持ちません。位置は signal（`page`、`current` など）に持ち、コンポーネントに渡して、signal が示すものを表示します。何かを押すと signal が書かれ、画面の残りがそれに従います。
+これらの部品はどれも、現在の位置を持ちません。位置はシグナル（`page`、`current` など）で持ち、部品に渡して、そのシグナルが示すものを表示します。何かを押すとシグナルが書き換わり、残りの画面がそれに追従します。
 
-## サイドバーでアプリのシェルを作る
+## サイドバーのあるアプリの枠を作る
 
-`basic::sidebar_provider(open, sidebar, page)` は、ページ領域の隣にサイドバーを置き、`open` signal を両方で共有します。メニューボタンは `.active(..)` で現在のページを示し、`.on_press(..)` でページを変えます。
+`kivact::ui::sidebar_provider(open, sidebar, page)` は、ページの領域の横にサイドバーを置き、`open` のシグナルを両者で共有します。メニューのボタンは `.active(..)` で現在のページを示し、`.on_press(..)` で切り替えます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -65,17 +65,16 @@ fn shell() -> impl Element {
 }
 ```
 
-- provider は親いっぱいに広がります。枠の中に置くときは、親に幅と高さを与えてください。
-- `.collapsible(..)` は、閉じたときの動作を決めます。`Offcanvas`（既定）は画面外へスライドし、`Icon` は幅 48 px のアイコンの列に縮んでラベルがツールチップになり、`None` は閉じられません。`.rail(true)` は、端に細い帯を足し、それで開閉できるようにします。
-- `basic::sidebar_trigger()`、rail、Ctrl+B（macOS では Cmd+B）は、どれも `open` を書きます。ショートカットをウィンドウのどこでも効かせたいときは、provider をアプリのルートの view にします。
-- `.side(basic::SidebarSide::Right)` はサイドバーを右に置き、`.variant(basic::SidebarVariant::Floating)` や `Inset` は枠の付け方を変えます。
-- `.header(..)`、`.content(..)`、`.footer(..)` は関数を取ります。グループは `sidebar_group(label)` に `.content(..)` と、必要なら `.action(..)` を付けたもので、グループの間は `basic::sidebar_separator()` で区切ります。
-- ボタンには `.badge("12")` で件数を、`.sub(|| (basic::sidebar_menu_sub_button("Overview").active(true), basic::sidebar_menu_sub_button("Roadmap")))` で入れ子の一覧を付けられます。
-- サイドバーに検索欄を置くには `basic::sidebar_input(label, signal)` を使います。
+- プロバイダーは親を埋めます。枠の大きさが決まっているなら、親に幅と高さを与えてください。
+- プロバイダーの `.collapsible(..)` は、閉じたときの動きを決めます。`Offcanvas`（既定）はサイドバーを画面の外へ滑らせ、`Icon` はラベルが吹き出しになったアイコンの 48 px の列に縮め、`None` は閉じられなくします。`.rail(true)` は、端に細い帯を足して開閉を切り替えます。
+- `kivact::ui::sidebar_trigger()`、レール、Ctrl+B（macOS では Cmd+B）は、どれも `open` に書き込みます。ウィンドウのどこでもショートカットが効くようにするには、プロバイダーをアプリのルートのビューにしてください。
+- `.side(kivact::ui::SidebarSide::Right)` はサイドバーを右に移し、`.frame(kivact::ui::SidebarFrame::Floating)` か `Inset` は枠の形を変えます。
+- `.header(..)`、`.content(..)`、`.footer(..)` はビューを受け取ります。グループは `kivact::ui::sidebar_group(label)` で作り、`.content(..)` と任意の `.action(..)` を持たせます。グループの間は `kivact::ui::sidebar_separator()` で区切ります。
+- サイドバーに検索欄を置くには `kivact::ui::sidebar_input(signal)` を使います。その `.name(..)` がラベルです。
 
-## タブでビューを切り替える
+## タブで表示を切り替える
 
-タブは標準の `tabs(label, items, value)` です。`current` は選択中のタブの key を持ち、常に選択肢のどれかです。`.content(|key| ..)` は、選ばれた key のパネルを作ります。
+タブは標準の `tabs(label, items, value)` です。`current` は選ばれたタブのキーを持ち、それは必ず選択肢のどれかです。`.content(|key| ..)` は、選ばれたキーのパネルを作ります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -101,13 +100,13 @@ fn account() -> impl Element {
 }
 ```
 
-- 既定は枠で囲んだ見た目です。`.variant(basic::TabsVariant::Line)` で下線の見た目になります。
-- `.orientation(Orientation::Vertical)` は、タブをパネルの脇に縦に積みます。
-- 第 1 引数は、タブ一覧の accessible name です。矢印キーでタブの間を移動します。
+- 既定は箱のような見た目です。`.variant(basic::TabsVariant::Line)` は、下線の見た目にします。
+- `.orientation(Orientation::Vertical)` は、タブをパネルの横に縦に並べます。
+- 最初の引数はタブの一覧のアクセシブルな名前です。矢印キーでタブのあいだを移動できます。
 
-## 今どこにいるかを示す
+## 利用者が今どこにいるかを示す
 
-`kivact::ui::breadcrumb(items)` にキー付きの `ListItem` を渡します。最後の項目が現在のページで、それ以前の項目を押すと `.on_activate(..)` がキーを受け取ります。
+キー付きの `ListItem` を `kivact::ui::breadcrumb(items)` に渡します。最後の項目が現在のページです。`.on_activate(..)` は、前の項目のキーを受け取ります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -126,11 +125,11 @@ fn trail() -> impl Element {
 }
 ```
 
-省略する階層は無効な項目にして、`.item(..)` スロットで ellipsis を描きます。`.separator(..)` で区切りのアイコンを渡し、右から左の境界では `chevron-left` を使います。
+隠れている階層を表す無効な項目には、`.item(..)` で省略記号を描きます。`.separator(..)` は装飾の山形を与えます。右から左へ書く環境では `chevron-left` を選んでください。
 
-## メニューバーを足す
+## メニューバーを追加する
 
-`basic::menubar(menus).on_activate(choose)` は `(タイトル, 項目)` の組の一覧を取り、タイトルを横に並べます。それぞれが標準のメニューを開きます。`choose` は、選ばれた項目の key を受け取ります。
+`basic::menubar(menus).on_activate(choose)` は、`(タイトル, 項目)` の組の一覧を受け取り、タイトルを 1 行に表示します。それぞれが標準のメニューを開きます。`choose` は、選ばれた項目のキーを受け取ります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -164,11 +163,11 @@ fn bar() -> impl Element {
 }
 ```
 
-項目は、ほかのメニューと同じ `MenuEntry` です（項目、チェック項目、ラジオ項目、見出し、サブメニュー。[オーバーレイ](overlays.md)を参照）。`Vec` の代わりにクロージャを渡すと、メニューが signal に追従します。バーはシステムのメニューを置き換えません。ウィンドウの中のふつうの行です。
+項目は、どのメニューとも同じ `MenuEntry` の値です（項目、チェックと選択の項目、見出し、サブメニュー。[オーバーレイ](overlays.md#ボタンや右クリックからメニューを開く)を参照してください）。`Vec` の代わりにクロージャを渡すと、メニューがシグナルに従います。バーはシステムのメニューを奪いません。ウィンドウの中の普通の行です。
 
-## ページの上部からセクションへ移動する
+## ページの上部からセクションへリンクする
 
-`kivact::ui::navigation_menu(label)` はナビゲーションの行を作ります。`navigation_menu(...).action(key, label, action)` は押されると `action` を実行します。`navigation_menu(...).link(key, label, content)` は、項目の下にパネルを開き、`content` がそのパネルの view を作る関数です。パネルの中の行には `kivact::ui::navigation_menu_link(title)` を使います。
+`kivact::ui::navigation_menu(label)` は、ナビゲーションの項目の行です。`navigation_menu(...).action(key, label, action)` は、押されると `action` を実行します。`navigation_menu(...).link(key, label, content)` は、項目の下にパネルを開きます。`content` はパネルのビューを、開くたびに作ります。パネルの中の行には `kivact::ui::navigation_menu_link(title)` を使います。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -198,9 +197,9 @@ fn top_nav() -> impl Element {
 }
 ```
 
-## 長い一覧をページに分ける
+## 長い一覧をページ送りする
 
-`kivact::ui::pagination(count, page)` は、前へ・次へのボタンとページ番号を表示し、ページが多いときは省略記号を使います。`page` は 0 から数える signal、`count` はページ数です。
+`kivact::ui::pagination(count, page)` は、前へと次へのボタンとページ番号を表示します。多いときは省略記号を使います。`page` は 0 から始まるシグナル、`count` はページ数です。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -217,15 +216,15 @@ fn pager() -> impl Element {
 }
 ```
 
-- `.label_format(|number| format!("p.{number}"))` は、ページ番号の表記を変えます。
-- `.item(|cell| ..)` でセルの表示内容を変更します。選択と移動は同じページ束縛が管理します。
-- 「Previous」「Next」の語と accessible label は `basic.pagination.*` のメッセージから来ます。置き換え方は[テーマとトークン](theme-and-tokens.md)を参照してください。
-- 表の行をページに分けるなら、`data_table(..).page(page, size)` にページ分けが組み込まれています。[データの表示](data-display.md)を参照してください。
+- `.label_format(|number| format!("p.{number}"))` は、ページ番号の読み方を変えます。
+- 表示するセルの中身を変えるには `.item(|cell| ..)` を使います。選択と移動は、ページのバインディングがこれまでどおり持ちます。
+- 「Previous」「Next」の語と accessible label は `basic.pagination.*` のメッセージから来ます。差し替えられます。[テーマと変数](theme-and-tokens.md#フォントを選ぶ)を参照してください。
+- 表の行をページ送りするなら、`data_table(..).page(page, size)` にページ送りが組み込まれています。[データを表示する](data-display.md)を参照してください。
 
-## 関連項目
+## 関連
 
 - [オーバーレイ](overlays.md): メニュー、ポップオーバー、ダイアログ。
-- [データの表示](data-display.md): 並べ替えとページ分けのある表。
-- rustdoc: サイドバーの部品とナビゲーションのコンポーネントは `cargo doc -p kivact-ui-basic --open`。
+- [データを表示する](data-display.md): 並べ替えとページ送りのあるテーブル。
+- リファレンス: サイドバーの部品とナビゲーションの部品は `cargo doc -p kivact-ui --open`。
 
-`basic::MenuVariant::Bar` は Basic menubar が使う標準メニューの公開されたコンパクトな外観です。同じ外観を直接組み立てる場合は `.variant(..)` で渡します。
+`basic::MenuVariant::Bar` は、Basic のメニューバーが使う標準のメニューの、公開されたコンパクトな見た目です。同じ見た目を直接組み立てるときに `.variant(..)` で渡します。

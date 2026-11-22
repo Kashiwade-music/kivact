@@ -194,7 +194,7 @@ mod tests {
 
 Pop の見た目を持ち、型付きの状態、欄ごとのエラー、本物の日付入力、そして合格するテストを備えたフォームができました。さらに進むには:
 
-- [Pop のテーマとトークンを設定する](../how-to-guide/theme-and-tokens.md): ダークモードや色の変更。
+- [Pop のテーマと変数を設定する](../how-to-guide/theme-and-tokens.md): ダークモードや色の変更。
 - [日付と期間を選ばせる](../how-to-guide/dates-and-calendars.md): 期間、単体のカレンダー、イベントの点。
 
 次へ: [Pop 作業別ガイド](../how-to-guide/README.md)

@@ -86,4 +86,4 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-見た目は[テーマとトークン](theme-and-tokens.md)、アプリが持つ検証規則は[検証](../getting-started/03-validate-and-submit.md)を参照してください。
+見た目は[テーマと変数](theme-and-tokens.md)、アプリが持つ検証規則は[検証](../getting-started/03-validate-and-submit.md)を参照してください。

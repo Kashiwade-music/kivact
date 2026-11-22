@@ -38,7 +38,7 @@ fn summary() -> impl Element {
 
 `description_list(..)` groups `description(term, detail)` rows. Details accept any view, including a badge, button or progress ring; `.term_content(..)` changes the visible term while retaining its accessible name.
 
-`progress(Some(fraction))` takes a value from 0 to 1; `None` is indeterminate. `ProgressVariant::Ring` shows a circle and visible percentage, `Bar` the normal bar and `Gauge` a segmented bar. `.name(..)` supplies its accessible name. A static `pop::Hue` or reactive `pop::ProgressHue` selects its color; `kivact::ui::Striped` and `pop::Segments(n)` retain the bar options. Draw a visible label beside the component when needed.
+`progress(Some(fraction))` takes a value from 0 to 1; `None` is indeterminate. `ProgressVariant::Ring` shows a circle and visible percentage, `Bar` the normal bar and `Gauge` a segmented bar. `.name(..)` supplies its accessible name. A `pop::Hue`, fixed or read from a signal, selects its color; `kivact::ui::Striped` and `pop::Segments(n)` retain the bar options. Draw a visible label beside the component when needed.
 
 ## Record rows and avatars
 

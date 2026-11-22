@@ -87,19 +87,31 @@ takes one follows the switch without a closure.
 
 ## Change colors
 
-Pop's colors are the core color variables of `kivact::style::color`: the
-accent of a primary button, the danger color of a destructive action, the
-border of a card. The kit sets them when the theme is built, so you change a
-color by setting its variable on the theme. Components read the variable in
-the theme in effect, so changing it restyles them all:
+Pop's colors are its own theme variables, exported from `kivact_ui_pop`. Each
+one has a variable to set on a theme (`BLUE_VAR`) and a constant to use in a
+style (`BLUE`):
+
+- `BLUE`: the accent of the kit's controls (primary buttons, checked boxes,
+  selected tabs and calendar days).
+- `RED`: the danger color, for destructive actions and errors.
+- `MINT` and `YELLOW`: the success and warning colors.
+- `SURFACE`: the cards and panels. `TEXT` and `TEXT_MUTED` are the body and
+  secondary text. `LINE` is the hairlines and borders.
+
+The kit sets them when the theme is built, so you change a color by setting its
+variable on the theme. Components read the variable in the theme in effect, so
+changing it restyles them all. The theme also sets the core variables of
+`kivact::style::color` (the accent, the danger, the success, the warning, the
+surfaces, the text and the border) from these, so the components of
+`kivact::ui` follow the same colors:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::{Theme, ThemeMode, color, rgb};
+use kivact::style::{Theme, ThemeMode, rgb};
 use kivact_ui_pop as pop;
 
 fn brand_theme() -> Theme {
-    pop::theme(ThemeMode::Light).set(&color::ACCENT_VAR, rgb(0x0f766e))
+    pop::theme(ThemeMode::Light).set(&pop::BLUE_VAR, rgb(0x0f766e))
 }
 
 fn main() -> kivact::Result<()> {
@@ -109,14 +121,8 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-Set the light and dark values separately when the app can switch: build the
-theme for the mode it is given, as `brand_theme` does for light.
-
-The variables you will most often change are `color::ACCENT_VAR` (the primary
-action and the accent of sliders), `color::DANGER_VAR` (destructive actions),
-`color::SUCCESS_VAR`, `color::WARNING_VAR`, `color::BORDER_VAR` and
-`color::SURFACE_VAR` (the page and card surfaces). Each one has a matching
-constant, such as `color::ACCENT`, for use in a style.
+Set the light and dark values separately when the app can switch: call `set` on
+the theme for the mode it is given, so each mode gets its own value.
 
 ## Read the variables in your own components
 
