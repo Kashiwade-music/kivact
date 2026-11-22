@@ -151,4 +151,3 @@ fn complex_selector_uses_the_same_search_binding_in_its_two_surfaces() {
         Some("des"),
     );
 }
-

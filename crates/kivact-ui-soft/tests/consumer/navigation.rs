@@ -157,7 +157,7 @@ fn layout_components_mount_and_interact() {
     assert!(screen.query_by_text("Disclosure body").is_some());
     screen.get_by_role(Role::Button, "11").click();
     assert!(screen.query_by_text("Page state 11").is_some());
-    screen.get_by_role(Role::Button, "Two").click();
+    screen.get_by_role(Role::Tab, "Two").click();
     assert!(screen.query_by_text("Tab state two").is_some());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
@@ -185,13 +185,13 @@ fn shell_adapts_navigation_and_opens_the_mobile_drawer() {
         },
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-    assert!(screen.query_by_role(Role::Link, "Files").is_some());
+    assert!(screen.query_by_role(Role::Button, "Files").is_some());
     screen.resize(600.0, 600.0);
-    assert!(screen.query_by_role(Role::Link, "Files").is_none());
+    assert!(screen.query_by_role(Role::Button, "Files").is_none());
     screen.get_by_role(Role::Button, "Open navigation").click();
     assert!(screen.query_by_role(Role::Dialog, "Navigation").is_some());
     screen.advance(std::time::Duration::from_millis(350));
-    screen.get_by_role(Role::Link, "Files").click();
+    screen.get_by_role(Role::Button, "Files").click();
     screen.advance(std::time::Duration::from_millis(350));
     assert!(screen.query_by_role(Role::Dialog, "Navigation").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());

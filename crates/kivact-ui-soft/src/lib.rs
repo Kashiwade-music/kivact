@@ -48,6 +48,7 @@ mod nav_heading;
 mod nav_icon;
 mod navigation_session;
 mod outline;
+mod pagination;
 mod power_search;
 mod radius;
 mod recipe_parts;
@@ -186,6 +187,7 @@ pub use nav_heading::{
 };
 pub use nav_icon::nav_icon;
 pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
+pub use pagination::pagination_status;
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
 pub use radius::{
     RADIUS_CHAT, RADIUS_CONTAINER, RADIUS_ELEMENT, RADIUS_FULL, RADIUS_INNER, RADIUS_NONE,

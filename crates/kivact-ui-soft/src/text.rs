@@ -10,12 +10,12 @@ use kivact::style::TextAlign;
 use kivact::style::TextDecorationLine;
 use kivact::style::style;
 use kivact::ui::{Tooltip, tooltip};
-use kivact::view::{Element, IntoView, Node, Placement, View};
 use kivact::view::ReadingDirection;
 use kivact::view::Role;
 use kivact::view::node_ref;
 use kivact::view::text as control_text;
 use kivact::view::use_direction;
+use kivact::view::{Element, IntoView, Node, Placement, View};
 
 /// Named typography roles resolved from the current Soft theme.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Prop)]

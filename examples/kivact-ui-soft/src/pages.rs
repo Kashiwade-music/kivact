@@ -24,6 +24,37 @@ fn labelled(title: &str, view: impl IntoView) -> Node {
 
 /// All component pages, in the order of the list.
 pub fn pages() -> Vec<Page> {
+    [
+        part_1(),
+        part_2(),
+        part_3(),
+        part_4(),
+        part_5(),
+        part_6(),
+        part_7(),
+        part_8(),
+        part_9(),
+        part_10(),
+        part_11(),
+        part_12(),
+        part_13(),
+        part_14(),
+        part_15(),
+        part_16(),
+        part_17(),
+        part_18(),
+        part_19(),
+        part_20(),
+        part_21(),
+        part_22(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
+}
+
+/// Part 1 of the page list, in list order.
+fn part_1() -> Vec<Page> {
     vec![
         Page::new(
             "button",
@@ -85,6 +116,12 @@ pub fn pages() -> Vec<Page> {
             "",
             controls::example_icon_button,
         )),
+    ]
+}
+
+/// Part 2 of the page list, in list order.
+fn part_2() -> Vec<Page> {
+    vec![
         Page::new("link", "Link", "Action", include_str!("pages/content.rs"))
             .example(Example::new("link", "Link", "", content::example_link)),
         Page::new(
@@ -137,6 +174,12 @@ pub fn pages() -> Vec<Page> {
         )),
         Page::new("chat", "Chat", "Chat", include_str!("pages/collections.rs"))
             .example(Example::new("chat", "Chat", "", collections::example_chat)),
+    ]
+}
+
+/// Part 3 of the page list, in list order.
+fn part_3() -> Vec<Page> {
+    vec![
         Page::new(
             "chat-dictation-button",
             "Chat Dictation Button",
@@ -192,6 +235,12 @@ pub fn pages() -> Vec<Page> {
             "",
             collections::example_clickable_card,
         )),
+    ]
+}
+
+/// Part 4 of the page list, in list order.
+fn part_4() -> Vec<Page> {
+    vec![
         Page::new(
             "collapsible",
             "Collapsible",
@@ -252,6 +301,12 @@ pub fn pages() -> Vec<Page> {
             "",
             content::example_blockquote,
         )),
+    ]
+}
+
+/// Part 5 of the page list, in list order.
+fn part_5() -> Vec<Page> {
+    vec![
         Page::new(
             "citation",
             "Citation",
@@ -310,6 +365,12 @@ pub fn pages() -> Vec<Page> {
             "",
             content::example_kbd,
         )),
+    ]
+}
+
+/// Part 6 of the page list, in list order.
+fn part_6() -> Vec<Page> {
+    vec![
         Page::new(
             "markdown",
             "Markdown",
@@ -369,6 +430,12 @@ pub fn pages() -> Vec<Page> {
             include_str!("pages/feedback.rs"),
         )
         .example(Example::new("badge", "Badge", "", feedback::example_badge)),
+    ]
+}
+
+/// Part 7 of the page list, in list order.
+fn part_7() -> Vec<Page> {
+    vec![
         Page::new(
             "banner",
             "Banner",
@@ -429,6 +496,12 @@ pub fn pages() -> Vec<Page> {
             "",
             feedback::example_status_dot,
         )),
+    ]
+}
+
+/// Part 8 of the page list, in list order.
+fn part_8() -> Vec<Page> {
+    vec![
         Page::new(
             "calendar",
             "Calendar",
@@ -489,6 +562,12 @@ pub fn pages() -> Vec<Page> {
             "",
             dates::example_date_input,
         )),
+    ]
+}
+
+/// Part 9 of the page list, in list order.
+fn part_9() -> Vec<Page> {
+    vec![
         Page::new(
             "date-range-input",
             "Date Range Input",
@@ -544,6 +623,12 @@ pub fn pages() -> Vec<Page> {
             "",
             forms::example_file_input,
         )),
+    ]
+}
+
+/// Part 10 of the page list, in list order.
+fn part_10() -> Vec<Page> {
+    vec![
         Page::new(
             "indicator",
             "Indicator",
@@ -604,6 +689,12 @@ pub fn pages() -> Vec<Page> {
             "",
             forms::example_power_search,
         )),
+    ]
+}
+
+/// Part 11 of the page list, in list order.
+fn part_11() -> Vec<Page> {
+    vec![
         Page::new(
             "radio-list",
             "Radio List",
@@ -664,6 +755,12 @@ pub fn pages() -> Vec<Page> {
             "",
             controls::example_switch,
         )),
+    ]
+}
+
+/// Part 12 of the page list, in list order.
+fn part_12() -> Vec<Page> {
+    vec![
         Page::new(
             "text-area",
             "Text Area",
@@ -724,6 +821,12 @@ pub fn pages() -> Vec<Page> {
             "",
             forms::example_typeahead,
         )),
+    ]
+}
+
+/// Part 13 of the page list, in list order.
+fn part_13() -> Vec<Page> {
+    vec![
         Page::new(
             "app-shell",
             "App Shell",
@@ -784,6 +887,12 @@ pub fn pages() -> Vec<Page> {
             "",
             collections::example_form_layout,
         )),
+    ]
+}
+
+/// Part 14 of the page list, in list order.
+fn part_14() -> Vec<Page> {
+    vec![
         Page::new(
             "grid",
             "Grid",
@@ -839,6 +948,12 @@ pub fn pages() -> Vec<Page> {
             "",
             collections::example_section,
         )),
+    ]
+}
+
+/// Part 15 of the page list, in list order.
+fn part_15() -> Vec<Page> {
+    vec![
         Page::new(
             "stack",
             "Stack",
@@ -899,6 +1014,12 @@ pub fn pages() -> Vec<Page> {
             "",
             navigation::example_nav_menu,
         )),
+    ]
+}
+
+/// Part 16 of the page list, in list order.
+fn part_16() -> Vec<Page> {
+    vec![
         Page::new(
             "outline",
             "Outline",
@@ -959,6 +1080,12 @@ pub fn pages() -> Vec<Page> {
             "",
             navigation::example_stepper,
         )),
+    ]
+}
+
+/// Part 17 of the page list, in list order.
+fn part_17() -> Vec<Page> {
+    vec![
         Page::new(
             "tab-list",
             "Tab List",
@@ -1019,6 +1146,12 @@ pub fn pages() -> Vec<Page> {
             "",
             overlays::example_bottom_sheet,
         )),
+    ]
+}
+
+/// Part 18 of the page list, in list order.
+fn part_18() -> Vec<Page> {
+    vec![
         Page::new(
             "bottom-sheet-switcher",
             "Bottom Sheet Switcher",
@@ -1079,6 +1212,12 @@ pub fn pages() -> Vec<Page> {
             "",
             overlays::example_hover_card,
         )),
+    ]
+}
+
+/// Part 19 of the page list, in list order.
+fn part_19() -> Vec<Page> {
+    vec![
         Page::new(
             "lightbox",
             "Lightbox",
@@ -1134,6 +1273,12 @@ pub fn pages() -> Vec<Page> {
             "",
             overlays::example_tooltip,
         )),
+    ]
+}
+
+/// Part 20 of the page list, in list order.
+fn part_20() -> Vec<Page> {
+    vec![
         Page::new(
             "item",
             "Item",
@@ -1184,6 +1329,12 @@ pub fn pages() -> Vec<Page> {
             "",
             collections::example_table,
         )),
+    ]
+}
+
+/// Part 21 of the page list, in list order.
+fn part_21() -> Vec<Page> {
+    vec![
         Page::new(
             "tree-list",
             "Tree List",
@@ -1244,6 +1395,12 @@ pub fn pages() -> Vec<Page> {
             "",
             utilities::example_media_theme,
         )),
+    ]
+}
+
+/// Part 22 of the page list, in list order.
+fn part_22() -> Vec<Page> {
+    vec![
         Page::new(
             "syntax-theme",
             "Syntax Theme",

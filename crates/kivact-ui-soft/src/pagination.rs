@@ -1,8 +1,8 @@
 //! Role: Present pagination facts as the page text, the item range and the polite page status.
 use kivact::state::Value;
 use kivact::style::{Position, style};
-use kivact::ui::PaginationSummary;
-use kivact::view::{IntoView, LiveRegion, Node, Role, node, text};
+use kivact::ui::theme::PaginationSummary;
+use kivact::view::{LiveRegion, Node, Role, node, text};
 
 fn page_messages(facts: Value<PaginationSummary>) -> Value<String> {
     let known = kivact::i18n::message_with(
@@ -24,43 +24,6 @@ fn page_messages(facts: Value<PaginationSummary>) -> Value<String> {
             current.get()
         } else {
             known.get()
-        }
-    })
-}
-/// Present a page number and known total from the canonical actual source.
-pub fn pagination_page_summary(facts: Value<PaginationSummary>) -> impl IntoView {
-    text(page_messages(facts))
-}
-/// Present the item range when configured, otherwise the actual page summary.
-pub fn pagination_count(facts: Value<PaginationSummary>) -> impl IntoView {
-    let page = page_messages(facts);
-    let range = kivact::i18n::message_with(
-        "pagination.item_count",
-        "{from}–{to} of {total}",
-        move || {
-            let facts = facts.get();
-            let total = facts.total_items.unwrap_or(0);
-            let width = u64::from(facts.page_size);
-            let from = (facts.page as u64)
-                .saturating_mul(width)
-                .saturating_add(1)
-                .min(total);
-            let to = (facts.page as u64)
-                .saturating_add(1)
-                .saturating_mul(width)
-                .min(total);
-            [
-                ("from", from.to_string()),
-                ("to", to.to_string()),
-                ("total", total.to_string()),
-            ]
-        },
-    );
-    text(move || {
-        if facts.get().total_items.is_some() {
-            range.get()
-        } else {
-            page.get()
         }
     })
 }
