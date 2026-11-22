@@ -1658,3 +1658,16 @@ lane P（heading の variant、styled_text の node_ref、chat_composer の Shif
   - `kivact-test` の `LayoutCheck` の既定で、その test id の部分木を飛ばす（既存の `ignore_test_id` の仕組みを、既定値として使う）。
   - `LayoutCheck` の doc に 1 文足す：「By default it skips the announcer outlet (`kivact.announcer`), a region only screen readers read.」
   - lane P の 1 つの commit で行う。catalog-shell の側は変えない。
+
+## 設計者の回答（P9-b と K43 の 3 件、2026-11-22）
+
+1. **P9-b**：`kivact-types` の `impl Default for LayoutCheck` の `ignore_test_ids` に `"kivact.announcer"` を足す（既定の置き場は一つ）。P9 の所有に `crates/kivact-types/src/check.rs` を足す。doc の 1 文は、その `Default` の doc に書く。
+2. **K43 (a) mobile の drawer**：期待値を変える（前の「期待値を保つ」を改める）。
+   - 中の押下を区別する中核の API を足すと、sidebar に暗黙の結合が増える。shadcn の sidebar と同じく、閉じるのは app の明示の操作にする。
+   - 試験は、Files の menu button の `on_press` で app_shell の公開の handle（`AppShellMobile::hide()`）を呼び、drawer が閉じることを確かめる形に書き換える。
+   - G の移行の文書に 1 行（W11b）：「soft の app_shell の drawer は、navigation の押下で自動では閉じない。押下の handler で `hide()` を呼ぶ。」
+3. **K43 (b) busy の描画**：中核の誤りとして直す（lane P の commit）。soft を入れない中核の theme でも、reveal の遅れが 0 なのに 2400ms まで描かれないのはおかしい。
+   - 中核の button の busy の表示が、`BUSY_REVEAL_DELAY_MS_VAR`・`BUSY_REVEAL_FADE_MS_VAR` のどの値でいつ描くかを確かめる。2400ms がどこから来るか（別の変数、animation の始まりの位相、reduced motion の分岐など）を突き止めて直す。
+   - 中核の試験（button の試験の file）に 1 件：`fn a_busy_spinner_shows_after_its_reveal_delay()`。
+   - 試験の期待が付属書の決め（U の busy の項）と食い違うと分かったら返す。
+4. **K43 (d) selector_touch の complex selector**：試験を消す（4.6 の表に 1 行）。この試験は、二つの面で同じ検索の binding を使う `selection_field` の振る舞いを確かめるもので、`selection_field` は U23 で消した（8 と同じ扱い）。setup を書き換えて検索の面を足すと、別の部品の試験になる。
