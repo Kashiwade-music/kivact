@@ -69,43 +69,43 @@ color_vars! {
 }
 
 /// The cards and panels of the kit: the core surface unless the theme sets it.
-pub(crate) static SURFACE_VAR: ThemeVar<Color> = ThemeVar::alias("pop.surface", &core::SURFACE_VAR);
+pub static SURFACE_VAR: ThemeVar<Color> = ThemeVar::alias("pop.surface", &core::SURFACE_VAR);
 /// The cards and panels of the kit.
-pub(crate) const SURFACE: Color = Color::var(&SURFACE_VAR);
+pub const SURFACE: Color = Color::var(&SURFACE_VAR);
 /// Hovered and selected surfaces: the core alternate surface unless set.
 pub(crate) static SURFACE_ACTIVE_VAR: ThemeVar<Color> =
     ThemeVar::alias("pop.surface_active", &core::SURFACE_ALT_VAR);
 /// Hovered and selected surfaces.
 pub(crate) const SURFACE_ACTIVE: Color = Color::var(&SURFACE_ACTIVE_VAR);
 /// Body text: the core text unless set.
-pub(crate) static TEXT_VAR: ThemeVar<Color> = ThemeVar::alias("pop.text", &core::TEXT_VAR);
+pub static TEXT_VAR: ThemeVar<Color> = ThemeVar::alias("pop.text", &core::TEXT_VAR);
 /// Body text.
-pub(crate) const TEXT: Color = Color::var(&TEXT_VAR);
+pub const TEXT: Color = Color::var(&TEXT_VAR);
 /// Secondary text: the core muted text unless set.
-pub(crate) static TEXT_MUTED_VAR: ThemeVar<Color> =
+pub static TEXT_MUTED_VAR: ThemeVar<Color> =
     ThemeVar::alias("pop.text_muted", &core::TEXT_MUTED_VAR);
 /// Secondary text.
-pub(crate) const TEXT_MUTED: Color = Color::var(&TEXT_MUTED_VAR);
+pub const TEXT_MUTED: Color = Color::var(&TEXT_MUTED_VAR);
 /// Hairlines and borders: the core border unless set.
-pub(crate) static LINE_VAR: ThemeVar<Color> = ThemeVar::alias("pop.line", &core::BORDER_VAR);
+pub static LINE_VAR: ThemeVar<Color> = ThemeVar::alias("pop.line", &core::BORDER_VAR);
 /// Hairlines and borders.
-pub(crate) const LINE: Color = Color::var(&LINE_VAR);
+pub const LINE: Color = Color::var(&LINE_VAR);
 /// The blue accent: the core accent unless set.
-pub(crate) static BLUE_VAR: ThemeVar<Color> = ThemeVar::alias("pop.blue", &core::ACCENT_VAR);
+pub static BLUE_VAR: ThemeVar<Color> = ThemeVar::alias("pop.blue", &core::ACCENT_VAR);
 /// The blue accent.
-pub(crate) const BLUE: Color = Color::var(&BLUE_VAR);
+pub const BLUE: Color = Color::var(&BLUE_VAR);
 /// The red status color: the core danger unless set.
-pub(crate) static RED_VAR: ThemeVar<Color> = ThemeVar::alias("pop.red", &core::DANGER_VAR);
+pub static RED_VAR: ThemeVar<Color> = ThemeVar::alias("pop.red", &core::DANGER_VAR);
 /// The red status color.
-pub(crate) const RED: Color = Color::var(&RED_VAR);
+pub const RED: Color = Color::var(&RED_VAR);
 /// The mint status color: the core success unless set.
-pub(crate) static MINT_VAR: ThemeVar<Color> = ThemeVar::alias("pop.mint", &core::SUCCESS_VAR);
+pub static MINT_VAR: ThemeVar<Color> = ThemeVar::alias("pop.mint", &core::SUCCESS_VAR);
 /// The mint status color.
-pub(crate) const MINT: Color = Color::var(&MINT_VAR);
+pub const MINT: Color = Color::var(&MINT_VAR);
 /// The yellow status color: the core warning unless set.
-pub(crate) static YELLOW_VAR: ThemeVar<Color> = ThemeVar::alias("pop.yellow", &core::WARNING_VAR);
+pub static YELLOW_VAR: ThemeVar<Color> = ThemeVar::alias("pop.yellow", &core::WARNING_VAR);
 /// The yellow status color.
-pub(crate) const YELLOW: Color = Color::var(&YELLOW_VAR);
+pub const YELLOW: Color = Color::var(&YELLOW_VAR);
 
 /// The accent gradient's end (constant in both modes).
 pub(crate) static ACCENT_GRADIENT_END_VAR: ThemeVar<Color> =
