@@ -1,11 +1,32 @@
-//! Role: Check standard semantics, layout, recipes and focus paint in all kit themes.
+//! Role: Check standard semantics, layout, recipes, focus paint and the
+//! theme switch of the five kits.
+use kivact::interaction::Tone;
 use kivact::prelude::*;
-use kivact::style::ColorToken;
 use kivact::test::{RenderOptions, Screen, Screenshot, render_with_handle};
-use kivact::ui::{self, Look, Recipe, UiRecipes};
+use kivact::ui::theme::{
+    ButtonTheme, CheckboxTheme, DisclosureTheme, FieldTheme, ListTheme, ProgressTheme,
+    RadioGroupTheme, SelectTheme, SliderTheme, SwitchTheme, TabsTheme, TextInputTheme,
+};
+use kivact::ui::{self, RadioGroupVariant};
+use kivact::view::Orientation;
 use kivact_public_api_tests::paint::distance;
+use std::time::Duration;
 
 static INTER: &[u8] = include_bytes!("../../../../../crates/arvane/tests/fonts/InterVariable.ttf");
+
+/// A kit theme in a mode.
+type KitTheme = fn(ThemeMode) -> Theme;
+
+/// The five kit themes, by name.
+fn kits() -> [(&'static str, KitTheme); 5] {
+    [
+        ("Basic", kivact_ui_basic::theme),
+        ("Game", kivact_ui_game::theme),
+        ("Pop", kivact_ui_pop::theme),
+        ("Creative", kivact_ui_creative::theme),
+        ("Soft", kivact_ui_soft::theme),
+    ]
+}
 
 fn choices() -> Vec<ListItem<&'static str>> {
     vec![
@@ -31,17 +52,12 @@ fn focus_pixels(screen: &Screen, theme: &Theme) {
     assert!(button.is_focused(), "first Tab enters the standard button");
     let after = screen.screenshot();
     let painted = after.pixel(x, y).expect("ring pixel");
-    let focus = theme.colors().focus.resolve(theme);
-    let channel = |shift: u32| {
+    let [red, green, blue, alpha] = theme.get(&color::FOCUS_VAR).components(theme);
+    let channel = |shift: u32, color: f64| {
         let base = ((background >> shift) & 255u32) as f64;
-        let color = match shift {
-            16 => focus.r,
-            8 => focus.g,
-            _ => focus.b,
-        };
-        (color * 255.0 * focus.a + base * (1.0 - focus.a)).round() as u32
+        (color * 255.0 * alpha + base * (1.0 - alpha)).round() as u32
     };
-    let expected = channel(16) << 16 | channel(8) << 8 | channel(0);
+    let expected = channel(16, red) << 16 | channel(8, green) << 8 | channel(0, blue);
     assert!(
         distance(painted, expected) <= 8,
         "actual theme focus pixel {painted:06x}, expected {expected:06x}"
@@ -99,7 +115,9 @@ fn contract_view() -> (Handles, impl IntoView) {
             ))
             .style(style().gap(20)),
             ui::radio_group("Mode", choices(), signal(Some("a"))),
-            ui::select("Choice", choices(), selected).style(style().width(280)),
+            ui::select(choices(), selected)
+                .label("Choice")
+                .style(style().width(280)),
             ui::tabs(
                 "Sections",
                 vec![ListItem::new("a", "First"), ListItem::new("c", "Second")],
@@ -107,14 +125,18 @@ fn contract_view() -> (Handles, impl IntoView) {
             )
             .content(|key| text(format!("Content {key}")))
             .style(style().width(280)),
-            ui::text_input("Editor", signal("Initial".to_owned())).style(style().width(280)),
+            ui::text_input(signal("Initial".to_owned()))
+                .label("Editor")
+                .style(style().width(280)),
             ui::field(
                 "Field",
-                ui::text_input("Old name", signal("Name".to_owned())),
+                ui::text_input(signal("Name".to_owned())).label("Old name"),
             )
             .hint("Helpful hint")
             .style(style().width(280)),
-            ui::slider("Level", signal(0.5)).style(style().width(280)),
+            ui::slider(signal(0.5))
+                .label("Level")
+                .style(style().width(280)),
             ui::progress(Some(0.5))
                 .name("Progress")
                 .style(style().width(280)),
@@ -127,7 +149,7 @@ fn contract_view() -> (Handles, impl IntoView) {
                 .padding(24)
                 .gap(12)
                 .align_items(Align::Start)
-                .background(ColorToken::Surface),
+                .background(color::SURFACE),
         ),
     )
 }
@@ -151,13 +173,12 @@ fn components() -> [(Role, &'static str); 12] {
     ]
 }
 
-/// The components of [`components`] whose recipe each kit's own table sets,
-/// mirroring `build()` in the kit's `recipes.rs`: Save is `button`, Check
-/// `checkbox`, Switch `switch`, Mode `radio_group`, Choice `select`,
-/// Sections `tabs`, Editor and Field `text_input` (Field also `field` where
-/// the kit sets it), Level `slider`, Progress `progress`, Details
-/// `disclosure` and Items `list`. Add a name here when a kit starts to set
-/// the recipe.
+/// The components of [`components`] whose recipe each kit sets, mirroring
+/// each kit's theme: Save is `button`, Check `checkbox`, Switch
+/// `switch`, Mode `radio_group`, Choice `select`, Sections `tabs`, Editor and
+/// Field `text_input` (Field also `field`), Level `slider`, Progress
+/// `progress`, Details `disclosure` and Items `list`. Add a name here when a
+/// kit starts to set the recipe.
 const KIT_RECIPES: [(&str, &[&str]); 5] = [
     (
         "Basic",
@@ -208,40 +229,32 @@ fn painted_differently(kit: &Screenshot, plain: &Screenshot, rect: kivact::geome
         .any(|(a, b)| distance(*a, *b) > 8)
 }
 
-/// `recipe` as a table entry again.
-fn same<S: 'static>(
-    recipe: Recipe<S>,
-) -> impl Fn(&Theme, &Look<S>) -> Style + Send + Sync + 'static {
-    move |theme, look| recipe(theme, look)
-}
-
-/// The kit's recipes with the recipes behind the component `name` replaced
-/// by the library's defaults, all the others kept.
-fn recipes_without(kit: &UiRecipes, name: &str) -> UiRecipes {
-    let d = UiRecipes::default();
-    let kit = kit.clone();
+/// `theme` with the recipes of the component `name` replaced by the
+/// library defaults (its `<Name>Theme::default()`), all the others kept.
+fn without_recipe(theme: &Theme, name: &str) -> Theme {
+    let theme = theme.clone();
     match name {
-        "Save" => kit.button(|_| same(d.button_recipe().clone())),
-        "Check" => kit.checkbox(|_| same(d.checkbox_recipe().clone())),
-        "Switch" => kit.switch(|_| same(d.switch_recipe().clone())),
-        "Mode" => kit.radio_group(|_| d.radio_group_recipes().clone()),
-        "Choice" => kit.select(|_| d.select_recipes().clone()),
-        "Sections" => kit.tabs(|_| d.tabs_recipes().clone()),
-        "Editor" => kit.text_input(|_| same(d.text_input_recipe().clone())),
-        "Field" => kit
-            .text_input(|_| same(d.text_input_recipe().clone()))
-            .field(|_| d.field_recipes().clone()),
-        "Level" => kit.slider(|_| d.slider_recipes().clone()),
-        "Progress" => kit.progress(|_| d.progress_recipes().clone()),
-        "Details" => kit.disclosure(|_| d.disclosure_recipes().clone()),
-        "Items" => kit.list(|_| d.list_recipes().clone()),
+        "Save" => theme.with(ButtonTheme::default()),
+        "Check" => theme.with(CheckboxTheme::default()),
+        "Switch" => theme.with(SwitchTheme::default()),
+        "Mode" => theme.with(RadioGroupTheme::default()),
+        "Choice" => theme.with(SelectTheme::default()),
+        "Sections" => theme.with(TabsTheme::default()),
+        "Editor" => theme.with(TextInputTheme::default()),
+        "Field" => theme
+            .with(TextInputTheme::default())
+            .with(FieldTheme::default()),
+        "Level" => theme.with(SliderTheme::default()),
+        "Progress" => theme.with(ProgressTheme::default()),
+        "Details" => theme.with(DisclosureTheme::default()),
+        "Items" => theme.with(ListTheme::default()),
         _ => unreachable!("no recipe behind {name}"),
     }
 }
 
-/// Mount the view with the kit's theme, then once per component the kit
-/// styles with the same theme but that component's recipes replaced by the
-/// library's defaults: the component must paint differently, so a recipe
+/// Mount the view with the kit theme, then once per component the kit
+/// styles with the same theme but that component recipes replaced by the
+/// library defaults: the component must paint differently, so a recipe
 /// the kit forgot to install is caught. (Replacing the whole table at once
 /// would let layout shifts of other components hide a missing recipe.)
 fn kit_recipes_paint(kit: &str, mode: ThemeMode, theme: &Theme, screen: &Screen) {
@@ -251,7 +264,6 @@ fn kit_recipes_paint(kit: &str, mode: ThemeMode, theme: &Theme, screen: &Screen)
         .expect("every kit has a recipe table")
         .1;
     let kit_shot = screen.screenshot();
-    let kit_recipes = theme.ext::<UiRecipes>();
     for (role, name) in components() {
         if !names.contains(&name) {
             continue;
@@ -260,8 +272,7 @@ fn kit_recipes_paint(kit: &str, mode: ThemeMode, theme: &Theme, screen: &Screen)
             .get_by_role(role, name)
             .rect()
             .expect("visible recipe geometry");
-        let plain_theme = theme.clone().with(recipes_without(&kit_recipes, name));
-        let (plain, _) = render_with_handle(options(plain_theme), contract_view);
+        let (plain, _) = render_with_handle(options(without_recipe(theme, name)), contract_view);
         assert!(
             painted_differently(&kit_shot, &plain.screenshot(), rect),
             "{kit} {mode:?} {name}: kit recipe not applied"
@@ -278,14 +289,7 @@ fn standard_button_respects_the_theme_focus_ring_offset() {
 
 #[test]
 fn all_kit_themes_preserve_standard_component_contracts() {
-    let themes = [
-        ("Basic", kivact_ui_basic::theme as fn(ThemeMode) -> Theme),
-        ("Game", kivact_ui_game::theme),
-        ("Pop", kivact_ui_pop::theme),
-        ("Creative", kivact_ui_creative::theme),
-        ("Soft", kivact_ui_soft::theme),
-    ];
-    for (kit, theme) in themes {
+    for (kit, theme) in kits() {
         for mode in [ThemeMode::Light, ThemeMode::Dark] {
             let theme = theme(mode);
             let (screen, (count, checked, selected, tab, open)) =
@@ -345,6 +349,236 @@ fn all_kit_themes_preserve_standard_component_contracts() {
             check_theme_layout(&screen, kit, mode);
         }
     }
+}
+
+/// The standard components with state a user changes, in one view.
+fn stateful_view(
+    editor: Signal<String>,
+    checked: Signal<bool>,
+    tab: Signal<&'static str>,
+    level: Signal<f64>,
+) -> impl IntoView {
+    column((
+        ui::text_input(editor)
+            .label("Editor")
+            .style(style().width(280)),
+        ui::checkbox("Check", checked),
+        ui::tabs(
+            "Sections",
+            vec![ListItem::new("a", "First"), ListItem::new("c", "Second")],
+            tab,
+        )
+        .content(|key| text(format!("Content {key}")))
+        .style(style().width(280)),
+        ui::slider(level).label("Level").style(style().width(280)),
+    ))
+    .style(
+        style()
+            .width(640)
+            .padding(24)
+            .gap(12)
+            .align_items(Align::Start)
+            .background(color::SURFACE),
+    )
+}
+
+/// The kit theme switches from `start` to the other mode while the user has
+/// changed the state of the components: the state stays and the pixels change.
+fn restyle_on_switch_keeps_state(kit: &str, theme: KitTheme, start: ThemeMode) {
+    let to_dark = start == ThemeMode::Light;
+    let (screen, (dark, editor, checked, tab, level)) =
+        render_with_handle(options(theme(start)), move || {
+            let dark = signal(start == ThemeMode::Dark);
+            let editor = signal("Initial".to_owned());
+            let checked = signal(true);
+            let tab = signal("a");
+            let level = signal(0.5);
+            (
+                (dark, editor, checked, tab, level),
+                kivact::style::provide_theme(
+                    move || {
+                        theme(if dark.get() {
+                            ThemeMode::Dark
+                        } else {
+                            ThemeMode::Light
+                        })
+                    },
+                    move || stateful_view(editor, checked, tab, level),
+                ),
+            )
+        });
+    let input = screen.get_by_role(Role::TextBox, "Editor");
+    let before_shot = screen.screenshot();
+    let rect = input.rect().expect("laid out");
+    input.press_key(Key::End);
+    input.type_text("!");
+    screen.get_by_role(Role::CheckBox, "Check").click();
+    screen
+        .get_by_role(Role::Tab, "First")
+        .press_key(Key::ArrowRight);
+    screen
+        .get_by_role(Role::Slider, "Level")
+        .press_key(Key::ArrowRight);
+    let state = || {
+        (
+            editor.get_untracked(),
+            checked.get_untracked(),
+            tab.get_untracked(),
+            level.get_untracked(),
+        )
+    };
+    let before = state();
+    assert_eq!(before.0, "Initial!", "{kit} {start:?}: typed text");
+    assert!(!before.1, "{kit} {start:?}: the check box was checked");
+    assert_eq!(before.2, "c", "{kit} {start:?}: the tab was selected");
+    assert!(before.3 > 0.5, "{kit} {start:?}: the slider moved");
+    dark.set(to_dark);
+    screen.run_until_idle();
+    assert_eq!(state(), before, "{kit} {start:?}: the state is kept");
+    let after_shot = screen.screenshot();
+    assert!(
+        painted_differently(&before_shot, &after_shot, rect),
+        "{kit} {start:?}: the theme switch restyles the text input"
+    );
+    assert!(
+        screen.errors().is_empty(),
+        "{kit} {start:?}: {:?}",
+        screen.errors()
+    );
+}
+
+#[test]
+fn all_kit_themes_restyle_on_switch_and_keep_component_state() {
+    for (kit, theme) in kits() {
+        for start in [ThemeMode::Light, ThemeMode::Dark] {
+            restyle_on_switch_keeps_state(kit, theme, start);
+        }
+    }
+}
+
+#[test]
+fn all_kit_themes_are_one_shared_theme_per_mode() {
+    for (kit, theme) in kits() {
+        let light = theme(ThemeMode::Light);
+        assert!(
+            light == theme(ThemeMode::Light),
+            "{kit}: the same mode gives an equal theme"
+        );
+        assert!(light != theme(ThemeMode::Dark), "{kit}: the modes differ");
+    }
+    for mode in [ThemeMode::Light, ThemeMode::Dark] {
+        assert!(
+            kivact_ui_game::theme_with(mode, kivact_ui_game::ThemeOptions::default())
+                == kivact_ui_game::theme(mode),
+            "Game {mode:?}: the default options give the theme"
+        );
+        assert!(
+            kivact_ui_creative::theme_with(mode, kivact_ui_creative::ThemeOptions::default())
+                == kivact_ui_creative::theme(mode),
+            "Creative {mode:?}: the default options give the theme"
+        );
+    }
+}
+
+/// A toast in `theme` is a live region, the pointer on it holds it, and once
+/// the pointer has left it stays for the core default time and then goes.
+fn toast_lifetime(kit: &str, theme: Theme) {
+    let (screen, toaster) = render_with_handle(options(theme), || {
+        let toaster = kivact::interaction::use_toaster();
+        (toaster, kivact::ui::toast_region(toaster))
+    });
+    // The core default: the duration a new toast gets, read from the public API.
+    let default = Toast::new("Default")
+        .duration
+        .expect("a new toast lasts the default time");
+    toaster.push(
+        Toast::new("Event has been created")
+            .tone(Tone::Info)
+            .body("Sunday, December 03, 2023 at 9:00 AM"),
+    );
+    screen.run_until_idle();
+    screen.get_by_role(Role::Status, "Event has been created");
+    screen
+        .get_by_text("Sunday, December 03, 2023 at 9:00 AM")
+        .hover();
+    screen.advance(default + Duration::from_secs(1));
+    assert!(
+        screen
+            .query_by_role(Role::Status, "Event has been created")
+            .is_some(),
+        "{kit}: held while the pointer is on it"
+    );
+    screen.mouse_leave();
+    screen.advance(default - Duration::from_millis(1));
+    assert!(
+        screen
+            .query_by_role(Role::Status, "Event has been created")
+            .is_some(),
+        "{kit}: stays until the default time has passed"
+    );
+    screen.advance(Duration::from_millis(1));
+    assert!(
+        screen
+            .query_by_role(Role::Status, "Event has been created")
+            .is_none(),
+        "{kit}: gone after the default time"
+    );
+    assert!(screen.errors().is_empty(), "{kit}: {:?}", screen.errors());
+}
+
+#[test]
+fn all_kit_themes_keep_the_toast_lifetime() {
+    for (kit, theme) in kits() {
+        for mode in [ThemeMode::Light, ThemeMode::Dark] {
+            toast_lifetime(kit, theme(mode));
+        }
+    }
+}
+
+#[test]
+fn creative_segments_survive_a_theme_change() {
+    let (screen, (theme, selected)) =
+        render_with_handle(options(kivact_ui_creative::theme(ThemeMode::Dark)), || {
+            let theme = signal(kivact_ui_creative::theme(ThemeMode::Dark));
+            let selected = signal(Some("first"));
+            (
+                (theme, selected),
+                kivact::style::provide_theme(theme, move || {
+                    ui::radio_group(
+                        "Order",
+                        vec![
+                            ListItem::new("first", "First"),
+                            ListItem::new("second", "Second"),
+                        ],
+                        selected,
+                    )
+                    .with_node(move |node| node.orientation(Orientation::Horizontal))
+                    .variant(RadioGroupVariant::Segmented)
+                }),
+            )
+        });
+    screen
+        .get_by_role(Role::RadioButton, "First")
+        .press_key(Key::ArrowRight);
+    let before = screen.snapshot();
+    theme.set(kivact_ui_creative::theme_with(
+        ThemeMode::Dark,
+        kivact_ui_creative::ThemeOptions {
+            accent: kivact_ui_creative::Accent::Aqua,
+            density: kivact_ui_creative::Density::Compact,
+        },
+    ));
+    screen.run_until_idle();
+    assert_eq!(screen.snapshot(), before);
+    screen
+        .get_by_role(Role::RadioButton, "Second")
+        .press_key(Key::ArrowRight);
+    assert_eq!(
+        selected.get_untracked(),
+        Some("first"),
+        "segments are a standard radio group, which wraps"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 fn check_theme_tabs(screen: &Screen, tab: Signal<&'static str>) {

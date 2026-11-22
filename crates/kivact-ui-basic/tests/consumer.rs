@@ -6,9 +6,5 @@ mod chart;
 mod controls;
 #[path = "consumer/forms.rs"]
 mod forms;
-#[path = "consumer/foundation.rs"]
-mod foundation;
 #[path = "consumer/support.rs"]
 mod support;
-#[path = "consumer/toasts.rs"]
-mod toasts;

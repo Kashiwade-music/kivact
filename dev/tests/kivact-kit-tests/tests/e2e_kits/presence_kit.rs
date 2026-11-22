@@ -1,12 +1,13 @@
 //! Role: Toast presence with a kit's theme installed.
 
-use kivact::interaction::toaster;
+use kivact::interaction::use_toaster;
 use kivact::motion::{Easing, Transition};
 use std::time::Duration;
 
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 use kivact::test::{RenderOptions, Screen};
+use kivact::ui::theme::ToastTheme;
 use kivact::view::PointerKind;
 use kivact_public_api_tests::support::mount_with;
 
@@ -16,21 +17,20 @@ fn toast_options() -> RenderOptions {
 
 #[test]
 fn toast_swipe_dismiss_exits_from_the_drag_offset() {
-    let theme =
-        kivact_ui_soft::theme(ThemeMode::Light).with(kivact::ui::UiRecipes::default().toast(|r| {
-            r.toast(|_| {
-                |_: &_, _: &_| {
-                    style()
-                        .size(240, 100)
-                        .padding(12)
-                        .background(rgb(0xcc0000))
-                        .exit(style().opacity(0.0).translate_y(120))
-                        .transition(TransitionProp::All, Transition::tween(180, Easing::Linear))
-                }
-            })
-        }));
+    // The soft theme's toast recipes, with the toast card's own recipe
+    // replaced: a card that leaves by fading and sliding down.
+    let soft = kivact_ui_soft::theme(ThemeMode::Light);
+    let toast = (*soft.ext::<ToastTheme>()).clone().toast(|_, _, _| {
+        style()
+            .size(240, 100)
+            .padding(12)
+            .background(rgb(0xcc0000))
+            .exit(style().opacity(0.0).translate_y(120))
+            .transition(TransitionProp::All, Transition::tween(180, Easing::Linear))
+    });
+    let theme = soft.with(toast);
     let (screen, _) = mount_with(RenderOptions::from_env().theme(theme), || {
-        let queue = toaster();
+        let queue = use_toaster();
         queue.push(Toast::new("Swipe").duration(None));
         ((), kivact::ui::toast_region(queue))
     });
@@ -82,7 +82,7 @@ fn tinted_top(screen: &Screen) -> Option<u32> {
 #[test]
 fn toast_row_shrinks_while_it_exits() {
     let (screen, (queue, id)) = mount_with(toast_options(), || {
-        let queue = toaster();
+        let queue = use_toaster();
         queue.push(Toast::new("Earlier").duration(None));
         let id = queue.push(Toast::new("Leaving").duration(None));
         ((queue, id), kivact::ui::toast_region(queue))
