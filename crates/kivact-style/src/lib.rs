@@ -25,6 +25,7 @@ mod icons_macro;
 #[doc(hidden)]
 pub mod internal;
 
+pub(crate) mod length;
 pub mod paint;
 pub(crate) mod path;
 pub mod radius;

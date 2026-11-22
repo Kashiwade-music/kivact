@@ -1,5 +1,7 @@
-//! Role: The typed text of a date or time field: following the value or edited, and checked on commit.
-use super::{Parse, TextCheck, TypedCheck, TypedText};
+//! Role: The typed text of a date or time field: follows the value or is edited.
+//!
+//! It is checked on commit.
+use super::types::{Parse, TextCheck, TypedCheck, TypedText};
 use kivact_core::state::{Machine as MachineTrait, Step};
 use std::rc::Rc;
 

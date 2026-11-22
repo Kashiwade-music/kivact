@@ -1,4 +1,6 @@
-//! Role: Lengths: logical px, percentages, calc sums and content sizes, as authored and as laid out.
+//! Role: Lengths: logical px, percentages, calc sums and content sizes.
+//!
+//! As authored and as laid out.
 //!
 //! Lengths: numbers are logical px; `pct(50)` and `auto()`; `pct(100) - 20`
 //! is a calc length.
@@ -178,21 +180,6 @@ impl Length {
             (Some(_), Some(_)) => return Length::Invalid,
         };
         Length::from_terms((px1 + sign * px2, p1 + sign * p2, e1 + sign * e2, var))
-    }
-
-    /// The paint form. `Px`, `Percent` and `Calc` are kept; any other value
-    /// (`Auto`, a content size, a variable, `em`, an invalid sum) is zero and
-    /// counts once in `misplaced`, since a paint position cannot take it.
-    pub fn to_len(self, misplaced: &mut u32) -> crate::paint::Len {
-        match self {
-            Length::Px(px) => crate::paint::Len { px, pct: 0.0 },
-            Length::Percent(pct) => crate::paint::Len { px: 0.0, pct },
-            Length::Calc { percent, px, .. } => crate::paint::Len { px, pct: percent },
-            _ => {
-                *misplaced += 1;
-                crate::paint::Len::ZERO
-            }
-        }
     }
 }
 

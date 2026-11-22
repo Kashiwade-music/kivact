@@ -4,6 +4,7 @@
 //! theme itself and `use_theme` are in
 //! `kivact::style`; `provide_theme` is in `kivact::style`.
 
+mod sealed;
 pub(crate) mod value;
 mod vars;
 

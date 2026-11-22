@@ -7,9 +7,9 @@ use kivact_types::{
     Repeat, Ring,
 };
 
-use super::compile::Resolve;
 use crate::effect::{Shadow, clip_shape, filter_ops, filter_problems};
 use crate::geometry::{CornerRadius, corner};
+use crate::length::Resolve;
 use crate::paint::{Background, fill_layer};
 use crate::sheet::{Groups, ScrollbarWidth, Style, TransformFields};
 use crate::theme::value::Theme;

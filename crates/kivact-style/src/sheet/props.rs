@@ -1,4 +1,4 @@
-//! Role: The one table of style properties: their declarations, setters, classes and groups.
+//! Role: The one table of style properties: declarations, setters, classes, groups.
 
 use kivact_runtime::Transition;
 use kivact_types::{

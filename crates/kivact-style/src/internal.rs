@@ -3,7 +3,8 @@
 pub use crate::draw::recorder::{RecordContext, record};
 use crate::resolve::Interactive;
 pub use crate::resolve::{compile_style, describe_state_styles, describe_style};
-use crate::sheet::{Decl, PropGroup};
+use crate::sheet::PropGroup;
+use crate::sheet::props::Decl;
 pub use crate::sheet::{StyleProperty, with_scroll_axes};
 
 /// How many declarations of `style` set a property an earlier one of it sets
@@ -14,7 +15,7 @@ pub fn duplicates(style: &crate::sheet::Style) -> u32 {
 
 /// The property `name` (a setter's or a longhand's name) in DevTools form.
 pub fn style_property(name: &str) -> Option<&'static StyleProperty> {
-    crate::sheet::STYLE_PROPERTIES
+    crate::sheet::props::STYLE_PROPERTIES
         .iter()
         .find(|p| p.name == name)
 }

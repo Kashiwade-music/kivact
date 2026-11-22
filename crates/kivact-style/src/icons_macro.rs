@@ -1,4 +1,4 @@
-//! Role: The `icons!` list: each icon name written once, its svg embedded from a directory.
+//! Role: The `icons!` list: each icon name once, its svg embedded from a directory.
 
 /// `[(name, bytes); N]` of the svg files `<dir>/<name>.svg`, with `<dir>`
 /// relative to the calling crate's `Cargo.toml`:

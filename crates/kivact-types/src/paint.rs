@@ -4,6 +4,7 @@ use crate::color_space::SpaceColor;
 use crate::effect::FilterGraphSpec;
 use crate::geometry3d::Matrix4;
 use crate::layout::IntrinsicSize;
+use crate::length::Length;
 use crate::motion::{Transition, TransitionProp};
 use crate::pixel::BlendMode;
 use crate::{Asset, BorderStyle, Edges, Point, Rgba, Size};
@@ -44,6 +45,23 @@ pub struct Len {
     pub px: f64,
     /// The percentage part.
     pub pct: f64,
+}
+
+impl Length {
+    /// The paint form. `Px`, `Percent` and `Calc` are kept; any other value
+    /// (`Auto`, a content size, a variable, `em`, an invalid sum) is zero and
+    /// counts once in `misplaced`, since a paint position cannot take it.
+    pub fn to_len(self, misplaced: &mut u32) -> Len {
+        match self {
+            Length::Px(px) => Len { px, pct: 0.0 },
+            Length::Percent(pct) => Len { px: 0.0, pct },
+            Length::Calc { percent, px, .. } => Len { px, pct: percent },
+            _ => {
+                *misplaced += 1;
+                Len::ZERO
+            }
+        }
+    }
 }
 
 impl Len {

@@ -1,8 +1,12 @@
-//! Role: The style setters that are not one table row: shorthands over several properties, state styles and the entry points.
+//! Role: Style setters outside the property table: shorthands, states, entries.
+//!
+//! The setters that are not one table row: shorthands over several properties,
+//! state styles and the entry points.
 
 use kivact_types::{Align, Length, Overflow, StyleState};
 
-use super::decl::{Decl, Style};
+use super::decl::Style;
+use super::props::Decl;
 use crate::color_value::Color;
 use crate::draw::{Draw, LocalPaint, Size};
 use crate::effect::{Filter, Shadow};

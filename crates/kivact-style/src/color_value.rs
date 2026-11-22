@@ -1,4 +1,4 @@
-//! Role: Colors: sRGB, theme variables and colors in a CSS color space, resolved at paint.
+//! Role: Colors: sRGB, theme variables and CSS color spaces, resolved at paint.
 
 mod css;
 mod space;

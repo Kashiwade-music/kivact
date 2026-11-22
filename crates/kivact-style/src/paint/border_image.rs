@@ -4,7 +4,7 @@
 use super::fill_layer::fill_layer;
 use super::gradient::Gradient;
 use crate::asset::Asset;
-use crate::resolve::Resolve;
+use crate::length::Resolve;
 use kivact_types as p;
 use kivact_types::{BorderImageRepeat, Edges};
 

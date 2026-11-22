@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use kivact_types::{LineHeight, ThemeVar, ThemeVarId, VarValue};
 
+use super::sealed;
 use super::value::Theme;
 use crate::color_value::Color;
 
@@ -48,10 +49,6 @@ impl From<Color> for VarValue<Color> {
     fn from(v: Color) -> Self {
         VarValue::Value(v)
     }
-}
-
-mod sealed {
-    pub trait Sealed {}
 }
 
 /// What a theme stores for a variable.

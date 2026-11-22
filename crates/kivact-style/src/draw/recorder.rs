@@ -2,8 +2,8 @@
 
 use crate::color_value::Color;
 use crate::geometry::Size;
+use crate::length::Resolve;
 use crate::paint::{Paint, fill_layer};
-use crate::resolve::Resolve;
 use crate::theme::value::Theme;
 use kivact_types as p;
 use kivact_types::{DrawCmd, DrawList, DrawableId, Fill, RegionId};

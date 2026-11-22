@@ -1,4 +1,4 @@
-//! Role: `Color` and its representation: sRGB, theme variables and colors in a CSS color space.
+//! Role: `Color` and its representation: sRGB, theme variables, CSS color spaces.
 
 use kivact_types::{Rgba, SpaceColor, ThemeVar};
 
