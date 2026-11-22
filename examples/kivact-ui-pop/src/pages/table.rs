@@ -1,4 +1,5 @@
-//! Role: The data table page: a searchable, sortable and paged table of students with a row drawer.
+//! Role: The data table page: a searchable, sortable and paged table of students with a
+//! row drawer.
 
 use super::common::*;
 use super::data::*;

@@ -1,4 +1,5 @@
-//! Role: The overview page: a gradient hero with the headline, its actions and the key statistics.
+//! Role: The overview page: a gradient hero with the headline, its actions and the key
+//! statistics.
 
 use super::common::*;
 use catalog_shell::{Example, Page};
