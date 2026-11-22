@@ -8,12 +8,8 @@ pub(crate) static PANEL_PADDING_VAR: ThemeVar<f64> = ThemeVar::new("pop.panel_pa
 pub(crate) const PANEL_PADDING: Length = Length::var(&PANEL_PADDING_VAR);
 /// The height of a control, in logical px.
 pub(crate) static CONTROL_HEIGHT_VAR: ThemeVar<f64> = ThemeVar::new("pop.control_height", 36.0);
-/// The height of a control.
-pub(crate) const CONTROL_HEIGHT: Length = Length::var(&CONTROL_HEIGHT_VAR);
 /// The corner radius of a control, in logical px.
 pub(crate) static CONTROL_RADIUS_VAR: ThemeVar<f64> = ThemeVar::new("pop.control_radius", 8.0);
-/// The corner radius of a control.
-pub(crate) const CONTROL_RADIUS: Length = Length::var(&CONTROL_RADIUS_VAR);
 /// The corner radius of a panel, in logical px.
 pub(crate) static PANEL_RADIUS_VAR: ThemeVar<f64> = ThemeVar::new("pop.panel_radius", 14.0);
 /// The corner radius of a panel.

@@ -1,127 +1,26 @@
-//! All source chapters remain reachable in the complete, font-matched shell.
-//! Optional artifacts are produced by the same public test driver with optional window mirroring
-//! that consumers use; no library reaches into an implementation crate.
-//! Public-driver state checks for the complete Pop catalogue.
+//! The Pop catalog's page walker and the public-driver checks of its stateful demos.
+//! The walker opens every page from the list in both modes; the three state tests drive
+//! the forms, the overlays and the conversation through the same public test driver.
 
+use catalog_shell::check;
 use kivact::prelude::*;
-use kivact::test::{RenderOptions, Screen, render_with};
+use kivact::test::Screen;
 use kivact::view::Modifiers;
-use kivact_ui_pop_catalog::{catalog, fonts, locale, messages};
+use kivact_ui_pop_catalog::{THEME, pages};
 use std::time::Duration;
 
 #[test]
-fn pop_source_chapters_scroll_in_the_original_shell() {
-    let screen = mount();
-    screen.evidence("pop-initial");
-    chapters(
-        &screen,
-        "pop",
-        &[
-            "overview",
-            "tokens",
-            "buttons",
-            "forms",
-            "selection",
-            "display",
-            "table",
-            "feedback",
-            "overlays",
-            "navigation",
-            "messaging",
-            "schedule",
-            "cards",
-        ],
-    );
+fn every_page_opens_from_the_list_and_renders_cleanly() {
+    check::every_page_opens_cleanly("Pop", pages, THEME, &[]);
+}
+
+#[test]
+fn every_page_character_is_in_the_catalog_fonts() {
+    check::every_page_character_is_in_the_fonts(pages, THEME);
 }
 
 fn mount() -> Screen {
-    render_with(
-        RenderOptions::from_env()
-            .window_size(1846., 969.)
-            .scale(1.)
-            .locale(locale())
-            .messages(messages())
-            .reduced_motion()
-            .theme(kivact::style::Theme::default().with_fonts(fonts().iter().copied())),
-        catalog,
-    )
-}
-
-fn chapters(screen: &Screen, prefix: &str, chapters: &[&str]) {
-    for (index, chapter) in chapters.iter().enumerate() {
-        let nav = screen.get_by_test_id(&format!("{prefix}-nav-{chapter}"));
-        if prefix == "creative" {
-            let scroll = screen.get_by_test_id("creative-nav-scroll");
-            let viewport = scroll.rect().expect("sidebar viewport");
-            let item = nav.rect().expect("sidebar item");
-            if item.y + item.height > viewport.y + viewport.height {
-                scroll.scroll(
-                    0.,
-                    item.y + item.height - viewport.y - viewport.height + 12.,
-                );
-            }
-        }
-        nav.click();
-        screen.advance(Duration::from_millis(400));
-        assert!(nav.is_selected(), "{prefix}/{chapter} remains selected");
-        let section_id = match prefix {
-            "pop" => format!("pop-section-{chapter}"),
-            "game" => format!("game-section-{index}"),
-            "creative" => format!("creative-section-{}", index + 1),
-            _ => unreachable!("known catalog scene"),
-        };
-        let section = screen
-            .get_by_test_id(&section_id)
-            .rect()
-            .expect("chapter geometry");
-        // Selecting the sidebar alone is insufficient: the chapter must actually
-        // move into the viewport. The final sections clamp at the scroll limit.
-        let final_id = match prefix {
-            "pop" => format!(
-                "pop-section-{}",
-                chapters.last().expect("catalogue has chapters")
-            ),
-            "game" => format!("game-section-{}", chapters.len() - 1),
-            "creative" => format!("creative-section-{}", chapters.len()),
-            _ => unreachable!("known catalog scene"),
-        };
-        let end = screen
-            .get_by_test_id(&final_id)
-            .rect()
-            .expect("final chapter geometry");
-        let anchor = match prefix {
-            "pop" => 76.0,
-            "game" => 72.0,
-            _ => 100.0,
-        };
-        let at_scroll_end = section.y > anchor + 8.0 && end.y + end.height <= 971.0;
-        if at_scroll_end {
-            assert!(
-                (0.0..=600.0).contains(&section.y),
-                "{prefix}/{chapter} visible at scroll limit: {section:?}"
-            );
-        } else {
-            assert!(
-                (section.y - anchor).abs() <= 8.0,
-                "{prefix}/{chapter} scrolls to {anchor}: {section:?}"
-            );
-        }
-        assert!(
-            screen.errors().is_empty(),
-            "{prefix}/{chapter}: {:?}",
-            screen.errors()
-        );
-        screen.assert_layout_clean();
-        screen.evidence(&format!("{prefix}-{chapter}"));
-    }
-}
-
-fn chapter(screen: &Screen, name: &str) {
-    let nav = screen.get_by_test_id(&format!("pop-nav-{name}"));
-    nav.click();
-    screen.advance(Duration::from_millis(400));
-    assert!(nav.is_selected());
-    screen.assert_layout_clean();
+    check::mount("Pop", pages, THEME, ThemeMode::Light)
 }
 
 fn replace(screen: &Screen, label: &str, value: &str) {
@@ -140,9 +39,9 @@ fn replace(screen: &Screen, label: &str, value: &str) {
 #[test]
 fn pop_forms_edit_drag_choose_date_and_keep_state_in_dark_theme() {
     let screen = mount();
-    chapter(&screen, "forms");
+    check::open(&screen, "forms");
     screen.evidence("pop-state-forms-light");
-    let email = screen.get_by_role(Role::TextBox, "メールアドレス");
+    let email = screen.get_by_role(Role::TextBox, "Email");
     assert!(email.is_invalid());
     assert_eq!(
         email
@@ -150,28 +49,32 @@ fn pop_forms_edit_drag_choose_date_and_keep_state_in_dark_theme() {
             .iter()
             .map(|e| e.text())
             .collect::<Vec<_>>(),
-        ["有効なメールアドレスを入力してください。"]
+        ["Enter a valid email address."]
     );
-    replace(&screen, "生徒名 *", "空崎 ミナト・調査");
+    replace(&screen, "Student name *", "Minato Sorasaki, Investigation");
     edit_and_resize_memo(&screen);
-    let tags = screen.get_by_role(Role::TextBox, "タグを追加");
-    tags.type_text("連携");
+    let tags = screen.get_by_role(Role::TextBox, "Add a tag");
+    tags.type_text("Liaison");
     tags.press_key(Key::Enter);
-    screen.get_by_role(Role::Button, "連携 を削除");
-    screen.get_by_role(Role::CheckBox, "通知を受け取る").click();
+    screen.get_by_role(Role::Button, "Remove Liaison");
+    screen.get_by_test_id("catalog-page").scroll(0., 300.);
+    screen
+        .get_by_role(Role::CheckBox, "Receive notifications")
+        .click();
     assert_eq!(
         screen
-            .get_by_role(Role::CheckBox, "通知を受け取る")
+            .get_by_role(Role::CheckBox, "Receive notifications")
             .checked(),
         Some(CheckedState::Unchecked)
     );
     assert_eq!(
         screen
-            .get_by_role(Role::CheckBox, "部分選択（indeterminate）")
+            .get_by_role(Role::CheckBox, "Partly selected (indeterminate)")
             .checked(),
         Some(CheckedState::Indeterminate)
     );
-    let volume = screen.get_by_role(Role::Slider, "BGM音量");
+    screen.get_by_test_id("catalog-page").scroll(0., 300.);
+    let volume = screen.get_by_role(Role::Slider, "BGM volume");
     let track = screen.get_by_test_id("pop-volume");
     let width = track.rect().expect("slider laid out").width;
     track.drag(
@@ -183,23 +86,23 @@ fn pop_forms_edit_drag_choose_date_and_keep_state_in_dark_theme() {
     screen.get_by_test_id("pop-password-reveal").click();
     screen.evidence("pop-state-password-revealed");
     screen.get_by_test_id("pop-password-reveal").click();
-    screen.get_by_role(Role::Button, "日付を選択").click();
+    screen.get_by_role(Role::Button, "Choose date").click();
     screen.evidence("pop-state-date-overlay");
     screen
         .get_by_test_id("pop-date-input")
         .get_by_role(Role::GridCell, "2026-10-17")
         .click();
     assert_eq!(
-        screen.get_by_role(Role::TextBox, "実施日").value(),
+        screen.get_by_role(Role::TextBox, "Date").value(),
         Some("2026-10-17".into())
     );
-    screen.get_by_test_id("pop-theme-toggle").click();
+    screen.get_by_test_id("catalog-theme").click();
     assert_eq!(
-        screen.get_by_role(Role::TextBox, "生徒名 *").value(),
-        Some("空崎 ミナト・調査".into())
+        screen.get_by_role(Role::TextBox, "Student name *").value(),
+        Some("Minato Sorasaki, Investigation".into())
     );
     assert_eq!(
-        screen.get_by_role(Role::TextBox, "実施日").value(),
+        screen.get_by_role(Role::TextBox, "Date").value(),
         Some("2026-10-17".into())
     );
     screen.evidence("pop-state-forms-dark");
@@ -208,18 +111,18 @@ fn pop_forms_edit_drag_choose_date_and_keep_state_in_dark_theme() {
 
 #[cfg(test)]
 fn edit_and_resize_memo(screen: &Screen) {
-    let memo = screen.get_by_role(Role::TextBox, "依頼メモ");
-    memo.commit("現地の安全を確認してください。");
+    let memo = screen.get_by_role(Role::TextBox, "Request note");
+    memo.commit("Check the safety of the area first.");
     assert_eq!(
-        screen.get_by_role(Role::TextBox, "依頼メモ").value(),
-        Some("現地の安全を確認してください。".into())
+        screen.get_by_role(Role::TextBox, "Request note").value(),
+        Some("Check the safety of the area first.".into())
     );
     let initial_memo = memo.rect().expect("memo laid out");
     assert_eq!(initial_memo.height, 80.0);
     let resize = |delta: f64| {
         let grip = screen
             .get_by_test_id("pop-memo-resize")
-            .get_by_role(Role::Splitter, "テキスト欄の高さを変更");
+            .get_by_role(Role::Splitter, "Resize text area");
         grip.hover();
         let rect = grip.rect().expect("resize grip laid out");
         let x = rect.x + rect.width / 2.0;
@@ -230,15 +133,19 @@ fn edit_and_resize_memo(screen: &Screen) {
         screen.mouse_move(x, y + delta);
         screen.mouse_up(MouseButton::Primary);
     };
+    screen.get_by_test_id("catalog-page").scroll(0., 300.);
     resize(48.0);
     assert_eq!(memo.rect().unwrap().height, 128.0);
     assert_eq!(memo.rect().unwrap().width, initial_memo.width);
     assert!(memo.is_focused());
-    assert_eq!(memo.value(), Some("現地の安全を確認してください。".into()));
-    screen.type_text("継続入力");
     assert_eq!(
         memo.value(),
-        Some("現地の安全を確認してください。継続入力".into())
+        Some("Check the safety of the area first.".into())
+    );
+    screen.type_text(" Keep going.");
+    assert_eq!(
+        memo.value(),
+        Some("Check the safety of the area first. Keep going.".into())
     );
     screen.evidence("pop-state-textarea-expanded");
     resize(-200.0);
@@ -247,24 +154,25 @@ fn edit_and_resize_memo(screen: &Screen) {
     assert!(memo.is_focused());
     assert_eq!(
         memo.value(),
-        Some("現地の安全を確認してください。継続入力".into())
+        Some("Check the safety of the area first. Keep going.".into())
     );
     screen.evidence("pop-state-textarea-minimum");
+    screen.get_by_test_id("catalog-page").scroll(0., -300.);
 }
 
 #[test]
 fn pop_modals_drawer_calendar_and_conversation_use_live_models() {
     let screen = mount();
-    chapter(&screen, "overlays");
-    let opener = screen.get_by_role(Role::Button, "確認ダイアログ");
+    check::open(&screen, "overlays");
+    let opener = screen.get_by_role(Role::Button, "Confirm dialog");
     opener.click();
-    screen.get_by_role(Role::Dialog, "作戦を開始しますか？");
+    screen.get_by_role(Role::Dialog, "Start the mission?");
     screen
-        .get_by_role(Role::CheckBox, "今後この確認を表示しない")
+        .get_by_role(Role::CheckBox, "Do not show this confirmation again")
         .click();
     assert_eq!(
         screen
-            .get_by_role(Role::CheckBox, "今後この確認を表示しない")
+            .get_by_role(Role::CheckBox, "Do not show this confirmation again")
             .checked(),
         Some(CheckedState::Checked)
     );
@@ -273,53 +181,55 @@ fn pop_modals_drawer_calendar_and_conversation_use_live_models() {
     assert!(opener.is_focused());
     assert!(
         screen
-            .query_by_role(Role::Dialog, "作戦を開始しますか？")
+            .query_by_role(Role::Dialog, "Start the mission?")
             .is_none()
     );
-    screen
-        .get_by_role(Role::Button, "フォームダイアログ")
-        .click();
+    screen.get_by_role(Role::Button, "Form dialog").click();
     assert!(screen.get_by_test_id("pop-create-request").is_disabled());
     screen
         .get_by_test_id("pop-request-title")
-        .type_text("中央区の巡回");
+        .type_text("Central ward patrol");
     assert!(!screen.get_by_test_id("pop-create-request").is_disabled());
     screen.evidence("pop-state-form-modal");
     screen.get_by_test_id("pop-create-request").click();
     assert!(
         screen
-            .query_by_role(Role::Dialog, "新しい依頼を作成")
+            .query_by_role(Role::Dialog, "Create a new request")
             .is_none()
     );
-    screen.get_by_role(Role::Button, "ドロワーを開く").click();
-    screen.get_by_role(Role::Dialog, "空崎 ミナト");
+    screen.get_by_role(Role::Button, "Open drawer").click();
+    screen.get_by_role(Role::Dialog, "Minato Sorasaki");
     screen.evidence("pop-state-profile-drawer");
     screen.get_by_test_id("pop-drawer-save").click();
-    assert!(screen.query_by_role(Role::Dialog, "空崎 ミナト").is_none());
-    chapter(&screen, "schedule");
+    assert!(
+        screen
+            .query_by_role(Role::Dialog, "Minato Sorasaki")
+            .is_none()
+    );
+    check::open(&screen, "schedule");
     screen.get_by_role(Role::GridCell, "2026-10-10").click();
     assert!(
         screen
             .get_by_role(Role::GridCell, "2026-10-10")
             .is_selected()
     );
-    screen.get_by_text("10月10日（土）の予定");
+    screen.get_by_text("Agenda for 10/10 (Sat)");
     screen.evidence("pop-state-calendar-selection");
-    chapter(&screen, "messaging");
-    let message = screen.get_by_role(Role::TextBox, "メッセージを入力");
-    message.commit("了解しました。安全第一でお願いします。");
+    check::open(&screen, "messaging");
+    let message = screen.get_by_role(Role::TextBox, "Message input");
+    message.commit("Got it. Safety first, please.");
     message.press_key(Key::Enter);
     assert_eq!(message.value(), Some(String::new()));
-    screen.get_by_text("了解しました。安全第一でお願いします。");
+    screen.get_by_text("Got it. Safety first, please.");
     assert!(screen.query_by_test_id("pop-reply-card").is_none());
-    assert!(screen.query_by_role(Role::Status, "入力中").is_none());
+    assert!(screen.query_by_role(Role::Status, "Typing").is_none());
     screen.evidence("pop-state-message-sent");
     screen.advance(Duration::from_millis(410));
-    screen.get_by_role(Role::Status, "入力中");
+    screen.get_by_role(Role::Status, "Typing");
     screen.evidence("pop-state-message-typing");
     screen.advance(Duration::from_millis(1310));
-    assert!(screen.query_by_role(Role::Status, "入力中").is_none());
-    screen.get_by_text("わかりました！すぐに確認しますね。");
+    assert!(screen.query_by_role(Role::Status, "Typing").is_none());
+    screen.get_by_text("Got it! I will check right away.");
     screen.evidence("pop-state-message-replied");
     let thread = screen.get_by_test_id("pop-thread-1");
     thread.get_by_text("1");
@@ -330,35 +240,17 @@ fn pop_modals_drawer_calendar_and_conversation_use_live_models() {
 }
 
 #[test]
-fn pop_palette_commands_open_their_dialogs() {
-    let screen = mount();
-    screen.get_by_role(Role::Button, "コマンドパレット").click();
-    screen.advance(Duration::from_millis(400));
-    screen.type_text("新しい依頼");
-    screen.advance(Duration::from_millis(100));
-    screen.press_key(Key::Enter);
-    screen.advance(Duration::from_millis(400));
-    assert!(
-        screen
-            .query_by_role(Role::Dialog, "新しい依頼を作成")
-            .is_some(),
-        "the palette's Create command opens the form dialog"
-    );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
 fn pop_two_quick_messages_both_get_a_reply() {
     let screen = mount();
-    chapter(&screen, "messaging");
-    let message = screen.get_by_role(Role::TextBox, "メッセージを入力");
-    message.commit("一通目");
+    check::open(&screen, "messaging");
+    let message = screen.get_by_role(Role::TextBox, "Message input");
+    message.commit("First message");
     message.press_key(Key::Enter);
-    message.commit("二通目");
+    message.commit("Second message");
     message.press_key(Key::Enter);
     screen.advance(Duration::from_millis(4000));
-    screen.get_by_text("わかりました！すぐに確認しますね。");
-    screen.get_by_text("先生、ありがとうございます♪");
+    screen.get_by_text("Got it! I will check right away.");
+    screen.get_by_text("Thank you, teacher ♪");
     assert!(screen.query_by_test_id("pop-reply-card").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

@@ -17,25 +17,27 @@ macro_rules! color_vars {
     )*};
 }
 
+// These variables are set by the kit's colors but no component reads them by a value form.
+/// The page background.
+pub(crate) static BACKGROUND_VAR: ThemeVar<Color> = ThemeVar::new("pop.background", rgb(0xf8fafc));
+/// The deep blue of a pressed accent.
+pub(crate) static BLUE_DEEP_VAR: ThemeVar<Color> = ThemeVar::new("pop.blue_deep", rgb(0x1a66a8));
+/// The orange accent.
+pub(crate) static ORANGE_VAR: ThemeVar<Color> = ThemeVar::new("pop.orange", rgb(0xffa53c));
+/// The purple accent.
+pub(crate) static PURPLE_VAR: ThemeVar<Color> = ThemeVar::new("pop.purple", rgb(0x9d86ff));
+
 color_vars! {
-    /// The page background.
-    BACKGROUND_VAR / BACKGROUND = "pop.background", rgb(0xf8fafc);
     /// A muted surface (a table header, a well).
     SURFACE_MUTED_VAR / SURFACE_MUTED = "pop.surface_muted", rgb(0xf8fafc);
     /// Strong lines and the dark track of a toggle.
     LINE_STRONG_VAR / LINE_STRONG = "pop.line_strong", rgb(0xcbd5e1);
     /// Faint text (a placeholder, a disabled label).
     TEXT_FAINT_VAR / TEXT_FAINT = "pop.text_faint", rgb(0x94a3b8);
-    /// The deep blue of a pressed accent.
-    BLUE_DEEP_VAR / BLUE_DEEP = "pop.blue_deep", rgb(0x1a66a8);
     /// The cyan end of the blue gradient.
     CYAN_VAR / CYAN = "pop.cyan", rgb(0x5cbde8);
     /// The pink accent.
     PINK_VAR / PINK = "pop.pink", rgb(0xf2559a);
-    /// The orange accent.
-    ORANGE_VAR / ORANGE = "pop.orange", rgb(0xffa53c);
-    /// The purple accent.
-    PURPLE_VAR / PURPLE = "pop.purple", rgb(0x9d86ff);
     /// The navy of the dark button.
     NAVY_VAR / NAVY = "pop.navy", rgb(0x1d2b4a);
     /// The background of a blue tag, a blue card.

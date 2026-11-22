@@ -2691,6 +2691,7 @@ dependencies = [
 name = "kivact-ui-pop-catalog"
 version = "0.1.0"
 dependencies = [
+ "catalog-shell",
  "kivact",
  "kivact-ui-pop",
 ]

@@ -1,18 +1,29 @@
-//! Stateful source conversation, including delayed typing and replies.
+//! Role: The messaging page: a conversation with a student, its quick replies and a thread list.
 
-use super::common::section;
-use kivact::draw::linear_gradient;
-use kivact::geometry::Rect;
-use kivact::prelude::{Element, column, dynamic, for_each, node, rgb, row, show, signal, text};
-use kivact::state::{Machine, MachineHandle, Step, callback, machine};
-use kivact::style::ColorToken;
-use kivact::style::use_theme;
-use kivact::style::{Align, Color, Justify, pct, style};
-use kivact::view::IntoView;
+use super::common::*;
+use catalog_shell::{Example, Page};
+use kivact::prelude::*;
+use kivact::state::{Machine, MachineHandle, Step, machine};
+use kivact::style::linear_gradient;
 use kivact::view::Node;
-use kivact::view::node_ref;
 use kivact_ui_pop as ui;
 use std::time::Duration;
+/// The page of the messaging components.
+pub(crate) fn page() -> Page {
+    Page::new(
+        "messaging",
+        "Messaging",
+        "Components",
+        include_str!("messaging.rs"),
+    )
+    .description("A conversation with quick replies, a live thread and a sidebar of threads.")
+    .example(Example::new(
+        "messaging",
+        "Conversation",
+        "Send a message: the reply arrives after a short typing indicator.",
+        messaging_demo,
+    ))
+}
 
 #[derive(Clone, PartialEq)]
 struct ChatEntry {
@@ -124,13 +135,14 @@ impl Machine for ReplyMachine {
 }
 
 const ANSWERS: [&str; 4] = [
-    "わかりました！すぐに確認しますね。",
-    "先生、ありがとうございます♪",
-    "えへへ……がんばります！",
-    "了解です。他にお手伝いできることはありますか？",
+    "Got it! I will check right away.",
+    "Thank you, teacher ♪",
+    "Heh... I will do my best!",
+    "Understood. Is there anything else I can help with?",
 ];
 
-pub(super) fn messaging() -> Node {
+fn messaging_demo() -> impl IntoView {
+    // example: messaging
     let active = signal(0usize);
     let draft = signal(String::new());
     let messages = signal(Vec::<ChatEntry>::new());
@@ -166,10 +178,11 @@ pub(super) fn messaging() -> Node {
     section(
         "10",
         "Messaging",
-        "トーク — 生徒とのやりとり",
+        "Chat: conversations with students",
         kivact::ui::card(row((list, main)).style(style().height(560)))
-            .style(style().padding(0).clip(true)),
+            .style(style().padding(0).overflow(kivact::style::Overflow::Hidden)),
     )
+    // end example
 }
 
 fn send_message(
@@ -202,10 +215,20 @@ fn thread_sidebar(
     unread: kivact::state::Signal<[usize; 4]>,
 ) -> Node {
     let threads = [
-        ("MN", "空崎 ミナト", "報告書、置いておきました！", 2),
-        ("HK", "春日 ハルカ", "救護所のシフト、確認お願いします", 1),
-        ("YZ", "花岡 ユズ", "ゲーム開発部に遊びに来ませんか", 0),
-        ("AR", "白石 アリサ", "スタンプを送信しました", 0),
+        (
+            "MN",
+            "Minato Sorasaki",
+            "I left the report on your desk!",
+            2,
+        ),
+        ("HK", "Haruka Kasuga", "Please check the clinic shift", 1),
+        (
+            "YZ",
+            "Yuzu Hanaoka",
+            "Come hang out at the Game Dev Club",
+            0,
+        ),
+        ("AR", "Arisa Shiraishi", "Sent a sticker", 0),
     ]
     .into_iter()
     .enumerate()
@@ -215,9 +238,9 @@ fn thread_sidebar(
             .unread(move || unread.with(|counts| counts[i]))
             .with_node(|node| node.selected(move || active.get() == i))
             .portrait({
-                super::common::decorated_avatar(
+                decorated_avatar(
                     kivact::state::IntoText::into_text_value(initials),
-                    ui::AvatarLook::default()
+                    AvatarLook::default()
                         .size(32)
                         .hue([205.0, 330.0, 45.0, 160.0][i]),
                 )
@@ -231,14 +254,14 @@ fn thread_sidebar(
     .collect::<Vec<_>>();
     column((
         row((
-            text("トーク").style(
+            text("Chats").style(
                 style()
-                    .grow(1)
+                    .flex_grow(1)
                     .font_size(16)
-                    .weight(600)
+                    .font_weight(600)
                     .color(Color::WHITE),
             ),
-            kivact::ui::button("新規トーク")
+            kivact::ui::button("New chat")
                 .variant(kivact::ui::ButtonVariant::Ghost)
                 .hide_label(true)
                 .icon(kivact::view::icon("pencil"))
@@ -257,9 +280,9 @@ fn thread_sidebar(
     .style(
         style()
             .width(280)
-            .shrink(0)
-            .background(ColorToken::SurfaceAlt)
-            .border_right(1, ColorToken::Border),
+            .flex_shrink(0)
+            .background(color::SURFACE_ALT)
+            .border_right(1, color::BORDER),
     )
 }
 
@@ -272,13 +295,7 @@ fn live_messages(messages: kivact::state::Signal<Vec<ChatEntry>>) -> impl IntoVi
                 ChatContent::Typing => {
                     let initials = kivact::state::IntoText::into_text_value("M");
                     kivact::ui::typing_indicator()
-                        .avatar({
-                            let look = ui::AvatarLook::default().size(24);
-                            kivact::ui::avatar(initials)
-                                .fallback_content(move || kivact::view::text(initials))
-                                .variant(look)
-                                .status_content(look.decorations())
-                        })
+                        .avatar(decorated_avatar(initials, AvatarLook::default().size(24)))
                         .into_view()
                 }
                 ChatContent::Message(content) => {
@@ -294,15 +311,9 @@ fn live_messages(messages: kivact::state::Signal<Vec<ChatEntry>>) -> impl IntoVi
                             }
                         })
                         .content(kivact::view::text(content))
-                        .time(if entry.mine { "既読 09:16" } else { "09:16" })
-                        .variant(ui::PopBubble)
-                        .avatar({
-                            let look = ui::AvatarLook::default().size(24);
-                            kivact::ui::avatar(initials)
-                                .fallback_content(move || kivact::view::text(initials))
-                                .variant(look)
-                                .status_content(look.decorations())
-                        })
+                        .time(if entry.mine { "Read 09:16" } else { "09:16" })
+                        .variant(ui::ChatBubbleVariant)
+                        .avatar(decorated_avatar(initials, AvatarLook::default().size(24)))
                         .into_view()
                 }
             }))
@@ -318,23 +329,20 @@ fn quick_replies(
         move || messages.with(|entries| !entries.iter().any(|entry| entry.mine)),
         move || {
             column((
-                text("返信を選択")
-                    .style(style().font_size(12).weight(500).padding_left(4))
-                    .style(move || {
-                        let t = &use_theme().get();
-                        style().color(t.ext::<ui::Tokens>().hue(ui::Hue::Pink).1)
-                    }),
-                kivact::ui::button("もちろん、一緒に食べよう")
+                text("Choose a reply")
+                    .style(style().font_size(12).font_weight(500).padding_left(4))
+                    .style(style().color(ui::Hue::Pink.colors().1)),
+                kivact::ui::button("Sure, let's eat together")
                     .variant(kivact::ui::ButtonVariant::Secondary)
                     .style(style().justify_content(Justify::Start))
                     .on_press(move || {
-                        send.call("もちろん、一緒に食べよう".into());
+                        send.call("Sure, let's eat together".into());
                     }),
-                kivact::ui::button("ごめん、会議が入ってる")
+                kivact::ui::button("Sorry, I have a meeting")
                     .variant(kivact::ui::ButtonVariant::Secondary)
                     .style(style().justify_content(Justify::Start))
                     .on_press(move || {
-                        send.call("ごめん、会議が入ってる".into());
+                        send.call("Sorry, I have a meeting".into());
                     }),
             ))
             .test_id("pop-reply-card")
@@ -345,14 +353,13 @@ fn quick_replies(
                     .width(300)
                     .max_width(pct(90))
                     .align_self(Align::End)
-                    .radius(8),
+                    .border_radius(8),
             )
             .style(move || {
                 let t = &use_theme().get();
-                let p = t.ext::<ui::Tokens>();
                 style()
-                    .background(p.hue(ui::Hue::Pink).0)
-                    .border(1, p.pink.mix_in(Color::TRANSPARENT, 0.7, t))
+                    .background(ui::Hue::Pink.colors().0)
+                    .border(1, ui::Hue::Pink.accent().mix(Color::TRANSPARENT, 0.7, t))
             })
         },
     )
@@ -365,8 +372,8 @@ fn morning_report() -> impl IntoView {
         let time = kivact::state::IntoText::into_text_value("09:12");
         let paragraphs: kivact::state::Value<Vec<String>> =
             kivact::state::IntoValue::into_value(vec![
-                "先生、おはようございます。".into(),
-                "第3章の報告書、デスクに置いておきました！".into(),
+                "Good morning, teacher.".into(),
+                "I left the chapter 3 report on your desk!".into(),
             ]);
         kivact::view::column(kivact::view::dynamic(paragraphs, move |paragraphs| {
             let count = paragraphs.len();
@@ -393,15 +400,10 @@ fn morning_report() -> impl IntoView {
                         })
                         .content(kivact::view::text(paragraph))
                         .group(group)
-                        .variant(ui::PopBubble);
+                        .variant(ui::ChatBubbleVariant);
                     if index == 0 {
-                        message = message.avatar({
-                            let look = ui::AvatarLook::default().size(24);
-                            kivact::ui::avatar(initials)
-                                .fallback_content(move || kivact::view::text(initials))
-                                .variant(look)
-                                .status_content(look.decorations())
-                        });
+                        message = message
+                            .avatar(decorated_avatar(initials, AvatarLook::default().size(24)));
                     }
                     if index + 1 == count {
                         message = message.time(time);
@@ -421,15 +423,15 @@ fn chat_body(
 ) -> kivact::ui::ChatThread {
     kivact::ui::chat_thread(
         column((
-            text("今日").style(
+            text("Today").style(
                 style()
                     .font_size(12)
                     .align_self(Align::Center)
                     .padding_x(10)
                     .padding_y(2)
-                    .background(ColorToken::SurfaceAlt)
-                    .radius(999)
-                    .color(ColorToken::TextMuted),
+                    .background(color::SURFACE_ALT)
+                    .border_radius(999)
+                    .color(color::TEXT_MUTED),
             ),
             morning_report(),
             {
@@ -443,16 +445,12 @@ fn chat_body(
                             kivact::ui::ChatSender::Assistant
                         }
                     })
-                    .content(kivact::view::text("ありがとう、助かるよ。あとで読むね。"))
-                    .time("既読 09:14")
-                    .variant(ui::PopBubble)
-                    .avatar({
-                        let look = ui::AvatarLook::default().size(24);
-                        kivact::ui::avatar(initials)
-                            .fallback_content(move || kivact::view::text(initials))
-                            .variant(look)
-                            .status_content(look.decorations())
-                    })
+                    .content(kivact::view::text(
+                        "Thanks, that helps. I will read it later.",
+                    ))
+                    .time("Read 09:14")
+                    .variant(ui::ChatBubbleVariant)
+                    .avatar(decorated_avatar(initials, AvatarLook::default().size(24)))
             },
             {
                 let mine: kivact::state::Value<bool> = kivact::state::IntoValue::into_value(false);
@@ -466,17 +464,11 @@ fn chat_body(
                         }
                     })
                     .content(kivact::view::text(
-                        "それと、今日のお昼……少しお時間ありますか？",
+                        "Also, lunch today... do you have a little time?",
                     ))
                     .time("09:15")
-                    .variant(ui::PopBubble)
-                    .avatar({
-                        let look = ui::AvatarLook::default().size(24);
-                        kivact::ui::avatar(initials)
-                            .fallback_content(move || kivact::view::text(initials))
-                            .variant(look)
-                            .status_content(look.decorations())
-                    })
+                    .variant(ui::ChatBubbleVariant)
+                    .avatar(decorated_avatar(initials, AvatarLook::default().size(24)))
             },
             quick_replies(messages, send),
             live_messages(messages),
@@ -484,15 +476,11 @@ fn chat_body(
         .style(style().gap(14).padding_x(20).padding_y(18)),
     )
     .viewport_ref(chat_scroll)
-    .style(style().grow(1).min_height(0))
+    .style(style().flex_grow(1).min_height(0))
     .draw(|d, s| {
         for x in (0..s.width as usize).step_by(18) {
             for y in (0..s.height as usize).step_by(18) {
-                d.rounded_rect(
-                    Rect::new(x as f64, y as f64, 2.0, 2.0),
-                    1.0,
-                    ColorToken::Border,
-                );
+                d.rounded_rect(Rect::new(x as f64, y as f64, 2.0, 2.0), 1.0, color::BORDER);
             }
         }
     })
@@ -504,23 +492,29 @@ fn chat_main(
     send: kivact::state::Callback<String>,
     body: impl IntoView,
 ) -> Node {
-    let names = ["空崎 ミナト", "春日 ハルカ", "花岡 ユズ", "白石 アリサ"];
+    let names = [
+        "Minato Sorasaki",
+        "Haruka Kasuga",
+        "Yuzu Hanaoka",
+        "Arisa Shiraishi",
+    ];
     column((
         row((
-            super::common::decorated_avatar(
+            decorated_avatar(
                 kivact::state::IntoText::into_text_value("MN"),
-                ui::AvatarLook::default().size(32).halo(true).online(true),
+                AvatarLook::default().size(32).halo(true).online(true),
             ),
             column((
-                text(move || names[active.get()].to_string()).style(style().weight(600)),
-                text("調査部 · オンライン").style(style().font_size(12).color(rgb(0x0f8a6a))),
+                text(move || names[active.get()].to_string()).style(style().font_weight(600)),
+                text("Investigation Club · online")
+                    .style(style().font_size(12).color(rgb(0x0f8a6a))),
             ))
-            .style(style().grow(1)),
-            kivact::ui::button("トークを検索")
+            .style(style().flex_grow(1)),
+            kivact::ui::button("Search chats")
                 .variant(kivact::ui::ButtonVariant::Ghost)
                 .hide_label(true)
                 .icon(kivact::view::icon("search")),
-            kivact::ui::button("トーク操作")
+            kivact::ui::button("Chat actions")
                 .variant(kivact::ui::ButtonVariant::Ghost)
                 .hide_label(true)
                 .icon(kivact::view::icon("dots-vertical")),
@@ -531,20 +525,20 @@ fn chat_main(
                 .padding_x(18)
                 .gap(12)
                 .align_items(Align::Center)
-                .border_bottom(1, ColorToken::Border),
+                .border_bottom(1, color::BORDER),
         ),
         body,
         kivact::ui::chat_composer(draft)
-            .placeholder("メッセージを入力…")
+            .placeholder("Type a message…")
             .on_submit(move |message| send.call(message))
             .header_actions(
-                kivact::ui::button("添付")
+                kivact::ui::button("Attach")
                     .variant(kivact::ui::ButtonVariant::Ghost)
                     .hide_label(true)
                     .icon(kivact::view::icon("paperclip")),
             )
             .footer_actions(
-                kivact::ui::button("スタンプ")
+                kivact::ui::button("Sticker")
                     .variant(kivact::ui::ButtonVariant::Ghost)
                     .hide_label(true)
                     .icon(kivact::view::icon("mood-smile"))
@@ -552,5 +546,5 @@ fn chat_main(
             )
             .send_icon(kivact::view::icon("send")),
     ))
-    .style(style().grow(1).min_width(0))
+    .style(style().flex_grow(1).min_width(0))
 }

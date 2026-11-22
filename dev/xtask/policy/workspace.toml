@@ -522,6 +522,8 @@ allowed_impls = [
   "kivact_ui_soft::top_nav::TopNavMegaMenu crates/kivact-ui-soft/src/top_nav.rs",
   # 理由 (2)：中に中核の Dialog を持ち、surface を開くたびに作る builder（soft の alert_dialog。設計者の回答、2026-11-22）。
   "kivact_ui_soft::alert_dialog::AlertDialog crates/kivact-ui-soft/src/alert_dialog.rs",
+  # 理由 (1)：trigger の上に置く field の builder（catalog の IconInput。字句どおり node_mut は中の TextInput の node を返す。設計者の回答 (B)-3）。
+  "kivact_ui_pop_catalog::pages::forms::IconInput examples/kivact-ui-pop/src/pages/forms.rs",
 ]
 
 [module_rules.arvane-virtual.uses]
