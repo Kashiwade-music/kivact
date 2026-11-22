@@ -1,5 +1,6 @@
-//! Role: The shared signal handles of a catalog page: the overlay it shows and its records.
+//! Role: The shared signal handles of a catalog page: its overlay and its records.
 
+use super::record::Record;
 use super::records::records;
 use kivact::state::{Signal, binding, signal};
 /// The one overlay the catalog shows; opening another replaces the open one.
@@ -47,29 +48,6 @@ impl Demo {
         if self.overlay.get_untracked() == which {
             self.overlay.set(Overlay::None);
         }
-    }
-}
-
-/// One production order of the table specimen.
-#[derive(Clone, PartialEq)]
-pub(crate) struct Record {
-    pub(crate) id: String,
-    pub(crate) title: String,
-    pub(crate) description: String,
-    pub(crate) owner: String,
-    pub(crate) status: String,
-    pub(crate) tone: kivact::interaction::Tone,
-    pub(crate) priority: u8,
-    pub(crate) progress: f64,
-    pub(crate) updated: String,
-}
-
-impl Record {
-    /// Approve the order: it passes and is complete.
-    pub(crate) fn approve(&mut self) {
-        self.status = "PASSED".into();
-        self.tone = kivact::interaction::Tone::Success;
-        self.progress = 100.;
     }
 }
 

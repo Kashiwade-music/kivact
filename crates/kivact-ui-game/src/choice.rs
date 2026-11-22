@@ -1,4 +1,5 @@
-//! Role: The console's slot contents of the radio group and the tabs: the option's label, description and icon.
+//! Role: The console's slot contents of the radio group and the tabs.
+//! The option's label, description and icon.
 
 use crate::color::TEXT_3;
 use crate::fonts::DISPLAY_FAMILY_VAR;

@@ -1,4 +1,4 @@
-//! Role: Creative recipes for the standard list, data table, table, item list and toggle group.
+//! Role: Creative recipes for the standard list, table, item list and toggle group.
 //!
 //! The dense table of the editors: 30 px headers on the header surface,
 //! rows of the kit's row height with an edge in the row's own color,

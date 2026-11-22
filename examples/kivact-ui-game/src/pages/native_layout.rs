@@ -1,4 +1,5 @@
-//! Role: The Native Layout page of the game catalog: Windows, trees, inspectors and status bars.
+//! Role: The Native Layout page of the game catalog: windows, trees, inspectors.
+//! Status bars.
 
 use crate::support::common::{choice_options, line, list, segmented, suppress_search_shortcut};
 use crate::support::frame::native_window;

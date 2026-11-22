@@ -1,4 +1,4 @@
-//! Role: Chart tests: series colors in both themes, the locale of values and the tooltip card.
+//! Role: Chart tests: series colors in both themes, value locale and the tooltip card.
 
 use crate::support::distance;
 use kivact::prelude::*;

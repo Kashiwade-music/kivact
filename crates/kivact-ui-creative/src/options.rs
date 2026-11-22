@@ -3,17 +3,6 @@
 use crate::color;
 use kivact::style::Color;
 
-/// The five accent choices in the original creative-tool catalog.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Accent {
-    #[default]
-    Iris,
-    Lime,
-    Aqua,
-    Coral,
-    Amber,
-}
-
 /// The color of a label, resolved when drawn, so a label follows a theme
 /// switch.
 ///

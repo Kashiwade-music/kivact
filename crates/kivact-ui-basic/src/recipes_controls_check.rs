@@ -1,4 +1,4 @@
-//! Role: Lyra recipes of the checkbox and the switch: a label row beside a drawn box or track.
+//! Role: Lyra recipes of the checkbox and switch: a label beside a drawn box or track.
 //!
 //! The drawn part is local paint, which a state style cannot carry, so the
 //! recipes read the state and draw the part with their own edge and fill.

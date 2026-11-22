@@ -1,6 +1,6 @@
 //! Role: The fixture records of the data table and the data display demos.
 
-use super::state::Record;
+use super::record::Record;
 
 pub(crate) fn records() -> Vec<Record> {
     let mut records = recent_records();

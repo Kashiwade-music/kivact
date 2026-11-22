@@ -1,4 +1,5 @@
-//! Role: The helpers the basic kit's recipes share: focus rings, popover and list surfaces, the button look, Lucide strokes and pressable parts.
+//! Role: Helpers the basic recipes share: focus rings, popover and list surfaces.
+//! The button look, the Lucide strokes and the pressable parts.
 
 use crate::color::{
     ACCENT, ACCENT_FOREGROUND, BACKGROUND, BORDER, DESTRUCTIVE, FOREGROUND, INPUT, MUTED,

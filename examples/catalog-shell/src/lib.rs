@@ -1,4 +1,5 @@
-//! Role: The shared shell of the Kivact UI kit catalogs: page list, search, theme toggle and pages.
+//! Role: The shared shell of the Kivact UI kit catalogs.
+//! Page list, search, theme toggle and pages.
 //!
 //! A catalog is a list of [`Page`]s and a theme function; [`catalog`] shows them
 //! with a searchable list, a theme toggle and the page area. A page file defines

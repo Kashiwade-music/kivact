@@ -1,4 +1,5 @@
-//! Role: Creative appearance of the standard toasts, alerts, empty states, cards and the indicators: badges, avatars, skeletons, spinners and key caps.
+//! Role: Creative appearance of the standard toasts, alerts, empty states and cards.
+//! Also the indicators: badges, avatars, skeletons, spinners and key caps.
 use crate::color;
 use crate::fonts::mono_family;
 use crate::recipe_parts::{ToneExt, button_style};

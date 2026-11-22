@@ -1,7 +1,5 @@
 //! Role: The catalog's pages: one module per page, and the helper modules they share.
 
-use catalog_shell::Page;
-
 mod animation_model;
 mod areas_docking;
 mod arrange;
@@ -29,6 +27,7 @@ mod knobs_faders;
 mod layer_stack;
 mod layout;
 mod layout_reducers;
+mod list;
 mod media_pool;
 mod media_pool_data_table;
 mod menus;
@@ -46,31 +45,4 @@ mod transport;
 mod txn;
 mod viewport_3d;
 
-/// Every page of the catalog, in list order.
-pub fn pages() -> Vec<Page> {
-    vec![
-        overview::page(),
-        buttons::page(),
-        numeric_fields::page(),
-        selection_input::page(),
-        indicators_labels::page(),
-        transport::page(),
-        knobs_faders::page(),
-        meters::page(),
-        mixer_console::page(),
-        property_editor::page(),
-        areas_docking::page(),
-        outliner::page(),
-        media_pool_data_table::page(),
-        layer_stack::page(),
-        arrange_timeline::page(),
-        dope_sheet_graph::page(),
-        node_editor::page(),
-        color_grading_scopes::page(),
-        color_picker::page(),
-        viewport_3d::page(),
-        menus::page(),
-        dialogs_popovers::page(),
-        jobs_log::page(),
-    ]
-}
+pub use list::pages;
