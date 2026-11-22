@@ -1645,3 +1645,16 @@ lane P（heading の variant、styled_text の node_ref、chat_composer の Shif
   - 印の名前と置き場は、中核に同じ意味のもの（a11y だけの node の印）があればそれを使う。無ければ、`outlet` の node の part か property として足す。
 - **(g) `pagination_page_summary`・`pagination_count` の削除**：付属書 K の 4.4.5 の表に残す名前として載っているなら、消さずに `pub use` で公開する（公開の関数は dead ではない）。表に無ければ、削除を採る。
 - 順序：lane P（7e の navigation の機械、(f) の検査）→ 統合 → K43 → L11 → W10 の wave の終わり。
+
+## 設計者の回答（P9：7e の echo と announcer の検査、2026-11-22）
+
+- **(1) 7e**：(b) にする。根は、機械が自分で書いた `open` が follow の effect を通って `Event::Close` として機械に戻る echo（open の規則「caller の `Signal<bool>` が唯一の事実、機械は一つの effect で一方向に従う」に反する）。
+  - 直し（lane P の commit。`kivact-interaction` の navigation menu）：`open` を追う effect は、caller の値が機械の今の開閉（`state` が開いているか）と**違うときだけ** `Open`・`Close` を送る。機械が書いた値は機械の状態と同じなので戻ってこない。
+  - `hide()`・`show()` などの handle の method は、signal を経ずに機械へ直接 event を送る形のままにする（今そうでなければ、そうする）。だから `hide()` の振る舞い（Closed で保留の hover があるとき、それを消す）は変わらない。
+  - 試験：soft の 7e が期待値のまま通ること。中核の navigation の e2e（P7 で書けたなら）も通ること。
+  - 他の surface の機械（popup・menu・disclosure）にも、同じ echo の形が無いかを `rg` で確かめる。あれば同じ直しをし、commit message に列挙する。
+- **(2) announcer の検査**：新しい node の flag は足さない。
+  - 中核の announcer の outlet の node に `test_id("kivact.announcer")` を付ける。
+  - `kivact-test` の `LayoutCheck` の既定で、その test id の部分木を飛ばす（既存の `ignore_test_id` の仕組みを、既定値として使う）。
+  - `LayoutCheck` の doc に 1 文足す：「By default it skips the announcer outlet (`kivact.announcer`), a region only screen readers read.」
+  - lane P の 1 つの commit で行う。catalog-shell の側は変えない。
