@@ -8,10 +8,12 @@
 //! width; `Locator::check_layout` looks at a subtree; and
 //! `assert_layout` fails listing every violation.
 
+use kivact::interaction::use_announcer;
 use kivact::prelude::*;
 use kivact::style::TextOverflow;
 use kivact::test::{LayoutLimit, LayoutRule, RenderOptions, render, render_with};
-use kivact::view::{Node, ScrollAxes};
+use kivact::ui::announcer_outlet;
+use kivact::view::{LiveRegion, Node, ScrollAxes};
 
 static NOTO: &[u8] = include_bytes!(
     "../../../../../examples/shared-assets/fonts/notosansjp/NotoSansJP-subset[wght].ttf"
@@ -271,4 +273,24 @@ fn a_healthy_screen_passes() {
         .style(style().align_items(Align::Start).gap(8))
     });
     screen.assert_layout();
+}
+
+#[test]
+fn an_announcement_in_the_announcer_outlet_is_not_reported() {
+    // The outlet keeps its live regions in a 1 px clip outside the layout, so
+    // its text is cut by design. The default check leaves the outlet out.
+    let screen = render(|| {
+        let notices = use_announcer();
+        column((
+            button("Save").on_press(move || {
+                notices.announce(
+                    "A long announcement that cannot fit the one pixel clip of the outlet",
+                    LiveRegion::Polite,
+                )
+            }),
+            announcer_outlet(notices),
+        ))
+    });
+    screen.get_by_role(Role::Button, "Save").click();
+    assert_eq!(screen.check_layout(), []);
 }
