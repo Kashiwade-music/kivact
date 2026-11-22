@@ -1713,3 +1713,27 @@ lane P（heading の variant、styled_text の node_ref、chat_composer の Shif
 ## 設計者の答え（2026-11-22、四度目）
 
 付属書 X の 6 章に書いた（`#[component]` の素の整数の prop は書いた型のまま受ける。`PropKind::Param` を `AsIs` に改名。文書の `progress_ring(3, 10)` は変えない）。
+
+## 差戻し（W11c・G15、2026-11-22）
+
+- **G15**（W11c、lane G1、worktree `W:/w/kv-wt/rw-W11c-G1`、commit `713fcb11`。統合へは merge していない。lane は止めている）。済んだもの：pending の表・`pending.rs`・`--strict`・notes の削除、`cargo xtask check --no-write` の error 0、`cargo test -p xtask` の 65 件、CONTRIBUTING・`dev/README.md` の書換え、kivact-docs の doctest（`--all-features`、71 passed、0 failed）、`cargo check -p kivact-bench --all-targets`、`cargo fmt --all -- --check`。残る差戻し（完了条件の AC-4 の出力が (i)〜(v) だけにならない）：
+  1. `on_draft_commit`（`crates/kivact-interaction/src/text_edit/handle.rs:209`）は pub の API method のまま。呼出し元：`kivact-ui/src/text_input/view.rs:147`、`kivact-ui-creative/src/outliner/view.rs:288`、`numeric/view.rs:293`、`dock/chrome.rs:610`、試験 `dev/tests/kivact-public-api/tests/e2e_core/text_editing.rs:942,980`、`tests/e2e_ui/ui_field.rs:70`。文書 `docs/for-kivact-user/{en,jp}/how-to-guide/forms.md`（en:324、jp:281）と `crates/kivact-interaction/src/inline_edit.rs:208`。移行の表の新しい名 `on_commit` はどの text API にも無いので、文書は直していない。改名先を決めてください。
+  2. `on_open_change`（`crates/kivact-ui-soft/src/app_shell.rs:126`、drawer の builder）は pub のまま。移行の表は消すとしている。
+  3. `constant_value!` が 4.7 節の許す場所の外：`crates/kivact-style/src/sheet/props.rs:127`、`crates/kivact-i18n/src/shared.rs:198`、`crates/kivact-runtime/src/reactive/handles.rs:411`（`pub(crate) fn constant_value`）、`crates/kivact-style/src/color_value/value.rs:69`（4.7 の path は `color/value.rs`）。許すか、消すかを決めてください。
+  4. `TestFonts::Only`：engine の `crates/kivact-engine/src/host/testing/test_options.rs:15`、`test_host.rs:157`、`crates/kivact-test/src/options.rs:228`。公開の `kivact-test` の `TestFonts` には無い。C14 の注記は engine の variant を残すとしているが、2.5 の regex は `TestFonts::Only` を禁じる。例外にするか、改名するかを決めてください。
+  5. `.fonts(TestFonts::System)`：文書 `docs/for-kivact-user/en/how-to-guide/testing.md:488`、`jp/how-to-guide/testing.md:415`。`RenderOptions::fonts(TestFonts)` は G07 の文（`G-guides.md` の 3067 行付近）に従って残っており、2.5 の regex と食い違う。
+  6. コードの識別子として残った旧名（(i)〜(v) に当たらない）：`Gradient::radius`（`crates/kivact-style/src/paint/gradient.rs:185`）、`PropGroup::Spacing`（`crates/kivact-style/src/sheet/props.rs`・`kinds.rs`・`folded.rs`）、`Radii` の variant（`kivact-svg/src/fill.rs:126`、engine `lower/fill.rs:758,762`・`lower/sanitize.rs:92`、style `paint/gradient.rs:37,189,200`・`paint/fill_layer.rs:118-119`、`kivact-types/src/paint.rs:310`）、`arvane-native` の非公開の `notifier` module（`port/x11/notifier.rs` ほか）、example の `Overlay::Palette`（`examples/kivact-ui-game/src/support/state.rs:13` ほか）、非公開の helper `theme_overlay_margin`（`crates/kivact-core/src/view/overlays.rs:377`）。残すか、改名するかを決めてください（G15 の規則は API を変えない）。
+- **表で判断したもの**（Orchestrator の判断。差戻しではない）：`xtask` の試験の fixture の文字列 `while_open`（`dev/xtask/src/interaction_view.rs:55`、0.5 節の「xtask 自身の検出用の文字列」の行）。`.attach(` で受け手が `Tooltip` でないもの約 90 行（(vi)）。`Taffy` の `Dimension`（`kivact-layout`・`dev/xtask/src/docs_pairs.rs`）と Windows API の `Dimension` の field（gpu-share・gpu-interop-producer の d3d12）と `proc_macro2::Spacing`（(v) 相当の外部の型）。`migrating-to-rework.md` の旧名の列（検査の対象外の意図。`EXCL` の glob が rg に効いていない。表そのものは直していない）。
+- 後片付けの未了：統合の worktree のうち merge 済みで clean な `rw-W11x-X1`〜`X7` と `rw-G16` は、submodule（`vendor/xtask-core`、pushed の `94e1bbb`）を含むため `git worktree remove` が「submodule を含む working tree は消せない」で拒否する（`--force`、`submodule deinit` でも同じ）。branch は worktree に使われているので `-d` も拒否される。手で directory を消すかは設計者の判断。`wt/rw-W8-U3` は残す。
+
+## 設計者の答え（2026-11-22、G15 の差戻し 6 件）
+
+1. `on_draft_commit`：設計（`REWORK_DESIGN.md` の UI-13）どおり、`TextEditApi::on_draft_commit` を `on_commit` に改名する。付属書 U の U-ui 3092 行は `text_input` だけを改名し、interaction の Api が漏れていた。呼出し元（`kivact-ui/src/text_input/view.rs`、creative の `outliner/view.rs`・`numeric/view.rs`・`dock/chrome.rs`、試験の `text_editing.rs`・`ui_field.rs`）、`inline_edit.rs` の doc、`forms.md`（英日）を直す。内部の field の名前（`draft_commit`）は変えなくてよい。旧名の別名は残さない。
+2. `on_open_change`（soft の drawer）：設計（UI-12・UI-13。値は `Signal` で受ける）どおり消す。field の `on_change` と、それを呼ぶ所も消す。変化を知りたい呼出し元は、`.open(signal)` の signal を読む。`docs/for-kivact-developer/architecture.md` に残る `on_open_change` も、今の形（`open: Signal<bool>`）の文に直す。
+3. `constant_value!` の 4 箇所：残す（出力の扱いの (i)）。どれも `#[doc(hidden)]` の定義の内部の利用で、4.7 節が許す種類に当たる。4.7 節の一覧の path が古いだけ（X5 が `Style` の行を `sheet/props.rs` に移した。`color` の module は `color_value` になった）。`reactive/handles.rs` の `pub(crate) fn constant_value` も、crate の中だけの method。`rework/PROGRESS.md` の残した行の一覧に、file・行・理由を書く。
+4. `TestFonts::Only`（engine の試験の設定と、`kivact-test/src/options.rs` の対応づけ）：残す。5.12 が禁じるのは公開の path。公開の `kivact::test::TestFonts` には `Only` が無い（C14 の注記どおり）。(ii) と同じ扱いにし、一覧に書く。
+5. 文書の `.fonts(TestFonts::System)`：残す。`RenderOptions::fonts(TestFonts)` は G07 どおり今の API で、regex が狙う `App::fonts` ではない。一覧に書く。
+6. 出力の扱いに **(vii)** を足す：「消した公開の名前と同じ綴りでも、(a) 公開されない識別子であるもの、または (b) 別の概念の公開の名前（受け手か enum が、消した名前のものと違う）であるものは残す」。これに当たるので、次はすべて残し、一覧に書く：`PropGroup::Spacing`（(a)）、`arvane-native` の `notifier` の module（(a)）、`theme_overlay_margin`（(a)）、`RadialSize::Radii`（(b)。CSS の radial-gradient の大きさ）、`Gradient::radius`（(b)。受け手が `Gradient`。(iv) と同じ考え）、example の `Overlay::Palette`（(b)。game の example の command palette の overlay。(v) にも当たる）。
+
+- 1・2 は G15 の lane（`wt/rw-W11c-G1`）で直す。所有にこの file 群を足す。直した後に 2.5 の検査をもう一度走らせ、出力が (i)〜(vii) だけになることを確かめる。
+- worktree の後片付け（submodule を含むので `git worktree remove` が拒否する分）は、Orchestrator は行わない。公開に向けた整理のときに設計者が行う。
