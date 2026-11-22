@@ -69,6 +69,7 @@ pub fn pagination_status(facts: Value<PaginationSummary>) -> Node {
     node()
         .role(Role::Status)
         .live_region(LiveRegion::Polite)
+        .test_id("kivact.sr-only")
         .style(
             style()
                 .position(Position::Absolute)
