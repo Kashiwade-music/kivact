@@ -296,3 +296,13 @@
 - 前の Orchestrator の tier b（`V:/kv-target/logs/w10-tierb.sh` と `w10-*.log`）の結果は使わない（古い統合の状態で走った）。
 - 残す：`rework/PROGRESS.md` の「W10 完了」の後の W11a（K44・L12・G01・G13・G14）以降は未着手。
 - 片付け（merge 済みを確かめてから消す）：`W:/w/kv-wt/rw-W10-fix`・`rw-W10-K1d`・`rw-W10-K5p`・`rw-W10-T1`・`rw-W10-V1` と、その前の W10 の lane（`rw-W10-*`）、W7・W8 の lane の残り。
+
+## 引継ぎ（W10 完了の後、2026-11-22）
+
+- 済んだこと：W10 完了（上の節）。統合 `84b67df0`（origin に push 済み）。
+- 次にすること：W11a（K44・L12・G01・G13・G14）→ W11b（G02〜G11。`rg -n "移行の文書" rework/OPEN.md` の項目を全部入れる）→ W11c（G15）→ CP3（5.2 節）。
+  - W11a の K44 は `dev/tests/kivact-kit-tests/` の新設と `crates/kivact-ui-*/tests/consumer/` の「移す」file（付属書 K の K44、INC-11 の module 名 `apg_grid_kit`・`presence_kit`）。L12 は付属書 L の xtask の `legacy:` の台帳の閉じ方（`dev/xtask/src/{local_checks.rs,state.rs,state/check.rs,state/tests.rs}`）。G01 は `dev/tests/docs/**`、G13・G14 は `docs/for-kivact-developer/` の 4 file。
+  - W11a 以降は tier b の除外なし（基本の形：`cargo xtask check --no-write`、clippy・test は全体）。
+- 判断待ち：なし（W10 の差戻しは答え済み）。
+- 注意：worktree の片付けは未実施（上の W10 の節に一覧）。merge 済みを確かめてから消す。
+- 注意：前の Orchestrator の古い tier b の script（`V:/kv-target/logs/w10-tierb.sh`）の結果は使わない。CRLF の file は `git -c core.autocrlf=false` で commit し、commit 前に `git diff --stat` と `git ls-files --eol` を確かめる。
