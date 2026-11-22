@@ -80,13 +80,19 @@ trusted_macros = [
     "concat", "matches", "panic", "println", "unreachable", "vec", "write", "writeln", "env", "file",
     "thread_local", "tracing::debug", "tracing::error", "tracing::info", "tracing::trace",
     "tracing::warn", "quote", "format_ident",
+    # kivact-macros の proc-macro の入口（parse_macro_input・parse_quote）。展開の token は解析の外。
+    "syn::parse_macro_input", "syn::parse_quote",
     # workspace の macro_rules と、それを呼ぶ path は dev/xtask（macros.rs）が自動で足す。
     # item を生成する macro は、呼んだ module を解析の外に置く。
 ]
 trusted_attributes = ["serde", "component"]
+# #[component] fn が作る Type（`fn button` が `Button`）を、その fn の隣に宣言する。
+generated_type_attributes = ["component"]
 trusted_derives = [
     "Clone", "Copy", "Debug", "Default", "Eq", "Hash", "Ord", "PartialEq", "PartialOrd",
     "Deserialize", "Serialize",
+    # kivact-macros の `#[derive(Prop)]`。impl IntoValue<T> for T だけを作り、module の参照を足さない。
+    "Prop", "kivact::Prop",
 ]
 
 # ----- crate 内の module の依存の向き（dev/xtask の module_rules.rs）。依存の向き
@@ -395,6 +401,12 @@ item = "component"
 reason = "The proc-macro entry is the crate's only export; the parsing and expansion live in the child modules."
 
 [[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-macros/src/lib.rs"
+item = "derive_prop"
+reason = "The proc-macro entry is the crate's only export; the parsing and expansion live in the child modules."
+
+[[style.exceptions]]
 rule = "glob-imports"
 path = "crates/kivact-ui-basic/tests/*"
 reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
@@ -443,18 +455,6 @@ reason = "Test-only X11 host: the module owns one large TestParent implementatio
 
 [[style.exceptions]]
 rule = "non-leaf-implementation"
-path = "crates/kivact-core/src/client/dispatch.rs"
-item = "client::dispatch::dispatch"
-reason = "Glue that ties the event modules together: it routes each HostEvent variant to the child module of its kind and implements no event handling itself."
-
-[[style.exceptions]]
-rule = "non-leaf-implementation"
-path = "crates/arvane-native/src/port/embed/open.rs"
-item = "port::embed::open::open"
-reason = "Glue: `open` only selects the Win32 or X11 child backend by cfg; other platforms report Unsupported."
-
-[[style.exceptions]]
-rule = "non-leaf-implementation"
 path = "examples/kivact-ui-basic/src/docs.rs"
 item = "docs::pages"
 reason = "Glue: the page registry only lists each child page module's `page()` in navigation order."
@@ -470,12 +470,6 @@ rule = "non-leaf-implementation"
 path = "crates/kivact-devtools-mcp/src/main.rs"
 item = "main"
 reason = "Glue: the MCP binary entry only reads the embedded schema and starts the stdio server."
-
-[[style.exceptions]]
-rule = "non-leaf-implementation"
-path = "crates/kivact-devtools/src/main.rs"
-item = "main"
-reason = "Glue: the DevTools binary entry only parses arguments and runs the app root."
 
 [[style.exceptions]]
 rule = "non-leaf-implementation"
