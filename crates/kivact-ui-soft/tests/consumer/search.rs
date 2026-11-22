@@ -24,7 +24,8 @@ fn debounces_and_discards_previous_suggestions() {
             let selected = signal(None::<String>);
             (
                 selected,
-                kivact::ui::combobox("Search", Vec::new(), selected)
+                kivact::ui::combobox(Vec::new(), selected)
+                    .label("Search")
                     .style(style().width(260))
                     .search(move |query| {
                         seen.borrow_mut().push(query.clone());
@@ -71,7 +72,8 @@ fn tokenizer_keeps_remote_labels_and_excludes_selected_keys() {
             let selected = signal(Vec::<&'static str>::new());
             (
                 selected,
-                kivact::ui::combobox("Members", Vec::new(), selected)
+                kivact::ui::combobox(Vec::new(), selected)
+                    .label("Members")
                     .chips()
                     .exclude_selected()
                     .style(style().width(260))

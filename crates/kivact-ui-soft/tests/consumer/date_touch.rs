@@ -18,7 +18,8 @@ fn date_sheet_uses_calendar_and_month_wheels_without_staging_the_date() {
             let selected = signal(Some(start));
             (
                 selected,
-                kivact::ui::date_input("Due", selected)
+                kivact::ui::date_input(selected)
+                    .label("Due")
                     .presentation(kivact::ui::DatePresentation::BottomSheet),
             )
         },
@@ -57,7 +58,8 @@ fn time_sheet_wheels_commit_each_step_before_save() {
             }));
             (
                 selected,
-                kivact::ui::time_input("Reminder", selected)
+                kivact::ui::time_input(selected)
+                    .label("Reminder")
                     .format(kivact::i18n::TimeStyle { seconds: true })
                     .presentation(kivact::ui::DatePresentation::BottomSheet),
             )
@@ -110,7 +112,8 @@ fn combined_sheet_advances_from_date_to_time_and_keeps_the_committed_date() {
             }));
             (
                 selected,
-                kivact::ui::date_time_input("Starts at", selected)
+                kivact::ui::date_time_input(selected)
+                    .label("Starts at")
                     .presentation(kivact::ui::DatePresentation::BottomSheet),
             )
         },
@@ -158,9 +161,10 @@ fn date_sheet_swipe_pages_without_selecting_the_contact_day() {
                 (
                     selected,
                     provide_direction(direction, move || {
-                        kivact::ui::date_input("Due", selected)
+                        kivact::ui::date_input(selected)
+                            .label("Due")
                             .presentation(kivact::ui::DatePresentation::BottomSheet)
-                            .calendar(move |calendar| calendar.bounds(Some(start), Some(bound)))
+                            .calendar(move |calendar| calendar.min(Some(start)).max(Some(bound)))
                     }),
                 )
             },
@@ -208,7 +212,8 @@ fn time_wheel_flick_projects_to_a_detent_and_exposes_increment_actions() {
             }));
             (
                 selected,
-                kivact::ui::time_input("Reminder", selected)
+                kivact::ui::time_input(selected)
+                    .label("Reminder")
                     .presentation(kivact::ui::DatePresentation::BottomSheet),
             )
         });

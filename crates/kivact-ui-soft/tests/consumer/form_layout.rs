@@ -19,10 +19,13 @@ fn horizontal_labels_share_a_track_and_stack_at_480_pixels() {
             .mirror(MirrorMode::Off),
         || {
             form_layout((
-                form_row(text("Name"), text_input("Name", signal(String::new()))),
+                form_row(
+                    text("Name"),
+                    text_input(signal(String::new())).label("Name"),
+                ),
                 form_row(
                     text("Delivery address"),
-                    text_input("Delivery address", signal(String::new())),
+                    text_input(signal(String::new())).label("Delivery address"),
                 ),
             ))
             .direction(FormDirection::HorizontalLabels)

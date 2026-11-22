@@ -48,6 +48,7 @@ mod nav_heading;
 mod nav_icon;
 mod navigation_session;
 mod outline;
+mod pagination;
 mod power_search;
 mod radius;
 mod recipe_parts;
@@ -72,6 +73,7 @@ mod recipes_input;
 mod recipes_metrics;
 mod recipes_navigation;
 mod recipes_navigation_pagination;
+mod recipes_navigation_sidebar;
 mod recipes_navigation_stepper;
 mod recipes_overlays;
 mod recipes_overlays_command;
@@ -84,7 +86,6 @@ mod rich_text;
 mod scrollable_area;
 mod section;
 mod shadows;
-mod side_navigation;
 mod soft_chat_tools;
 mod soft_overflow;
 mod soft_table;
@@ -186,6 +187,7 @@ pub use nav_heading::{
 };
 pub use nav_icon::nav_icon;
 pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
+pub use pagination::{pagination_count, pagination_page_summary, pagination_status};
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
 pub use radius::{
     RADIUS_CHAT, RADIUS_CONTAINER, RADIUS_ELEMENT, RADIUS_FULL, RADIUS_INNER, RADIUS_NONE,
@@ -194,10 +196,6 @@ pub use radius::{
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor};
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Section, SectionEdges, section};
-pub use side_navigation::{
-    ItemCollapse, SideNav, SideNavCollapse, SideNavCollapseButton, SideNavItem, SideNavResize,
-    SideNavSection, side_nav, side_nav_collapse_button, side_nav_item, side_nav_section,
-};
 pub use soft_chat_tools::{ChatToolCalls, ToolCall, ToolStatus, chat_tool_calls};
 pub use soft_overflow::{CollapseFrom, OverflowList, OverflowMeasure, overflow_list};
 pub use soft_table::{
@@ -240,6 +238,7 @@ pub use variants::{
     PaginationSize, RowStatusDot, SectionVariant, SegmentedIconOnly, SegmentedLayout,
     SkeletonRadius, SpinnerShade, SpinnerVariant, StepCollapsedVariant, StepDensity,
     StepIndicatorPosition, SystemMessageVariant, TableCellAlign, TableCellDivider,
-    TableRowDividers, TableRowHover, TableRowStriped, ToolbarVariant, TreeGuides,
+    TableRowDividers, TableRowHover, TableRowStriped, TabsDivider, TabsFullBleed, TabsLayout,
+    ToolbarVariant, TreeGuides,
 };
 pub use visually_hidden::{VisuallyHidden, visually_hidden};

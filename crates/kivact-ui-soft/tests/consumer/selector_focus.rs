@@ -22,7 +22,6 @@ fn selector_highlights_without_moving_focus_or_committing_until_activation() {
                 column((
                     button("Before"),
                     kivact::ui::select(
-                        "Fruit",
                         vec![
                             ListItem::new(0, "Unavailable").disabled(true),
                             ListItem::new(1, "Apple"),
@@ -30,6 +29,7 @@ fn selector_highlights_without_moving_focus_or_committing_until_activation() {
                         ],
                         selected,
                     )
+                    .label("Fruit")
                     .open_on_arrow(true),
                     button("After"),
                 )),
@@ -99,10 +99,10 @@ fn selector_does_not_toggle_closed_on_open_enter_when_no_option_is_enabled() {
             (
                 selected,
                 kivact::ui::select(
-                    "Disabled options",
                     vec![ListItem::new(1, "Unavailable").disabled(true)],
                     selected,
                 )
+                .label("Disabled options")
                 .open_on_arrow(true),
             )
         },

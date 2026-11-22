@@ -5,7 +5,6 @@ use crate::motion::{EASE_STANDARD, FAST, FAST_MAX};
 use crate::radius::{RADIUS_CONTAINER, RADIUS_ELEMENT};
 use crate::recipe_parts::{ring, shadowed};
 use crate::shadows;
-use crate::side_navigation::items::logical_row;
 use crate::space::{self as s, Space};
 use crate::stack::rtl;
 use crate::type_scale as t;
@@ -34,6 +33,7 @@ use kivact::state::IntoText;
 use kivact::state::Value;
 use kivact::state::callback;
 use kivact::style::Align;
+use kivact::style::FlexDirection;
 use kivact::style::Justify;
 use kivact::style::ThemeMode;
 use kivact::style::TransitionProp;
@@ -290,6 +290,15 @@ pub fn top_nav_heading(heading: impl IntoText) -> SideNavHeading {
     side_nav_heading(heading.into_text_value())
 }
 
+/// The flow of a row: reversed in a right-to-left reading direction.
+fn logical_row() -> FlexDirection {
+    if rtl() {
+        FlexDirection::RowReverse
+    } else {
+        FlexDirection::Row
+    }
+}
+
 fn heading_content(
     heading: Value<String>,
     superheading: Option<Value<String>>,
@@ -299,7 +308,9 @@ fn heading_content(
     menu: Option<NavHeadingMenu>,
     presses: HeadingPresses,
 ) -> View {
-    let rail = crate::side_navigation::context::nav_is_rail();
+    // The heading collapses to its icon while the sidebar around it is an icon column.
+    let sidebar = kivact::ui::use_sidebar();
+    let rail = kivact::state::memo(move || sidebar.is_some_and(|sidebar| sidebar.icon_only()));
     let has_icon = glyph.is_some();
     let interactive = menu.is_some() || presses.heading.is_some();
     let trigger = move |open: Value<bool>, menu: bool| {
@@ -526,59 +537,4 @@ fn menu_min_width(heading: bool, size: ControlSize) -> f64 {
     } else {
         280.0
     }
-}
-
-pub(crate) fn menu_check() -> Node {
-    icon("check").style(|| style().size(m::ICON_SM, m::ICON_SM).color(c::ACCENT))
-}
-
-pub(crate) fn menu_chevron(open: Value<bool>) -> Node {
-    icon("chevron-down").style(move || {
-        style()
-            .size(16, 16)
-            .rotate(if open.get() { 180 } else { 0 })
-            .transition(
-                TransitionProp::All,
-                Transition::tween(FAST as f64, EASE_STANDARD),
-            )
-    })
-}
-
-pub(crate) fn menu_option_style(
-    input: kivact::custom::PartState,
-    selected: bool,
-) -> kivact::style::Style {
-    let role = t::BODY;
-    let base = style()
-        .flex_direction(logical_row())
-        .padding_x(s::SPACE_S3)
-        .padding_y(s::SPACE_S2)
-        .align_items(Align::Center)
-        .gap(s::SPACE_S2)
-        .border_radius(RADIUS_ELEMENT)
-        .font_size(role.size_px)
-        .line_height(role.line_height_px / role.size_px)
-        .color(c::TEXT_PRIMARY)
-        .font_weight(if selected {
-            t::WEIGHT_MEDIUM
-        } else {
-            role.weight
-        })
-        .disabled(style().opacity(m::DISABLED_OPACITY));
-    if input.is_hovered() || input.is_focused() {
-        base.background(c::OVERLAY_HOVER)
-    } else {
-        base
-    }
-}
-
-pub(crate) fn tab_menu_surface() -> kivact::style::Style {
-    low_shadowed(
-        style()
-            .padding(s::SPACE_S1)
-            .gap(s::SPACE_S0_5)
-            .min_width(160)
-            .background(c::BG_POPOVER)
-            .border_radius(RADIUS_CONTAINER),
-    )
 }

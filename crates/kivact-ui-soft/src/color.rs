@@ -1243,21 +1243,6 @@ pub(crate) fn shadow_white(alpha: f64) -> Color {
     rgba(0xffffff, alpha)
 }
 
-/// The info blue at `alpha`: the hovered and selected edge shadows.
-pub(crate) fn shadow_info(alpha: f64) -> Color {
-    rgba(0x0074e2, alpha)
-}
-
-/// The success green at `alpha`: the success edge shadow.
-pub(crate) fn shadow_success(alpha: f64) -> Color {
-    rgba(0x2f7d33, alpha)
-}
-
-/// The warning yellow at `alpha`: the warning edge shadow.
-pub(crate) fn shadow_warning(alpha: f64) -> Color {
-    rgba(0xf8d36a, alpha)
-}
-
 /// The error red at `alpha`: the error edge shadow.
 pub(crate) fn shadow_error(alpha: f64) -> Color {
     rgba(0xde4745, alpha)

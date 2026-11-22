@@ -1,11 +1,129 @@
 //! Capture the Soft catalog pages in both appearances for visual review.
+use catalog_shell::check;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, Screen, render_with};
+use kivact::test::Screen;
 use kivact::view::{Key, MouseButton, Role};
-use kivact_ui_soft_catalog::{catalog_at, fonts, pages};
+use kivact_ui_soft_catalog::{THEME, pages};
 use std::fmt::Write;
 use std::path::Path;
 use std::time::Duration;
+
+/// Every page slug of the catalog, in the list order.
+const SLUGS: [&str; 113] = [
+    "button",
+    "button-group",
+    "context-menu",
+    "dropdown-menu",
+    "icon-button",
+    "link",
+    "more-menu",
+    "segmented-control",
+    "toggle-button",
+    "toolbar",
+    "chat",
+    "chat-dictation-button",
+    "chat-tool-calls",
+    "card",
+    "carousel",
+    "clickable-card",
+    "collapsible",
+    "selectable-card",
+    "avatar",
+    "avatar-group",
+    "blockquote",
+    "citation",
+    "code",
+    "code-block",
+    "empty-state",
+    "heading",
+    "icon",
+    "kbd",
+    "markdown",
+    "text",
+    "thumbnail",
+    "timer",
+    "timestamp",
+    "token",
+    "badge",
+    "banner",
+    "progress-bar",
+    "skeleton",
+    "spinner",
+    "status-dot",
+    "calendar",
+    "checkbox-input",
+    "checkbox-list",
+    "complex-selector",
+    "date-input",
+    "date-range-input",
+    "date-time-input",
+    "field",
+    "field-status",
+    "file-input",
+    "indicator",
+    "input-group",
+    "multi-selector",
+    "number-input",
+    "power-search",
+    "radio-list",
+    "rich-text-editor",
+    "selector",
+    "slider",
+    "switch",
+    "text-area",
+    "text-input",
+    "time-input",
+    "tokenizer",
+    "typeahead",
+    "app-shell",
+    "aspect-ratio",
+    "center",
+    "divider",
+    "form-layout",
+    "grid",
+    "layout",
+    "resizable",
+    "scrollable-area",
+    "section",
+    "stack",
+    "breadcrumbs",
+    "mobile-nav",
+    "nav-icon",
+    "nav-menu",
+    "outline",
+    "pagination",
+    "side-nav",
+    "step",
+    "stepper",
+    "tab-list",
+    "tab-menu",
+    "top-nav",
+    "alert-dialog",
+    "bottom-sheet",
+    "bottom-sheet-switcher",
+    "command-palette",
+    "dialog",
+    "drawer",
+    "hover-card",
+    "lightbox",
+    "overlay",
+    "popover",
+    "toast",
+    "tooltip",
+    "item",
+    "list",
+    "metadata-list",
+    "overflow-list",
+    "table",
+    "tree-list",
+    "internationalization-provider",
+    "layer",
+    "link-provider",
+    "media-theme",
+    "syntax-theme",
+    "theme",
+    "visually-hidden",
+];
 
 #[test]
 #[ignore = "captures screenshots for manual visual review"]
@@ -15,42 +133,33 @@ fn capture_catalog() {
     let filter = std::env::var("KIVACT_SOFT_LOOKBOOK_PAGES").ok();
     let mut diagnostics = Vec::new();
     let mut layout = String::new();
-    for page in pages().iter().filter(|page| {
+    for slug in SLUGS.iter().copied().filter(|slug| {
         filter
             .as_deref()
-            .is_none_or(|filter| filter.split(',').any(|slug| slug.trim() == page.slug))
+            .is_none_or(|filter| filter.split(',').any(|item| item.trim() == *slug))
     }) {
         for (mode, name) in [(ThemeMode::Light, "light"), (ThemeMode::Dark, "dark")] {
-            let screen = render_with(
-                RenderOptions::from_env()
-                    .window_size(1120.0, 800.0)
-                    .theme(kivact::style::Theme::default().with_fonts(fonts().iter().copied())),
-                move || catalog_at(mode, page.slug),
-            );
+            let screen = check::mount("Soft", pages, THEME, mode);
+            check::open(&screen, slug);
             screen
                 .screenshot()
-                .save_png(output.join(format!("{}-{name}.png", page.slug)))
+                .save_png(output.join(format!("{}-{name}.png", slug)))
                 .expect("catalog screenshot");
             let findings = screen.get_by_test_id("catalog-page-content").check_layout();
-            writeln!(
-                layout,
-                "{} ({name}) — {} findings",
-                page.slug,
-                findings.len()
-            )
-            .expect("write layout heading");
+            writeln!(layout, "{} ({name}) — {} findings", slug, findings.len())
+                .expect("write layout heading");
             for finding in findings {
                 writeln!(layout, "  {finding}").expect("write layout finding");
             }
-            if page.slug == "button" {
+            if slug == "button" {
                 capture_button_states(&screen, &output, name);
             }
-            capture_overlay_states(&screen, &output, page.slug, name);
-            capture_disclosure_states(&screen, &output, page.slug, name);
-            capture_content_states(&screen, &output, page.slug, name);
-            capture_table_states(&screen, &output, page.slug, name);
-            capture_date_states(&screen, &output, page.slug, name);
-            if page.slug == "spinner" {
+            capture_overlay_states(&screen, &output, slug, name);
+            capture_disclosure_states(&screen, &output, slug, name);
+            capture_content_states(&screen, &output, slug, name);
+            capture_table_states(&screen, &output, slug, name);
+            capture_date_states(&screen, &output, slug, name);
+            if slug == "spinner" {
                 screen.set_reduced_motion(true);
                 screen.advance(Duration::from_millis(750));
                 screen
@@ -60,7 +169,7 @@ fn capture_catalog() {
             }
             let errors = screen.errors();
             if !errors.is_empty() {
-                diagnostics.push(format!("{} ({name}): {errors:?}", page.slug));
+                diagnostics.push(format!("{} ({name}): {errors:?}", slug));
             }
         }
     }

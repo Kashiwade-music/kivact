@@ -1,52 +1,22 @@
 //! Demonstrate the standard anchored layers, dialogs and notifications.
-use super::specimen::specimen;
-use kivact::interaction::{Command, DialogMode, MenuEntry, Toast, toaster};
+use super::labelled;
+use kivact::interaction::{Command, MenuEntry, Toast, use_toaster};
 use kivact::state::Signal;
 use kivact::state::signal;
 use kivact::style::style;
 use kivact::ui::{
-    ButtonVariant, button, command_palette, dialog, hover_card, menu, toast_region, tooltip,
+    ButtonVariant, DialogKind, button, command_palette, dialog, hover_card, menu, toast_region,
+    tooltip,
 };
+use kivact::view::IntoView;
 use kivact::view::{Element, Node, row, text};
 use kivact_ui_soft::{
-    LightboxMedia, alert_dialog, bottom_sheet, bottom_sheet_flow, dialog_header, drawer_header,
-    lightbox, media_overlay,
+    LightboxMedia, alert_dialog, bottom_sheet, bottom_sheet_flow, lightbox, media_overlay,
 };
 
-pub(super) fn examples(slug: &str) -> Option<Node> {
-    Some(match slug {
-        "dialog" => example_dialog(),
-        "alert-dialog" => example_alert_dialog(),
-        "drawer" => example_drawer(),
-        "dialog-header" => example_dialog_header(),
-        "drawer-header" => example_drawer_header(),
-        "bottom-sheet" => example_bottom_sheet(),
-        "bottom-sheet-switcher" => example_bottom_sheet_switcher(),
-        "popover" | "layer" => example_popover(),
-        "hover-card" => example_hover_card(),
-        "overlay" => example_overlay(),
-        "lightbox" => example_lightbox(),
-        "tooltip" => example_tooltip(),
-        "dropdown-menu" => example_dropdown_menu(),
-        "context-menu" => example_context_menu(),
-        "command-palette" => example_command_palette(),
-        "toast" => example_toast(),
-        "more-menu" => example_more_menu(),
-        _ => return None,
-    })
-}
-
-fn dialog_example(kind: DialogMode, trigger: &'static str, name: &'static str) -> Node {
+fn dialog_example(kind: DialogKind, trigger: &'static str, name: &'static str) -> Node {
     let open = signal(false);
-    let source = match kind {
-        DialogMode::AlertModal => "dialog(title, open).mode(DialogMode::AlertModal)",
-        DialogMode::Drawer(_) => {
-            "dialog(title, open).mode(DialogMode::Drawer(kivact::geometry::Edge::Right))"
-        }
-        DialogMode::Popover => "dialog(title, open).mode(DialogMode::Popover)",
-        _ => "dialog(title, open).mode(DialogMode::Modal)",
-    };
-    specimen(
+    labelled(
         name,
         dialog(trigger, open)
             .mode(kind)
@@ -61,73 +31,65 @@ fn dialog_example(kind: DialogMode, trigger: &'static str, name: &'static str) -
                 .style(style().gap(8))
             })
             .attach(button(trigger)),
-        source,
     )
 }
 
-fn example_dialog() -> Node {
-    dialog_example(DialogMode::Modal, "Open dialog", "Modal")
+// example: dialog
+pub(super) fn example_dialog() -> Node {
+    dialog_example(DialogKind::Modal, "Open dialog", "Modal")
 }
+// end example
 
-fn example_alert_dialog() -> Node {
+// example: alert-dialog
+pub(super) fn example_alert_dialog() -> Node {
     {
         let open = signal(false);
-        specimen(
+        labelled(
             "Confirm deletion",
             (
                 button("Delete file").on_press(move || open.set(true)),
-                alert_dialog("Delete file?", "This action is permanent.", open)
-                    .action("Delete", move || open.set(false)),
+                alert_dialog("Delete file?", open)
+                    .description("This action is permanent.")
+                    .action_label("Delete")
+                    .on_press(move || open.set(false)),
             ),
-            "alert_dialog(title, description, open).action(\"Delete\", delete_file)",
         )
     }
 }
+// end example
 
-fn example_drawer() -> Node {
+// example: drawer
+pub(super) fn example_drawer() -> Node {
     dialog_example(
-        DialogMode::Drawer(kivact::geometry::Edge::Right),
+        DialogKind::Drawer(kivact::geometry::Edge::Right),
         "Open drawer",
         "Drawer",
     )
 }
+// end example
 
-fn example_dialog_header() -> Node {
-    specimen(
-        "Title and description",
-        dialog_header("Document settings").subtitle("Manage access to the document."),
-        "dialog_header(\"Document settings\").subtitle(\"Manage access to the document.\")",
-    )
-}
-
-fn example_drawer_header() -> Node {
-    specimen(
-        "Drawer title and description",
-        drawer_header("Filters").subtitle("Narrow the results."),
-        "drawer_header(\"Filters\").subtitle(\"Narrow the results.\")",
-    )
-}
-
-fn example_bottom_sheet() -> Node {
+// example: bottom-sheet
+pub(super) fn example_bottom_sheet() -> Node {
     {
         let open = signal(false);
-        specimen(
+        labelled(
             "Sheet actions",
             (
                 button("Open sheet").on_press(move || open.set(true)),
                 bottom_sheet("Document details", open)
                     .content(move || button("Done").on_press(move || open.set(false))),
             ),
-            "bottom_sheet(\"Document details\", open).content(sheet_content)",
         )
     }
 }
+// end example
 
-fn example_bottom_sheet_switcher() -> Node {
+// example: bottom-sheet-switcher
+pub(super) fn example_bottom_sheet_switcher() -> Node {
     {
         let step = signal(None);
         let selected: Signal<Option<u8>> = step;
-        specimen(
+        labelled(
             "Two sheet steps",
             (
                 button("Start review").on_press(move || step.set(Some(1))),
@@ -136,36 +98,45 @@ fn example_bottom_sheet_switcher() -> Node {
                 bottom_sheet_flow("Confirm review", selected, 2)
                     .content(move || button("Done").on_press(move || step.set(None))),
             ),
-            "bottom_sheet_flow(\"Review notes\", step, 1).content(review)",
         )
     }
 }
+// end example
 
-fn example_popover() -> Node {
-    dialog_example(DialogMode::Popover, "Open popover", "Popover")
+// example: popover
+// example: layer
+pub(super) fn example_popover() -> Node {
+    dialog_example(DialogKind::Popover, "Open popover", "Popover")
 }
+// end example
 
-fn example_hover_card() -> Node {
-    specimen(
+// example: hover-card
+pub(super) fn example_hover_card() -> Node {
+    labelled(
         "Preview on hover",
         hover_card(|| text("Workspace member")).attach(button("Avery Morgan")),
-        "hover_card(|| text(\"Workspace member\")).attach(button(\"Avery Morgan\"))",
     )
 }
+// end example
 
-fn example_overlay() -> Node {
-    specimen(
+// example: overlay
+pub(super) fn example_overlay() -> Node {
+    labelled(
         "Overlay on a preview",
-        media_overlay(text("Document preview")).attach(button("Cover")),
-        "media_overlay(text(\"Document preview\")).attach(button(\"Cover\"))",
+        media_overlay(
+            button("Cover").into_view(),
+            text("Document preview").into_view(),
+        ),
     )
 }
+// end example
 
-fn example_lightbox() -> Node {
+// example: lightbox
+pub(super) fn example_lightbox() -> Node {
     {
         static PREVIEW: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"><rect width="320" height="180" fill="#dce9f4"/><circle cx="246" cy="56" r="26" fill="#f3b85a"/><path d="M0 180 112 58l80 93 41-46 87 75Z" fill="#517983"/></svg>"##;
         let open = signal(false);
-        specimen(
+        labelled(
             "Open an image preview",
             (
                 button("Open image").on_press(move || open.set(true)),
@@ -175,21 +146,23 @@ fn example_lightbox() -> Node {
                 )
                 .zoom(true),
             ),
-            "lightbox(open, media).zoom(true)",
         )
     }
 }
+// end example
 
-fn example_tooltip() -> Node {
-    specimen(
+// example: tooltip
+pub(super) fn example_tooltip() -> Node {
+    labelled(
         "Keyboard focus and hover",
-        tooltip("Save your changes").attach(button("Save")),
-        "tooltip(\"Save your changes\").attach(button(\"Save\"))",
+        tooltip("Save your changes", button("Save")),
     )
 }
+// end example
 
-fn example_dropdown_menu() -> Node {
-    specimen(
+// example: dropdown-menu
+pub(super) fn example_dropdown_menu() -> Node {
+    labelled(
         "Actions and disabled items",
         menu(
             "Actions",
@@ -200,12 +173,13 @@ fn example_dropdown_menu() -> Node {
         )
         .on_activate(|_| {})
         .attach(button("Actions")),
-        "menu(\"Actions\", items).on_activate(on_activate).attach(button(\"Actions\"))",
     )
 }
+// end example
 
-fn example_context_menu() -> Node {
-    specimen(
+// example: context-menu
+pub(super) fn example_context_menu() -> Node {
+    labelled(
         "Right-click or use the context-menu key",
         menu(
             "Document actions",
@@ -216,14 +190,15 @@ fn example_context_menu() -> Node {
         )
         .on_activate(|_| {})
         .attach_context(button("Document")),
-        "menu(\"Document actions\", items).on_activate(on_activate).attach_context(button(\"Document\"))",
     )
 }
+// end example
 
-fn example_command_palette() -> Node {
+// example: command-palette
+pub(super) fn example_command_palette() -> Node {
     {
         let open = signal(false);
-        specimen(
+        labelled(
             "Search commands",
             (
                 button("Open commands").on_press(move || open.set(true)),
@@ -236,15 +211,16 @@ fn example_command_palette() -> Node {
                 )
                 .on_activate(|_| {}),
             ),
-            "command_palette(commands, open).on_activate(on_run)",
         )
     }
 }
+// end example
 
-fn example_toast() -> Node {
+// example: toast
+pub(super) fn example_toast() -> Node {
     {
-        let toasts = toaster();
-        specimen(
+        let toasts = use_toaster();
+        labelled(
             "Notification",
             (
                 button("Show notification").on_press(move || {
@@ -252,13 +228,14 @@ fn example_toast() -> Node {
                 }),
                 toast_region(toasts),
             ),
-            "toasts.push(Toast::new(\"Changes saved\"))",
         )
     }
 }
+// end example
 
-fn example_more_menu() -> Node {
-    specimen(
+// example: more-menu
+pub(super) fn example_more_menu() -> Node {
+    labelled(
         "Compact action trigger",
         kivact_ui_soft::more_menu(
             vec![
@@ -267,6 +244,6 @@ fn example_more_menu() -> Node {
             ],
             |_| {},
         ),
-        "more_menu(items, on_activate)",
     )
 }
+// end example

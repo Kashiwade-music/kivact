@@ -1,5 +1,5 @@
 //! Demonstrate Soft layout, collection, table and chat components.
-use super::specimen::specimen;
+use super::labelled;
 use kivact::interaction::FilterValue;
 use kivact::interaction::TreeNode;
 use kivact::state::signal;
@@ -7,75 +7,27 @@ use kivact::style::style;
 use kivact::ui::{DataColumn, DataTableDensity, FilterField, button, card, data_table};
 use kivact::view::{Element, Node, column, row, text};
 use kivact_ui_soft::{
-    DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus, aspect_ratio, center,
+    DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus, center,
     chat_dictation_button, chat_tool_calls, divider, form_layout, form_row, hstack, layout,
     layout_content, layout_grid, layout_header, nav_icon, overflow_list, scrollable_area, section,
     stack_item,
 };
 
-pub(super) fn examples(slug: &str) -> Option<Node> {
-    Some(match slug {
-        "collapsible" => example_collapsible(),
-        "collapsible-group" => example_collapsible_group(),
-        "list" | "list-item" | "item" => example_list(),
-        "card" => example_card(),
-        "clickable-card" => example_clickable_card(),
-        "selectable-card" => example_selectable_card(),
-        "carousel" => example_carousel(),
-        "section" => example_section(),
-        "center" => example_center(),
-        "form-layout" => example_form_layout(),
-        "layout" => example_layout(),
-        "scrollable-area" => example_scrollable_area(),
-        "divider" => example_divider(),
-        "stack" | "stack-item" => example_stack(),
-        "grid" => example_grid(),
-        "aspect-ratio" => example_aspect_ratio(),
-        "breadcrumbs" | "breadcrumb-item" => example_breadcrumbs(),
-        "pagination" => example_pagination(),
-        "metadata-list" | "metadata-list-item" => example_metadata_list(),
-        "tree-list" => example_tree_list(),
-        "nav-icon" => example_nav_icon(),
-        "overflow-list" => example_overflow_list(),
-        "chat" => example_chat(),
-        "chat-dictation-button" => example_chat_dictation_button(),
-        "chat-tool-calls" => example_chat_tool_calls(),
-        "table" => example_table(),
-        "resizable" | "resize-handle" => example_resizable(),
-        _ => return None,
-    })
-}
-
-fn example_collapsible() -> Node {
-    specimen(
+// example: collapsible
+pub(super) fn example_collapsible() -> Node {
+    labelled(
         "Open by default",
         kivact::ui::disclosure("Delivery details", signal(true))
             .animated(true)
             .content(|| text("Ships in two business days.")),
-        "disclosure(\"Delivery details\", signal(true)).animated(true).content(details)",
     )
 }
+// end example
 
-fn example_collapsible_group() -> Node {
-    specimen(
-        "One section open at a time",
-        kivact::ui::disclosure_group(signal(Some("delivery")))
-            .variant(kivact_ui_soft::DisclosureVariant {
-                dividers: true,
-                ..Default::default()
-            })
-            .panel("delivery", "Delivery", || {
-                text("Ships in two business days.")
-            })
-            .panel("returns", "Returns", || {
-                text("Returns accepted within 30 days.")
-            }),
-        "disclosure_group(open).variant(DisclosureVariant { dividers: true, ..Default::default() }).panel(key, title, content)",
-    )
-}
-
-fn example_list() -> Node {
-    specimen(
+// example: list
+// example: item
+pub(super) fn example_list() -> Node {
+    labelled(
         "Workspace items",
         kivact::ui::item_list((
             kivact::ui::item_row("Design").description("Active project"),
@@ -83,40 +35,41 @@ fn example_list() -> Node {
             kivact::ui::item_row("Archive"),
         ))
         .style(style().width(240)),
-        "kivact::ui::item_list((kivact::ui::item_row(\"Design\"), kivact::ui::item_row(\"Documentation\")))",
     )
 }
+// end example
 
-fn example_card() -> Node {
-    specimen(
-        "Project surface",
-        card(text("Project notes")),
-        "card(text(\"Project notes\"))",
-    )
+// example: card
+pub(super) fn example_card() -> Node {
+    labelled("Project surface", card(text("Project notes")))
 }
+// end example
 
-fn example_clickable_card() -> Node {
-    specimen(
+// example: clickable-card
+pub(super) fn example_clickable_card() -> Node {
+    labelled(
         "Open project",
         card(text("Project notes"))
             .name("Open project")
             .on_press(|| {}),
-        "card(content).name(\"Open project\").on_press(open_project)",
     )
 }
+// end example
 
-fn example_selectable_card() -> Node {
-    specimen(
+// example: selectable-card
+pub(super) fn example_selectable_card() -> Node {
+    labelled(
         "Select project",
         card(text("Project notes"))
             .name("Select project")
             .selected(signal(false)),
-        "card(content).name(\"Select project\").selected(selected)",
     )
 }
+// end example
 
-fn example_carousel() -> Node {
-    specimen(
+// example: carousel
+pub(super) fn example_carousel() -> Node {
+    labelled(
         "Browse slides",
         kivact::ui::carousel(
             signal(0usize),
@@ -129,63 +82,60 @@ fn example_carousel() -> Node {
         .mode(kivact::ui::CarouselMode::Scroll)
         .snap(kivact::interaction::Snap::Mandatory)
         .style(style().width(320)),
-        "let slides = [\"Design\", \"Documentation\", \"Research\", \"Release\"]\n    .into_iter().map(|title| card(text(title)).style(style().size(148, 72))).collect::<Vec<_>>();\nkivact::ui::carousel(signal(0usize), slides).name(\"Project highlights\").mode(CarouselMode::Scroll).snap(Snap::Mandatory).style(style().width(320))",
     )
 }
+// end example
 
-fn example_section() -> Node {
-    specimen(
-        "Section content",
-        section(text("Workspace settings")),
-        "section(text(\"Workspace settings\"))",
-    )
+// example: section
+pub(super) fn example_section() -> Node {
+    labelled("Section content", section(text("Workspace settings")))
 }
+// end example
 
-fn example_center() -> Node {
-    specimen(
+// example: center
+pub(super) fn example_center() -> Node {
+    labelled(
         "Center content",
         center(text("Centered content")).style(style().size(240, 96)),
-        "center(text(\"Centered content\"))",
     )
 }
+// end example
 
-fn example_form_layout() -> Node {
-    specimen(
+// example: form-layout
+pub(super) fn example_form_layout() -> Node {
+    labelled(
         "Horizontal labels stack at window widths of 480 px or less",
         form_layout((
             form_row(
                 text("Project"),
-                kivact::ui::text_input("Project", signal("Design notes".to_owned())),
+                kivact::ui::text_input(signal("Design notes".to_owned())).label("Project"),
             ),
             form_row(
                 text("Review owner"),
-                kivact::ui::text_input("Review owner", signal("Avery Morgan".to_owned())),
+                kivact::ui::text_input(signal("Avery Morgan".to_owned())).label("Review owner"),
             ),
         ))
         .direction(FormDirection::HorizontalLabels)
         .style(style().max_width(400)),
-        r#"form_layout((
-    form_row(text("Project"), text_input("Project", project)),
-    form_row(text("Review owner"), text_input("Review owner", owner)),
-))
-.direction(FormDirection::HorizontalLabels)
-.style(style().max_width(400))"#,
     )
 }
+// end example
 
-fn example_layout() -> Node {
-    specimen(
+// example: layout
+pub(super) fn example_layout() -> Node {
+    labelled(
         "Header and content",
         layout()
             .header(layout_header(text("Project notes")).divider(true))
             .content(layout_content(text("Workspace content")))
             .style(style().width(320).height(144)),
-        "layout().header(header).content(content)",
     )
 }
+// end example
 
-fn example_scrollable_area() -> Node {
-    specimen(
+// example: scrollable-area
+pub(super) fn example_scrollable_area() -> Node {
+    labelled(
         "Scroll with the keyboard",
         scrollable_area(
             "Activity",
@@ -196,83 +146,91 @@ fn example_scrollable_area() -> Node {
             ),
         )
         .style(style().width(240).height(96)),
-        "scrollable_area(\"Activity\", events)",
     )
 }
+// end example
 
-fn example_divider() -> Node {
-    specimen(
+// example: divider
+pub(super) fn example_divider() -> Node {
+    labelled(
         "Separate related content",
         kivact::view::column((text("Details"), divider(), text("History"))),
-        "divider()",
     )
 }
+// end example
 
-fn example_stack() -> Node {
-    specimen(
+// example: stack
+pub(super) fn example_stack() -> Node {
+    labelled(
         "Horizontal stack",
         hstack((
             stack_item(text("Design")),
             stack_item(text("Documentation")),
         )),
-        "hstack((stack_item(first), stack_item(second)))",
     )
 }
+// end example
 
-fn example_grid() -> Node {
-    specimen(
+// example: grid
+pub(super) fn example_grid() -> Node {
+    labelled(
         "Two columns",
         layout_grid((card(text("Design")), card(text("Documentation"))))
             .columns(GridColumns::Fixed(2))
             .gap(Space::S2),
-        "layout_grid(children).columns(GridColumns::Fixed(2)).gap(Space::S2)",
     )
 }
+// end example
 
-fn example_aspect_ratio() -> Node {
-    specimen(
+// example: aspect-ratio
+pub(super) fn example_aspect_ratio() -> Node {
+    labelled(
         "Wide preview",
-        aspect_ratio(16.0 / 9.0, card(text("Preview"))).style(style().width(240)),
-        "aspect_ratio(16.0 / 9.0, preview)",
+        card(text("Preview")).style(style().width(240).aspect_ratio(16.0 / 9.0)),
     )
 }
+// end example
 
-fn example_breadcrumbs() -> Node {
-    specimen(
+// example: breadcrumbs
+pub(super) fn example_breadcrumbs() -> Node {
+    labelled(
         "Project location",
         kivact::ui::breadcrumb(vec![
             kivact::interaction::ListItem::new(0, "Workspace"),
             kivact::interaction::ListItem::new(1, "Design notes"),
         ])
         .on_activate(|_| {}),
-        "breadcrumb(vec![ListItem::new(0, \"Workspace\"), ListItem::new(1, \"Design notes\")])",
     )
 }
+// end example
 
-fn example_pagination() -> Node {
-    specimen(
+// example: pagination
+pub(super) fn example_pagination() -> Node {
+    labelled(
         "Navigate result pages",
         kivact::ui::pagination(12usize, signal(0usize))
             .window(kivact::ui::PaginationWindow::Buffered)
             .first_last(true)
             .summary(kivact_ui_soft::pagination_status),
-        "pagination(12usize, page).window(PaginationWindow::Buffered).first_last(true).summary(soft::pagination_status)",
     )
 }
+// end example
 
-fn example_metadata_list() -> Node {
-    specimen(
+// example: metadata-list
+pub(super) fn example_metadata_list() -> Node {
+    labelled(
         "Document properties",
         kivact::ui::description_list((
             kivact::ui::description("Owner", text("Avery Morgan")),
             kivact::ui::description("Status", text("In review")),
         )),
-        "kivact::ui::description_list((kivact::ui::description(\"Owner\", text(\"Avery Morgan\")), status))",
     )
 }
+// end example
 
-fn example_tree_list() -> Node {
-    specimen(
+// example: tree-list
+pub(super) fn example_tree_list() -> Node {
+    labelled(
         "Expandable files",
         kivact::ui::tree(
             "Files",
@@ -290,24 +248,26 @@ fn example_tree_list() -> Node {
         ))
         .reveal_gap(2.0)
         .style(style().width(240)),
-        "kivact::ui::tree(\"Files\", files, selected).expanded(expanded).reveal(transition).reveal_gap(2.0)",
     )
 }
+// end example
 
-fn example_nav_icon() -> Node {
-    specimen(
+// example: nav-icon
+pub(super) fn example_nav_icon() -> Node {
+    labelled(
         "Navigation icon",
         row((
             nav_icon(kivact_ui_soft::icon_view("columns-2")),
             text("Documents"),
         ))
         .style(style().gap(8)),
-        "nav_icon(icon(\"columns-2\"))",
     )
 }
+// end example
 
-fn example_overflow_list() -> Node {
-    specimen(
+// example: overflow-list
+pub(super) fn example_overflow_list() -> Node {
+    labelled(
         "Items in a narrow space",
         overflow_list(
             vec!["Design", "Engineering", "Documentation", "Support"],
@@ -315,12 +275,13 @@ fn example_overflow_list() -> Node {
             |item| text(move || item.get().to_owned()),
         )
         .style(style().width(230)),
-        "overflow_list(teams, |item| *item, render_team)",
     )
 }
+// end example
 
-fn example_chat() -> Node {
-    specimen(
+// example: chat
+pub(super) fn example_chat() -> Node {
+    labelled(
         "Messages and composer",
         kivact::ui::chat_thread(kivact::view::column((
             kivact::ui::chat_message("")
@@ -333,37 +294,41 @@ fn example_chat() -> Node {
         )))
         .composer(kivact::ui::chat_composer(signal(String::new())))
         .style(style().width(440).height(300)),
-        "chat_thread(messages).composer(chat_composer(draft))",
     )
 }
+// end example
 
-fn example_chat_dictation_button() -> Node {
-    specimen(
+// example: chat-dictation-button
+pub(super) fn example_chat_dictation_button() -> Node {
+    labelled(
         "Dictation available",
         chat_dictation_button(signal(DictationState::Idle)),
-        "chat_dictation_button(dictation_state)",
     )
 }
+// end example
 
-fn example_chat_tool_calls() -> Node {
-    specimen(
+// example: chat-tool-calls
+pub(super) fn example_chat_tool_calls() -> Node {
+    labelled(
         "Tool activity",
         chat_tool_calls(vec![
             ToolCall::new("read", "Read notes").target("notes.md"),
             ToolCall::new("review", "Review notes").status(ToolStatus::Running),
         ])
         .expanded(signal(true)),
-        "chat_tool_calls(items).expanded(expanded)",
     )
 }
+// end example
 
-fn example_table() -> Node {
+// example: table
+pub(super) fn example_table() -> Node {
     let controls = table_controls();
     let pinned = table_pinned();
     let folders = table_folders();
     let static_table = table_static();
     column((static_table, controls, pinned, folders)).style(style().gap(12))
 }
+// end example
 
 fn table_controls() -> Node {
     let filters = signal(Vec::<(usize, String)>::new());
@@ -401,7 +366,7 @@ fn table_controls() -> Node {
     .row_details(|item| text(move || item.with(|row| format!("{} is {}", row.0, row.1))))
     .expanded_rows(expanded)
     .style(style().width(440));
-    specimen(
+    labelled(
         "Sort, filter, and expand rows",
         column((
             row((
@@ -413,12 +378,11 @@ fn table_controls() -> Node {
             table,
         ))
         .style(style().gap(8)),
-        "data_table(rows, |row| row.0, columns)\n    .multi_sort(sort)\n    .typed_column_filters(typed)\n    .row_details(render_details)\n    .expanded_rows(expanded)",
     )
 }
 
 fn table_pinned() -> Node {
-    specimen(
+    labelled(
         "Compact table with pinned edges",
         data_table(
             vec![
@@ -438,12 +402,11 @@ fn table_pinned() -> Node {
         .sticky_columns(vec![0], vec![3])
         .density(DataTableDensity::Compact)
         .style(style().width(350)),
-        "data_table(rows, |row| row[0], columns)\n    .sticky_columns(vec![0], vec![3])\n    .density(DataTableDensity::Compact)",
     )
 }
 
 fn table_folders() -> Node {
-    specimen(
+    labelled(
         "Folder hierarchy",
         data_table(
             vec![
@@ -458,14 +421,12 @@ fn table_folders() -> Node {
             )],
         )
         .tree(|row| row.1, signal(vec![1]))
-        .expand_all_control()
         .style(style().width(350)),
-        "data_table(rows, |row| row.0, columns)\n    .tree(|row| row.1, expanded)\n    .expand_all_control()",
     )
 }
 
 fn table_static() -> Node {
-    specimen(
+    labelled(
         "Static rows with Soft appearance",
         kivact::ui::table((
             kivact::ui::table_header((kivact::ui::table_row((
@@ -479,16 +440,17 @@ fn table_static() -> Node {
                     kivact_ui_soft::RowStatusTone::Success,
                 )),
             ))
-            .variant(kivact_ui_soft::TableRowAppearance::new(true, true, false)),)),
+            .variant(kivact_ui_soft::TableRowDividers(true))
+            .variant(kivact_ui_soft::TableRowHover(true)),)),
         )),
-        "table((table_header(rows), table_body(rows)))\n    // table_row(...).variant(TableRowAppearance::new(true, true, false))",
     )
 }
 
-fn example_resizable() -> Node {
+// example: resizable
+pub(super) fn example_resizable() -> Node {
     {
         let width = signal(144.0);
-        specimen(
+        labelled(
             "Drag or use the arrow keys. Enter toggles collapse.",
             (
                 kivact::ui::splitter(
@@ -504,11 +466,7 @@ fn example_resizable() -> Node {
                 .style(style().width(360).height(92)),
                 text(move || format!("Navigation width: {:.0} px", width.get())),
             ),
-            r#"let width = signal(144.0);
-kivact::ui::splitter("Navigation width", width,
-    ScalarRange::new(88.0, 216.0).expect("ordered bounds"))
-    .collapsible(0.2).snaps(vec![0.0, 0.4375, 1.0])
-    .start(text("Navigation")).end(text("Content"))"#,
         )
     }
 }
+// end example

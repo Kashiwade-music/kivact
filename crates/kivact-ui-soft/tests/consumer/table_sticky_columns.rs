@@ -6,6 +6,8 @@ use kivact::test::render_with;
 use kivact::ui::DataColumn;
 use kivact::ui::DataTableDensity;
 use kivact::ui::data_table;
+use kivact::ui::theme::DataTableTheme;
+use kivact::ui::theme::data_table as data_table_theme;
 use kivact::view::Element;
 use kivact::view::ReadingDirection;
 use kivact::view::Role;
@@ -94,18 +96,31 @@ fn soft_sticky_paint_uses_neutral_surface_and_edge_shadow() {
         (ThemeMode::Dark, 77.0 / 255.0),
     ] {
         let theme = kivact_ui_soft::theme(mode);
-        let paint = theme
-            .ext::<kivact::ui::UiTokens>()
-            .data_table
-            .sticky
-            .clone();
-        let tokens = theme.ext::<kivact_ui_soft::Tokens>();
-        assert_eq!(paint.surface, tokens.colors.bg_card);
-        assert_eq!(paint.hover, tokens.colors.overlay_hover);
-        assert_eq!(paint.selected, tokens.colors.accent_muted);
-        assert_eq!(paint.shadow, rgba(0, alpha));
-        assert_eq!(paint.shadow_width, 6.0);
-        assert!(paint.shadow_transition.is_some());
-        assert!(paint.overlay_transition.is_some());
+        let table = theme.ext::<DataTableTheme>();
+        assert_eq!(
+            theme
+                .get(&data_table_theme::STICKY_SURFACE_VAR)
+                .components(&theme),
+            kivact_ui_soft::BG_CARD.components(&theme)
+        );
+        assert_eq!(
+            theme
+                .get(&data_table_theme::STICKY_HOVER_VAR)
+                .components(&theme),
+            kivact_ui_soft::OVERLAY_HOVER.components(&theme)
+        );
+        assert_eq!(
+            theme
+                .get(&data_table_theme::STICKY_SELECTED_VAR)
+                .components(&theme),
+            kivact_ui_soft::ACCENT_MUTED.components(&theme)
+        );
+        assert_eq!(
+            theme.get(&data_table_theme::STICKY_SHADOW_VAR),
+            rgba(0, alpha)
+        );
+        assert_eq!(theme.get(&data_table_theme::STICKY_SHADOW_WIDTH_VAR), 6.0);
+        assert!(table.sticky_shadow_transition_value().is_some());
+        assert!(table.sticky_overlay_transition_value().is_some());
     }
 }

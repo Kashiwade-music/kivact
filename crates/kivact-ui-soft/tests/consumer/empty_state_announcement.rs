@@ -7,6 +7,7 @@ use kivact::test::MirrorMode;
 use kivact::test::RenderOptions;
 use kivact::test::render_with_handle;
 use kivact::ui::empty_state;
+use kivact::view::Element;
 use kivact::view::LiveRegion;
 use kivact::view::Role;
 use kivact::view::show;
@@ -22,11 +23,11 @@ fn initial_empty_state_is_silent_but_late_mount_and_text_changes_announce() {
                 (initial, late),
                 column((
                     empty_state(move || initial.get())
-                        .announce_changes()
+                        .announce_changes(true)
                         .description("Initial help"),
                     show(late, || {
                         empty_state("No results")
-                            .announce_changes()
+                            .announce_changes(true)
                             .description("Try again")
                     }),
                 )),
@@ -68,19 +69,19 @@ fn hidden_empty_state_rearms_and_live_ancestors_handle_their_own_text() {
                 column((
                     column(
                         empty_state(move || title.get())
-                            .announce_changes()
+                            .announce_changes(true)
                             .description("Try again"),
                     )
                     .hidden(hidden),
                     column(
                         empty_state("Embedded")
-                            .announce_changes()
+                            .announce_changes(true)
                             .description("Own region"),
                     )
                     .live_region(live),
                     column(
                         empty_state("Status")
-                            .announce_changes()
+                            .announce_changes(true)
                             .description("Own role"),
                     )
                     .role(Role::Status),

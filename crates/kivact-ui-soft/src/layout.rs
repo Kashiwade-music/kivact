@@ -159,7 +159,6 @@ struct LayoutSlots {
 enum Region {
     Header,
     Content,
-    Footer,
     Start,
     End,
 }
@@ -186,7 +185,7 @@ fn region(kind: Region, children: View) -> LayoutRegion {
         divider: None,
         padding: None,
         padding_bottom: None,
-        scrollable: (!matches!(kind, Region::Header | Region::Footer)).into_value(),
+        scrollable: (!matches!(kind, Region::Header)).into_value(),
         width: None,
         height: None,
     }
@@ -347,7 +346,6 @@ fn region_insets(
     };
     let (start, end, top, bottom) = match kind {
         Region::Header => (outer_x, outer_x, outer_y, inner_y),
-        Region::Footer => (outer_x, outer_x, inner_y, outer_y),
         Region::Content => (
             if slots.has_start { inner_x } else { outer_x },
             if slots.has_end { inner_x } else { outer_x },
@@ -400,7 +398,7 @@ fn region_content_style(
             .padding_left(left + gutter)
             .padding_right(right + gutter);
     }
-    if matches!(kind, Region::Header | Region::Footer)
+    if matches!(kind, Region::Header)
         && let Some(ContentWidth { width, .. }) = slots.content_width
     {
         base = base
@@ -436,7 +434,6 @@ fn region_root_style(
     let right = (kind == Region::Start) != rtl();
     match kind {
         Region::Header if divider => base.border_bottom(border, c::BORDER),
-        Region::Footer if divider => base.border_top(border, c::BORDER),
         Region::Start | Region::End if divider && right => base.border_right(border, c::BORDER),
         Region::Start | Region::End if divider => base.border_left(border, c::BORDER),
         Region::Start | Region::End if padding.is_none() && right => base.margin_right(-inner_x),

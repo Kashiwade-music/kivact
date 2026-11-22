@@ -34,6 +34,7 @@ use kivact::style::Position;
 use kivact::style::auto;
 use kivact::style::pct;
 use kivact::style::style;
+use kivact::ui::sidebar_provider;
 use kivact::ui::theme::Variant;
 use kivact::view::Element;
 use kivact::view::HandlerResult;
@@ -168,15 +169,18 @@ impl MobileNavMode {
 ///
 /// The look is the element's `.variant(ShellVariant::..)`; elevated by default. The shell is
 /// fill-height with zero content padding and automatic mobile navigation by default.
-/// `content_padding` and `height` are read at view construction, `top_nav`, `side_nav` and
+/// `content_padding` and `height` are read at view construction, `top_nav`, `sidebar` and
 /// `banner` supply the navigation and banner factories, and `mobile_nav` chooses disabled,
-/// automatic or custom mobile navigation.
+/// automatic or custom mobile navigation. `sidebar` returns the sidebar's content (its menus and
+/// groups). `sidebar_open` gives the sidebar's open state; without it the shell keeps its own,
+/// open at first.
 #[component]
 pub fn app_shell(
     content: View,
     top_nav: Option<ViewFn>,
-    side_nav: Option<ViewFn>,
+    sidebar: Option<ViewFn>,
     banner: Option<ViewFn>,
+    sidebar_open: Option<Signal<bool>>,
     #[prop(default = Space::S0)] content_padding: Value<Space>,
     #[prop(default = ShellHeight::Fill)] height: Value<ShellHeight>,
     #[prop(default = MobileNavMode::default())] mobile_nav: MobileNavMode,
@@ -184,23 +188,26 @@ pub fn app_shell(
 ) -> impl Element {
     let variants = caller.variants();
     let variant = memo(move || variants.get::<ShellVariant>().unwrap_or_default()).into_value();
+    let open = sidebar_open.unwrap_or_else(|| signal(true));
     let (mobile, config, custom) =
-        configure_mobile(mobile_nav, top_nav.is_some() || side_nav.is_some());
+        configure_mobile(mobile_nav, top_nav.is_some() || sidebar.is_some());
     let presentation = ShellPresentation {
         mobile,
         height,
         variant,
         has_top: top_nav.is_some(),
-        has_side: side_nav.is_some(),
+        has_side: sidebar.is_some(),
         has_banner: banner.is_some(),
     };
     let shell = provide(mobile, move || {
         let (skip, main_ref, skip_requested) = skip_link();
         let header_ref = node_ref();
-        let header = presentation.header(top_nav.clone(), side_nav.clone(), banner, header_ref);
-        let sidebar = presentation.sidebar(side_nav.clone(), header_ref);
+        let header = presentation.header(top_nav.clone(), sidebar.clone(), banner, header_ref);
+        let side = presentation
+            .sidebar(sidebar.clone(), header_ref)
+            .into_view();
         let main = presentation.main(content, content_padding, main_ref, skip_requested);
-        let middle = row((sidebar, main)).style(|| {
+        let middle = sidebar_provider(open, side, main).style(|| {
             style()
                 .flex_direction(if rtl() {
                     FlexDirection::RowReverse
@@ -211,7 +218,7 @@ pub fn app_shell(
                 .min_width(0)
                 .min_height(0)
         });
-        let drawer = presentation.drawer(config, custom, top_nav, side_nav);
+        let drawer = presentation.drawer(config, custom, top_nav, sidebar);
         let body = column((header, middle)).style(style().min_height(pct(100)).flex_grow(1));
         let body = if height.get() == ShellHeight::Auto {
             scroll(body)
@@ -447,46 +454,31 @@ impl ShellPresentation {
             base
         })
     }
-    fn sidebar(self, side: Option<ViewFn>, header_ref: kivact::view::NodeRef) -> impl IntoView {
+    /// The desktop sidebar: the central sidebar's panel with the caller's content, sticky in
+    /// the auto-height shell. Its edge is the panel's own border.
+    fn sidebar(self, nav: Option<ViewFn>, header_ref: kivact::view::NodeRef) -> impl IntoView {
         let Self {
             mobile,
             height,
-            variant,
             has_side,
             ..
         } = self;
         let header_height = header_ref.rect();
-        let desktop_side = side.clone();
         show(
             move || has_side && !mobile.is_mobile(),
             move || {
-                let nav = desktop_side.as_ref().map(|slot| slot.call(()));
-                node()
-                    .style(move || {
-                        let mut base = style()
-                            .flex_direction(FlexDirection::Column)
-                            .flex_shrink(0)
-                            .min_height(0);
-                        if variant.get() == ShellVariant::Section {
-                            base = if rtl() {
-                                base.border_left(m::BORDER_WIDTH, c::BORDER)
-                            } else {
-                                base.border_right(m::BORDER_WIDTH, c::BORDER)
-                            };
-                        }
-                        if height.get() == ShellHeight::Auto {
-                            let top = header_height.get().map_or(0.0, |rect| rect.height);
-                            base = base
-                                .position(Position::Sticky)
-                                .top(top)
-                                .height(
-                                    (kivact::platform::window_size().get().height - top).max(0.0),
-                                )
-                                .clip(true);
-                        }
-                        base
-                    })
-                    .child(nav)
+                let content = nav.as_ref().map(|slot| slot.call(()));
+                kivact::ui::sidebar().content(content).style(move || {
+                    if height.get() != ShellHeight::Auto {
+                        return style();
+                    }
+                    let top = header_height.get().map_or(0.0, |rect| rect.height);
+                    style()
+                        .position(Position::Sticky)
+                        .top(top)
+                        .height((kivact::platform::window_size().get().height - top).max(0.0))
+                        .clip(true)
+                })
             },
         )
     }

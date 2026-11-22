@@ -36,14 +36,14 @@ fn chat_screen() -> Screen {
                 |id| *id,
                 |id| {
                     text(move || format!("Message {}", id.get()))
-                        .style(style().height(24).shrink(0))
+                        .style(style().height(24).flex_shrink(0))
                 },
             );
             let chat = kivact::ui::chat_thread(messages)
                 .gap(0.0)
                 .viewport_ref(viewport)
                 .history_revision(history)
-                .style(style().size(340, 144).shrink(0))
+                .style(style().size(340, 144).flex_shrink(0))
                 .test_id("chat-layout");
             let append = button("Append").on_press(move || {
                 items.update(|items| items.push(items.last().copied().unwrap_or(0) + 1));

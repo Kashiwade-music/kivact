@@ -1,7 +1,7 @@
 //! Role: Present pagination facts as the page text, the item range and the polite page status.
 use kivact::state::Value;
 use kivact::style::{Position, style};
-use kivact::ui::PaginationSummary;
+use kivact::ui::theme::PaginationSummary;
 use kivact::view::{IntoView, LiveRegion, Node, Role, node, text};
 
 fn page_messages(facts: Value<PaginationSummary>) -> Value<String> {
