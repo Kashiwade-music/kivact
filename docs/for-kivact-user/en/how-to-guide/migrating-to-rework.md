@@ -215,6 +215,39 @@ components have their new shape.
 | a kit's `ColorName` and `Tokens` fields (`theme.ext::<Tokens>().colors.primary`) | the kit's theme variables, such as `kivact_ui_basic::PRIMARY` |
 | a kit's `*Appearance`, `*Look`, `*Hue`, `*Tone` and kit-prefixed variant types | the kit's `<Component>Variant` types; see the kit's guide |
 
+## Changes to calls and behavior
+
+These changes were made in the same rework and are not in the tables above.
+
+### Calls that take a value now
+
+- `BorderImageSource::Gradient` holds a `Box<Gradient>`. Build a border image from `linear_gradient(..)` as before; you do not write the `Box`.
+- `chat_thread`: `empty(content)` replaces `empty(when, content)`. The empty view shows when there are no messages and `loading_top` is off.
+- `code_block`: `highlight(highlighter(content, f))` replaces `highlight(content, f)`; `highlighter(content, f)` returns the `Highlighter` that `highlight` takes.
+- `tree`: `reveal(t)` turns on the reveal with a `Transition`, and `reveal_gap(gap)` sets the gap. They replace `reveal(gap, transition)`.
+- `tabs`: `keep_mounted(v)` takes a `bool`, as `disclosure` does. The `tabs` root is one column that holds the list and the panel, so a modifier you add to `tabs` applies to the whole widget, not only to the list.
+- `calendar`: `touch(v)` takes a `bool`; `min_span(n)` and `max_span(n)` replace `range_span(min, max)`; `min_date(d)` and `max_date(d)` replace `bounds(min, max)`.
+- `splitter`: `key_step(step)` returns `Self`. A step that is not positive and finite is reported once, and the default step is used. Remove the `?` or `unwrap()` after `key_step(..)`.
+- `dropzone`: `multiple(v)` and `pick_on_press(v)` take a `bool`.
+- `expand_all_control(v)` takes a `bool`: write `expand_all_control(true)`.
+- `empty_state`: `announce(v)` and `announce_changes(v)` take a `bool`: write `.announce(true)`.
+
+### Behavior
+
+- A press handler and other modifiers set on `Card`, `ChatMessage`, `Badge` or `ItemRow` are on the root, so the whole item is pressable. The parts of `use_button()` are on the root too.
+- Every item of `stepper` can be pressed. Its value is the `current` signal; to block a step, use `StepperItem::disabled(true)`.
+- The focus ring of a `combobox` is the `FOCUS_RING` token, not the theme's `focus_ring()`.
+- `Timecode`: `step` and `precision` take the value you set, whatever the order of the calls.
+- `menu` with a custom trigger: the trigger keeps its own name (`button("Custom")` is named "Custom"), and the menu's surface is labelled by the trigger. `label` names only the default trigger and the surface of a context menu.
+- `SidebarMenuButton`: `test_id` and `style` are on its row (the list item).
+- Soft `tab_list` no longer has a Navigation pattern. To move between pages, use `kivact::ui::navigation_menu` with its links.
+- Soft `app_shell`: `side_nav` is now `sidebar`.
+- Soft `app_shell`: the drawer does not close by itself when a navigation item is pressed. Call `hide()` in that press handler.
+- Soft side navigation: a hover on the rail no longer shows child items; it is the core `sidebar`.
+- Opening a panel only after an approval (the `on_open_change` gating) is gone: `open: Signal<bool>` is the only state of an open panel.
+- `selection_field` is gone, with its search field and its content: search with a `combobox`.
+- A chat composer does not recall the last sent message.
+
 ## See also
 
 - [Write reusable components](custom-components.md): the one way to write a component.

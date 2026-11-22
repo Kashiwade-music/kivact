@@ -202,6 +202,39 @@ opt-level = 3
 | kit の `ColorName` と `Tokens` の field（`theme.ext::<Tokens>().colors.primary`） | kit のテーマ変数。例: `kivact_ui_basic::PRIMARY` |
 | kit の `*Appearance`、`*Look`、`*Hue`、`*Tone`、kit の接頭辞の付いた variant の型 | kit の `<Component>Variant` の型。kit のガイドを見てください |
 
+## 呼出しと振る舞いの変更
+
+この改修で入れた変更のうち、上の表にないものです。
+
+### 値を受け取る呼出しの変更
+
+- `BorderImageSource::Gradient` は `Box<Gradient>` を持ちます。ボーダーイメージは今までどおり `linear_gradient(..)` から作れます。`Box` は書きません。
+- `chat_thread`：`empty(when, content)` の代わりに `empty(content)` を使います。空の表示は、メッセージが無く `loading_top` でないときに出ます。
+- `code_block`：`highlight(content, f)` の代わりに `highlight(highlighter(content, f))` を使います。`highlighter(content, f)` は、`highlight` が受け取る `Highlighter` を返します。
+- `tree`：`reveal(t)` は `Transition` を使って reveal を有効にし、`reveal_gap(gap)` は間隔を設定します。どちらも `reveal(gap, transition)` の代わりです。
+- `tabs`：`keep_mounted(v)` は `bool` を受け取ります（`disclosure` と同じ）。`tabs` の root は、一覧と panel の両方を含む一つの column です。そのため `tabs` に付けた modifier は、一覧だけでなく部品全体に付きます。
+- `calendar`：`touch(v)` は `bool` を受け取ります。`min_span(n)` と `max_span(n)` は `range_span(min, max)` の、`min_date(d)` と `max_date(d)` は `bounds(min, max)` の代わりです。
+- `splitter`：`key_step(step)` は `Self` を返します。正で有限でない step は一度だけ報告され、既定の step が使われます。`key_step(..)` の後ろの `?` や `unwrap()` は消してください。
+- `dropzone`：`multiple(v)` と `pick_on_press(v)` は `bool` を受け取ります。
+- `expand_all_control(v)` は `bool` を受け取ります。`expand_all_control(true)` と書いてください。
+- `empty_state`：`announce(v)` と `announce_changes(v)` は `bool` を受け取ります。`.announce(true)` と書いてください。
+
+### 振る舞いの変更
+
+- `Card`、`ChatMessage`、`Badge`、`ItemRow` に付けた押下の handler などの modifier は root に付くため、項目全体が押せます。`use_button()` の part も root に付きます。
+- `stepper` の項目はすべて押せます。値は `current` のシグナルが持ちます。手順を飛ばせないようにするには `StepperItem::disabled(true)` を使ってください。
+- `combobox` の focus ring は、テーマの `focus_ring()` ではなく `FOCUS_RING` のトークンです。
+- `Timecode` の `step` と `precision` は、呼ぶ順序に関係なく、設定した値が使われます。
+- 独自のトリガーを持つ `menu`：トリガーは自分の名前を保ちます（`button("Custom")` の名前は "Custom"）。menu の surface はトリガーで名付けられます。`label` は既定のトリガーと、コンテキストメニューの surface の名前にだけ使われます。
+- `SidebarMenuButton`：`test_id` と `style` は、その行（list item）に付きます。
+- soft の `tab_list` には Navigation の pattern が無くなりました。ページ間を移動するには、リンクを使う `kivact::ui::navigation_menu` を使ってください。
+- soft の `app_shell`：`side_nav` は `sidebar` になりました。
+- soft の `app_shell`：drawer は、ナビゲーションの項目が押されても自動では閉じません。その押下の handler で `hide()` を呼んでください。
+- soft のサイドナビゲーション：レールにホバーしても子の項目は表示されなくなりました。中核の `sidebar` になっています。
+- 承認されたときだけパネルを開く仕組み（`on_open_change` による制御）は無くなりました。開いている状態を表すのは `open: Signal<bool>` だけです。
+- `selection_field` は、検索欄と内容とともに無くなりました。検索には `combobox` を使ってください。
+- チャットの入力欄は、最後に送信したメッセージを呼び戻しません。
+
 ## 関連項目
 
 - [再利用できるコンポーネントを書く](custom-components.md)：部品を書く唯一の方法です。
