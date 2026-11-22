@@ -65,6 +65,7 @@ mod edit_text;
 mod folded;
 pub(crate) mod props;
 mod shorthands;
+mod styled_range;
 
 #[doc(inline)]
 pub use kivact_types::FlexDirection;
@@ -113,6 +114,7 @@ pub use kivact_types::TransitionProp;
 pub use decl::Style;
 pub use folded::ScrollbarWidth;
 pub use shorthands::{style, with_scroll_axes};
+pub use styled_range::StyledRange;
 
 pub(crate) use decl::{PropClass, PropGroup};
 pub use edit_text::StyleProperty;

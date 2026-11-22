@@ -466,6 +466,14 @@ pub fn theme_of(owner: Owner) -> Option<Value<Theme>> {
     owner.context::<ThemeCtx>().map(|c| c.0)
 }
 
+/// The theme in effect for the current owner, if there is one: like
+/// [`crate::use_theme`] but never a misuse and untracked (animation and
+/// luminance read it outside setup).
+pub fn try_use_theme() -> Option<Theme> {
+    let owner = Owner::try_ambient()?;
+    theme_of(owner).map(|theme| kivact_runtime::untrack(|| theme.get()))
+}
+
 /// The theme in effect for the nearest owner (setup, handler, task or
 /// effect): the one provided above it, else the default. Tracked when the
 /// provided theme is reactive. A located `SetupOnly` misuse outside every
@@ -552,7 +560,7 @@ impl Color {
 /// The theme a color resolves in where no theme is passed: the theme in
 /// effect, else the light theme.
 fn ambient_theme() -> Theme {
-    crate::internal::try_use_theme().unwrap_or_else(Theme::light)
+    try_use_theme().unwrap_or_else(Theme::light)
 }
 
 /// The Oklab premultiplied components of a color (L·α, a·α, b·α, α) that
