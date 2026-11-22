@@ -1699,3 +1699,7 @@ lane P（heading の variant、styled_text の node_ref、chat_composer の Shif
 ## 設計者の答え（2026-11-22、W11x の STOP 7 件）
 
 付属書 X の 3 章に書いた（X4 の違いを受ける、X1 の `SidebarTheme` は `look.rs`、X2 の `color.rs` は `color.rs`＋`tokens.rs` と soft の `Prop`・`*_VAR`、X5 の runtime の hub は依存の逆転（拡張の欄と turn の trait）、`StyledRange` は `sheet` と root、`draw` の uses に `length`、`ViewTransform` → `ZoomPan` の X7）。
+
+## 設計者の答え（2026-11-22、二度目）
+
+付属書 X の 4 章に書いた（sheet は kinds ← edit_text ← props ← decl・folded、theme は vars を data の葉にし Theme を取る解決を value へ、docs の ViewTransform と dev/tests の Role 4 件は X7）。xtask-core の branch fix/kashiwade/component-generated-type（94e1bbb）は push した。
