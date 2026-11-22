@@ -1671,3 +1671,10 @@ lane P（heading の variant、styled_text の node_ref、chat_composer の Shif
    - 中核の試験（button の試験の file）に 1 件：`fn a_busy_spinner_shows_after_its_reveal_delay()`。
    - 試験の期待が付属書の決め（U の busy の項）と食い違うと分かったら返す。
 4. **K43 (d) selector_touch の complex selector**：試験を消す（4.6 の表に 1 行）。この試験は、二つの面で同じ検索の binding を使う `selection_field` の振る舞いを確かめるもので、`selection_field` は U23 で消した（8 と同じ扱い）。setup を書き換えて検索の面を足すと、別の部品の試験になる。
+
+## 設計者の回答（K43 の busy と announcer の test id、2026-11-22）
+
+- **busy**：試験の時間の前提（224ms でまだ無い、400ms で見える）が正しい。付属書（U-ui 4.3）の中核の描画（soft の値で約 300ms で見える）と一致する。前の「2400ms」は前の subagent の見立ての誤りで、中核は直さない。
+  - 落ちるのは soft の側の差。中核の theme だけで 400ms に描かれる赤と、soft の theme で 400ms に描かれる paint を比べる。差を作る soft の recipe や theme の値（spinner の theme、busy の look、reduced_period、色の変数など）を突き止め、基点の soft と同じ見た目に直す（lane K5）。期待値は変えない。
+  - 突き止められなければ、二つの paint の dump（400ms の時点）を返す。
+- **announcer の test id**：直す。caller の `.test_id(..)` が root の値を置き換えても飛ばしが効くように、印を root ではなく outlet の中の二つの region の子の node に付ける（`test_id("kivact.announcer")` を二つとも）。子の数と形は変わらないので、`e2e_core/view.rs` の試験はそのまま通る。`LayoutCheck` の既定はそのまま。lane P の小さな commit で行う。
