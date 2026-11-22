@@ -6,9 +6,12 @@ Use the standard indicators with any kit theme. Their recipes receive the same s
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::interaction::Tone;
 use kivact::ui::{self, ControlSize, SkeletonShape};
+use kivact::view::Modifiers;
 
-fn indicators() -> impl IntoView {
+#[component]
+fn indicators() -> impl Element {
     column((
         ui::badge("Ready").tone(Tone::Success),
         ui::avatar("Ada Lovelace").size(ControlSize::Small)
@@ -23,13 +26,13 @@ fn indicators() -> impl IntoView {
 }
 ```
 
-`Avatar::src` and `fallback_src` accept reactive optional assets. While an image loads, or if decoding fails, initials remain available. The image node owns loading status; replacing its source retries naturally. `shape` chooses Circle, Rounded or Square. `status` supplies semantic presence and its accessible label; `status_content` supplies a custom overlay. Use `on_press` for a button and `on_open` for a link action. `name_tooltip(show)` shows or hides the avatar's name in a tooltip; without it the theme decides (`AvatarTokens::name_tooltip`, off by default). Attach `ui::tooltip(text)` for other tooltip text. A group's maximum is reactive; arrow navigation belongs to the shared roving focus implementation.
+`Avatar::src` and `fallback_src` accept reactive optional assets. While an image loads, or if decoding fails, initials remain available. The image node owns loading status; replacing its source retries naturally. `shape` chooses Circle, Rounded or Square. `status` supplies semantic presence and its accessible label; `status_content` supplies a custom overlay. Use `on_press` for a button, and `on_press` with `.role(Role::Link)` for a link action. `name_tooltip(show)` shows or hides the avatar's name in a tooltip; without it the theme decides (`AvatarTheme`'s `name_tooltip` setting, off by default). Wrap a trigger in `ui::tooltip(text, trigger)` for other tooltip text. A group's maximum is reactive; arrow navigation belongs to the shared roving focus implementation.
 
 Skeletons are decorative. Reduced motion pauses their clock and leaves them still. Spinners expose a status named by the `spinner.loading` message and use one animation. `label_content` adds visible content; `.name(...)` changes the accessible label. The default loading content of `async_view` uses this same spinner.
 
 `kbd` accepts text and recognizes `mod`. `kbd_combo` accepts reactive logical keys; `.modifiers(...)` adds a chord's modifiers. `meta` uses `Capabilities.command_key`, so the host chooses Command or Ctrl. Physical Ctrl remains Ctrl. No compile-target OS test selects the symbol.
 
-Configure `UiTokens::indicators` for timing and placeholder metrics. `UiRecipes` provides `badge`, `avatar`, `avatar_status`, `avatar_group`, `skeleton`, `spinner` and `kbd`. Their corresponding `_recipe()` getters let a theme wrap the existing recipe. Caller styles override the defaults.
+Set the `indicators` theme variables for timing and placeholder metrics. `kivact::ui::theme` provides `BadgeTheme`, `AvatarTheme`, `AvatarGroupTheme`, `SkeletonTheme`, `SpinnerTheme` and `KbdTheme`. A theme wraps a part's existing recipe through its table, such as `theme.with(BadgeTheme::default().root(..))`. Caller styles override the defaults.
 
 ## Moving existing kit options
 
@@ -50,12 +53,12 @@ Configure `UiTokens::indicators` for timing and placeholder metrics. `UiRecipes`
 
 Creative's `KeyGlyph` paints editor keyframe markers and remains a domain type; it is unrelated to keyboard shortcuts.
 
-`UiTokens::indicators.reduced_period_ms` optionally keeps the spinner moving at a slower essential cycle under reduced motion. `None` retains decorative pausing. A supplied cycle responds to live preference changes by replacing the glyph animation owner, keeping the status node and label stable.
+The `reduced_period` setting of `SpinnerTheme` optionally keeps the spinner moving at a slower essential cycle under reduced motion. `None` retains decorative pausing. A supplied cycle responds to live preference changes by replacing the glyph animation owner, keeping the status node and label stable.
 
-`kbd("mod+shift+p")` and typed `kbd_combo` both normalize shortcuts into individual key caps. The `mod` key follows `Capabilities.command_key`; spoken names use localized full key labels while caps show the keyboard glyph. Aliases include command/cmd, control/ctrl, return/enter, esc/escape, arrows, and `plus` for a literal plus cap. Themes style the borderless row through `kbd` and each `KbdKeyState` through the `kbd_key` scalar recipe. Localize `kbd.key.*` and `kbd.separator` through the message catalog.
+`kbd("mod+shift+p")` and typed `kbd_combo` both normalize shortcuts into individual key caps. The `mod` key follows `Capabilities.command_key`; spoken names use localized full key labels while caps show the keyboard glyph. Aliases include command/cmd, control/ctrl, return/enter, esc/escape, arrows, and `plus` for a literal plus cap. Themes style the borderless row through `KbdTheme::root` and each `KbdKeyState` through `KbdTheme::key`. Localize `kbd.key.*` and `kbd.separator` through the message catalog.
 
-`UiTokens::indicators.skeleton_transition` optionally overrides the base skeleton tween. The component adds the configured initial/index stagger delay and alternating repetition, keeping one `Animated` value and the reduced-motion pause policy.
+The `transition` setting of `SkeletonTheme` optionally overrides the base skeleton tween. The component adds the configured initial/index stagger delay and alternating repetition, keeping one `Animated` value and the reduced-motion pause policy.
 
-`avatar_group(children).overlap(pixels)` overrides the default overlap token reactively and follows reading direction. `.total(total)` describes a partially loaded group; `.overflow_content(|count| view)` receives the actual omitted-count source so a custom labelled button can open the full list without fake members. Avatar initials preserve the first and last meaningful name glyphs, including joined emoji and combining marks.
+`avatar_group(children).overlap(pixels)` overrides the default overlap reactively and follows reading direction. `.total(total)` describes a partially loaded group; `.overflow_content(|count| view)` receives the actual omitted-count source so a custom labelled button can open the full list without fake members. Avatar initials preserve the first and last meaningful name glyphs, including joined emoji and combining marks.
 
-The `avatar_status_content` recipe anchors an actual custom-status wrapper at the bottom/end of its avatar and receives the same `AvatarState`. The wrapper adds no semantic status or copied label; supplied content retains its own semantics. The default omitted-count image is localized by `avatar_group.overflow` (`{count} more`).
+The `AvatarTheme`'s `status_content` part anchors an actual custom-status wrapper at the bottom/end of its avatar and receives the same `AvatarState`. The wrapper adds no semantic status or copied label; supplied content retains its own semantics. The default omitted-count image is localized by `avatar_group.overflow` (`{count} more`).

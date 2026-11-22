@@ -2,13 +2,14 @@
 
 [English](../../en/how-to-guide/navigation.md)
 
-中核のナビゲーション部品にアプリケーションのデータを渡します。kit の theme を設定すると recipe と token が切り替わります。
+中核のナビゲーション部品にアプリケーションのデータを渡します。kit の theme を設定すると見た目と theme 変数が切り替わります。
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::{self, PaginationMode};
+use kivact::ui::{self, PaginationMode, StepStatus, StepperItem};
 
-fn navigation() -> impl IntoView {
+#[component]
+fn navigation() -> impl Element {
     let page = signal(0usize);
     let step = signal(1usize);
     column((
@@ -34,11 +35,11 @@ Pagination の binding は 0 始まり、表示する番号と入力欄は 1 始
 
 コンストラクターの count がページ数の出所です。`.total_items(total)` を呼ぶと出所を総件数に切り替え、`.page_size(binding)` の値で割ります（省略時は 1）。`.page_size_options` は reactive な選択肢を受け取ります。件数の操作で page size を変えると先頭のページに戻ります。`.has_more(true)` は総数がまだ不明なときも次への操作を許します。`PaginationMode` はページ番号、点、件数、簡潔な操作、入力欄、ページ操作なしを選びます。入力は Enter または focus を外した時に確定し、範囲内に収めます。
 
-Stepper の現在位置も 0 始まりです。説明、status、省略可能か、無効か、indicator、追加の内容は `StepperItem` に設定します。`.on_step_press` は操作を通知し、現在位置はアプリケーションが変えます。`.orientation` は並べる向きです。密度、間隔、indicator の見た目は kit の recipe、token、variant で変えます。
+Stepper の現在位置も 0 始まりです。説明、status、省略可能か、無効か、indicator、追加の内容は `StepperItem` に設定します。有効な工程を押すと、その番号が `current` の signal に書き込まれます。新しい工程の表示はアプリケーションが決めます。`.on_edit(|phase| ..)` は、編集部品と同じく各変更の開始、確定、取り消しを通知します。`.orientation` は並べる向きです。密度、間隔、indicator の見た目は kit の theme 変数、theme の表、variant で変えます。
 
 Breadcrumb は navigation landmark と list を公開します。末尾は `CurrentItem::Page` を持ち、操作の対象にはなりません。それ以前の項目は Enter、Space、pointer の操作で key を通知します。`.item` は項目の内容、`.separator` は装飾の区切りを差し替えます。
 
-Navigation の trigger は hover で開きます。click、Enter、Space、ArrowDown で固定し、Escape で閉じます。固定した panel は外側の press または focus の移動でも閉じます。`.open_delay` と `.close_delay` は `Duration` を受け、`.placement` と `.align` で位置を決めます。独自のナビゲーションは `interaction::use_navigation_menu()` の上に作れます。`NavOpen` が開閉の唯一の状態で、`hover_after`、`leave_after`、`show`、`toggle`、`hide` がその owner へ遷移を送ります。
+Navigation の trigger は hover で開きます。click、Enter、Space、ArrowDown で固定し、Escape で閉じます。固定した panel は外側の press または focus の移動でも閉じます。`.open_delay` と `.close_delay` は `Duration` を受け、`.placement` と `.align` で位置を決めます。独自のナビゲーションは `interaction::use_navigation_menu(open)` の上に作れます。`open` が表示の signal で、各 panel の `hover_after`、`leave_after`、`show`、`toggle`、`hide` がその owner へ遷移を送ります。
 
 `breadcrumb(items).current(current_key)` は既定の末尾の現在ページを上書きします。リアクティブな `Option<K>` を受け取り、`Some(key)` はそのキー、明示的な `None` は現在ページなしを表します。メソッドを省略すると末尾が現在ページになります。
 
@@ -68,7 +69,8 @@ Breadcrumb の項目の recipe は `BreadcrumbItemState`（`Current`、`Label`�
 use kivact::prelude::*;
 use kivact::ui;
 
-fn docs_menu() -> impl IntoView {
+#[component]
+fn docs_menu() -> impl Element {
     ui::navigation_menu("Docs")
         .action("home", "Home", || println!("Go home"))
         .link("guides", "Guides", || {
@@ -79,7 +81,7 @@ fn docs_menu() -> impl IntoView {
 }
 ```
 
-独自のメニューのトリガーでは、`interaction::use_menu_with_open(items, open_binding)` で開閉をアプリケーションの binding に接続します。`.trigger_action(callback)` は setup 時にトリガーの通常の押下動作を置き換える設定で、表示の変更を監視する callback ではありません。外部から開いた場合は focus をメニューへ移さず、トリガーからキーボードで開いた場合は標準の最初の focus を保つため、表示後に手動で focus を動かす補正を重ねないようにします。
+独自のメニューのトリガーでは、`interaction::use_menu(items, open)` で開閉をアプリケーションの signal に接続します。`.trigger_action(callback)` は setup 時にトリガーの通常の押下動作を置き換える設定で、表示の変更を監視する callback ではありません。外部から開いた場合は focus をメニューへ移さず、トリガーからキーボードで開いた場合は標準の最初の focus を保つため、表示後に手動で focus を動かす補正を重ねないようにします。
 
 ## 見た目を変える
 
