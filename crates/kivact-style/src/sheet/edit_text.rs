@@ -1,22 +1,12 @@
-//! Role: The DevTools text form of each style property: shown and parsed.
+//! Role: The DevTools text form of each value type: shown and parsed.
 
 use kivact_types::{Align, Display, FontStyle, Justify, Length, TextAlign, ThemeVar};
 
-use super::Style;
 use crate::color_value::Color;
 use crate::geometry::CornerRadius;
 use crate::paint::Background;
 use crate::paint::Paint;
 use crate::text::LineHeight;
-
-/// One style property as DevTools edits it: its name, its value in the
-/// style as override text (`12`, `50%`, `auto`, `#2563eb`, a theme variable
-/// name), and the style that text sets.
-pub struct StyleProperty {
-    pub name: &'static str,
-    pub describe: fn(&Style) -> Option<String>,
-    pub parse: fn(&str) -> Result<Style, String>,
-}
 
 /// A value DevTools writes and reads as text.
 pub(crate) trait EditText: Sized {
@@ -301,7 +291,7 @@ shown_only!(
     crate::effect::BorderStyle,
     kivact_types::Isolation,
     crate::paint::BorderImage,
-    super::folded::ScrollbarWidth,
+    super::kinds::ScrollbarWidth,
     kivact_types::Cursor,
     crate::effect::Filter,
     crate::effect::BlendMode,
@@ -347,38 +337,4 @@ impl<T: EditText> EditText for Box<T> {
 
 fn expected(what: &str, text: &str) -> String {
     format!("expected {what}, got {text}")
-}
-
-#[cfg(test)]
-mod tests {
-    //! Role: Tests of the DevTools text form of the style properties.
-    use crate::internal::style_property;
-
-    #[test]
-    fn style_properties_round_trip() {
-        let width = style_property("width").expect("width is a property");
-        let parsed = (width.parse)("50%").expect("a percentage parses");
-        assert_eq!((width.describe)(&parsed).as_deref(), Some("50%"));
-        let md = (width.parse)("space.md").expect("a theme variable parses");
-        assert_eq!((width.describe)(&md).as_deref(), Some("space.md"));
-        let color = style_property("color").expect("color is a property");
-        let set = (color.parse)("#2563eb").expect("a hex color parses");
-        assert_eq!((color.describe)(&set).as_deref(), Some("#2563eb"));
-        let background = style_property("background").expect("background is a property");
-        let paint = (background.parse)("#2563eb").expect("a hex color parses");
-        assert_eq!((background.describe)(&paint).as_deref(), Some("#2563eb"));
-        let line = style_property("line_height").expect("line_height is a property");
-        for text in ["1.5", "20px", "normal"] {
-            let set = (line.parse)(text).expect("a line height parses");
-            assert_eq!((line.describe)(&set).as_deref(), Some(text));
-        }
-        let corner =
-            style_property("border_top_left_radius").expect("border_top_left_radius is a property");
-        for text in ["8", "8 4"] {
-            let set = (corner.parse)(text).expect("a radius parses");
-            assert_eq!((corner.describe)(&set).as_deref(), Some(text));
-        }
-        assert!((corner.parse)("a b c").is_err());
-        assert!(style_property("nope").is_none());
-    }
 }

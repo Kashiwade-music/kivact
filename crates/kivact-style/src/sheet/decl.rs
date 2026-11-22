@@ -1,102 +1,11 @@
-//! Role: The style declaration list: push, merge, name and classify declarations.
+//! Role: Operations on a style's declaration list: merge, duplicates, states.
 
 use kivact_types::StyleState;
 
-use super::props::Decl;
-
-/// Whether a declaration can be a host-evaluated paint delta of a state
-/// (`Delta`) or must be compiled into the node's style (`Rest`, ST-05).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum PropClass {
-    Delta,
-    Rest,
-}
-
-/// The group a declaration belongs to (diagnostics order, text detection).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum PropGroup {
-    Size,
-    Spacing,
-    Flow,
-    Paint,
-    Transform,
-    Text,
-    States,
-    Motion,
-}
-
-impl Decl {
-    pub(super) fn extra_name(&self) -> &'static str {
-        match self {
-            Decl::BoxShadow(_) => "shadow",
-            Decl::TextShadow(_) => "text_shadow",
-            Decl::Transition(..) => "transition",
-            Decl::State(state, _) => state.name(),
-            Decl::Group => "group",
-            _ => unreachable!("invariant: the table names every other declaration"),
-        }
-    }
-
-    pub(super) fn extra_class(&self) -> PropClass {
-        match self {
-            Decl::BoxShadow(_) => PropClass::Delta,
-            _ => PropClass::Rest,
-        }
-    }
-
-    pub(super) fn extra_edit_text(&self) -> String {
-        match self {
-            Decl::BoxShadow(list) | Decl::TextShadow(list) => format!("{list:?}"),
-            Decl::Transition(prop, t) => format!("{prop:?} {t:?}"),
-            _ => String::new(),
-        }
-    }
-
-    pub(super) fn extra_group(&self) -> PropGroup {
-        match self {
-            Decl::BoxShadow(_) => PropGroup::Paint,
-            Decl::TextShadow(_) => PropGroup::Text,
-            Decl::Transition(..) => PropGroup::Motion,
-            _ => PropGroup::States,
-        }
-    }
-
-    /// Whether setting it twice in one style is a duplicate (states nest,
-    /// shadows stack, transitions are per property group, a group flag
-    /// repeats harmlessly).
-    fn counts_twice(&self) -> bool {
-        !matches!(
-            self,
-            Decl::State(..)
-                | Decl::BoxShadow(_)
-                | Decl::TextShadow(_)
-                | Decl::Transition(..)
-                | Decl::Group
-        )
-    }
-}
-
-/// A style value: an ordered list of declarations, the later winning.
-/// Build with [`style()`](crate::style).
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Style {
-    pub(crate) decls: Vec<Decl>,
-}
-
-const _: () = assert!(
-    std::mem::size_of::<Decl>() <= 64,
-    "a declaration stays small: large values are boxed"
-);
-
-kivact_runtime::constant_value!(Style);
+use super::kinds::PropGroup;
+use super::props::{Decl, Style};
 
 impl Style {
-    /// Append `decl` (constant time: a setter never scans the list, PF-01).
-    pub(crate) fn push(mut self, decl: Decl) -> Self {
-        self.decls.push(decl);
-        self
-    }
-
     /// Overlay `o` on `self`: its declarations come after, so they win.
     pub fn merge(mut self, o: &Style) -> Style {
         self.decls.extend(o.decls.iter().cloned());

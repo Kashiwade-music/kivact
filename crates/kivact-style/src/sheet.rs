@@ -63,6 +63,7 @@
 mod decl;
 mod edit_text;
 mod folded;
+mod kinds;
 pub(crate) mod props;
 mod shorthands;
 mod styled_range;
@@ -111,11 +112,10 @@ pub use kivact_types::Overflow;
 #[doc(inline)]
 pub use kivact_types::TransitionProp;
 
-pub use decl::Style;
-pub use folded::ScrollbarWidth;
+pub use kinds::ScrollbarWidth;
+pub use props::{Style, StyleProperty};
 pub use shorthands::{style, with_scroll_axes};
 pub use styled_range::StyledRange;
 
-pub(crate) use decl::{PropClass, PropGroup};
-pub use edit_text::StyleProperty;
 pub(crate) use folded::{Groups, Sides, SizeFields, SpacingFields, TextFields, TransformFields};
+pub(crate) use kinds::{PropClass, PropGroup};

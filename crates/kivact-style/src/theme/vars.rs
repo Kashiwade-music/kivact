@@ -1,4 +1,4 @@
-//! Role: Theme variables a theme sets: their values, storage and resolution.
+//! Role: Theme variable values and their storage: the data a theme holds.
 
 use std::fmt;
 use std::sync::Arc;
@@ -6,11 +6,7 @@ use std::sync::Arc;
 use kivact_types::{LineHeight, ThemeVar, ThemeVarId, VarValue};
 
 use super::sealed;
-use super::value::Theme;
 use crate::color_value::Color;
-
-/// How many aliases a lookup follows.
-const MAX_ALIASES: usize = 8;
 
 /// A font family list of a theme (`font::FAMILY_VAR`): a CSS family list,
 /// or the system UI font.
@@ -137,63 +133,17 @@ impl ThemeValue for Color {
     }
 }
 
-/// What `var` holds in `theme`: the value it sets, else its fallback.
-fn held<T: ThemeValue>(theme: &Theme, var: &'static ThemeVar<T>) -> VarValue<T> {
-    theme
-        .slot(ThemeVarId::of(var))
-        .and_then(T::from_slot)
-        .unwrap_or_else(|| var.fallback().clone())
-}
-
 /// The next variable an alias leads to, with the alpha it applies.
-fn next_of<T: ThemeValue>(held: &VarValue<T>) -> Option<(&'static ThemeVar<T>, f64)> {
+pub(super) fn next_of<T: ThemeValue>(held: &VarValue<T>) -> Option<(&'static ThemeVar<T>, f64)> {
     match held {
         VarValue::Var(next) => Some((next, 1.0)),
         VarValue::Value(v) => v.as_alias(),
     }
 }
 
-/// The value of `var` in `theme`, aliases followed up to `MAX_ALIASES`. A
-/// chain that does not end takes the first variable's fallback when that
-/// is a plain value, else `T::on_cycle()`; `Theme::var_problems` names it.
-pub(crate) fn lookup<T: ThemeValue>(theme: &Theme, var: &'static ThemeVar<T>) -> T {
-    let mut at = var;
-    let mut alpha = 1.0;
-    for _ in 0..=MAX_ALIASES {
-        let value = held(theme, at);
-        match next_of(&value) {
-            Some((next, a)) => {
-                alpha *= a;
-                at = next;
-            }
-            None => match value {
-                VarValue::Value(v) => return v.with_alias_alpha(alpha),
-                VarValue::Var(_) => unreachable!("invariant: next_of follows every Var"),
-            },
-        }
-    }
-    match var.fallback() {
-        VarValue::Value(v) if v.as_alias().is_none() => v.clone(),
-        _ => T::on_cycle(),
-    }
-}
-
-/// Whether the chain starting at `start` reaches a plain value within
-/// `MAX_ALIASES` steps.
-fn ends<T: ThemeValue>(theme: &Theme, start: &VarValue<T>) -> bool {
-    let mut value = start.clone();
-    for _ in 0..=MAX_ALIASES {
-        let Some((next, _)) = next_of(&value) else {
-            return true;
-        };
-        value = held(theme, next);
-    }
-    false
-}
-
 /// The variables a theme sets, sorted by identity.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub(crate) struct VarTable(Vec<(ThemeVarId, &'static str, VarSlot)>);
+pub(crate) struct VarTable(pub(super) Vec<(ThemeVarId, &'static str, VarSlot)>);
 
 impl VarTable {
     pub(crate) fn insert(&mut self, id: ThemeVarId, name: &'static str, value: VarSlot) {
@@ -208,21 +158,5 @@ impl VarTable {
             .binary_search_by_key(&id, |(k, _, _)| *k)
             .ok()
             .map(|i| &self.0[i].2)
-    }
-
-    /// The names of the variables (of every type) whose aliases do not
-    /// end within `MAX_ALIASES` steps (a cycle or too long a chain).
-    pub(crate) fn problems(&self, theme: &Theme) -> Vec<&'static str> {
-        self.0
-            .iter()
-            .filter(|(_, _, slot)| match slot {
-                VarSlot::Color(v) => !ends(theme, v),
-                VarSlot::Number(v) => !ends(theme, v),
-                VarSlot::Weight(v) => !ends(theme, v),
-                VarSlot::LineHeight(v) => !ends(theme, v),
-                VarSlot::Family(v) => !ends(theme, v),
-            })
-            .map(|(_, name, _)| *name)
-            .collect()
     }
 }

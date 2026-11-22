@@ -1,6 +1,6 @@
 //! Role: The style of a UTF-8 byte range within one editing line or span.
 
-use super::Style;
+use super::props::Style;
 
 /// The style of a UTF-8 byte range within one editing line: its text
 /// properties (color, decoration, weight, ...) and `background`, as a
