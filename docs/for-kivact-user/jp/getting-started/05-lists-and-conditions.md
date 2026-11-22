@@ -2,7 +2,7 @@
 
 [English](../../en/getting-started/05-lists-and-conditions.md)
 
-このステップでは、仮の一覧を本物にします。タスクをシグナルに持たせ、各行にチェックボックスと削除ボタンを付け、一覧が空のときはヒントを表示します。
+このステップでは、仮の一覧を本物にします。タスクはシグナルの中に置かれ、各行にはチェックボックスと「Remove」ボタンがあります。一覧が空のときは、ヒントを表示します。
 
 ## ここまでのプログラム
 
@@ -16,24 +16,26 @@ struct Task {
     done: bool,
 }
 
+#[component]
 fn header() -> impl Element {
     column((
-        text("タスク"),
-        text("今日やること"),
+        text("Tasks"),
+        text("Things to do today"),
     ))
     .style(style().gap(4))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Element {
-    let id = task.get_untracked().id;
-    let done = bind!(task.done);
+#[component]
+fn task_row(tasks: Signal<Vec<Task>>, task: Signal<Task>) -> impl Element {
+    let id = task.get().id;
     row((
-        checkbox(move || task.get().title, done),
-        button("削除").on_press(move || tasks.update(|list| list.retain(|task| task.id != id))),
+        checkbox(move || task.get().title, bind!(task.done)),
+        button("Remove").on_press(move || tasks.update(|list| list.retain(|task| task.id != id))),
     ))
     .style(style().gap(8))
 }
 
+#[component]
 fn task_list(tasks: Signal<Vec<Task>>) -> impl Element {
     column(for_each(
         tasks,
@@ -45,15 +47,15 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl Element {
 
 fn app() -> impl IntoView {
     let tasks = signal(vec![
-        Task { id: 1, title: "牛乳を買う".to_owned(), done: false },
-        Task { id: 2, title: "チュートリアルを書く".to_owned(), done: false },
-        Task { id: 3, title: "散歩に行く".to_owned(), done: false },
+        Task { id: 1, title: "Buy milk".to_owned(), done: false },
+        Task { id: 2, title: "Write the tutorial".to_owned(), done: false },
+        Task { id: 3, title: "Go for a walk".to_owned(), done: false },
     ]);
     let next_id = var(4);
     let draft = signal(String::new());
     let left = memo(move || tasks.with(|list| list.iter().filter(|task| !task.done).count()));
 
-    let add = move || {
+    let add = callback(move |_| {
         let title = draft.get().trim().to_owned();
         if !title.is_empty() {
             let id = next_id.get();
@@ -61,59 +63,58 @@ fn app() -> impl IntoView {
             tasks.update(|list| list.push(Task { id, title, done: false }));
             draft.set(String::new());
         }
-    };
+    });
 
     column((
         header(),
         row((
-            text_input("新しいタスク", draft)
-                .placeholder("やることを入力")
+            text_input(draft)
+                .label("New task")
+                .placeholder("What needs doing?")
                 .on_submit(add)
                 .style(style().width(240)),
-            button("追加")
+            button("Add")
                 .disabled(move || draft.with(|text| text.trim().is_empty()))
                 .on_press(add),
         ))
         .style(style().gap(8)),
         show(move || tasks.with(|list| !list.is_empty()), move || task_list(tasks))
-            .fallback(|| text("やることはありません。上の欄からタスクを追加してください。")),
-        text(move || format!("残り {} 件", left.get())),
+            .fallback(|| text("Nothing to do. Add a task above.")),
+        text(move || format!("{} left", left.get())),
     ))
     .style(style().padding(24).gap(16))
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("タスク").run(app)
+    App::new("Tasks").run(app)
 }
 ```
 
-ステップ 3 の仮のカウンターとボタンはなくなりました。残り件数は、タスクから数えるようになっています。
+ステップ 3 の仮のカウンターとボタンは、もうありません。残りの数は、タスクから計算されます。
 
-## 新しく出てきたもの
+## 新しいこと
 
-**タスクは構造体です。** `Task` は `id`、`title`、`done` を持ちます。一覧に入れる型には、`derive` が 2 つ必要です。行へ項目をコピーするために `Clone`、古い項目と新しい項目を比べて何が変わったかを調べるために `PartialEq` です。`tasks` は `Signal<Vec<Task>>` で、`update` で変更します。`push` はタスクを追加し、`retain` は条件に合うタスクだけを残すので、削除に使えます。
+**タスクは構造体です。** `Task` は、`id`、`title`、`done` のフラグを持ちます。Kivact が一覧に入れるものには、2 つの derive が必要です。1 つ目は `Clone` です。項目を行へコピーするために使います。2 つ目は `PartialEq` です。古い項目と新しい項目を比べて、何が変わったかを調べるために使います。`tasks` は `Signal<Vec<Task>>` です。変更するには `update` を使います。`push` はタスクを追加し、`retain` は条件に合うタスクだけを残します。これでタスクを 1 つ削除できます。
 
-**`var`** は、画面が監視しない普通の可変変数です。`next_id` は、重複しない id を配ります。変更しても画面は更新されません。`add` クロージャだけが使うカウンターには、それが適しています。画面に表示するものには、`signal` を使ってください。
+**`var`** は、画面が監視しない、普通の書き換え可能な箱です。`next_id` は、重複しない id を配ります。値を変えても何も更新されません。これは、`add` のクロージャだけが使うカウンターに、まさに必要な性質です。画面に表示するものには `signal` を使います。
 
-**`for_each(items, key, build_row)`** は、項目ごとに 1 行を作ります。
+**`for_each(items, key, build_row)`** は、項目ごとに 1 つの行を作ります。
 
 - `items` は、一覧を持つシグナルです。
-- `key` は、項目を見分ける値を返します。ここでは `task.id` です。行はキーで対応づけられるので、2 番目のタスクを削除すると、Kivact はその行だけを取り除き、ほかの行は、その状態ごと残します。
-- `build_row` は、新しいキーごとに一度だけ呼ばれます。`Binding<Task>` を 1 つ受け取ります。現在の項目を reactive に読み書きするハンドルです。`task.get()` で読みます。
+- `key` は、項目を識別する値を返します。ここでは `task.id` です。行はキーで対応づけられるので、2 番目のタスクを削除すると、Kivact はその行だけを取り除き、ほかの行はそれが持つ状態も含めて残します。
+- `build_row` は、新しいキーごとに一度だけ呼ばれます。その項目の `Signal<Task>` を受け取ります。それを読むと現在の項目が得られ、それに書き込むと一覧が書き換わります。
 
-`column(for_each(..))` は、行を縦に並べます。行を作るクロージャは、そのキー専用のセットアップで実行されます。読み取り専用の `Value<Vec<Task>>` を渡す場合は、行にも読み取り専用の `Value<Task>` が渡ります。ここでは書き込み可能な一覧のシグナルを渡すので、チェックボックスから元の項目を編集できます。
+`column(for_each(..))` は、行を縦に並べます。シグナルの代わりに読み取り専用の `Value<Vec<Task>>` を渡すと、各行は読み取り専用の `Value<Task>` を受け取ります。元の項目をチェックボックスで編集できるのは、書き込み可能な一覧のシグナルがあるからです。キーに項目の現在の配列の添字を使ってはいけません。項目を削除したり並べ替えたりすると、その添字は変わってしまうからです。
 
-クロージャ内の `task.get()` は、後から項目が変わったときも追従します。`get_untracked()` は読み取りを監視対象に登録しません。ここでは削除操作用の変わらない id を一度読むために使っています。キーには、削除や並べ替えで変わる配列の位置ではなく、項目そのものを識別する安定した値を使います。
+**行は 2 つの props を持つコンポーネントです。** `task_row` は、一覧と行のタスクを受け取ります。本体は行ごとに一度だけ実行され、本体は読んだ値を追跡しません。そのため、ここでの `task.get().id` は、Remove のハンドラーのために id を一度だけ読みます。`move || task.get().title` のようなクロージャの中での読み取りは、後の変更に従います。
 
-**チェックボックスを 1 つのフィールドにバインドする。** `checkbox(名前, バインディング)` は、`bool` を編集するチェックボックスを作ります。行の `done` フラグは一覧の中にあるので、
-`bind!(task.done)`（または `task.project(|task| &task.done, |task| &mut task.done)`）
-で、この id のタスクの、そのフィールドだけへの双方向バインディングを作ります。チェックボックスをクリックすると一覧へ書き込まれ、`left` が数え直されます。`project` の最初のクロージャは読み取り用、2 つ目は書き込み用のフィールド参照を返します。`bind!` はこの投影を短く書くためのマクロです。
+**チェックボックスを 1 つのフィールドに結びつける。** `checkbox(label, value)` は、`Signal<bool>` を編集するチェックボックスを表示します。行の `done` フラグは一覧の中にあるので、`bind!(task.done)` は、そのタスクのそのフィールドだけを指す `Signal<bool>` を作ります。チェックボックスをクリックすると一覧に書き込まれ、`left` の memo が数え直されます。
 
-`checkbox` は名前にクロージャを受け取れるので、ラベルはタイトルに追従します。この名前は、スクリーンリーダーが読み上げる名前でもあります。
+`checkbox` はラベルとしてクロージャを受け取るので、ラベルはタイトルに従います。ラベルは描画もされ、スクリーンリーダーが読み上げる名前にもなります。
 
-**`task_row` が `tasks` を受け取る理由。** 削除ボタンは、行の項目ではなく一覧全体を変更するので、行には一覧のシグナルが必要です。`Signal` は `Copy` なので、渡してもコストはかかりません。
+**`task_row` が `tasks` を受け取る理由。** Remove ボタンは、行の項目だけでなく一覧全体を変える必要があるので、行には一覧のシグナルが必要です。`Signal` は `Copy` なので、下に渡してもコストはかかりません。
 
-**`show(条件, view).fallback(別の view)`** は、条件が真のあいだ `view` を、偽のあいだ `fallback` を表示します。条件は、ほかのリアクティブなプロパティと同じく、シグナルを読むクロージャです。ここでは、タスクが 1 件以上あれば一覧を、なければヒントを表示します。分岐が切り替わると、Kivact は新しい分岐を作り、古い分岐を破棄します。
+**`show(condition, view).fallback(other)`** は、条件が真のあいだ `view` を表示し、偽のあいだ `other` を表示します。条件は、ほかの変化する props と同じように、シグナルを読むクロージャです。ここでは、タスクが 1 つ以上あるときに一覧を表示し、1 つもないときにヒントを表示します。表示が切り替わるとき、Kivact は新しい方の分岐を作り、古い方を破棄します。
 
 ## 実行する
 
@@ -121,6 +122,6 @@ fn main() -> kivact::Result<()> {
 cargo run
 ```
 
-チェックボックスと削除ボタンのついた 3 つのタスクと、いちばん下の「残り 3 件」が表示されます。「牛乳を買う」にチェックを入れると、「残り 2 件」になります。入力欄からタスクを追加すると、一覧の最後に現れます。すべてのタスクを削除すると、一覧が「やることはありません。上の欄からタスクを追加してください。」に置き換わります。
+3 つのタスクが、それぞれチェックボックスと Remove ボタン付きで表示され、一番下に「3 left」と表示されます。「Buy milk」にチェックを入れると、数が「2 left」に減ります。欄でタスクを追加すると、一覧の最後に表示されます。すべてのタスクを削除すると、一覧は「Nothing to do. Add a task above.」に置き換わります。
 
 次へ: [ステップ 6: スタイルとアクセシビリティ](06-style-and-accessibility.md)

@@ -10,6 +10,7 @@ until you type something, and it clears the field after adding.
 ```rust,no_run
 use kivact::prelude::*;
 
+#[component]
 fn header() -> impl Element {
     column((
         text("Tasks"),
@@ -18,10 +19,12 @@ fn header() -> impl Element {
     .style(style().gap(4))
 }
 
-fn task_row(title: impl IntoText) -> impl Element {
+#[component]
+fn task_row(title: Value<String>) -> impl Element {
     row((text("-"), text(title))).style(style().gap(8))
 }
 
+#[component]
 fn task_list() -> impl Element {
     column((
         task_row("Buy milk"),
@@ -37,13 +40,13 @@ fn app() -> impl IntoView {
     let draft = signal(String::new());
     let last_added = signal(String::new());
 
-    let add = move || {
+    let add = callback(move |_| {
         let title = draft.get().trim().to_owned();
         if !title.is_empty() {
             last_added.set(title);
             draft.set(String::new());
         }
-    };
+    });
 
     column((
         header(),
@@ -53,7 +56,8 @@ fn app() -> impl IntoView {
             .disabled(move || left.get() == 0)
             .on_press(move || completed.update(|n| *n += 1)),
         row((
-            text_input("New task", draft)
+            text_input(draft)
+                .label("New task")
                 .placeholder("What needs doing?")
                 .on_submit(add)
                 .style(style().width(240)),
@@ -85,24 +89,27 @@ list into real data.
 
 ## What is new
 
-**`text_input(name, draft)`** creates a single-line text field. Its second
-argument is a `Signal<String>`; the field and the signal are connected in both
-directions. Typing updates `draft`, and calling `draft.set(..)` changes what
-the field shows. That is how the program clears the field after adding.
+**`text_input(draft)`** creates a single-line text field. Its argument is a
+`Signal<String>`; the field and the signal are connected in both directions.
+Typing updates `draft`, and calling `draft.set(..)` changes what the field
+shows. That is how the program clears the field after adding. For a field
+inside a larger struct, pass `bind!(profile.name)` to edit that one field of
+the struct; step 5 uses the same pattern for task checkboxes.
 
-The control accepts any `impl IntoBinding<String>`. Passing `draft` connects
-its existing signal directly. For a field inside a larger struct, use
-`bind!(profile.name)` to edit that field without a second signal; step 5 uses
-the same pattern for task checkboxes.
-
-The first argument is the field's **name**. Screen readers announce it, and
-tests use it to find the field. It is not drawn on screen, which is why the
-field also has `.placeholder(..)`, the hint shown while the field is empty.
+**`.label("New task")`** gives the field its **name**. Screen readers announce
+it, and tests use it to find the field. It is not drawn on screen, which is why
+the field also has `.placeholder(..)`, the hint shown while the field is empty.
+For a label that is drawn next to the field, write
+`field("New task", text_input(draft))` instead: `field` shows the label and
+gives it to the field as its name. Every control that can take focus needs a
+name. If one has none, Kivact reports it when the control appears, and in a
+debug build or a test that report is an error.
 
 **`.on_submit(add)`** runs when you press Enter inside the field.
 **`.on_press(add)`** runs when you press the button. Both use the same
-closure. This works because `add` only captures `Copy` signal handles, so the
-closure is `Copy` itself and can be passed twice.
+action: `callback(move |_| ..)` turns the closure into a `Callback`, a small
+`Copy` handle that any number of handlers can share. The `_` is the event the
+handler receives; Enter and a press carry none.
 
 **`.disabled(move || ..)`** takes a closure that reads state, like `text` does.
 The Add button is disabled while the draft is empty or only spaces. Here

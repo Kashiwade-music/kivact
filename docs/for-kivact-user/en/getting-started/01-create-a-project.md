@@ -19,6 +19,15 @@ Kivact is not on crates.io yet, so add it as a Git dependency in
 kivact = { git = "https://github.com/Kashiwade-music/kivact" }
 ```
 
+While you develop, Kivact's layout and drawing code is too slow without
+optimization. Add this to `Cargo.toml` too: it optimizes every dependency in
+debug builds and leaves your own code easy to debug.
+
+```toml
+[profile.dev.package."*"]
+opt-level = 3
+```
+
 Kivact needs Rust 1.98.1 or newer. `cargo new` uses edition 2024 with a
 current toolchain, which is what you want.
 
@@ -48,7 +57,7 @@ of every page.
 
 `app` is the root **view builder**: an ordinary function returning `impl IntoView`.
 `impl IntoView` means "something that can be shown on screen"; you do not need
-to name the exact type. `text("Tasks")` is the simplest view, a line of text.
+to name the exact type. `text("Tasks")` is the simplest view, a line of text. `app` is the one view function in this tutorial that is not a component; from the next step on, the parts of the screen are components.
 
 `main` returns `kivact::Result<()>`, so an error while starting, such as no
 window being available, is reported when the program exits instead of being
