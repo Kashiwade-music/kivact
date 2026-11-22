@@ -1,6 +1,7 @@
 //! Role: Describe the properties a `Style` sets, for diagnostics.
 
-use crate::sheet::{Decl, Style};
+use crate::sheet::Style;
+use crate::sheet::props::Decl;
 
 /// The properties `s` sets (not its states), the last value of each,
 /// by name, with its value in the DevTools text form, in the order first set.

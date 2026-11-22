@@ -1,6 +1,5 @@
 //! Role: Decide switch direct manipulation and owner-scoped release timing.
-use super::SwitchTrack;
-use super::{Lift, ThumbDrag, TrackInput};
+use super::types::{Lift, SwitchTrack, ThumbDrag, TrackInput};
 use crate::DragAxis;
 use kivact_core::geometry::Point;
 use kivact_core::state::Machine as MachineTrait;

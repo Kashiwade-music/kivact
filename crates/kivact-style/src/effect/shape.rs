@@ -4,8 +4,8 @@ use kivact_types as p;
 use kivact_types::{ClipShape, Corners};
 
 use crate::geometry::{CornerRadius, Rect, corner};
+use crate::length::Resolve;
 use crate::path::Path;
-use crate::resolve::Resolve;
 use kivact_types::Length;
 
 #[derive(Clone, Debug, PartialEq)]

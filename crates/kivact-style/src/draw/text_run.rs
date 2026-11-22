@@ -3,9 +3,9 @@
 use super::recorder::Draw;
 use crate::color_value::Color;
 use crate::geometry::Point;
+use crate::length::Resolve;
 use crate::paint::{Paint, fill_layer};
 use crate::path::Path;
-use crate::resolve::Resolve;
 use crate::text::{
     FontFeature, FontKerning, FontVariation, LineHeight, TextDecorationLine, wire_variations,
 };

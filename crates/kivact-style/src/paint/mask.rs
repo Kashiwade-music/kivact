@@ -5,7 +5,7 @@ use super::fill_layer::fill_layer;
 use super::gradient::Gradient;
 use super::layer::Paint;
 use crate::color_value::Color;
-use crate::resolve::Resolve;
+use crate::length::Resolve;
 use kivact_types as p;
 pub use kivact_types::{MaskComposite, MaskMode};
 

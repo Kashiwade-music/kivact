@@ -1,4 +1,4 @@
-//! Role: A style's declarations folded into one record of authored values, which resolution reads.
+//! Role: A style's declarations folded into one record that resolution reads.
 
 use kivact_runtime::Transition;
 use kivact_types::{
@@ -6,7 +6,8 @@ use kivact_types::{
     Position, ScrollAxes, StyleState, TextAlign, TransformStyle, TransitionProp, WillChange,
 };
 
-use super::decl::{Decl, PropGroup, Style};
+use super::decl::{PropGroup, Style};
+use super::props::Decl;
 use crate::color_value::Color;
 use crate::draw::LocalPaint;
 use crate::effect::{BlendMode, BorderStyle, CornerRadius, Filter, Shadow, Shape};

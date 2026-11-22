@@ -1,6 +1,6 @@
 //! Role: Geometry values: points, sizes, rectangles and corner radii.
 
-use crate::resolve::Resolve;
+use crate::length::Resolve;
 use kivact_types::CornerRadius as WireCorner;
 use kivact_types::Length;
 
