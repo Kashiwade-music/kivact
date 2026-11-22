@@ -6,8 +6,8 @@ use kivact_types::{
     Position, ScrollAxes, StyleState, TextAlign, TransformStyle, TransitionProp, WillChange,
 };
 
-use super::decl::{PropGroup, Style};
-use super::props::Decl;
+use super::kinds::{PropGroup, ScrollbarWidth};
+use super::props::{Decl, Style};
 use crate::color_value::Color;
 use crate::draw::LocalPaint;
 use crate::effect::{BlendMode, BorderStyle, CornerRadius, Filter, Shadow, Shape};
@@ -191,30 +191,6 @@ pub(crate) struct MotionFields {
     pub(crate) exit_size: Option<kivact_types::Orientation>,
     pub(crate) layout_transition: Option<Transition>,
     pub(crate) transitions: Vec<(TransitionProp, Transition)>,
-}
-
-/// Overlay scrollbar width.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub enum ScrollbarWidth {
-    /// The default (6 logical pixels).
-    #[default]
-    Auto,
-    /// Hidden; scrolling still works.
-    None,
-    /// Explicit logical pixel width.
-    Px(f64),
-}
-
-impl From<f64> for ScrollbarWidth {
-    fn from(px: f64) -> Self {
-        Self::Px(px)
-    }
-}
-
-impl From<i32> for ScrollbarWidth {
-    fn from(px: i32) -> Self {
-        Self::Px(px as f64)
-    }
 }
 
 /// A style's declarations folded into one record, the later winning: what

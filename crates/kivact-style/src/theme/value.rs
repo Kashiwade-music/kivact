@@ -14,7 +14,7 @@
 //!   alpha-premultiplied Oklab, and the result stays in its space until it
 //!   is painted.
 
-use super::vars::{ThemeValue, VarTable, lookup};
+use super::vars::{ThemeValue, VarSlot, VarTable, next_of};
 use crate::color::{
     ACCENT_TEXT_VAR, ACCENT_VAR, BORDER_VAR, DANGER_VAR, FOCUS_VAR, HOVER_VAR, OVERLAY_VAR,
     PRESSED_VAR, RAISED_VAR, SELECTION_VAR, SHADOW_VAR, SUCCESS_VAR, SURFACE_ALT_VAR, SURFACE_VAR,
@@ -269,7 +269,7 @@ impl Theme {
     }
 
     /// The variable's slot in this theme, if the theme sets it.
-    pub(crate) fn slot(&self, id: ThemeVarId) -> Option<&super::vars::VarSlot> {
+    pub(crate) fn slot(&self, id: ThemeVarId) -> Option<&VarSlot> {
         self.0.vars.get(id)
     }
 
@@ -587,6 +587,73 @@ impl kivact_runtime::Animatable for Color {
             [unpre(g(0)), unpre(g(1)), unpre(g(2))],
             alpha,
         )))
+    }
+}
+
+/// How many aliases a lookup follows.
+const MAX_ALIASES: usize = 8;
+
+/// What `var` holds in `theme`: the value it sets, else its fallback.
+fn held<T: ThemeValue>(theme: &Theme, var: &'static ThemeVar<T>) -> VarValue<T> {
+    theme
+        .slot(ThemeVarId::of(var))
+        .and_then(T::from_slot)
+        .unwrap_or_else(|| var.fallback().clone())
+}
+
+/// The value of `var` in `theme`, aliases followed up to `MAX_ALIASES`. A
+/// chain that does not end takes the first variable's fallback when that
+/// is a plain value, else `T::on_cycle()`; `Theme::var_problems` names it.
+pub(crate) fn lookup<T: ThemeValue>(theme: &Theme, var: &'static ThemeVar<T>) -> T {
+    let mut at = var;
+    let mut alpha = 1.0;
+    for _ in 0..=MAX_ALIASES {
+        let value = held(theme, at);
+        match next_of(&value) {
+            Some((next, a)) => {
+                alpha *= a;
+                at = next;
+            }
+            None => match value {
+                VarValue::Value(v) => return v.with_alias_alpha(alpha),
+                VarValue::Var(_) => unreachable!("invariant: next_of follows every Var"),
+            },
+        }
+    }
+    match var.fallback() {
+        VarValue::Value(v) if v.as_alias().is_none() => v.clone(),
+        _ => T::on_cycle(),
+    }
+}
+
+/// Whether the chain starting at `start` reaches a plain value within
+/// `MAX_ALIASES` steps.
+fn ends<T: ThemeValue>(theme: &Theme, start: &VarValue<T>) -> bool {
+    let mut value = start.clone();
+    for _ in 0..=MAX_ALIASES {
+        let Some((next, _)) = next_of(&value) else {
+            return true;
+        };
+        value = held(theme, next);
+    }
+    false
+}
+
+impl VarTable {
+    /// The names of the variables (of every type) whose aliases do not
+    /// end within `MAX_ALIASES` steps (a cycle or too long a chain).
+    pub(crate) fn problems(&self, theme: &Theme) -> Vec<&'static str> {
+        self.0
+            .iter()
+            .filter(|(_, _, slot)| match slot {
+                VarSlot::Color(v) => !ends(theme, v),
+                VarSlot::Number(v) => !ends(theme, v),
+                VarSlot::Weight(v) => !ends(theme, v),
+                VarSlot::LineHeight(v) => !ends(theme, v),
+                VarSlot::Family(v) => !ends(theme, v),
+            })
+            .map(|(_, name, _)| *name)
+            .collect()
     }
 }
 

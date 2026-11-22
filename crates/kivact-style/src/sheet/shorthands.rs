@@ -5,8 +5,7 @@
 
 use kivact_types::{Align, Length, Overflow, StyleState};
 
-use super::decl::Style;
-use super::props::Decl;
+use super::props::{Decl, Style};
 use crate::color_value::Color;
 use crate::draw::{Draw, LocalPaint, Size};
 use crate::effect::{Filter, Shadow};

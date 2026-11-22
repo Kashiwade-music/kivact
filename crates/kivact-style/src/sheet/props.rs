@@ -1,4 +1,4 @@
-//! Role: The one table of style properties: declarations, setters, classes, groups.
+//! Role: The one table of style properties: declarations, setters, groups.
 
 use kivact_runtime::Transition;
 use kivact_types::{
@@ -7,10 +7,8 @@ use kivact_types::{
     TransitionProp, Visibility, WillChange,
 };
 
-use super::Style;
-use super::decl::{PropClass, PropGroup};
-use super::edit_text::{EditText, StyleProperty};
-use super::folded::ScrollbarWidth;
+use super::edit_text::EditText;
+use super::kinds::{PropClass, PropGroup, ScrollbarWidth};
 use crate::color_value::Color;
 use crate::draw::LocalPaint;
 use crate::effect::{BlendMode, BorderStyle, Filter, Shadow, Shape};
@@ -23,8 +21,8 @@ use crate::text::{
 };
 use crate::transform::Transform;
 
-/// Declares the property table: `Decl` (with the hand-written variants of
-/// `sheet::decl`), one setter per row that has one, and each declaration's
+/// Declares the property table: `Decl` (with the hand-written variants
+/// listed below), one setter per row that has one, and each declaration's
 /// name, class and group.
 macro_rules! style_props {
     (
@@ -112,6 +110,88 @@ macro_rules! style_props {
             }, )*
         ];
     };
+}
+
+/// A style value: an ordered list of declarations, the later winning.
+/// Build with [`style()`](crate::style).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Style {
+    pub(crate) decls: Vec<Decl>,
+}
+
+const _: () = assert!(
+    std::mem::size_of::<Decl>() <= 64,
+    "a declaration stays small: large values are boxed"
+);
+
+kivact_runtime::constant_value!(Style);
+
+impl Style {
+    /// Append `decl` (constant time: a setter never scans the list, PF-01).
+    pub(crate) fn push(mut self, decl: Decl) -> Self {
+        self.decls.push(decl);
+        self
+    }
+}
+
+/// One style property as DevTools edits it: its name, its value in the
+/// style as override text (`12`, `50%`, `auto`, `#2563eb`, a theme variable
+/// name), and the style that text sets.
+pub struct StyleProperty {
+    pub name: &'static str,
+    pub describe: fn(&Style) -> Option<String>,
+    pub parse: fn(&str) -> Result<Style, String>,
+}
+
+impl Decl {
+    /// Whether setting it twice in one style is a duplicate (states nest,
+    /// shadows stack, transitions are per property group, a group flag
+    /// repeats harmlessly).
+    pub(super) fn counts_twice(&self) -> bool {
+        !matches!(
+            self,
+            Decl::State(..)
+                | Decl::BoxShadow(_)
+                | Decl::TextShadow(_)
+                | Decl::Transition(..)
+                | Decl::Group
+        )
+    }
+
+    fn extra_name(&self) -> &'static str {
+        match self {
+            Decl::BoxShadow(_) => "shadow",
+            Decl::TextShadow(_) => "text_shadow",
+            Decl::Transition(..) => "transition",
+            Decl::State(state, _) => state.name(),
+            Decl::Group => "group",
+            _ => unreachable!("invariant: the table names every other declaration"),
+        }
+    }
+
+    fn extra_class(&self) -> PropClass {
+        match self {
+            Decl::BoxShadow(_) => PropClass::Delta,
+            _ => PropClass::Rest,
+        }
+    }
+
+    fn extra_edit_text(&self) -> String {
+        match self {
+            Decl::BoxShadow(list) | Decl::TextShadow(list) => format!("{list:?}"),
+            Decl::Transition(prop, t) => format!("{prop:?} {t:?}"),
+            _ => String::new(),
+        }
+    }
+
+    fn extra_group(&self) -> PropGroup {
+        match self {
+            Decl::BoxShadow(_) => PropGroup::Paint,
+            Decl::TextShadow(_) => PropGroup::Text,
+            Decl::Transition(..) => PropGroup::Motion,
+            _ => PropGroup::States,
+        }
+    }
 }
 
 style_props! {
@@ -438,5 +518,39 @@ style_props! {
         FontFeatureSettings(Vec<FontFeature>) = "font_feature_settings", Rest, Text;
         FontVariationSettings(Vec<FontVariation>) = "font_variation_settings", Rest, Text;
         TabularNums(bool) = "tabular_nums", Rest, Text;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of the DevTools text form of the style properties.
+    use crate::internal::style_property;
+
+    #[test]
+    fn style_properties_round_trip() {
+        let width = style_property("width").expect("width is a property");
+        let parsed = (width.parse)("50%").expect("a percentage parses");
+        assert_eq!((width.describe)(&parsed).as_deref(), Some("50%"));
+        let md = (width.parse)("space.md").expect("a theme variable parses");
+        assert_eq!((width.describe)(&md).as_deref(), Some("space.md"));
+        let color = style_property("color").expect("color is a property");
+        let set = (color.parse)("#2563eb").expect("a hex color parses");
+        assert_eq!((color.describe)(&set).as_deref(), Some("#2563eb"));
+        let background = style_property("background").expect("background is a property");
+        let paint = (background.parse)("#2563eb").expect("a hex color parses");
+        assert_eq!((background.describe)(&paint).as_deref(), Some("#2563eb"));
+        let line = style_property("line_height").expect("line_height is a property");
+        for text in ["1.5", "20px", "normal"] {
+            let set = (line.parse)(text).expect("a line height parses");
+            assert_eq!((line.describe)(&set).as_deref(), Some(text));
+        }
+        let corner =
+            style_property("border_top_left_radius").expect("border_top_left_radius is a property");
+        for text in ["8", "8 4"] {
+            let set = (corner.parse)(text).expect("a radius parses");
+            assert_eq!((corner.describe)(&set).as_deref(), Some(text));
+        }
+        assert!((corner.parse)("a b c").is_err());
+        assert!(style_property("nope").is_none());
     }
 }
