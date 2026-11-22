@@ -513,6 +513,7 @@ fn export_frames(
 
 #[cfg(test)]
 mod tests {
+    //! Role: Tests of the CPU compositor's frame composition.
     use arvane_protocol::{CompositeLayer, LayerEffects, LayerItem, Plane, RasterGrid};
     use kivact_types::geometry::Rect;
     use kivact_types::geometry3d::Matrix4;

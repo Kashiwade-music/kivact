@@ -1,4 +1,4 @@
-//! Role: Tests that the hit self-check's reference walk does not share the hit test's candidates.
+//! Role: Tests that the self-check's reference walk does not share hit candidates.
 
 use kivact_engine::api::Client;
 use kivact_engine::contract::{BoxData, NodeKind, TurnOutput};

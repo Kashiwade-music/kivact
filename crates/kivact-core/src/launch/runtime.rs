@@ -9,7 +9,7 @@ use kivact_engine::api::{Client, HostWaker, Writer};
 use kivact_engine::contract::{HostInfo, TurnOutput};
 use kivact_types::{WindowId, WindowMode};
 
-use crate::App;
+use super::settings::LaunchApp;
 use crate::client::state::HostState;
 use crate::platform::{AppHandle, AppHandleExt};
 
@@ -26,7 +26,7 @@ use super::policy::LaunchPolicy;
 pub(super) enum LaunchState {
     /// Waiting for the host's `start`, which consumes the config.
     Waiting {
-        options: Box<App>,
+        options: Box<LaunchApp>,
         root: Box<dyn FnOnce() -> View>,
     },
     /// The host started the App.
@@ -60,7 +60,7 @@ impl Launch {
     /// Prepare an application; the engine constructs its runtime at start.
     #[track_caller]
     pub(crate) fn new(
-        app: App,
+        app: LaunchApp,
         policy: LaunchPolicy,
         root: impl FnOnce() -> View + 'static,
     ) -> Self {
@@ -107,7 +107,7 @@ impl Launch {
 fn start_mount(
     rt: &Rc<Runtime>,
     writer: &Writer,
-    mut options: App,
+    mut options: LaunchApp,
     root: Box<dyn FnOnce() -> View>,
     at: &'static Location<'static>,
 ) {
@@ -242,7 +242,7 @@ fn install_main_window(
     view: &ViewState,
     root: kivact_runtime::Owner,
     info: &HostInfo,
-    options: &App,
+    options: &LaunchApp,
     at: &'static Location<'static>,
 ) -> kivact_runtime::driver::MotionEnv {
     let decl = Rc::new(WindowDecl {

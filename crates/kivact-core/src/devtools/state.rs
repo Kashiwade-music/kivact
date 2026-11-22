@@ -171,12 +171,6 @@ pub(crate) enum DevtoolsEvent {
 }
 
 impl DevtoolsState {
-    /// The DevTools state of `rt`'s App.
-    #[inline]
-    pub(crate) fn of(rt: &Runtime) -> &DevtoolsState {
-        &crate::app_state::AppState::of(rt).devtools
-    }
-
     /// The running inspector; a call arrives only while the agent runs.
     #[inline]
     pub(crate) fn inspector(rt: &Runtime) -> &Inspector {

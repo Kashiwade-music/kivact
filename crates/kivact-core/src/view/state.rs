@@ -323,8 +323,13 @@ pub(crate) struct WindowRecord {
     pub(crate) mouse: Signal<Option<crate::geometry::Point>>,
     /// The `on_close_request` handlers of this window (the owner that
     /// registers one removes it on its cleanup).
-    pub(crate) close_handlers:
-        Rc<RefCell<kivact_types::cell::Registry<crate::platform::close_request::Registration>>>,
+    pub(crate) close_handlers: Rc<RefCell<kivact_types::cell::Registry<Registration>>>,
+}
+
+/// One `on_close_request` handler and the owner it runs under.
+pub(crate) struct Registration {
+    pub(crate) owner: Owner,
+    pub(crate) handler: Handler<()>,
 }
 
 /// What declares a window. The main window's is built by the launch from
@@ -464,12 +469,6 @@ impl ViewState {
         requests.focus.queued.shrink_to_fit();
         requests.focus.sent.shrink_to_fit();
         requests.waiters.shrink_to_fit();
-    }
-
-    /// The view state of `rt`'s App.
-    #[inline]
-    pub(crate) fn of(rt: &Runtime) -> &ViewState {
-        &crate::app_state::AppState::of(rt).view
     }
 
     /// Read the retained tree of `rt`'s App.

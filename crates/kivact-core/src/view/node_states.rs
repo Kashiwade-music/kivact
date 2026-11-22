@@ -1,4 +1,4 @@
-//! Role: The host states a node's style asked for, as one reactive source per node (ST-05).
+//! Role: The host states a node's style asked for (ST-05): one reactive source per node.
 //!
 //! The engine reports them (`HostEvent::StatesChanged`) only for a node whose
 //! compiled state styles set more than paint; the node's style effect reads

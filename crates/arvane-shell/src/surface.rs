@@ -53,6 +53,7 @@ impl Default for SurfacePresence {
 
 #[cfg(test)]
 mod tests {
+    //! Role: Tests of a window's surface generation across platform destroys.
     use super::SurfacePresence;
     use crate::events::ShellEvent;
 

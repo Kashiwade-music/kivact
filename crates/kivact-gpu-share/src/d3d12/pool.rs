@@ -1,13 +1,11 @@
 //! Role: The engine's Direct3D 12 export pool: shared textures, fences, hand-off.
 
 use super::adapter::luid;
+use super::contract::{HAND_OFF_STATE, luid_bytes, resource_flags as flags};
 use super::raw::FORMAT;
 use super::raw::{transition, wait};
 use super::read_back::read_back;
 use crate::common::{Error, api};
-use crate::d3d12::HAND_OFF_STATE;
-use crate::d3d12::luid_bytes;
-use crate::d3d12::resource_flags as flags;
 use crate::pool::{Acquired, DROP_WAIT, FrameReady, PoolConfig, Slots};
 use kivact_types::{
     AdapterMatch, GpuAdapter, GpuBackend, SharedHandle, SharedTextureFormat, SharedTextures,

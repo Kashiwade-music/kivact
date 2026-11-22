@@ -1,4 +1,4 @@
-//! Role: The `#[component]` attribute of Kivact: turn a component function into its props builder.
+//! Role: The `#[component]` attribute: turns a component function into its props builder.
 
 use proc_macro::TokenStream;
 use proc_macro2::Span;

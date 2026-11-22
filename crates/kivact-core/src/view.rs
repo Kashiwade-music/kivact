@@ -30,6 +30,7 @@ pub(crate) mod handler_layers;
 pub(crate) mod hover;
 pub(crate) mod input;
 pub(crate) mod measured_leaf;
+pub(crate) mod measurement;
 pub(crate) mod modifier_keys;
 pub(crate) mod modifiers;
 pub(crate) mod mount;

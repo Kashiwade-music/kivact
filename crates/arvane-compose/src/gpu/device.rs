@@ -1,4 +1,5 @@
-//! Role: A driver's GPU device: adapter, queue, pipelines, rasterizer, shaders and imported images.
+//! Role: A driver's GPU device: adapter, queue, pipelines, rasterizer and shaders.
+//! It also holds the imported images.
 //!
 //! The device is made once on a worker thread and shared by the windows' contexts
 //! ([`super::state::GpuContext`]). The windows' surfaces are made from it, and configured
@@ -7,34 +8,13 @@
 use super::external::External;
 use super::pipelines::Pipelines;
 use super::shader_cache::Shaders;
-use super::state::{DeviceLost, GpuEnv, GpuSurface};
+use super::state::{DeviceLost, GpuDevice, GpuEnv, GpuSurface};
 use super::surface::{configure as configure_surface, make_surface};
 use crate::RenderError;
 use arvane_render::GpuRaster;
 use kivact_types::GpuAdapter;
 use std::cell::RefCell;
 use std::sync::Arc;
-
-// xtask-allow(state): raster, shaders and external are independent caches of one device, each borrowed alone; any combination of their contents is valid
-/// One GPU device shared by every window of a driver (PERF-8). Made on a
-/// worker thread (`GpuDevice::new` blocks), then used on the UI thread.
-pub struct GpuDevice {
-    /// The images external engines share (first: dropped, and their
-    /// fences signaled, before the device).
-    pub(crate) external: RefCell<External>,
-    /// The adapter, when the device can import shared textures.
-    pub(crate) interop: Option<GpuAdapter>,
-    pub(crate) instance: wgpu::Instance,
-    pub(crate) adapter: wgpu::Adapter,
-    pub(crate) device: wgpu::Device,
-    pub(crate) queue: wgpu::Queue,
-    pub(crate) failure: Arc<DeviceLost>,
-    pub(crate) pipelines: Pipelines,
-    /// Draws the chunks (Vello's GPU stage).
-    pub(crate) raster: RefCell<GpuRaster>,
-    /// The user shaders' pipelines.
-    pub(crate) shaders: RefCell<Shaders>,
-}
 
 /// What configuring a window's surface needs, sendable to a worker thread.
 #[derive(Clone)]

@@ -98,7 +98,8 @@ trusted_derives = [
 # 使われない例外も error にする。
 [module_rules.kivact-core]
 # Canonical facades reexport owner access; the motion boundary adapter accepts the public NodeRef handle.
-except = ["style -> view::boundary", "state -> view::boundary", "state -> view::owner", "view::elements::viewport -> platform::env", "view::elements::viewport -> gpu_interop"]
+# visibility needs the window size, as the viewport element does (the node's visibility is read against the window).
+except = ["style -> view::boundary", "state -> view::boundary", "state -> view::owner", "view::elements::viewport -> platform::env", "view::node_ref_visibility -> platform::env", "view::elements::viewport -> gpu_interop"]
 
 [module_rules.kivact-core.uses]
 state = []
