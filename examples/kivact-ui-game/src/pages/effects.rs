@@ -1,24 +1,43 @@
-//! The Effects chapter: 3D, filters, shaders, timelines and scroll motion.
+//! Role: The Effects page of the game catalog: Three-dimensional tilts, filters, shaders, timelines and scroll-linked motion.
 
-use super::common::{cards, specimen};
-use kivact::draw::Paint;
-use kivact::draw::filter::Channel;
-use kivact::draw::{Filter, FilterGraph, FilterInput, Layer, PaintShader, Transform};
-use kivact::geometry::Point;
+use crate::support::common::{cards, display_family, specimen};
+use catalog_shell::{Example, Page};
+use kivact::draw::Layer;
 use kivact::motion::{
     Animated, At, Easing, FrameRate, Spring, Stagger, StaggerFrom, Timeline, TimelineTrack,
     Transition, animated, timeline,
 };
-use kivact::state::signal;
+use kivact::prelude::*;
+use kivact::style::filter::Channel;
 use kivact::style::{
-    Align, BackfaceVisibility, ColorToken, Justify, Position, TransformStyle, pct, style, use_theme,
+    BackfaceVisibility, Filter, FilterGraph, FilterInput, Paint, PaintShader, Transform,
+    TransformStyle,
 };
-use kivact::ui::{button, heading};
-use kivact::view::{
-    Element, IntoView, Node, NodeRef, Orientation, canvas, column, drawable, node, node_ref,
-    pointer_position, row, scroll, scroll_progress, text,
-};
-use kivact_ui_game::{ColorName, Tokens, cut_corner, mono};
+use kivact::ui::heading;
+use kivact::view::Node;
+use kivact::view::{Orientation, drawable, pointer_position, scroll_progress};
+use kivact_ui_game as g;
+use kivact_ui_game::{cut_corner, mono};
+
+/// The page: its one demo, with its explanation.
+pub(crate) fn page() -> Page {
+    Page::new("effects", "Effects", "Console", include_str!("effects.rs"))
+        .description(
+            "Three-dimensional tilts, filters, shaders, timelines and scroll-linked motion",
+        )
+        .example(Example::new(
+            "effects",
+            "Effects",
+            "Tilts, filters, a shader, a timeline and scroll-linked motion.",
+            demo,
+        ))
+}
+
+// example: effects
+fn demo() -> impl IntoView {
+    effects()
+}
+// end example
 
 /// Scanline paint: a fragment of stripes that drifts with the clock.
 const SCANLINE: &str = "
@@ -38,16 +57,20 @@ fn sample_heading(label: &str) -> impl IntoView {
 }
 
 /// The seven Effects samples, in two columns of cards.
-pub(super) fn effects() -> Node {
+pub(crate) fn effects() -> Node {
     cards(
         (
-            specimen("FX-01", "パララックス HUD", parallax_hud()),
-            specimen("FX-02", "3D の傾きカード", tilt_card()),
-            specimen("FX-03", "3D の設定パネル", settings_panel()),
-            specimen("FX-04", "フィルターグラフの glitch", glitch_text()),
-            specimen("FX-05", "shader の scanline 背景", scanline_background()),
-            specimen("FX-06", "タイムラインの boot sequence", boot_sequence()),
-            specimen("FX-07", "scroll に連動するヘッダー", scroll_header()),
+            specimen("FX-01", "Parallax HUD", parallax_hud()),
+            specimen("FX-02", "3D tilt card", tilt_card()),
+            specimen("FX-03", "3D settings panel", settings_panel()),
+            specimen("FX-04", "Glitch filter graph", glitch_text()),
+            specimen(
+                "FX-05",
+                "Scanline background (shader)",
+                scanline_background(),
+            ),
+            specimen("FX-06", "Timeline boot sequence", boot_sequence()),
+            specimen("FX-07", "Header linked to the scroll", scroll_header()),
         ),
         460.,
     )
@@ -102,8 +125,8 @@ fn parallax_hud() -> Node {
             style()
                 .height(180)
                 .position(Position::Relative)
-                .border(1, ColorToken::Border)
-                .background(ColorToken::Surface),
+                .border(1, color::BORDER)
+                .background(color::SURFACE),
         )
         .child((
             text("SECTOR 07").style(move || {
@@ -111,11 +134,11 @@ fn parallax_hud() -> Node {
                     .position(Position::Absolute)
                     .top(14)
                     .left(18)
-                    .font_family("Barlow Condensed")
+                    .font_family(display_family())
                     .font_size(64)
-                    .weight(800)
-                    .italic(true)
-                    .color(ColorName::LineStrong)
+                    .font_weight(800)
+                    .font_style(kivact::style::FontStyle::Italic)
+                    .color(g::color::LINE_STRONG)
                     .translate(bx.get(), by.get())
             }),
             node()
@@ -126,13 +149,13 @@ fn parallax_hud() -> Node {
                         .left(180)
                         .width(160)
                         .height(44)
-                        .background(ColorName::Cyan)
+                        .background(g::color::CYAN)
                         .clip_path(cut_corner(12.))
                         .translate(mx.get(), my.get())
                 })
-                .child(mono("TARGET LOCK").style(style().color(ColorName::Navy))),
+                .child(mono("TARGET LOCK").style(style().color(g::color::NAVY))),
             column((
-                sample_heading("HUD のパララックス"),
+                sample_heading("HUD parallax"),
                 mono("pointer_position + spring"),
             ))
             .style(move || {
@@ -162,9 +185,10 @@ fn tilt_card() -> Node {
     );
     let front = face(
         column((
-            mono("CARD-07").style(style().color(ColorToken::Accent)),
-            sample_heading("傾きと裏返し"),
-            text("ポインタで傾き、ボタンで裏返す。").style(style().color(ColorToken::TextMuted)),
+            mono("CARD-07").style(style().color(color::ACCENT)),
+            sample_heading("Tilt and flip"),
+            text("Tilt with the pointer, flip with the button.")
+                .style(style().color(color::TEXT_MUTED)),
         ))
         .style(style().gap(8)),
     )
@@ -172,7 +196,7 @@ fn tilt_card() -> Node {
     let back = face(
         column((
             mono("BACK"),
-            text("裏面は backface-visibility で隠れている。"),
+            text("The back face is hidden by backface-visibility."),
         ))
         .style(style().gap(8)),
     )
@@ -196,7 +220,7 @@ fn tilt_card() -> Node {
                     })
                     .child((front, back)),
             ),
-        row(button("カードを裏返す").on_press(move || flipped.update(|v| *v = !*v)))
+        row(button("Flip card").on_press(move || flipped.update(|v| *v = !*v)))
             .style(style().justify_content(Justify::End)),
     ))
     .style(style().gap(10))
@@ -213,8 +237,8 @@ fn face(content: impl kivact::view::IntoView) -> Node {
                 .width(pct(100))
                 .height(pct(100))
                 .padding(16)
-                .background(ColorToken::SurfaceAlt)
-                .border(1, ColorToken::Border)
+                .background(color::SURFACE_ALT)
+                .border(1, color::BORDER)
                 .clip_path(cut_corner(16.)),
         )
         .child(content)
@@ -236,7 +260,7 @@ fn settings_panel() -> Node {
     .style(style().height(260).width(pct(100)));
     column((
         view.drawable(panel, settings_body),
-        row(button("パネルを回す").on_press(move || open.update(|v| *v = !*v)))
+        row(button("Turn panel").on_press(move || open.update(|v| *v = !*v)))
             .style(style().justify_content(Justify::End)),
     ))
     .style(style().gap(10))
@@ -246,16 +270,16 @@ fn settings_panel() -> Node {
 fn settings_body() -> Node {
     column((
         mono("SETTINGS // PANEL-03"),
-        sample_heading("表示の設定"),
-        text("ポインタの入力も hit test も、回転した絵の位置で働く。"),
+        sample_heading("View settings"),
+        text("Pointer input and hit tests both work at the rotated position of the picture."),
     ))
     .style(
         style()
             .width(340)
             .padding(18)
             .gap(8)
-            .background(ColorToken::Surface)
-            .border(1, ColorToken::Border)
+            .background(color::SURFACE)
+            .border(1, color::BORDER)
             .clip_path(cut_corner(14.)),
     )
 }
@@ -268,15 +292,15 @@ fn glitch_text() -> Node {
     column((
         text("SIGNAL LOST").style(
             style()
-                .font_family("Barlow Condensed")
+                .font_family(display_family())
                 .font_size(56)
-                .weight(800)
-                .italic(true)
-                .color(ColorToken::Accent)
+                .font_weight(800)
+                .font_style(kivact::style::FontStyle::Italic)
+                .color(color::ACCENT)
                 .filter(glitch),
         ),
         mono("filter graph: turbulence -> displacement_map")
-            .style(style().color(ColorToken::TextMuted)),
+            .style(style().color(color::TEXT_MUTED)),
     ))
     .style(style().gap(10).padding(12))
 }
@@ -285,23 +309,22 @@ fn scanline_background() -> Node {
     let shader = PaintShader::wgsl(SCANLINE).expect("invariant: the scanline shader is valid WGSL");
     node()
         .style(move || {
-            let theme = &use_theme().get();
-            let tint = theme.ext::<Tokens>().cyan;
+            let tint = g::color::CYAN;
             let paint = shader
                 .paint()
                 .param("speed", 0.6)
                 .param("tint", tint)
                 .animate(FrameRate::Hz(30.))
-                .fallback(ColorName::Navy);
+                .fallback(g::color::NAVY);
             style()
                 .height(160)
                 .padding(16)
                 .justify_content(Justify::End)
                 .background(Paint::from(paint))
-                .border(1, ColorToken::Border)
+                .border(1, color::BORDER)
         })
         .child(column((
-            mono("ShaderPaint // CPU は fallback を描く"),
+            mono("ShaderPaint // the CPU draws the fallback"),
             sample_heading("Scanline"),
         )))
 }
@@ -332,7 +355,7 @@ fn boot_sequence() -> Node {
         .collect();
     column((
         column(rows).style(style().gap(6)),
-        row(button("再生し直す").on_press(move || sequence.restart()))
+        row(button("Replay").on_press(move || sequence.restart()))
             .style(style().justify_content(Justify::End)),
     ))
     .style(style().gap(12))
@@ -340,8 +363,8 @@ fn boot_sequence() -> Node {
 
 fn boot_row(index: usize, name: &str, track: TimelineTrack<f64>) -> Node {
     row((
-        mono(format!("{:02}", index + 1)).style(style().color(ColorToken::TextMuted)),
-        text(name.to_owned()).style(style().weight(700)),
+        mono(format!("{:02}", index + 1)).style(style().color(color::TEXT_MUTED)),
+        text(name.to_owned()).style(style().font_weight(700)),
     ))
     .style(move || {
         let t = track.get();
@@ -349,7 +372,7 @@ fn boot_row(index: usize, name: &str, track: TimelineTrack<f64>) -> Node {
             .gap(12)
             .opacity(t)
             .translate_x((1. - t) * -24.)
-            .border_bottom(1, ColorToken::Border)
+            .border_bottom(1, color::BORDER)
             .padding_y(6)
     })
 }
@@ -357,7 +380,7 @@ fn boot_row(index: usize, name: &str, track: TimelineTrack<f64>) -> Node {
 fn scroll_header() -> Node {
     let scroller = node_ref();
     let progress = scroll_progress(scroller, Orientation::Vertical);
-    let header = row((mono("HEADER"), sample_heading("スクロールに連動"))).style(move || {
+    let header = row((mono("HEADER"), sample_heading("Scroll-linked"))).style(move || {
         let p = progress.get();
         style()
             .height(56. - 24. * p)
@@ -365,12 +388,12 @@ fn scroll_header() -> Node {
             .gap(12)
             .opacity(1. - 0.6 * p)
             .translate_y(-6. * p)
-            .border_bottom(1, ColorToken::Border)
+            .border_bottom(1, color::BORDER)
     });
     let items: Vec<_> = (1..=12)
         .map(|i| {
             mono(format!(
-                "ROW {i:02}  scroll_progress の値は内側の scroll から読む"
+                "ROW {i:02}  scroll_progress reads its value from the inner scroll"
             ))
         })
         .collect();
