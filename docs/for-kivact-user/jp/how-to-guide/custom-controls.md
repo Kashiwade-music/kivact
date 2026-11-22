@@ -664,8 +664,8 @@ enum CopyState { Idle, Copied }
 enum CopyEvent { Pressed, Expired }
 enum CopyEffect { Write(String) }
 
-struct CopyButton { text: String } // Snapshot read by the pure transition.
-impl Machine for CopyButton {
+struct CopyInput { text: String } // Snapshot read by the pure transition.
+impl Machine for CopyInput {
     type State = CopyState;
     type Event = CopyEvent;
     type Effect = CopyEffect;
@@ -682,7 +682,7 @@ impl Machine for CopyButton {
 
 #[component]
 fn copy_button(text: Value<String>) -> impl Element {
-    let m = machine(CopyState::Idle, move || CopyButton { text: text.get() }, |_, effect| match effect {
+    let m = machine(CopyState::Idle, move || CopyInput { text: text.get() }, |_, effect| match effect {
         CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
     });
     button(move || if m.get() == CopyState::Copied { "Copied" } else { "Copy" })
@@ -690,7 +690,7 @@ fn copy_button(text: Value<String>) -> impl Element {
 }
 ```
 
-この例は書き方を示すものです。既存のコピー用コントローラーが合う場合はそちらを使ってください。
+この例は書き方を示すものです。`#[component] fn copy_button` は型 `CopyButton` を作るため、スナップショットの struct は名前が重ならないよう `CopyInput` と名付けています。既存のコピー用コントローラーが合う場合はそちらを使ってください。
 
 ## 関連項目
 

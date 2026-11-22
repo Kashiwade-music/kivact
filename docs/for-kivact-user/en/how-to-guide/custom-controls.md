@@ -774,8 +774,8 @@ enum CopyState { Idle, Copied }
 enum CopyEvent { Pressed, Expired }
 enum CopyEffect { Write(String) }
 
-struct CopyButton { text: String } // Snapshot read by the pure transition.
-impl Machine for CopyButton {
+struct CopyInput { text: String } // Snapshot read by the pure transition.
+impl Machine for CopyInput {
     type State = CopyState;
     type Event = CopyEvent;
     type Effect = CopyEffect;
@@ -792,7 +792,7 @@ impl Machine for CopyButton {
 
 #[component]
 fn copy_button(text: Value<String>) -> impl Element {
-    let m = machine(CopyState::Idle, move || CopyButton { text: text.get() }, |_, effect| match effect {
+    let m = machine(CopyState::Idle, move || CopyInput { text: text.get() }, |_, effect| match effect {
         CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
     });
     button(move || if m.get() == CopyState::Copied { "Copied" } else { "Copy" })
@@ -800,7 +800,7 @@ fn copy_button(text: Value<String>) -> impl Element {
 }
 ```
 
-Create the machine in the component's setup owner. A component body runs once per mount, so the Machine belongs to this instance. Its pending timer is cancelled
+`#[component] fn copy_button` creates a type named `CopyButton`, so the snapshot struct is named `CopyInput` to keep the two names apart. Create the machine in the component's setup owner. A component body runs once per mount, so the Machine belongs to this instance. Its pending timer is cancelled
 when that instance is removed. Keep the transition pure: it chooses a next state
 and describes work; the effect runner performs the clipboard write.
 
