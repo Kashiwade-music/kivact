@@ -14,7 +14,7 @@ use kivact_macros::component;
 #[component]
 pub fn announcer_outlet(announcer: Announcer) -> impl Element {
     let root = with_base_recipe_style(
-        node().hit_testable(false).test_id("kivact.announcer"),
+        node().hit_testable(false),
         |r: &AnnouncerOutletTheme| r.root_recipe(),
         &Variants::default(),
         || (),
@@ -28,6 +28,7 @@ fn region(notice: Value<Announcement>, level: LiveRegion) -> Node {
         .role(Role::Status)
         .live_region(level)
         .hit_testable(false)
+        .test_id("kivact.announcer")
         .style(
             style()
                 .position(Position::Absolute)

@@ -294,3 +294,23 @@ fn an_announcement_in_the_announcer_outlet_is_not_reported() {
     screen.get_by_role(Role::Button, "Save").click();
     assert_eq!(screen.check_layout(), []);
 }
+
+#[test]
+fn an_announcement_stays_unreported_when_the_caller_names_the_outlet() {
+    // The caller's test id replaces the outlet's own id, so the skip mark must
+    // sit inside the outlet (on its live regions), not on its root.
+    let screen = render(|| {
+        let notices = use_announcer();
+        column((
+            button("Save").on_press(move || {
+                notices.announce(
+                    "A long announcement that cannot fit the one pixel clip of the outlet",
+                    LiveRegion::Polite,
+                )
+            }),
+            announcer_outlet(notices).test_id("notices"),
+        ))
+    });
+    screen.get_by_role(Role::Button, "Save").click();
+    assert_eq!(screen.check_layout(), []);
+}
