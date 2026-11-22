@@ -1689,3 +1689,9 @@ lane P（heading の variant、styled_text の node_ref、chat_composer の Shif
 
 - 既に実施：`pagination_status` の node に `kivact.sr-only`（K5p `d83683f0`、統合 `d83683f0` と merge `bb5da3f7`）。
 - 基点との比較：この 3 件が基点 `2b8df5ac` にもあるかは未確認（K5 lane の walker は、前の page の違反で止まっていて、後の page を見ていなかった）。
+
+## 設計者の回答（W10 tier b・soft の catalog walker の 3 件、2026-11-22）
+
+1. **overlay**：(a)。`media_overlay` は media（画像・映像）の上に重ねる部品で、20px の文字を base にした example が使い方を誤っている。example の base を preview の大きさの media（固定の大きさの画像か、色の付いた箱）にする。部品の仕様は変えない。
+2. **tree-list の `⌄`**：記号を文字で描かない。中核の tree の展開の印を、中核の標準の icon `"chevron-down"`（16px）で描く（他の部品と同じ icon の仕組み。開閉の向きは今の回転のしかたを保つ）。文字の字形は箱の大きさに合わせにくいので、icon にするのが根の直し。lane P の commit。中核の tree の試験と e2e が通ること。
+3. **visually-hidden**：付けてよい。soft の `visually_hidden` の部品が、いつも中身に `test_id("kivact.sr-only")` を付ける形にする（呼び出しごとに付けない）。
