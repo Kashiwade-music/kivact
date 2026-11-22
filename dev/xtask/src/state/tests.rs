@@ -60,18 +60,6 @@ fn names_and_derives_do_not_exempt_a_type() {
 }
 
 #[test]
-fn legacy_markers_close_a_type_and_are_counted() {
-    let text = "// xtask-allow(state): legacy: open, pending; probe\nstruct Model { open: bool, pending: Option<u8> }\nimpl Model { fn open(&mut self) {} }";
-    assert!(run(text).is_empty());
-    let source = crate::check_source::fixture(text);
-    assert_eq!(super::legacy_count(&source), 1);
-    let plain = crate::check_source::fixture(
-        "// xtask-allow(state): probe\nstruct Model { open: bool, pending: Option<u8> }",
-    );
-    assert_eq!(super::legacy_count(&plain), 0);
-}
-
-#[test]
 fn enum_variants_need_one_marker_on_the_enum() {
     let errors = run("enum Mode { Open { a: Cell<bool>, b: Option<u8> }, Closed }");
     assert_eq!(errors.len(), 1, "{errors:?}");
@@ -79,7 +67,7 @@ fn enum_variants_need_one_marker_on_the_enum() {
         errors[0].contains("Mode has variants with state fields Open.a, Open.b"),
         "{errors:?}"
     );
-    let closed = "// xtask-allow(state): legacy: Open.a, Open.b; probe\nenum Mode { Open { a: Cell<bool>, b: Option<u8> }, Closed }";
+    let closed = "// xtask-allow(state): independent: probe\nenum Mode { Open { a: Cell<bool>, b: Option<u8> }, Closed }";
     assert!(run(closed).is_empty());
 }
 
@@ -91,7 +79,7 @@ fn state_locals_need_one_marker_on_the_function() {
         errors[0].contains("function sample combines state locals a, b"),
         "{errors:?}"
     );
-    let closed = "// xtask-allow(state): legacy: a, b; probe\nfn sample() {\nlet a = signal(false);\nlet b = signal(None);\n}";
+    let closed = "// xtask-allow(state): independent: probe\nfn sample() {\nlet a = signal(false);\nlet b = signal(None);\n}";
     assert!(run(closed).is_empty());
 }
 

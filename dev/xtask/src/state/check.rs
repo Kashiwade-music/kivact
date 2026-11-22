@@ -10,8 +10,6 @@ use syn::spanned::Spanned;
 const RULE: &str = "state";
 /// The marker of the replaced rule; every one left is an error.
 const OBSOLETE: &str = "// xtask-allow(state-fields):";
-/// A marker converted mechanically in W1 and not yet closed by the designer.
-const LEGACY: &str = "// xtask-allow(state): legacy:";
 
 /// Run the rule over one source.
 pub(crate) fn check(source: &Source, index: &Index, errors: &mut Vec<String>) {
@@ -24,18 +22,6 @@ pub(crate) fn check(source: &Source, index: &Index, errors: &mut Vec<String>) {
     }
     locals::check(source, errors);
     report_markers(source, errors);
-}
-
-/// How many `legacy:` markers the lines this source owns hold.
-pub(crate) fn legacy_count(source: &Source) -> usize {
-    source
-        .text
-        .lines()
-        .enumerate()
-        .filter(|(index, line)| {
-            source.owns_line(index + 1) && line.trim_start().starts_with(LEGACY)
-        })
-        .count()
 }
 
 fn check_struct(source: &Source, index: &Index, item: &syn::ItemStruct, errors: &mut Vec<String>) {
