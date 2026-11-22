@@ -460,13 +460,13 @@ impl ArvaneTestHost {
     /// redraw (`None`: leave none): an injected fault the debug check of
     /// kept drawings must catch.
     pub fn keep_stale_draw(&self, node: Option<NodeId>) {
-        crate::paint::state::KEEP_STALE_DRAW.with(|kept| kept.set(node));
+        crate::paint::state::set_keep_stale_draw(node);
     }
 
     /// Leave `node` out of the hit test's candidates (`None`: leave none
     /// out): an injected fault the self-check's reference walk must catch.
     pub fn drop_hit_candidate(&self, node: Option<NodeId>) {
-        crate::paint::state::DROP_HIT_CANDIDATE.with(|dropped| dropped.set(node));
+        crate::paint::state::set_drop_hit_candidate(node);
     }
 
     /// Make window `window`'s GPU device lost, as a device failure does (a test

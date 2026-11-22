@@ -28,10 +28,6 @@ struct Sink {
 }
 
 impl Trace {
-    pub(crate) fn of(rt: &Runtime) -> &Self {
-        &crate::app_state::AppState::of(rt).trace
-    }
-
     /// Whether this App writes a comparison trace.
     pub(crate) fn is_on(&self) -> bool {
         self.sink.is_some()

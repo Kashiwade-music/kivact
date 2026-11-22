@@ -22,7 +22,7 @@ use windows::core::PCWSTR;
 pub const FORMAT: DXGI_FORMAT = DXGI_FORMAT_R8G8B8A8_UNORM;
 
 /// A transition barrier borrowing `resource` (no reference is taken).
-pub(crate) use crate::d3d12::transition;
+pub(crate) use super::contract::transition;
 
 /// Wait at most `timeout` on the CPU for `fence` to reach `value`.
 pub(crate) fn wait(

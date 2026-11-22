@@ -1,11 +1,11 @@
 //! Role: The `Primitive` builder: a leaf node whose author measures its size.
 
-use crate::custom::measurement::{Constraints, Measurement, constraints, sanitize};
 use crate::state::IntoValue;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{mount, view_fn};
 use crate::view::element_data::{Element, Node};
 use crate::view::elements::builders::node;
+use crate::view::measurement::{Constraints, Measurement, constraints, sanitize};
 use crate::view::state::ViewState;
 use crate::view::sync_hook::{Current, HookSlot, SyncHook};
 use crate::view::{IntoView, View};

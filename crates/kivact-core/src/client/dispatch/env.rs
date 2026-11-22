@@ -158,7 +158,7 @@ pub(super) fn close_requested(rt: &Runtime, window: WindowId) {
         return;
     }
     if window == WindowId::MAIN {
-        crate::launch::begin_exit(rt);
+        crate::platform::lifecycle::begin_exit(rt);
         return;
     }
     let close = match &record.decl.dismiss {

@@ -10,7 +10,7 @@
 
 use kivact_types as p;
 
-use crate::style::Paint;
+use kivact_style::paint::Paint;
 use kivact_style::text::{
     FontFeature, FontKerning, FontVariation, TextDecorationLine, TextDecorationStyle,
 };

@@ -3,16 +3,21 @@
 //! The aggregate of the GPU executor. Its fields are passive state from the
 //! leaf modules (targets, export_pool, device).
 
-use super::device::GpuDevice;
 use super::export_pool::Exports;
+use super::external::External;
+use super::pipelines::Pipelines;
+use super::shader_cache::Shaders;
 use super::targets::Pool;
 use crate::RenderError;
 use crate::cache::{CacheIndex, ChunkKey};
 use arvane_protocol::LayerKey;
+use arvane_render::GpuRaster;
 use kivact_types::cell::SharedDeferred;
-use kivact_types::{GpuBackend, GpuPower, GpuPreference};
+use kivact_types::{GpuAdapter, GpuBackend, GpuPower, GpuPreference};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// How GPU devices are made: as the application wishes
 /// ([`GpuPreference`]), except where the environment says otherwise: the
@@ -142,4 +147,25 @@ pub(crate) enum Swapchain {
 /// A configured swapchain.
 pub(crate) struct Configured {
     pub(crate) config: wgpu::SurfaceConfiguration,
+}
+
+// xtask-allow(state): raster, shaders and external are independent caches of one device, each borrowed alone; any combination of their contents is valid
+/// One GPU device shared by every window of a driver (PERF-8). Made on a
+/// worker thread (`GpuDevice::new` blocks), then used on the UI thread.
+pub struct GpuDevice {
+    /// The images external engines share (first: dropped, and their
+    /// fences signaled, before the device).
+    pub(crate) external: RefCell<External>,
+    /// The adapter, when the device can import shared textures.
+    pub(crate) interop: Option<GpuAdapter>,
+    pub(crate) instance: wgpu::Instance,
+    pub(crate) adapter: wgpu::Adapter,
+    pub(crate) device: wgpu::Device,
+    pub(crate) queue: wgpu::Queue,
+    pub(crate) failure: Arc<DeviceLost>,
+    pub(crate) pipelines: Pipelines,
+    /// Draws the chunks (Vello's GPU stage).
+    pub(crate) raster: RefCell<GpuRaster>,
+    /// The user shaders' pipelines.
+    pub(crate) shaders: RefCell<Shaders>,
 }

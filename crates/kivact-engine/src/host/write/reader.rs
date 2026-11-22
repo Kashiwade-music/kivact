@@ -73,7 +73,7 @@ impl Reader {
 
     /// Client mutation totals and the last committed revision.
     pub fn stats(&self) -> crate::mutation::WriteStats {
-        super::stats_of(&self.app.borrow())
+        super::stats::stats_of(&self.app.borrow())
     }
 
     /// The current display lifetime phase; missing nodes have left.

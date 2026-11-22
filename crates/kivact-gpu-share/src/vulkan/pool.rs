@@ -1,10 +1,10 @@
 //! Role: The engine's Vulkan export pool: shared images, semaphores, barriers.
 
-use super::FORMAT;
+use super::contract::FORMAT;
+use super::contract::{HAND_OFF_LAYOUT, MEMORY_HANDLE, SEMAPHORE_HANDLE, usage};
 use super::physical_device::{check_export, identity, uuids};
 use super::raw::{barrier, memory_type};
 use super::read_back::{ReadImage, read_back};
-use super::{HAND_OFF_LAYOUT, MEMORY_HANDLE, SEMAPHORE_HANDLE, usage};
 use crate::common::{Error, api};
 use crate::pool::{Acquired, DROP_WAIT, FrameReady, PoolConfig, Slots};
 use ash::vk;

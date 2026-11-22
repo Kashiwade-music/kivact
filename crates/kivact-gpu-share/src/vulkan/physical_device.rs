@@ -1,6 +1,6 @@
 //! Role: Finds a GpuAdapter's Vulkan physical device and checks it can export.
 
-use super::{API_VERSION, FORMAT, MEMORY_HANDLE, usage};
+use super::contract::{API_VERSION, FORMAT, MEMORY_HANDLE, usage};
 use crate::common::{Error, api};
 use crate::pool::PoolConfig;
 use ash::vk;

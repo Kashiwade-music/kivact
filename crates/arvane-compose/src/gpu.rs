@@ -20,5 +20,5 @@ mod state;
 mod surface;
 mod targets;
 
-pub use device::{GpuDevice, SurfaceConfigurer, probe_adapter};
-pub use state::{GpuContext, GpuEnv, GpuSurface, Presentation};
+pub use device::{SurfaceConfigurer, probe_adapter};
+pub use state::{GpuContext, GpuDevice, GpuEnv, GpuSurface, Presentation};

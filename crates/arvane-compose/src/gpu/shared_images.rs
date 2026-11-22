@@ -1,6 +1,6 @@
 //! Role: The GPU device's imports of externally shared images.
 
-use super::device::GpuDevice;
+use super::state::GpuDevice;
 use crate::RenderError;
 
 impl GpuDevice {

@@ -5,8 +5,6 @@
 
 use std::cell::Cell;
 
-use kivact_runtime::driver::Runtime;
-
 /// Everything the client keeps per App about the host link.
 #[derive(Default)]
 pub(crate) struct HostState {
@@ -15,12 +13,6 @@ pub(crate) struct HostState {
 }
 
 impl HostState {
-    /// The host-link state of `rt`'s App.
-    #[inline]
-    pub(crate) fn of(rt: &Runtime) -> &HostState {
-        &crate::app_state::AppState::of(rt).host
-    }
-
     /// Turns run so far.
     pub(crate) fn turns(&self) -> u64 {
         self.stats.get().turns

@@ -1,4 +1,5 @@
-//! Role: The host's state of each platform window (surface, presentation, IME projections), kept with the window's model.
+//! Role: The host's state of each platform window: surface, presentation and IME.
+//! It is kept with the window's model.
 //!
 //! The App-wide `Host` keeps the client, the models and the loop facts; the
 //! facts that belong to one native window live here.

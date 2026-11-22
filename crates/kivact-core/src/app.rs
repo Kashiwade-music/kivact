@@ -1,7 +1,7 @@
 //! Role: Public application builder and native window entry.
 use crate::Result;
 use crate::i18n::{Locale, Messages};
-use crate::launch::{AppSettings, LaunchPolicy};
+use crate::launch::{AppSettings, LaunchApp, LaunchPolicy};
 use crate::platform::{AppHandle, Begin, GpuPreference};
 use crate::view::IntoView;
 use std::panic::Location;
@@ -154,8 +154,10 @@ impl App {
         }
         let options = self.host_options();
         let (client, _) =
-            crate::launch::Launch::new(self, LaunchPolicy::window(), move || root().into_view())
-                .into_engine_client();
+            crate::launch::Launch::new(self.into_launch(), LaunchPolicy::window(), move || {
+                root().into_view()
+            })
+            .into_engine_client();
         crate::launch::run_native(client, options)
     }
 
@@ -199,58 +201,20 @@ impl App {
         Ok((self.settings, theme))
     }
 
-    pub(crate) fn into_view_settings(
-        self,
-    ) -> (
-        kivact_runtime::Prop<Theme>,
-        Option<crate::i18n::Locale>,
-        Messages,
-        &'static Location<'static>,
-    ) {
-        (
-            self.theme,
-            self.settings.locale,
-            self.settings.messages,
-            self.settings.theme_at,
-        )
+    /// The theme and settings a launch takes from this App.
+    pub(crate) fn into_launch(self) -> LaunchApp {
+        LaunchApp {
+            theme: self.theme,
+            settings: self.settings,
+        }
     }
-}
 
-/// The functions `kivact_core::__test` exposes over a private App.
-pub(crate) mod test_launch {
-    //! Role: The functions `kivact_core::__test` exposes over a private App.
-    use super::App;
-    use crate::launch::{Launch, LaunchHandle, LaunchPolicy};
-    use crate::view::View;
-
-    /// Launch `app` under `policy` with `root`, returning the engine client and
-    /// the inspection handle.
-    #[track_caller]
-    pub fn launch(
-        app: App,
-        policy: LaunchPolicy,
-        root: impl FnOnce() -> View + 'static,
-    ) -> (kivact_engine::api::Client, LaunchHandle) {
-        Launch::new(app, policy, root).into_engine_client()
-    }
-    pub fn host_options(app: &App) -> kivact_engine::api::HostOptions {
-        app.host_options()
-    }
-    pub fn window_title(app: &App) -> &str {
-        app.window_title()
-    }
-    #[track_caller]
-    pub fn check_window_sizes(app: &App) -> crate::Result<()> {
-        app.check_window_sizes()
-    }
-    pub fn retitle(app: App, title: impl Into<String>) -> App {
-        app.retitle(title)
-    }
-    /// Whether the App's fixed theme carries fonts (the test host then starts without any).
-    pub fn app_theme_has_fonts(app: &App) -> bool {
-        app.theme
-            .fixed()
-            .is_some_and(|theme| !theme.fonts().is_empty())
+    /// An App with a fixed `theme` and `settings` (the embedded startup's pair).
+    pub(crate) fn with_settings(settings: AppSettings, theme: Theme) -> Self {
+        Self {
+            theme: kivact_runtime::Prop::constant(theme),
+            settings,
+        }
     }
 }
 

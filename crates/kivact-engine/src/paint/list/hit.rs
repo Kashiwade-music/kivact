@@ -226,9 +226,7 @@ impl Model {
         #[cfg(feature = "testing")]
         let found = {
             let mut found = found;
-            if let Some(dropped) =
-                crate::paint::state::DROP_HIT_CANDIDATE.with(std::cell::Cell::get)
-            {
+            if let Some(dropped) = crate::paint::state::drop_hit_candidate() {
                 found.retain(|c| *c != dropped);
             }
             found
