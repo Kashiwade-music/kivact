@@ -188,6 +188,39 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
+Four setters on the tooltip, all optional, adjust where the hint goes and what
+it shows. They are set on the tooltip, not on the trigger:
+
+- `.placement(side)` sets the side of the trigger the hint shows on. The default
+  is `Placement::Above`.
+- `.align(align)` aligns the hint along the trigger's edge: `OverlayAlign::Start`,
+  `Center` or `End`. Without it, the overlay's default alignment applies.
+- `.offset(px)` sets the gap between the trigger and the hint in logical pixels.
+  The default is 4.
+- `.content(factory)` shows rich content instead of the text. The factory runs
+  on each opening, in a fresh owner, so the content starts clean every time.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::view::{OverlayAlign, Placement};
+
+fn app() -> impl IntoView {
+    row((
+        tooltip("Save the document (Ctrl+S)", button("Save"))
+            .placement(Placement::Below)
+            .align(OverlayAlign::End)
+            .offset(8.0),
+        tooltip("Open another file", button("Open"))
+            .content(|| text("Opens a file from disk")),
+    ))
+    .style(style().gap(8).padding(16))
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Tooltips").run(app)
+}
+```
+
 A tooltip is a short hint. It is not for text people must read or for anything
 they must click; use a popover for that.
 

@@ -164,6 +164,34 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
+ツールチップには、どれも省略できる設定が 4 つあります。ヒントを出す位置と中身を調整するもので、トリガーではなくツールチップに付けます。
+
+- `.placement(side)`: ヒントを出すトリガーの側を決めます。既定は `Placement::Above` です。
+- `.align(align)`: トリガーの辺に沿ってヒントをそろえます。`OverlayAlign::Start`、`Center`、`End` から選びます。指定しなければ、オーバーレイの既定のそろえ方になります。
+- `.offset(px)`: トリガーとヒントの間の距離を論理ピクセルで指定します。既定は 4 です。
+- `.content(factory)`: 文字の代わりにリッチな内容を表示します。`factory` は表示のたびに、新しい所有者の中で実行されるので、内容は毎回まっさらな状態から始まります。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::view::{OverlayAlign, Placement};
+
+fn app() -> impl IntoView {
+    row((
+        tooltip("Save the document (Ctrl+S)", button("Save"))
+            .placement(Placement::Below)
+            .align(OverlayAlign::End)
+            .offset(8.0),
+        tooltip("Open another file", button("Open"))
+            .content(|| text("Opens a file from disk")),
+    ))
+    .style(style().gap(8).padding(16))
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Tooltips").run(app)
+}
+```
+
 ツールチップは短いヒントです。読ませるべき文章や、クリックさせるものには使わず、その場合はポップオーバーを使います。
 
 ## メニューを表示する
