@@ -357,7 +357,7 @@ fn skip_link() -> (Node, kivact::view::NodeRef, Value<bool>) {
                     .clip(true)
             }
         })
-        .child(text(label));
+        .child(text(label).test_id("kivact.sr-only"));
     (skip, main_ref, skip_requested.into_value())
 }
 fn mobile_bar(
