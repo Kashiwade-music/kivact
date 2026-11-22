@@ -18,8 +18,8 @@ pub(super) struct RangeFields {
 }
 
 impl RangeFields {
-    pub(super) fn following(range: &Option<DateRange>) -> Self {
-        let range = *range;
+    pub(super) fn following(range: Option<&DateRange>) -> Self {
+        let range = range.copied();
         Self {
             start: range.map(DateRange::start),
             end: range.map(DateRange::end),

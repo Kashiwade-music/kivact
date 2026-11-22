@@ -1,4 +1,5 @@
-//! Role: How a tab strip treats tabs wider than its box, and how many tabs fit before the "More" button.
+//! Role: How a tab strip treats tabs wider than its box.
+//! It also counts how many tabs fit before the "More" button.
 
 /// What a tab strip does with tabs wider than its box.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

@@ -1,6 +1,7 @@
 //! Role: The dialog builder, its header and content layout, and panel placement.
 
 use crate::dialog::look::DialogCenter;
+use crate::dialog::look::DialogKind;
 use crate::dialog::look::DialogTheme;
 use crate::layer::with_recipe_style;
 use crate::recipe::Recipe;
@@ -17,16 +18,6 @@ use kivact_core::view::{Variant, Variants};
 use kivact_interaction::{
     DialogApi, DialogMode, DismissOn, FocusReturn, PopupApi, PopupState, use_dialog, use_popup,
 };
-
-/// What a dialog is: a modal dialog, an alert dialog, a drawer from an edge
-/// or a popover.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DialogKind {
-    Modal,
-    AlertModal,
-    Drawer(Edge),
-    Popover,
-}
 
 pub struct Dialog {
     open: Signal<bool>,

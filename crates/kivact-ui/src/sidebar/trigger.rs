@@ -1,7 +1,7 @@
 //! Role: The sidebar trigger button that toggles the provider's sidebar.
 
 use super::look::SidebarTheme;
-use super::recipes::themed;
+use super::look::themed;
 use super::state::{current, part_state};
 use crate::ButtonVariant;
 use crate::ControlSize;

@@ -1,4 +1,5 @@
-//! Role: The tabs component, its tab list, its selection state, its overflow and the selected panel.
+//! Role: The tabs component: its tab list, selection state and selected panel.
+//! It also has its overflow.
 use crate::ButtonVariant;
 use crate::ControlSize;
 use crate::layer::{with_base_recipe_style, with_recipe_style};

@@ -1,8 +1,8 @@
 //! Role: The sidebar panel, its rail, the page beside it and the provider.
 
+use super::look::themed;
 use super::look::{SidebarState, SidebarTheme};
 use super::menu::pressable;
-use super::recipes::themed;
 use super::resize::{open_width, resize_handle};
 use super::state::{
     SidebarCollapsible, SidebarCx, SidebarFrame, SidebarResize, SidebarResizeCx, SidebarSide,

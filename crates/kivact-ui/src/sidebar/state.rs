@@ -1,10 +1,10 @@
-//! Role: The sidebar's enums, the context the provider gives its parts, and the menu button's size.
+//! Role: The sidebar's enums, its panel state and the provider's context.
+//! Also the menu button's size and the resize width.
 //!
 //! Parts read the nearest [`SidebarCx`] while they mount, after the provider
 //! has established its context boundary. A part used outside a provider
 //! behaves as an expanded sidebar, and its trigger does nothing.
 
-use super::look::SidebarState;
 use kivact_core::state::{Signal, Value, memo, signal, try_use_context};
 use kivact_core::view::Variant;
 use kivact_macros::Prop;
@@ -193,4 +193,38 @@ impl SidebarHandle {
 /// The handle on the sidebar of the provider above the current owner, or `None` outside a provider.
 pub fn use_sidebar() -> Option<SidebarHandle> {
     current().map(|cx| SidebarHandle { cx })
+}
+
+/// What the panel-level parts of a sidebar read.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SidebarState {
+    /// Whether the sidebar is open.
+    pub open: bool,
+    /// Whether the sidebar is an icon column (`Icon` and closed).
+    pub icon_only: bool,
+    /// The side of the window.
+    pub side: SidebarSide,
+    /// The frame.
+    pub frame: SidebarFrame,
+    /// What closing does.
+    pub collapsible: SidebarCollapsible,
+}
+
+/// What a row of a sidebar menu (and its badge, action and sub list) reads.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SidebarItemState {
+    /// Whether the row is the current page.
+    pub active: bool,
+    /// Whether the sidebar is an icon column.
+    pub icon_only: bool,
+    /// Whether the row has an action control.
+    pub has_action: bool,
+    /// Whether the reading direction is right to left.
+    pub rtl: bool,
+    /// Whether the row is disabled: it takes no press.
+    pub disabled: bool,
+    /// The row's height.
+    pub size: SidebarMenuButtonSize,
+    /// Whether the row's sub list is open, or `None` when the row has no toggle.
+    pub expanded: Option<bool>,
 }

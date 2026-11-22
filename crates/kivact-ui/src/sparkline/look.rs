@@ -1,4 +1,4 @@
-//! Role: The sparkline recipe state, recipe table, the line's paint and the default looks.
+//! Role: The sparkline recipe state, recipe table, line paint and default looks.
 
 use crate::recipe::Look;
 use crate::recipe::recipe_table;

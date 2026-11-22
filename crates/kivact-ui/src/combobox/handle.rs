@@ -1,6 +1,6 @@
 //! Role: Configure the standard keyed combobox family.
-use super::ComboboxMode;
 use super::data::Combobox;
+use super::data::ComboboxMode;
 use crate::SelectPresentation;
 use kivact_core::state::{IntoText, IntoValue, ItemKey, Signal};
 use kivact_core::view::{Element, IntoView, Node, View, node};

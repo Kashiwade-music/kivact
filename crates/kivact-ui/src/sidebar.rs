@@ -1,4 +1,5 @@
-//! Role: The sidebar: its provider, panel, rail, trigger, groups and menus, with their recipes and theme variables.
+//! Role: The sidebar: its provider, panel, rail, trigger, groups and menus.
+//! With their recipes and theme variables.
 //!
 //! The provider draws the sidebar beside the page and shares its open
 //! state, side, frame and collapsing with the parts below it. A part used
