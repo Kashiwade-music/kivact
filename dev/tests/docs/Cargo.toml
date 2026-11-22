@@ -24,6 +24,7 @@ kivact-ui-pop = { path = "../../../crates/kivact-ui-pop" }
 kivact-ui-creative = { path = "../../../crates/kivact-ui-creative" }
 kivact-ui-game = { path = "../../../crates/kivact-ui-game" }
 kivact-ui-soft = { path = "../../../crates/kivact-ui-soft" }
+kivact-plot = { path = "../../../crates/kivact-plot" }
 kivact-gpu-share = { path = "../../../crates/kivact-gpu-share", features = ["wgpu"], optional = true }
 wgpu = { workspace = true, optional = true }
 
