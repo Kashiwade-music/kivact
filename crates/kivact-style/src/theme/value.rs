@@ -45,8 +45,9 @@ use std::sync::{Arc, Mutex};
 /// installed value and copies nothing. Two themes are equal when their
 /// installed extensions are equal.
 ///
-/// The standard components read `kivact::ui::UiRecipes`, a table of style
-/// functions with [`Default`] as its fallback; a component library may
+/// The standard components read their component themes (`kivact::ui::theme::ButtonTheme`
+/// and the other `<Name>Theme` tables), each a table of style functions with
+/// [`Default`] as its fallback; a component library may
 /// define a table for its own components the same way. To change part of a
 /// table a theme already has (a kit's look), clone the value that
 /// [`Theme::ext`] returns, change it and install it again.
@@ -56,8 +57,8 @@ use std::sync::{Arc, Mutex};
 /// different table even when it holds the same functions. Build a kit's
 /// table once and share it (a `static` [`OnceLock`](std::sync::OnceLock)
 /// that the theme constructor clones). A theme built in a closure that
-/// builds its table each time (`move || Theme::light().with(UiRecipes::default()
-/// .button(..))`) restyles every component under it on each run of the
+/// builds its table each time (`move || Theme::light().with(ButtonTheme::default()
+/// .root(..))`) restyles every component under it on each run of the
 /// closure. An [`IconSet`] built anew is compared name by name instead:
 /// no restyle, but a comparison of every entry.
 ///

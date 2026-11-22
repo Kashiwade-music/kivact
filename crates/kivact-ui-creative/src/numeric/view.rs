@@ -290,7 +290,7 @@ impl NumericView {
                 .part(
                     typing
                         .field((), label, draft)
-                        .on_draft_commit(commit_text)
+                        .on_commit(commit_text)
                         .return_focus(reference)
                         .control(),
                 )

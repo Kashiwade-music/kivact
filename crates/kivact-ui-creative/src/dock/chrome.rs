@@ -607,7 +607,7 @@ fn rename_editor<K: kivact::state::ItemKey>(
             .part(
                 cx.rename
                     .field(key.get(), texts.rename, signal(title.get_untracked()))
-                    .on_draft_commit(move |name| {
+                    .on_commit(move |name| {
                         cx.edit(|layout| layout.rename(&key.get(), name));
                     })
                     .return_focus(member_ref)

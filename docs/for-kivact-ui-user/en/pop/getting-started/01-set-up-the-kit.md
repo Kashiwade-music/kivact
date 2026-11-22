@@ -89,7 +89,7 @@ your data: `name` is yours, and `text_input` reads and writes it.
 
 Pop works with the font that Kivact bundles, so you need nothing more for this
 tutorial. The kit's own catalog also registers Inter, Barlow and Noto Sans JP
-with `App::font` to match the original design. Fonts belong to the
+with `Theme::with_fonts` to match the original design. Fonts belong to the
 application. See
 [Set up the Pop theme and variables](../how-to-guide/theme-and-tokens.md) if you
 want to do the same.

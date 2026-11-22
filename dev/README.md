@@ -28,7 +28,7 @@ tier a（変更ごと。数分。lock は E2E だけ）：
 cargo fmt -p <crate>
 cargo check -p <crate> --all-targets
 cargo clippy -p <crate> --all-targets -- -D warnings
-cargo xtask check --no-write --crate <crate>                      # 局所の検査だけ。pending を閉じる unit は --strict を付ける
+cargo xtask check --no-write --crate <crate>                      # 局所の検査だけ
 cargo test -p <crate> <filter>                                     # lock の一覧に無い package
 dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p <crate> <filter>      # lock の一覧の package
 dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- <module>
@@ -45,7 +45,6 @@ cargo xtask check --no-write
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs
 cargo check -p kivact-docs --all-targets --all-features
-rg -n "xtask-allow\(state-fields\)" crates dev examples templates     # W1c の後：何も出ない
 ```
 
 tier c（merge の前、native の経路を変えたとき）は [CONTRIBUTING](../CONTRIBUTING.md) の「検査の 3 段」にあります。
@@ -54,12 +53,12 @@ tier c（merge の前、native の経路を変えたとき）は [CONTRIBUTING](
 
 ```text
 cargo xtask check --no-write --crate kivact-ui-soft
-cargo xtask check --no-write --only state --strict --crate kivact-ui-soft --module navigation_session
+cargo xtask check --no-write --only state --crate kivact-ui-soft --module navigation_session
 cargo xtask check --no-write --only effect-writes,state --crate kivact-ui-soft
 cargo xtask check --no-write --only local
 ```
 
-`--crate` は局所の検査だけを行います（xtask-core の行数・`visible_to`・module の向き・style は全体の `cargo xtask check` で行います）。`--strict` は `[rework.pending]` の note を error にします。
+`--crate` は局所の検査だけを行います（xtask-core の行数・`visible_to`・module の向き・style は全体の `cargo xtask check` で行います）。
 
 ## E2E と doctest
 

@@ -67,7 +67,7 @@ fn inline_edit_opens_focused_commits_cancels_and_ends_with_its_row() {
                             node().part(
                                 rename
                                     .field(id, format!("Name {id}"), signal(name.get_untracked().1))
-                                    .on_draft_commit(move |text| {
+                                    .on_commit(move |text| {
                                         committed.update(|all| all.push(format!("{id}:{text}")))
                                     })
                                     .control(),

@@ -205,7 +205,7 @@ impl<K: ItemKey> InlineEditApi<K> {
     pub fn cancel(self) {
         self.rename.send(Event::Request(None));
     }
-    /// Create a headless editor; attach `.on_draft_commit(..).control()` to the drawn node.
+    /// Create a headless editor; attach `.on_commit(..).control()` to the drawn node.
     /// Mounting focuses and selects the text. Commit, cancel and removal end the rename.
     #[track_caller]
     pub fn field(self, key: K, label: impl IntoText, draft: Signal<String>) -> TextEditApi {

@@ -36,7 +36,6 @@ mod macros;
 mod module_rules;
 mod name_collision;
 mod os_branch;
-mod pending;
 mod policy;
 mod public_surface;
 mod public_type_edges;
@@ -62,7 +61,7 @@ fn main() -> ExitCode {
         .any(|argument| matches!(argument.as_str(), "--help" | "-h"))
     {
         println!(
-            "Local checks: --only <local|{}> [--crate <crate> [--module <path>]] [--strict] [--report]\n--crate runs only the local checks.\n`cargo xtask diagrams` writes architecture/ (needs Node.js).\n`cargo xtask kpi-compare <B0> <CPn>` compares two dev/bench/run.sh reports (dev/bench/kpi.toml).",
+            "Local checks: --only <local|{}> [--crate <crate> [--module <path>]] [--report]\n--crate runs only the local checks.\n`cargo xtask diagrams` writes architecture/ (needs Node.js).\n`cargo xtask kpi-compare <B0> <CPn>` compares two dev/bench/run.sh reports (dev/bench/kpi.toml).",
             check_cli::RULES.join("|")
         );
         return xtask_core::main(root);
@@ -115,7 +114,6 @@ fn main() -> ExitCode {
         Err(error) => report.errors.push(format!("module rules: {error}")),
     }
     report.errors.extend(impl_model::check(&config.root));
-    report.notes.extend(local.notes);
     if options.report {
         report.notes.extend(local.errors);
     } else {

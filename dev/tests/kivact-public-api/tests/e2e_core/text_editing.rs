@@ -939,7 +939,7 @@ fn commit_focused_edit_commits_a_draft_and_resolves_after_the_value_is_written()
         let draft = signal(String::new());
         let name = signal(String::new());
         let saved = signal(String::new());
-        let field = use_text_edit(draft).on_draft_commit(move |text: String| name.set(text));
+        let field = use_text_edit(draft).on_commit(move |text: String| name.set(text));
         let view = node()
             .on_key(move |e: KeyEvent| {
                 if e.key() == Key::Char('s') && e.modifiers().ctrl {
@@ -977,7 +977,7 @@ fn commit_focused_edit_commits_a_preedit_and_resolves_after_the_value_is_written
                 });
             }
         });
-        let field = use_text_edit(draft).on_draft_commit(move |text: String| name.set(text));
+        let field = use_text_edit(draft).on_commit(move |text: String| name.set(text));
         let view = node().child(node().name("Name").part(field.control()));
         ((go, saved), view)
     });

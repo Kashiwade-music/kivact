@@ -22,8 +22,8 @@ use crate::recipe_parts::glass_style;
 
 /// A button that opens a nonmodal popover below it, and the popover.
 ///
-/// This is the core [`kivact::interaction::DialogApi`] as a `DialogMode::Popover`
-/// in Creative's look:
+/// This is the core [`kivact::interaction::DialogApi`] as a non-modal popup
+/// (`kivact::interaction::use_popup`) in Creative's look:
 /// a `Role::Dialog` named like the button, closed by Escape, an outside press,
 /// assistive technology's Dismiss and a Close button under the content (named
 /// by the message `dialog.close`). The button toggles it, and after Escape,

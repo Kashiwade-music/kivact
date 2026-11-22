@@ -278,7 +278,7 @@ fn names() -> impl IntoView {
                 show(
                     move || rename.editing().get() == Some(id),
                     move || {
-                        let api = rename.field(id, "Name", signal(item.get().1)).on_draft_commit(move |name| {
+                        let api = rename.field(id, "Name", signal(item.get().1)).on_commit(move |name| {
                             items.update(|all| {
                                 if let Some(row) = all.iter_mut().find(|row| row.0 == id) {
                                     row.1 = name;
