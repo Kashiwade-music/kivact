@@ -27,7 +27,7 @@ fn demo() -> impl IntoView {
     let look = signal(Look::SolidGrid);
     let reference = node_ref();
     let pointer = signal(Point::new(0.0, 0.0));
-    let transform = signal(kivact::interaction::ViewTransform::default());
+    let transform = signal(kivact::interaction::ZoomPan::default());
     let zoom = kivact::interaction::use_zoom_pan(transform);
     let frame = memo(move || {
         let current = look.get();

@@ -24,18 +24,18 @@ pub(crate) struct Restore {
     pub playhead: kivact::state::Signal<f64>,
     pub loop_range: kivact::state::Signal<(f64, f64)>,
     pub cycling: kivact::state::Signal<bool>,
-    pub transform: kivact::state::Signal<kivact::interaction::ViewTransform>,
+    pub transform: kivact::state::Signal<kivact::interaction::ZoomPan>,
 }
 
 impl State {
     pub(crate) fn set_scale(self, scale: f64) {
-        self.transform.set(kivact::interaction::ViewTransform {
+        self.transform.set(kivact::interaction::ZoomPan {
             scale,
             ..self.transform.get_untracked()
         });
     }
     pub(crate) fn set_offset(self, offset: Point) {
-        self.transform.set(kivact::interaction::ViewTransform {
+        self.transform.set(kivact::interaction::ZoomPan {
             offset,
             ..self.transform.get_untracked()
         });

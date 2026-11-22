@@ -14,7 +14,7 @@ struct Model {
     frame: Signal<f64>,
     range: Signal<(f64, f64)>,
     cycling: Signal<bool>,
-    transform: Signal<kivact::interaction::ViewTransform>,
+    transform: Signal<kivact::interaction::ZoomPan>,
     tool: Signal<ui::TimelineTool>,
     phases: Signal<Vec<EditPhase>>,
     observed: Signal<Vec<(EditPhase, f64)>>,
@@ -41,7 +41,7 @@ fn fixture() -> (Screen, Model) {
             frame: signal(0.0),
             range: signal((0.0, 16.0)),
             cycling: signal(true),
-            transform: signal(kivact::interaction::ViewTransform {
+            transform: signal(kivact::interaction::ZoomPan {
                 scale: 26.0,
                 ..Default::default()
             }),

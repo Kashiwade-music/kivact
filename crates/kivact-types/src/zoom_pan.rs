@@ -4,11 +4,11 @@ use crate::{Point, Size};
 /// Content-to-view coordinates: `view = content * scale + offset`.
 /// Invalid (non-positive or non-finite) scales are treated as 1 by operations.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ViewTransform {
+pub struct ZoomPan {
     pub offset: Point,
     pub scale: f64,
 }
-impl Default for ViewTransform {
+impl Default for ZoomPan {
     fn default() -> Self {
         Self {
             offset: Point::new(0.0, 0.0),
@@ -16,7 +16,7 @@ impl Default for ViewTransform {
         }
     }
 }
-impl ViewTransform {
+impl ZoomPan {
     /// Map a surface-local point into content coordinates.
     pub fn to_content(&self, view: Point) -> Point {
         let scale = valid_scale(self.scale);

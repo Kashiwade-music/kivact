@@ -1,12 +1,12 @@
 //! Role: Verify shared zoom and pan through real-window input and owner cleanup.
-use kivact::interaction::{ViewTransform, use_zoom_pan};
+use kivact::interaction::{ZoomPan, use_zoom_pan};
 use kivact::prelude::*;
 use kivact::view::KeyCode;
 use kivact::view::{EditPhase, Modifiers, Node};
 use kivact_public_api_tests::support::mount;
 use std::cell::RefCell;
 use std::rc::Rc;
-type Log = Rc<RefCell<Vec<(EditPhase, ViewTransform)>>>;
+type Log = Rc<RefCell<Vec<(EditPhase, ZoomPan)>>>;
 fn close(a: Point, b: Point) {
     assert!(
         (a.x - b.x).abs() < 0.001 && (a.y - b.y).abs() < 0.001,
@@ -25,7 +25,7 @@ fn surface() -> Node {
 fn wheel_keeps_the_point_under_the_pointer_and_reports_a_whole_edit() {
     let log = Log::default();
     let seen = log.clone();
-    let initial = ViewTransform {
+    let initial = ZoomPan {
         offset: Point::new(10., 20.),
         scale: 2.,
     };
@@ -61,7 +61,7 @@ fn middle_pan_commits_and_escape_restores_the_press_snapshot() {
     let log = Log::default();
     let seen = log.clone();
     let (screen, transform) = mount(move || {
-        let transform = signal(ViewTransform::default());
+        let transform = signal(ZoomPan::default());
         (
             transform,
             surface().part(
@@ -114,7 +114,7 @@ fn other() -> Node {
 #[test]
 fn space_armed_follows_space_and_turns_off_when_the_focus_leaves() {
     let (screen, armed) = mount(|| {
-        let transform = signal(ViewTransform::default());
+        let transform = signal(ZoomPan::default());
         let zoom = use_zoom_pan(transform);
         (
             zoom.is_space_armed(),
@@ -133,7 +133,7 @@ fn space_armed_follows_space_and_turns_off_when_the_focus_leaves() {
 #[test]
 fn zero_fits_content_that_does_not_start_at_the_origin() {
     let (screen, transform) = mount(|| {
-        let transform = signal(ViewTransform::default());
+        let transform = signal(ZoomPan::default());
         (
             transform,
             node()

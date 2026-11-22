@@ -342,7 +342,7 @@ pub(super) fn animation_dope_sheet(
     keys: Signal<Vec<ui::Keyframe>>,
     selected: Signal<Vec<u64>>,
     initial_keys: Signal<super::txn::Txn<Vec<ui::Keyframe>>>,
-    transform: Signal<kivact::interaction::ViewTransform>,
+    transform: Signal<kivact::interaction::ZoomPan>,
 ) -> impl IntoView {
     ui::dope_sheet(
         keys,
@@ -620,7 +620,7 @@ impl Look {
 pub(super) fn viewport_toolbar(
     look: Signal<Look>,
     reference: NodeRef,
-    transform: Signal<kivact::interaction::ViewTransform>,
+    transform: Signal<kivact::interaction::ZoomPan>,
 ) -> Node {
     line((
         text("Application image"),
@@ -670,7 +670,7 @@ pub(super) fn viewport_toolbar(
             .variant(kivact::ui::ButtonVariant::Secondary)
             .on_press(move || {
                 if let Some(r) = reference.rect().get() {
-                    transform.set(kivact::interaction::ViewTransform::fit(
+                    transform.set(kivact::interaction::ZoomPan::fit(
                         Size::new(640.0, 360.0),
                         Size::new(r.width, r.height),
                     ));

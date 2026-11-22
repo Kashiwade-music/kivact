@@ -1,6 +1,6 @@
 //! Role: Application-owned bindings for this component view state.
 use crate::editors::node::model::NodeLink;
-use kivact::interaction::ViewTransform;
+use kivact::interaction::ZoomPan;
 use kivact::state::Signal;
 use kivact::state::signal;
 /// The view state of a [`node_editor`](crate::editors::node).
@@ -11,7 +11,7 @@ pub struct NodeState {
     /// The selected link, if any.
     pub link: Signal<Option<NodeLink>>,
     /// The canvas's pan and zoom.
-    pub transform: Signal<ViewTransform>,
+    pub transform: Signal<ZoomPan>,
 }
 
 impl NodeState {
@@ -21,7 +21,7 @@ impl NodeState {
         Self {
             selection: signal(Vec::new()),
             link: signal(None),
-            transform: signal(ViewTransform::default()),
+            transform: signal(ZoomPan::default()),
         }
     }
 }

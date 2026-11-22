@@ -305,7 +305,7 @@ fn arrangement_edit(
     playhead: kivact::state::Signal<f64>,
     loop_range: kivact::state::Signal<(f64, f64)>,
     cycling: kivact::state::Signal<bool>,
-    transform: kivact::state::Signal<kivact::interaction::ViewTransform>,
+    transform: kivact::state::Signal<kivact::interaction::ZoomPan>,
     on_edit: Option<Callback<EditorEvent<ArrangementRequest>>>,
 ) -> EditSession<super::gesture::Snapshot> {
     let restore = super::edit::Restore {

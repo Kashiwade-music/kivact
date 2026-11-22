@@ -17,7 +17,7 @@ pub(crate) enum Snapshot {
     Playhead(f64),
     Loop((f64, f64)),
     Cycle(bool),
-    View(kivact::interaction::ViewTransform),
+    View(kivact::interaction::ZoomPan),
 }
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Drag {
@@ -62,7 +62,7 @@ pub(crate) struct State {
     pub(crate) range: Value<(f64, f64)>,
     pub(crate) cycle: Value<bool>,
     pub(crate) cycling: Signal<bool>,
-    pub(crate) transform: Signal<kivact::interaction::ViewTransform>,
+    pub(crate) transform: Signal<kivact::interaction::ZoomPan>,
     pub(crate) pixels: Value<f64>,
     pub(crate) offset: Value<Point>,
     pub(crate) tool_binding: Signal<TimelineTool>,

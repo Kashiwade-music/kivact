@@ -150,7 +150,7 @@ pub use tree::{
 
 pub use text_edit::{TextEditApi, text_edit_policy, use_text_area, use_text_edit};
 
-pub use zoom_pan::{ViewTransform, ZoomPanApi, use_zoom_pan};
+pub use zoom_pan::{ZoomPan, ZoomPanApi, use_zoom_pan};
 
 pub use date_field::{
     DateFieldApi, DateFieldOptions, DatePanel, DatePicker, DatePickerApi, TextCheck, TypedCheck,

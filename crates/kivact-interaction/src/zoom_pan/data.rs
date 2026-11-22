@@ -1,9 +1,9 @@
-//! Role: Define view transforms, options, and passive gesture snapshots.
+//! Role: Define zoom-pan state, options, and passive gesture snapshots.
 use kivact_core::geometry::{Point, Rect};
 use kivact_core::state::Value;
 use kivact_core::view::{MouseButton, PointerId};
 
-pub use kivact_types::ViewTransform;
+pub use kivact_types::ZoomPan;
 pub(super) fn valid_scale(scale: f64) -> f64 {
     if scale.is_finite() && scale > 0.0 {
         scale
@@ -39,7 +39,7 @@ impl Default for ZoomPanOptions {
 pub(super) struct Pan {
     pub(super) pointer: PointerId,
     pub(super) position: Point,
-    pub(super) transform: ViewTransform,
+    pub(super) transform: ZoomPan,
     pub(super) button: MouseButton,
 }
 
@@ -55,7 +55,7 @@ pub(super) struct Finger {
 #[derive(Clone, Copy, PartialEq)]
 pub(super) struct Pinch {
     pub(super) fingers: [Finger; 2],
-    pub(super) transform: ViewTransform,
+    pub(super) transform: ZoomPan,
 }
 
 fn midpoint(a: Point, b: Point) -> Point {
@@ -67,8 +67,8 @@ fn distance(a: Point, b: Point) -> f64 {
 }
 
 /// The transform of `pan` with the pointer at `pos`.
-pub(super) fn panned(pan: Pan, pos: Point) -> ViewTransform {
-    ViewTransform {
+pub(super) fn panned(pan: Pan, pos: Point) -> ZoomPan {
+    ZoomPan {
         scale: valid_scale(pan.transform.scale),
         offset: Point::new(
             pan.transform.offset.x + pos.x - pan.position.x,
@@ -80,7 +80,7 @@ pub(super) fn panned(pan: Pan, pos: Point) -> ViewTransform {
 /// The transform `pinch` makes: the content point under the fingers'
 /// starting midpoint follows their midpoint, scaled by how far apart
 /// they are now against at the start (clamped to the scale range).
-pub(super) fn pinched(pinch: Pinch, options: ZoomPanOptions) -> ViewTransform {
+pub(super) fn pinched(pinch: Pinch, options: ZoomPanOptions) -> ZoomPan {
     let ZoomPanOptions { min, max, .. } = options;
     let [a, b] = pinch.fingers;
     let (start, now) = (distance(a.start, b.start), distance(a.now, b.now));
@@ -92,7 +92,7 @@ pub(super) fn pinched(pinch: Pinch, options: ZoomPanOptions) -> ViewTransform {
     let scale = (valid_scale(pinch.transform.scale) * factor).clamp(min, max);
     let content = pinch.transform.to_content(midpoint(a.start, b.start));
     let anchor = midpoint(a.now, b.now);
-    ViewTransform {
+    ZoomPan {
         scale,
         offset: Point::new(anchor.x - content.x * scale, anchor.y - content.y * scale),
     }

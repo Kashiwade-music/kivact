@@ -512,7 +512,7 @@ fn move_loop(state: State, mode: LoopPart, pos: Point, origin: Point, snapshot: 
 }
 
 fn move_pan(state: State, pos: Point, origin: Point, snapshot: &Snapshot) {
-    if let Some(Snapshot::View(kivact::interaction::ViewTransform { offset: p, .. })) =
+    if let Some(Snapshot::View(kivact::interaction::ZoomPan { offset: p, .. })) =
         Some(snapshot.clone())
     {
         let from = origin;

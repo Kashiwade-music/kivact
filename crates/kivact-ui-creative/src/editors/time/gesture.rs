@@ -25,7 +25,7 @@ pub(crate) enum Drag {
 pub(crate) enum Snapshot {
     Items(Vec<(u64, f64, f64, u64)>),
     Playhead(f64),
-    View(kivact::interaction::ViewTransform),
+    View(kivact::interaction::ZoomPan),
 }
 // xtask-allow(state): independent: selected, transform and playhead are the caller's bindings, each written by its own gesture or command; active is the target of the drag in progress; context is the open context menu
 pub(crate) struct State<T: TimeItem> {
@@ -37,7 +37,7 @@ pub(crate) struct State<T: TimeItem> {
     >,
     pub selected: Signal<Vec<u64>>,
     pub selection: Value<Vec<u64>>,
-    pub(crate) transform: Signal<kivact::interaction::ViewTransform>,
+    pub(crate) transform: Signal<kivact::interaction::ZoomPan>,
     pub scale: Value<f64>,
     pub offset: Value<Point>,
     pub playhead: Signal<f64>,

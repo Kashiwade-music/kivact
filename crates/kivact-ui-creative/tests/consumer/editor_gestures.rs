@@ -3,7 +3,7 @@ use crate::arrangement_model::arrangement as app_arrangement;
 use crate::graph_support::app_graph;
 use crate::node_support::app_node_editor;
 use crate::time_support::{app_dope_sheet, app_timeline};
-use kivact::interaction::ViewTransform;
+use kivact::interaction::ZoomPan;
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact_ui_creative as ui;
@@ -25,7 +25,7 @@ struct Model {
     nodes: Signal<Vec<ui::NodeData>>,
     selection: Signal<Vec<u64>>,
     frame: Signal<f64>,
-    transform: Signal<ViewTransform>,
+    transform: Signal<ZoomPan>,
     view: Signal<ui::GraphView>,
     activated: Signal<Vec<u64>>,
 }
@@ -223,9 +223,9 @@ fn gesture_model(kind: Kind) -> Model {
         nodes,
         selection: signal(Vec::new()),
         frame: signal(0.0),
-        transform: signal(ViewTransform {
+        transform: signal(ZoomPan {
             scale: if kind == Kind::Arrangement { 20.0 } else { 1.0 },
-            ..ViewTransform::default()
+            ..ZoomPan::default()
         }),
         view: signal(ui::GraphView {
             time: (0.0, 440.0),
