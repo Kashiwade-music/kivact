@@ -282,3 +282,17 @@
   - test（`window-lock.sh --timeout 5400`、XD・XK・gpu-interop-producer を除外）：exit 0。1450 件 passed、failed 0。
   - rg の `xtask-allow(state-fields)`（W1c の後の確認）：0 件（rg が無いため grep で確かめた）。
 - 次：W10（K34→K35→L7、K36→K37→L8、K38→L9、K39→K40→L10、K41→K42→K43→L11）。lane の worktree（`W:/w/kv-wt/rw-W10-K1〜K5`、branch `wt/rw-W10-K1〜K5`）は統合 `8c894268` から作った。
+
+## W10 完了（統合 merge 済み・tier b 成功、2026-11-22）
+
+- 統合の経路：K1〜K4・P 系の lane の commit は K5 lane（`8430c019`）へ merge 済みで、統合 branch はその時点の `8430c019`。その後の fix（設計者の答え）を次の順に merge：`16856126`（統合の fix：P13 の `kivact.sr-only` 改名、K5 の skip link の印、metrics_and_description の redundant import）、`75b20d73`（K1 の basic の doc 例の fix、`8dfb9dba`）、`bb5da3f7`（K5 の pagination の印、`d83683f0`）、`e2d5ce65`（overlay の example の base を preview の大きさの media にする、visually_hidden の部品の中で `kivact.sr-only`、`9128dee8`）、`bb7fe0c4`（tree の展開の印を中核の icon `chevron-down`・`chevron-left`・`chevron-right` の 16px にする、`0807e29c`）。差戻しの記録は `310108b7`、設計者の回答は `e9bf8a40` と OPEN.md の「差戻し（W10 tier b・soft の catalog walker の layout 違反）」。
+- 設計者の答え（commit message に残してある）：読み上げだけの領域の印は `kivact.sr-only` の一つの名前（LayoutCheck の既定、announcer の region、skip link の text、pagination_status の node、visually_hidden の部品の中）。skip link の印は常時付ける。overlay の example の base は部品の仕様を変えず example を直す。tree の展開の印は文字を使わず icon にする。
+- tier b（統合 `bb7fe0c4`、`V:/kv-target/logs/w10b3-*.log`。form は 2.3 の W10 の形、XT＝`--exclude kivact-docs --exclude kivact-kit-tests`）：
+  - `cargo fmt --all -- --check`：exit 0。
+  - `cargo xtask check --no-write --only local`：exit 0。
+  - `cargo clippy --workspace --all-targets --all-features $XT -- -D warnings`：exit 0。
+  - `window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test --workspace --exclude gpu-interop-producer $XT --no-fail-fast`：exit 0。1704 件 passed、failed 0。`every_page_opens_from_the_list_and_renders_cleanly`（soft の catalog）も ok。
+  - `rg xtask-allow(state-fields)`：0 件。
+- 前の Orchestrator の tier b（`V:/kv-target/logs/w10-tierb.sh` と `w10-*.log`）の結果は使わない（古い統合の状態で走った）。
+- 残す：`rework/PROGRESS.md` の「W10 完了」の後の W11a（K44・L12・G01・G13・G14）以降は未着手。
+- 片付け（merge 済みを確かめてから消す）：`W:/w/kv-wt/rw-W10-fix`・`rw-W10-K1d`・`rw-W10-K5p`・`rw-W10-T1`・`rw-W10-V1` と、その前の W10 の lane（`rw-W10-*`）、W7・W8 の lane の残り。
