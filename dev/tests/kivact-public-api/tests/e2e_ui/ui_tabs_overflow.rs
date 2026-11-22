@@ -1,4 +1,6 @@
-//! Role: Verify the tabs' overflow on real windows: the scroll that keeps the selected tab in view, and the "More tabs" menu that takes the tabs past the box.
+//! Role: Verify the tabs' overflow on real windows.
+//! The scroll that keeps the selected tab in view, and the "More tabs" menu
+//! that takes the tabs past the box.
 
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen};

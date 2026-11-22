@@ -173,14 +173,14 @@ let controls = vec![
 
 ## 表示状態を保持する
 
-`NodeState` は、3 つのシグナルを持つ `Copy` の構造体です。`selection`（ノードの ID）、`link`（選択中のリンク）、`transform`（パンのオフセットと拡大率を持つ `ViewTransform`）です。ドキュメントを開いたときに表示を復元するには、自分のシグナルを作り、それを使って構造体を組み立てます。
+`NodeState` は、3 つのシグナルを持つ `Copy` の構造体です。`selection`（ノードの ID）、`link`（選択中のリンク）、`transform`（パンのオフセットと拡大率を持つ `ZoomPan`）です。ドキュメントを開いたときに表示を復元するには、自分のシグナルを作り、それを使って構造体を組み立てます。
 
 ```rust,no_run
-use kivact::interaction::ViewTransform;
+use kivact::interaction::ZoomPan;
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-let transform = signal(ViewTransform::default());
+let transform = signal(ZoomPan::default());
 let selection = signal(Vec::<u64>::new());
 let state = ui::NodeState {
     transform,

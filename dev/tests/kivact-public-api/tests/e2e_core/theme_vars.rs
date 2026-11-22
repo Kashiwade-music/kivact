@@ -1,4 +1,5 @@
-//! Role: Theme variables restyle mounted views on a theme switch, follow their aliases, and report cycles and unsupported sums.
+//! Role: Theme variables restyle mounted views on a theme switch.
+//! They follow their aliases, and report cycles and unsupported sums.
 
 use kivact::ErrorKind;
 use kivact::prelude::*;

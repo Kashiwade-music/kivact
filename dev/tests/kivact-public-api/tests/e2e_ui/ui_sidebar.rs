@@ -1,4 +1,5 @@
-//! Role: Verify the sidebar's widths, its trigger, its shortcut, its rail, its resize handle and its sub lists.
+//! Role: Verify the sidebar's widths, trigger, shortcut and rail.
+//! Also its resize handle and its sub lists.
 
 use kivact::prelude::*;
 use kivact::test::Screen;

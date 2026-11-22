@@ -350,4 +350,4 @@ fn mixer_panel() -> impl Element {
 - API の全体: `cargo doc -p kivact-ui-creative --open`
 - カタログのタイムライン・アニメーション・ミキサーの章: `cargo run -p kivact-ui-creative-catalog`
 
-時間エディタと arrangement は、単一の `transform: Signal<kivact::interaction::ViewTransform>` を使います。`scale` は論理時間単位あたりの横方向のピクセル数（arrangement では拍あたり）、`offset` はピクセル単位のスクロールです。レーンの高さは拡大縮小しません。セットアップ時に `bind!(transform.scale)` のシグナルを作ると、ズームスライダーも同じ表示状態に接続できます。ホイールの割り当てとサイドバーを基準にしたズームは時間エディタが保持します。
+時間エディタと arrangement は、単一の `transform: Signal<kivact::interaction::ZoomPan>` を使います。`scale` は論理時間単位あたりの横方向のピクセル数（arrangement では拍あたり）、`offset` はピクセル単位のスクロールです。レーンの高さは拡大縮小しません。セットアップ時に `bind!(transform.scale)` のシグナルを作ると、ズームスライダーも同じ表示状態に接続できます。ホイールの割り当てとサイドバーを基準にしたズームは時間エディタが保持します。
