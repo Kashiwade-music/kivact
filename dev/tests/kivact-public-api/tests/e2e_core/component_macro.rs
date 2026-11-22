@@ -655,3 +655,15 @@ fn lazy_children_are_made_inside_the_components_context() {
     assert!(screen.query_by_text("7").is_some());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn an_integer_prop_takes_a_plain_literal() {
+    #[component]
+    fn ring(percent: u32, #[prop(default = 10)] steps: u32) -> impl IntoView {
+        text(move || format!("{percent}/{steps}"))
+    }
+    let (screen, _) = mount(|| ((), column((ring(3), ring(4).steps(20)))));
+    assert!(screen.query_by_text("3/10").is_some());
+    assert!(screen.query_by_text("4/20").is_some());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

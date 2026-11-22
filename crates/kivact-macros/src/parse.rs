@@ -88,9 +88,11 @@ pub(crate) enum PropKind {
     Children,
     /// `ViewFn`: takes `IntoViewFn<V>`, kept as `ViewFn<()>`.
     ViewFn,
-    /// A type parameter of the component itself (`control: C`): takes `C`
-    /// as it is (rule 3: wrapping it in `Into` stops inference).
-    Param(Type),
+    /// A type parameter of the component itself (`control: C`), or a plain
+    /// integer type (`u32`, `i64`, ..): takes the written type as it is
+    /// (rule 3: wrapping it in `Into` stops inference, and a literal takes the
+    /// written type).
+    AsIs(Type),
     /// `Rc<dyn Fn(A, ..) -> T>`: takes `impl Fn(A, ..) -> T + 'static`; when
     /// `T` is literally `View`, takes `impl Fn(A, ..) -> V + 'static` with
     /// `V: IntoView`.
@@ -429,11 +431,12 @@ fn option_inner(ty: &Type) -> Option<&Type> {
     }
 }
 
-/// The kind of a prop: a type parameter of the component is taken as it
-/// is; any other type is recognised by the spelling of its last segment.
+/// The kind of a prop: a type parameter of the component or a plain integer
+/// type is taken as it is; any other type is recognised by the spelling of
+/// its last segment.
 fn kind(ty: &Type, params: &[Ident]) -> PropKind {
-    if is_param(ty, params) {
-        return PropKind::Param(ty.clone());
+    if is_param(ty, params) || is_integer(ty) {
+        return PropKind::AsIs(ty.clone());
     }
     let Type::Path(path) = ty else {
         return PropKind::Other(ty.clone());
@@ -508,6 +511,32 @@ fn is_param(ty: &Type, params: &[Ident]) -> bool {
     }
     let segment = &path.path.segments[0];
     matches!(segment.arguments, PathArguments::None) && params.contains(&segment.ident)
+}
+
+/// Whether `ty` is a plain integer type (`u8` to `isize`), named by its name alone.
+fn is_integer(ty: &Type) -> bool {
+    let Type::Path(path) = ty else {
+        return false;
+    };
+    if path.qself.is_some() || path.path.segments.len() != 1 {
+        return false;
+    }
+    let segment = &path.path.segments[0];
+    matches!(segment.arguments, PathArguments::None)
+        && matches!(
+            segment.ident.to_string().as_str(),
+            "u8" | "u16"
+                | "u32"
+                | "u64"
+                | "u128"
+                | "usize"
+                | "i8"
+                | "i16"
+                | "i32"
+                | "i64"
+                | "i128"
+                | "isize"
+        )
 }
 
 /// The type parameters that no argument's type names (they are held by
