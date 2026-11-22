@@ -15,7 +15,8 @@ use kivact::style::ThemeMode;
 use kivact::interaction::Tone;
 use kivact_ui_pop as pop;
 
-fn sign_up(today: CalendarDate) -> impl IntoView {
+#[component]
+fn sign_up(today: CalendarDate) -> impl Element {
     let name = signal(String::new());
     let email = signal(String::new());
     let plan = signal(Some("team"));
@@ -30,19 +31,18 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
     let name_missing = memo(move || name.with(|n| n.trim().is_empty()));
     let email_missing = memo(move || email.with(|e| !e.contains('@')));
     let name_error = memo(move || {
-        (attempted.get() && name_missing.get()).then(|| "名前を入力してください".to_owned())
+        (attempted.get() && name_missing.get()).then(|| "Enter your name".to_owned())
     });
     let email_error = memo(move || {
-        (attempted.get() && email_missing.get())
-            .then(|| "メールアドレスを入力してください".to_owned())
+        (attempted.get() && email_missing.get()).then(|| "Enter an email address".to_owned())
     });
     let birth_error = memo(move || {
         (birth_valid.get() && birth.get() >= today)
-            .then(|| "生年月日は過去の日付にしてください".to_owned())
+            .then(|| "Birth date must be in the past".to_owned())
     });
     let start_error = memo(move || {
         (start_valid.get() && start.get() < today)
-            .then(|| "今日以降の日付を選んでください".to_owned())
+            .then(|| "Choose today or a later date".to_owned())
     });
     let ready = memo(move || {
         !name_missing.get()
@@ -55,47 +55,47 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
     });
 
     kivact::ui::card((
-        text("新規アカウント").style(style().font_size(20).weight(600)),
-        field("名前", text_input("名前", name).placeholder("お名前を入力"))
-            .hint("請求書に表示されます。")
+        text("New account").style(style().font_size(20).font_weight(600)),
+        field("Name", text_input(name).placeholder("Your full name"))
+            .hint("Shown on your invoices.")
             .error(name_error),
         field(
-            "メールアドレス",
-            text_input("メールアドレス", email).placeholder("you@example.com"),
+            "Email",
+            text_input(email).label("Email").placeholder("you@example.com"),
         )
         .error(email_error),
         field(
-            "プラン",
+            "Plan",
             radio_group(
-                "プラン",
+                "Plan",
                 vec![
-                    ListItem::new("solo", "ソロ"),
-                    ListItem::new("team", "チーム"),
-                    ListItem::new("business", "ビジネス"),
+                    ListItem::new("solo", "Solo"),
+                    ListItem::new("team", "Team"),
+                    ListItem::new("business", "Business"),
                 ],
                 plan,
             )
-            .orientation(Orientation::Horizontal)
+            .orientation(kivact::view::Orientation::Horizontal)
             .variant(kivact::ui::RadioGroupVariant::Segmented),
         ),
-        { let value: kivact::state::Binding<kivact::i18n::CalendarDate> = kivact::state::IntoBinding::into_binding(birth); let value = kivact::state::binding(move || Some(value.get()),move |day| {if let Some(day)=day {value.set(day);}}); kivact::ui::date_input("生年月日",value).calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(birth_valid),
+        { let value = kivact::state::binding(move || Some(birth.get()), move |day| { if let Some(day) = day { birth.set(day); } }); kivact::ui::date_input(value).label("Birth date").calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(birth_valid),
         show(move || birth_error.get().is_some(), move || {
             text(move || birth_error.get().unwrap_or_default())
-                .style(style().font_size(12).color(ColorToken::Danger))
+                .style(style().font_size(12).color(kivact::style::color::DANGER))
         }),
-        { let value: kivact::state::Binding<kivact::i18n::CalendarDate> = kivact::state::IntoBinding::into_binding(start); let value = kivact::state::binding(move || Some(value.get()),move |day| {if let Some(day)=day {value.set(day);}}); kivact::ui::date_input("開始日",value).calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(start_valid),
+        { let value = kivact::state::binding(move || Some(start.get()), move |day| { if let Some(day) = day { start.set(day); } }); kivact::ui::date_input(value).label("Start date").calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(start_valid),
         show(move || start_error.get().is_some(), move || {
             text(move || start_error.get().unwrap_or_default())
-                .style(style().font_size(12).color(ColorToken::Danger))
+                .style(style().font_size(12).color(kivact::style::color::DANGER))
         }),
-        checkbox("利用規約に同意します", terms),
+        checkbox("I accept the terms", terms),
         show(move || attempted.get() && !terms.get(), || {
-            text("続けるには利用規約への同意が必要です")
-                .style(style().font_size(12).color(ColorToken::Danger))
+            text("Accept the terms to continue")
+                .style(style().font_size(12).color(kivact::style::color::DANGER))
         }),
         row((
-            button("キャンセル").variant(pop::ButtonTone::Soft),
-            button("アカウントを作成")
+            button("Cancel").variant(pop::ButtonTone::Soft),
+            button("Create account")
                 .variant(pop::ButtonTone::Accent)
                 .disabled(created)
                 .on_press(move || {
@@ -107,7 +107,7 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
         ))
         .style(style().gap(8).justify_content(Justify::End)),
         show(created, move || {
-            {let tone=kivact::state::IntoValue::into_value(Tone::Success); kivact::ui::alert("アカウントを作成しました").tone(tone).icon(kivact::view::icon(move || kivact::style::Icon::named(match tone.get() { kivact::interaction::Tone::Danger=>"alert-circle", kivact::interaction::Tone::Warning=>"alert-triangle",kivact::interaction::Tone::Success=>"circle-check",_=>"info-circle"}))).description(move || format!("ようこそ、{}さん。", name.get()))}
+            {let tone=kivact::state::IntoValue::into_value(Tone::Success); kivact::ui::alert("Account created").tone(tone).icon(kivact::view::icon(move || kivact::style::Icon::named(match tone.get() { kivact::interaction::Tone::Danger=>"alert-circle", kivact::interaction::Tone::Warning=>"alert-triangle",kivact::interaction::Tone::Success=>"circle-check",_=>"info-circle"}))).description(move || format!("Welcome, {}.", name.get()))}
         }),
     ))
     .style(style().width(420).margin(24).gap(12))
@@ -133,33 +133,33 @@ mod tests {
     #[test]
     fn a_complete_form_creates_the_account() {
         let screen = mount();
-        screen.get_by_role(Role::TextBox, "名前").type_text("Haruka");
+        screen.get_by_role(Role::TextBox, "Name").type_text("Haruka");
         screen
-            .get_by_role(Role::TextBox, "メールアドレス")
+            .get_by_role(Role::TextBox, "Email")
             .type_text("haruka@example.com");
         screen
-            .get_by_role(Role::CheckBox, "利用規約に同意します")
+            .get_by_role(Role::CheckBox, "I accept the terms")
             .click();
-        screen.get_by_role(Role::Button, "アカウントを作成").click();
-        screen.get_by_text("ようこそ、Harukaさん。");
-        assert!(screen.get_by_role(Role::Button, "アカウントを作成").is_disabled());
+        screen.get_by_role(Role::Button, "Create account").click();
+        screen.get_by_text("Welcome, Haruka.");
+        assert!(screen.get_by_role(Role::Button, "Create account").is_disabled());
         assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
 
     #[test]
     fn an_empty_form_shows_what_is_missing() {
         let screen = mount();
-        screen.get_by_role(Role::Button, "アカウントを作成").click();
-        screen.get_by_text("名前を入力してください");
-        screen.get_by_text("メールアドレスを入力してください");
-        screen.get_by_text("続けるには利用規約への同意が必要です");
-        assert!(screen.query_by_text("アカウントを作成しました").is_none());
+        screen.get_by_role(Role::Button, "Create account").click();
+        screen.get_by_text("Enter your name");
+        screen.get_by_text("Enter an email address");
+        screen.get_by_text("Accept the terms to continue");
+        assert!(screen.query_by_text("Account created").is_none());
     }
 
     #[test]
     fn a_start_date_in_the_past_is_refused() {
         let screen = mount();
-        let start = screen.get_by_role(Role::TextBox, "開始日");
+        let start = screen.get_by_role(Role::TextBox, "Start date");
         start.press_key_with(
             Key::Char('a'),
             Modifiers {
@@ -169,7 +169,7 @@ mod tests {
         );
         start.type_text("2026-10-01");
         start.press_key(Key::Enter);
-        screen.get_by_text("今日以降の日付を選んでください");
+        screen.get_by_text("Choose today or a later date");
     }
 }
 ```
@@ -194,7 +194,7 @@ mod tests {
 
 Pop の見た目を持ち、型付きの状態、欄ごとのエラー、本物の日付入力、そして合格するテストを備えたフォームができました。さらに進むには:
 
-- [Pop のテーマとトークンを設定する](../how-to-guide/theme-and-tokens.md): ダークモードや色の変更。
+- [Pop のテーマと変数を設定する](../how-to-guide/theme-and-tokens.md): ダークモードや色の変更。
 - [日付と期間を選ばせる](../how-to-guide/dates-and-calendars.md): 期間、単体のカレンダー、イベントの点。
 
 次へ: [Pop 作業別ガイド](../how-to-guide/README.md)

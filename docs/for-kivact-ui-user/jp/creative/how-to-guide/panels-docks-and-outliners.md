@@ -13,13 +13,14 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_creative as ui;
 
-fn workspace() -> impl IntoView {
+#[component]
+fn workspace() -> impl Element {
     let layout = signal(ui::DockLayout::new(ui::DockNode::split(
         ui::DockAxis::Horizontal,
         [
             (
                 0.25,
-                ui::DockNode::tabs(vec![ui::DockTab::new("assets", "アセット").icon("folder")]),
+                ui::DockNode::tabs(vec![ui::DockTab::new("assets", "Assets").icon("folder")]),
             ),
             (
                 0.75,
@@ -29,13 +30,13 @@ fn workspace() -> impl IntoView {
                         (
                             0.7,
                             ui::DockNode::tabs(vec![
-                                ui::DockTab::new("viewport", "ビューポート").closable(false),
-                                ui::DockTab::new("preview", "プレビュー"),
+                                ui::DockTab::new("viewport", "Viewport").closable(false),
+                                ui::DockTab::new("preview", "Preview"),
                             ]),
                         ),
                         (
                             0.3,
-                            ui::DockNode::tabs(vec![ui::DockTab::new("console", "コンソール")]),
+                            ui::DockNode::tabs(vec![ui::DockTab::new("console", "Console")]),
                         ),
                     ],
                 ),
@@ -44,17 +45,17 @@ fn workspace() -> impl IntoView {
     )));
 
     ui::dock(layout, |panel: &'static str| match panel {
-        "assets" => text("アセット").into_view(),
-        "viewport" => text("ビューポート").into_view(),
-        "preview" => text("プレビュー").into_view(),
-        "console" => text("コンソール").into_view(),
+        "assets" => text("Assets").into_view(),
+        "viewport" => text("Viewport").into_view(),
+        "preview" => text("Preview").into_view(),
+        "console" => text("Console").into_view(),
         _ => node().into_view(),
     })
     .style(style().width(pct(100)).height(pct(100)))
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("ドック")
+    App::new("Dock")
         .theme(ui::theme(ThemeMode::Dark))
         .run(workspace)
 }
@@ -78,23 +79,29 @@ use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
 fn commands(layout: Signal<ui::DockLayout<&'static str>>) {
-    // 右端の新しいコンテナにパネルを開く。
+    // Open a panel in a new container on the right edge.
     layout.update(|l| {
         l.insert(
-            ui::DockTab::new("history", "履歴").icon("clock"),
+            ui::DockTab::new("history", "History").icon("clock"),
             ui::DockPlacement::Edge(ui::DockSide::Right),
-        )
+        );
     });
-    // プレビューのタブとして、その隣に移す。
+    // Put it next to the preview, as a tab.
     layout.update(|l| {
         l.move_tab(
             &"history",
             ui::DockPlacement::Tabs { container: "preview", index: None },
-        )
+        );
     });
-    layout.update(|l| l.maximize(&"viewport"));
-    layout.update(|l| l.restore());
-    layout.update(|l| l.close(&"history").is_some());
+    layout.update(|l| {
+        l.maximize(&"viewport");
+    });
+    layout.update(|l| {
+        l.restore();
+    });
+    layout.update(|l| {
+        l.close(&"history");
+    });
 }
 ```
 
@@ -106,27 +113,28 @@ fn commands(layout: Signal<ui::DockLayout<&'static str>>) {
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn dock_with_hooks(layout: Signal<ui::DockLayout<&'static str>>) -> impl IntoView {
+#[component]
+fn dock_with_hooks(layout: Signal<ui::DockLayout<&'static str>>) -> impl Element {
     ui::dock(layout, |panel: &'static str| text(panel))
-        // タブが閉じた後（レイアウトは更新済み）に呼ばれる: 資源を解放する。
+        // After a tab is closed (the layout is already updated): release its resources.
         .on_close(move |key| {
             let _ = key;
         })
-        // 自分の命令が先に並び、区切り線の後に組み込みの命令が続く。
+        // Your commands first, then a separator and the built-in ones.
         .menu(
-            |_container| vec![MenuEntry::item("duplicate", "パネルを複製")],
+            |_container| vec![MenuEntry::item("duplicate", "Duplicate Panel")],
             move |(key, command): (&'static str, &'static str)| {
                 if command == "duplicate" {
                     layout.update(|l| {
                         l.insert(
-                            ui::DockTab::new("copy", format!("{key} のコピー")),
+                            ui::DockTab::new("copy", format!("{key} copy")),
                             ui::DockPlacement::Tabs { container: key, index: None },
-                        )
+                        );
                     });
                 }
             },
         )
-        // 境界線のドラッグは、数値フィールドと同じく Begin・Commit・Cancel を報告する。
+        // Splitter drags report Begin, Commit and Cancel, like numeric fields.
         .on_edit(|_phase| {})
 }
 ```
@@ -142,7 +150,7 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_creative as ui;
 
-/// `drop` の指示どおりにアイテムを動かす: `drop.target` の下の、`drop.after` の直後へ。
+/// Move an item as `drop` says: under `drop.target`, right after `drop.after`.
 fn apply_drop(items: &mut Vec<ui::TreeItem>, drop: ui::TreeDrop) {
     let Some(from) = items.iter().position(|item| item.id == drop.id) else {
         return;
@@ -162,19 +170,20 @@ fn apply_drop(items: &mut Vec<ui::TreeItem>, drop: ui::TreeDrop) {
     items.insert(at, moved);
 }
 
-fn scene_outliner() -> impl IntoView {
+#[component]
+fn scene_outliner() -> impl Element {
     let items = signal(vec![
-        ui::TreeItem::new(1, None, "シーン", "folder"),
-        ui::TreeItem::new(2, Some(1), "カメラ", "camera"),
-        ui::TreeItem::new(3, Some(1), "ライト", "folder"),
-        ui::TreeItem::new(4, Some(3), "キーライト", "bulb"),
+        ui::TreeItem::new(1, None, "Scene", "folder"),
+        ui::TreeItem::new(2, Some(1), "Camera", "camera"),
+        ui::TreeItem::new(3, Some(1), "Lights", "folder"),
+        ui::TreeItem::new(4, Some(3), "Key light", "bulb"),
     ]);
     let state = ui::OutlinerState::new([1, 3]);
     let filter = signal(String::new());
     let snapshot = signal(None::<Vec<ui::TreeItem>>);
 
     column((
-        kivact::ui::text_input("絞り込み", filter),
+        kivact::ui::text_input(filter).label("Filter"),
         ui::outliner(items, state)
             .filter(filter)
             .on_rename(move |(id, name): (u64, String)| {
@@ -186,7 +195,7 @@ fn scene_outliner() -> impl IntoView {
             })
             .on_item_drop(move |drop| items.update(|all| apply_drop(all, drop)))
             .on_restriction(move |event| match event {
-                ui::EditorEvent::Begin => snapshot.set(Some(items.get_untracked())),
+                ui::EditorEvent::Begin => snapshot.set(Some(items.get())),
                 ui::EditorEvent::Request(change) => items.update(|all| {
                     for item in all.iter_mut().filter(|item| change.ids.contains(&item.id)) {
                         match change.flag {
@@ -198,7 +207,8 @@ fn scene_outliner() -> impl IntoView {
                 }),
                 ui::EditorEvent::Commit => snapshot.set(None),
                 ui::EditorEvent::Cancel => {
-                    if let Some(before) = snapshot.update(|saved| saved.take()) {
+                    if let Some(before) = snapshot.with(|saved| saved.clone()) {
+                        snapshot.set(None);
                         items.set(before);
                     }
                 }
@@ -208,7 +218,7 @@ fn scene_outliner() -> impl IntoView {
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("アウトライナー")
+    App::new("Outliner")
         .theme(ui::theme(ThemeMode::Dark))
         .run(scene_outliner)
 }
@@ -228,20 +238,21 @@ fn main() -> kivact::Result<()> {
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn sections() -> impl IntoView {
+#[component]
+fn sections() -> impl Element {
     let panels = signal(vec![
-        ui::InspectorPanel::new(1, "トランスフォーム"),
-        ui::InspectorPanel::new(2, "見た目").collapsed(),
+        ui::InspectorPanel::new(1, "Transform"),
+        ui::InspectorPanel::new(2, "Appearance").collapsed(),
     ]);
     let position = signal(0.0);
     let opacity = signal(1.0);
 
     ui::panel_group(panels, move |panel: Value<ui::InspectorPanel>| {
-        match panel.get_untracked().id {
+        match panel.get().id {
             1 => ui::property_row("X", ui::number("X", position).label_visible(false)).into_view(),
             _ => ui::property_row(
-                "不透明度",
-                ui::number("不透明度", opacity).range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range")).label_visible(false),
+                "Opacity",
+                ui::number("Opacity", opacity).range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range")).label_visible(false),
             )
             .into_view(),
         }
@@ -259,23 +270,24 @@ fn sections() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn add_node_button() -> impl IntoView {
-    let last = signal(String::from("まだありません"));
+#[component]
+fn add_node_button() -> impl Element {
+    let last = signal(String::from("nothing yet"));
     let picker = ui::search_picker(vec![
-        ui::PickerItem::new("blur", "ぼかし").section("フィルター").shortcut("Shift B"),
-        ui::PickerItem::new("noise", "ノイズ")
-            .section("生成")
-            .description("フラクタルノイズ")
+        ui::PickerItem::new("blur", "Blur").section("Filter").shortcut("Shift B"),
+        ui::PickerItem::new("noise", "Noise")
+            .section("Generate")
+            .description("Fractal noise")
             .icon("wave"),
-        ui::PickerItem::new("solid", "ベタ塗り").section("生成").enabled(false),
+        ui::PickerItem::new("solid", "Solid").section("Generate").enabled(false),
     ])
     .on_activate(move |key: &'static str| last.set(key.to_string()))
     .on_preview(|_key: Option<&'static str>| {
-        // 行がアクティブな間は `Some(key)`、ピッカーが閉じると `None`。
+        // `Some(key)` while a row is active, `None` when the picker closes.
     });
     row((
-        picker.attach(button("ノードを追加…")),
-        text(move || format!("選択: {}", last.get())),
+        picker.attach(button("Add node…")),
+        text(move || format!("Picked: {}", last.get())),
     ))
     .style(style().gap(8))
 }

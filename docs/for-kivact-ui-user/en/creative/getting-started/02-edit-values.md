@@ -12,7 +12,8 @@ use kivact::style::{ThemeMode, rgb};
 use kivact::view::EditPhase;
 use kivact_ui_creative as ui;
 
-fn inspector() -> impl IntoView {
+#[component]
+fn inspector() -> impl Element {
     let x = signal(120.0);
     let opacity = signal(0.8);
     let fill = signal(rgb(0x8b7cff));
@@ -22,14 +23,17 @@ fn inspector() -> impl IntoView {
     let started = signal(0.0);
     let history = signal(Vec::<(f64, f64)>::new());
     let record = move |phase: EditPhase| match phase {
-        EditPhase::Begin => started.set(x.get_untracked()),
+        EditPhase::Begin => started.set(x.get()),
         EditPhase::Commit => {
-            history.update(|steps| steps.push((started.get_untracked(), x.get_untracked())));
+            history.update(|steps| steps.push((started.get(), x.get())));
         }
         EditPhase::Cancel => {}
     };
     let undo = move || {
-        if let Some((before, _)) = history.update(|steps| steps.pop()) {
+        if let Some((before, _)) = history.with(|steps| steps.last().copied()) {
+            history.update(|steps| {
+                steps.pop();
+            });
             x.set(before);
         }
     };
@@ -105,7 +109,7 @@ Run it. You should see the panel from step 1 with more rows, an easing curve wit
 - **`on_edit` reports an edit as three phases.** `EditPhase::Begin` arrives *before* the first write of an edit, so it is the place to remember the starting value. `Commit` arrives after the last write, which is where you close the undo step. `Cancel` arrives after the component has already written the starting value back, so there is nothing to undo; you only drop what you remembered. A drag, however long, is one edit; each key press, wheel notch and typed entry is its own. Assistive technology uses the same phases, so an undo history built on them covers every way to change a value.
 - **`move` closures.** `record` and `undo` use `move` so they own copies of the signal handles. Handles are `Copy`, so the same `x` is still usable after it has been moved into a closure.
 - **`color_popup(label, color)`** is a swatch button that opens a `color_wheel` in a popup. It is a transaction: `Esc` restores the color the popup opened with, and an outside click commits.
-- **`bezier_curve(binding)`** edits a `CubicBezier`, the control points of an easing curve whose ends stay at (0, 0) and (1, 1). It, too, takes its value as an argument and reports `on_edit` phases.
+- **`bezier_curve(signal)`** edits a `CubicBezier`, the control points of an easing curve whose ends stay at (0, 0) and (1, 1). It, too, takes its value as an argument and reports `on_edit` phases.
 - **`value_slider`** is a numeric field drawn as a filled track. `ui::knob` and `ui::fader` are other shapes of the same component and take the same arguments. The plain track-and-thumb slider is `kivact::ui::slider`. All three also take `format` and `mapping` when the value needs its own text or curve; [Format, map and fine-tune knobs and faders](../how-to-guide/knobs-and-faders.md) covers them.
 
 ## Next

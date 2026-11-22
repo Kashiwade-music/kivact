@@ -22,6 +22,8 @@ are not on crates.io yet; add them as Git dependencies (each tutorial shows how)
 | Creative | `kivact-ui-creative` | Dense and compact, in the style of a dark editing tool (a light mode exists) | Creative editing tools: property panels, number fields, color pickers, docks |
 | Soft | `kivact-ui-soft` | Astryx Neutral in light and dark appearances | Applications that use rounded controls and neutral surfaces |
 
+Plots are in the `kivact-plot` crate, which works with every kit: [Plot numeric data](../../for-kivact-user/en/how-to-guide/plot.md).
+
 Start with the tutorial of the kit you chose, then use its how-to guides when
 you have a specific task.
 
@@ -53,7 +55,7 @@ use kivact::style::ThemeMode;
 
 fn app() -> impl IntoView {
     column((
-        text_input("Name", signal(String::new())),
+        text_input(signal(String::new())).label("Name"),
         button("Save").variant(kivact::ui::ButtonVariant::Primary),
     ))
     .style(style().gap(12).padding(24))
@@ -74,7 +76,7 @@ modifiers.
 
 ## Reference
 
-The full list of components, options and tokens of a kit is its API
+The full list of components, options and theme variables of a kit is its API
 documentation, which you generate locally:
 
 ```text

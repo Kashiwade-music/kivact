@@ -8,7 +8,8 @@ Use a metadata list for named attributes of one record. Give the section a headi
 use kivact::prelude::*;
 use kivact_ui_soft as soft;
 
-fn build_details() -> impl IntoView {
+#[component]
+fn build_details() -> impl Element {
     column((
         kivact::ui::heading("Build details", 2),
         kivact::ui::description_list(vec![
@@ -16,7 +17,7 @@ fn build_details() -> impl IntoView {
             kivact::ui::description("Revision", soft::code("ae72f04")),
         ]),
     ))
-    .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
+    .style(style().gap(soft::SPACE_S3))
 }
 ```
 
@@ -28,7 +29,8 @@ Use the canonical `item_row(title)` and `item_list(children)`. Row content stays
 use kivact::prelude::*;
 use kivact_ui_soft as soft;
 
-fn workspace() -> impl IntoView {
+#[component]
+fn workspace() -> impl Element {
     let notifications=signal(false);
     let target=node_ref();
     kivact::ui::item_list((
@@ -40,19 +42,21 @@ fn workspace() -> impl IntoView {
     .header(text("Workspace"))
     .marker(kivact::ui::ItemListMarker::Decimal)
     .start(3u32)
-    .variant(soft::ListLook::default().density(soft::ItemDensity::Compact)
-        .dividers(true).edge(soft::ListEdge::Flush))
+    .variant(soft::ItemDensity::Compact)
+    .variant(soft::ListDividers(true))
+    .variant(soft::ListEdge::Flush)
 }
 ```
 
-Use `ItemDensity`, `ItemAlign`, `ItemLayout` and `ListEdge` as constant `.variant(..)` values. `ItemLook` carries reactive density/alignment/layout/highlight inputs; `ListLook` carries reactive list density/dividers/edge inputs. All four edge choices remain available. List markers are standard `ItemListMarker::{None,Disc,Circle,Decimal}`; `.start(..)` sets decimal numbering. Standalone rows can override `.role(..)` when they are a button or a descriptive group.
+Use `ItemDensity`, `ItemAlign`, `ItemLayout`, `ItemHighlighted`, `ListDividers` and `ListEdge` as `.variant(..)` values. All four edge choices remain available. List markers are standard `ItemListMarker::{None,Disc,Circle,Decimal}`; `.start(..)` sets decimal numbering. Standalone rows can override `.role(..)` when they are a button or a descriptive group.
 
 For keyed reactive content, enumerate the dataset once, key by the item, and read each row's index from that same value. Fixed direct children receive their positions automatically; reactive rows use `.position(index, count)`. Existing keyed rows retain their identity and native `pos_in_set`/`set_size` semantics:
 
 ```rust,no_run
 use kivact::prelude::*;
 
-fn projects() -> impl IntoView {
+#[component]
+fn projects() -> impl Element {
     let items=signal(vec!["Design".to_string(),"Documentation".to_string()]);
     let rows=memo(move || items.get().into_iter().enumerate().collect::<Vec<_>>());
     let count=memo(move || rows.with(Vec::len));
@@ -71,19 +75,20 @@ Keyboard shortcuts use standard `kbd("mod+shift+p")` or typed `kbd_combo(keys).m
 
 Use standard `badge(label)` with `.tone(Tone::Info/Success/Warning/Danger)` for status colors. Categorical colors remain `.variant(soft::BadgeVariant::Blue)` and the other Neutral hue variants. `.icon(view)` and `.trailing_icon(view)` accept custom visuals; size an icon to 12 px for the original cap geometry. A badge can use `.on_press(...)` when it is an action.
 
-Headings use `kivact::ui::heading(value, level)`. Apply `HeadingDisplay::D1`, `D2` or `D3` with `.variant(..)` to keep the semantic level while changing display typography. Generic node styles supply color, weight, line clamping, wrapping, alignment, capsize and strikethrough. A truncation tooltip composes `ui::tooltip(value).enabled(anchor.text_truncated()).attach(heading.node_ref(anchor))`; the caller owns its anchor. Progress keeps its Bar motion and tone options and also accepts `ProgressVariant::Ring` and `Gauge`.
+Headings use `kivact::ui::heading(value, level)`. Apply `HeadingDisplay::D1`, `D2` or `D3` with `.variant(..)` to keep the semantic level while changing display typography. Generic node styles supply color, weight, line clamping, wrapping, alignment, capsize and strikethrough. A truncation tooltip composes `ui::tooltip(value, heading.node_ref(anchor)).enabled(anchor.text_truncated())`; the caller owns its anchor. Progress keeps its Bar motion and tone options and also accepts `ProgressVariant::Ring` and `Gauge`.
 
-Description lists use `ui::description_list` and `ui::description`. Apply the same `MetadataLook` to the list and each pair. `columns(Single/Multi/Count(n))`, `label_position(Start/Top)`, `label_width(px)` and `orientation(Vertical/Horizontal)` retain the original visual choices; their values can be reactive. Single-column beside labels share the grid's intrinsic widest term, with no copied measurement state. `term_content` adds an icon and custom term view while retaining the accessible term. Compose a title outside the list. For a maximum visible count and controlled expansion, let the caller hold the limit and the Core disclosure binding, as below; localize its trigger text in the application.
+Description lists use `ui::description_list` and `ui::description`. Apply the same `MetadataColumns` variant to the list and each pair. `MetadataColumns` (`Single`, `Multi`, `Count(n)`), `LabelPosition` (`Start`, `Top`), `MetadataLabelWidth(px)` and `MetadataOrientation` (`Vertical`, `Horizontal`) set the visual choices. Single-column beside labels share the grid's intrinsic widest term, with no copied measurement state. `term_content` adds an icon and custom term view while retaining the accessible term. Compose a title outside the list. For a maximum visible count and controlled expansion, let the caller hold the limit and the Core disclosure signal, as below; localize its trigger text in the application.
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::ui;
-use kivact_ui_soft::{MetadataColumns, MetadataLook};
+use kivact_ui_soft::MetadataColumns;
 
-fn expandable_details() -> impl IntoView {
+#[component]
+fn expandable_details() -> impl Element {
     let expanded = signal(false);
     let limit = signal(2usize);
-    let layout = MetadataLook::default().columns(MetadataColumns::Multi);
+    let layout = MetadataColumns::Multi;
     let attributes = [("Owner", "Ada"), ("Status", "Ready"), ("Revision", "ae72f04")];
     let pairs = attributes.into_iter().enumerate().map(move |(index, (term, value))| {
         node().hidden(move || index >= limit.get() && !expanded.get())
@@ -103,38 +108,40 @@ Use `kivact::ui::{chat_thread, chat_message, chat_composer, typing_indicator, co
 
 Set the message author with `chat_message(author)`, its participant with `sender`, and its body with `content`. The `avatar`, `metadata`, `time`, `status`, `footer`, `icon`, `group`, and `bubble_width` inputs replace the former bubble, metadata, and system wrappers. Use `ChatSender::System` for system messages. Compose a collapsible composer drawer with standard `disclosure` inside the `drawer` slot; standalone editor and send actions use `text_area` and `button`.
 
-Soft `ChatDensity`, `BubbleVariant`, `SystemMessageVariant`, and `ComposerElevation` are standard `.variant(...)` values. `ChatAppearance` carries their reactive values together. Source `CodeBlockSize`, `CodeBlockWidth`, and `CodeBlockContainer` also use `.variant(...)`; `CodeAppearance` carries reactive values. All behavioral source options remain on `ui::code_block`, including copy feedback, line numbers, highlighted lines, diff, wrapping, height, controlled expansion, collapse threshold, and end content.
+Soft `ChatDensity`, `ChatBubbleVariant`, `SystemMessageVariant`, and `ComposerElevation` are standard `.variant(...)` values. Source `CodeBlockSize`, `CodeBlockWidth`, and `CodeBlockContainer` also use `.variant(...)`. All behavioral source options remain on `ui::code_block`, including copy feedback, line numbers, highlighted lines, diff, wrapping, height, controlled expansion, collapse threshold, and end content.
 
-Language tokenizers remain in Soft. Pass a built-in `CodeLanguageInput::Named` or a custom `CodeLanguage` to `code_highlight` in the standard `highlight` line callback. Supply the current `Tokens.colors.syntax` or an explicit `SyntaxColors` as the callback's content source to preserve reactive palette overrides. `syntax_theme` still supplies that palette to nested content. Streaming text, tool calls, tokens, and application-owned dictation remain Soft domains.
+Language tokenizers remain in Soft. Pass a built-in `CodeLanguageInput::Named` or a custom `CodeLanguage` to `code_highlight` in the standard `highlight` line callback. The token colors come from the theme's syntax variables, so `code_highlight` takes no color argument. Streaming text, tool calls, tokens, and application-owned dictation remain Soft domains.
 
-Use `kivact::ui::tree(label, items, selected).expanded(expanded)` for hierarchical collections. Soft supplies density, ancestor guides and the animated disclosure marker through tree recipes. Set `.variant(soft::TreeLook::default().density(soft::ItemDensity::Compact).guides(false))` to change the appearance, including reactive density or guide inputs. Keep the selection in the `selected` argument, and activation, header and custom row content with `.on_activate(..)`, `.header(..)` and `.item(..)`. A custom marker uses `.marker_content(..)` and receives the actual row and ancestry projection.
+Use `kivact::ui::tree(label, items, selected).expanded(expanded)` for hierarchical collections. Soft supplies density, ancestor guides and the animated disclosure marker through tree recipes. Set `.variant(soft::ItemDensity::Compact).variant(soft::TreeGuides(false))` to change the appearance. Keep the selection in the `selected` argument, and activation, header and custom row content with `.on_activate(..)`, `.header(..)` and `.item(..)`. A custom marker uses `.marker_content(..)` and receives the actual row and ancestry projection.
 
 Branch reveals use `.reveal(2.0, kivact::motion::Transition::tween(734.77, kivact::motion::Easing::CubicBezier(0.327, 0.694, 0.116, 1.0)))`. This preserves retained exit paint while collapsed rows leave keyboard navigation immediately. The shared toggle label is `tree.toggle_children`.
 
 ## Tables
 
-Build static tables with `kivact::ui::{table, table_header, table_body, table_footer, table_row, table_head, table_cell}`. The Soft theme styles their actual recipes. `TableCell::align(TextAlign)` replaces `TableAlign`; `width` and reactive `col_span` remain on the standard cell. Pass `TableRowAppearance::new(dividers, hover, striped)` or `TableCellAppearance::new(density, vertical_align, divider)` with `.variant(...)`; each input can be reactive. `ItemDensity` replaces the former `TableDensity` alias. Selected rows use `table_row(..).selected(selected)` (`kivact::ui::TableRow`), which sets the accessibility state and the Soft selected fill.
+Build static tables with `kivact::ui::{table, table_header, table_body, table_footer, table_row, table_head, table_cell}`. The Soft theme styles their actual recipes. `TableCell::align(TextAlign)` replaces `TableAlign`; `width` and reactive `col_span` remain on the standard cell. Pass `TableRowDividers`, `TableRowHover` and `TableRowStriped`, or `ItemDensity`, `TableCellAlign` and `TableCellDivider`, with `.variant(...)`. `ItemDensity` replaces the former `TableDensity` alias. Selected rows use `table_row(..).selected(selected)` (`kivact::ui::TableRow`), which sets the accessibility state and the Soft selected fill.
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_soft as soft;
 
-fn summary() -> impl IntoView {
+#[component]
+fn summary() -> impl Element {
     kivact::ui::table((
         kivact::ui::table_header((kivact::ui::table_row((
             kivact::ui::table_head(text("Project")),
             kivact::ui::table_head(text("Status")),
         )),)),
         kivact::ui::table_body((kivact::ui::table_row((
-            kivact::ui::table_cell(text("Design")).variant(
-                soft::TableCellAppearance::new(soft::ItemDensity::Compact,
-                    kivact::style::Align::Center, true)),
+            kivact::ui::table_cell(text("Design"))
+                .variant(soft::ItemDensity::Compact)
+                .variant(soft::TableCellAlign(kivact::style::Align::Center))
+                .variant(soft::TableCellDivider(true)),
             kivact::ui::table_cell(soft::table_row_status("Passed", soft::RowStatusTone::Success)),
-        )).variant(soft::TableRowAppearance::new(true, true, false)),)),
+        )).variant(soft::TableRowDividers(true)).variant(soft::TableRowHover(true)).variant(soft::TableRowStriped(false)),)),
     ))
 }
 ```
 
-`table_selection_toolbar(selection)` retains its `clear_label`, `selection_label` and `actions` inputs and derives visibility and count from the caller's selection binding. Its clear button and toolbar use the canonical controls. `table_row_status(label, RowStatusTone)` retains all four status colors on a canonical badge with the `RowStatusDot` appearance.
+`table_selection_toolbar(selection)` retains its `clear_label`, `selection_label` and `actions` inputs and derives visibility and count from the caller's selection signal. Its clear button and toolbar use the canonical controls. `table_row_status(label, RowStatusTone)` retains all four status colors on a canonical badge with the `RowStatusDot` appearance.
 
-Use standard `pagination(page_count, page)` for a zero-based DataTable page binding; `.summary(...)` can display “Page n of m”. Use `soft::table_row_index(index)` for a right-aligned row number in the theme's secondary text color. Interactive tables continue to use `data_table` and `DataColumn`: sorting, selection, filters, column widths and order, sticky columns, paging, row status, tree/group rows, empty content, row actions, toolbar and footer slots keep their existing owners and APIs.
+Use standard `pagination(page_count, page)` for a zero-based DataTable page signal; `.summary(...)` can display “Page n of m”. Use `soft::table_row_index(index)` for a right-aligned row number in the theme's secondary text color. Interactive tables continue to use `data_table` and `DataColumn`: sorting, selection, filters, column widths and order, sticky columns, paging, row status, tree/group rows, empty content, row actions, toolbar and footer slots keep their existing owners and APIs.

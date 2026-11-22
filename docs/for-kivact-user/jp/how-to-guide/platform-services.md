@@ -17,20 +17,21 @@
 use kivact::platform;
 use kivact::prelude::*;
 
-fn clipboard() -> impl IntoView {
+#[component]
+fn clipboard() -> impl Element {
     let pasted = signal(String::new());
     column((
-        button("コピー").on_press(|| {
-            spawn(platform::copy_text("Kivact からこんにちは"));
+        button("Copy").on_press(|| {
+            spawn(platform::copy_text("Hello from Kivact"));
         }),
-        button("貼り付け").on_press(move || {
+        button("Paste").on_press(move || {
             spawn(async move {
                 let text = platform::read_text().await?;
                 pasted.set(text);
                 Ok::<(), UiError>(())
             });
         }),
-        text(move || format!("貼り付けた内容: {}", pasted.get())),
+        text(move || format!("Pasted: {}", pasted.get())),
     ))
     .style(style().gap(8).padding(12))
 }
@@ -46,12 +47,12 @@ mod tests {
     #[test]
     fn copy_and_paste_use_the_scripted_clipboard() {
         let screen = kivact::test::render(clipboard);
-        screen.get_by_role(Role::Button, "コピー").click();
-        assert_eq!(screen.clipboard().as_deref(), Some("Kivact からこんにちは"));
+        screen.get_by_role(Role::Button, "Copy").click();
+        assert_eq!(screen.clipboard().as_deref(), Some("Hello from Kivact"));
 
-        screen.set_clipboard("別のアプリから");
-        screen.get_by_role(Role::Button, "貼り付け").click();
-        screen.get_by_text("貼り付けた内容: 別のアプリから");
+        screen.set_clipboard("from another app");
+        screen.get_by_role(Role::Button, "Paste").click();
+        screen.get_by_text("Pasted: from another app");
     }
 }
 ```
@@ -68,24 +69,25 @@ mod tests {
 use kivact::platform::{self, FileDialog};
 use kivact::prelude::*;
 
-fn open_document() -> impl IntoView {
-    let status = signal(String::from("何も開いていません"));
+#[component]
+fn open_document() -> impl Element {
+    let status = signal(String::from("Nothing opened"));
     column((
-        button("開く…").on_press(move || {
+        button("Open…").on_press(move || {
             spawn(async move {
                 let options = FileDialog {
-                    title: "文書を開く".into(),
-                    // （ラベル, ドットなしの拡張子）
-                    filters: vec![("テキスト".into(), vec!["txt".into(), "md".into()])],
+                    title: "Open a document".into(),
+                    // (label, extensions without the dot)
+                    filters: vec![("Text".into(), vec!["txt".into(), "md".into()])],
                     ..FileDialog::default()
                 };
                 match platform::pick_file(options).await? {
                     Some(path) => {
-                        // blocking のプールで読みます。`?` が io::Error を UiError に変えます。
-                        let text = blocking(move || std::fs::read_to_string(&path)).await?;
-                        status.set(format!("{} バイト読み込みました", text.len()));
+                        // Read on the blocking pool; `?` turns io::Error into UiError.
+                        let text = kivact::task::blocking(move || std::fs::read_to_string(&path)).await?;
+                        status.set(format!("Read {} bytes", text.len()));
                     }
-                    None => status.set("キャンセルしました".into()),
+                    None => status.set("Cancelled".into()),
                 }
                 Ok::<(), UiError>(())
             });
@@ -112,19 +114,20 @@ use std::path::PathBuf;
 use kivact::platform::{self, FileDialog};
 use kivact::prelude::*;
 
-fn export() -> impl IntoView {
+#[component]
+fn export() -> impl Element {
     let status = signal(String::new());
     column((
-        button("書き出す").on_press(move || {
+        button("Export").on_press(move || {
             spawn(async move {
                 let options = FileDialog {
-                    title: "書き出し".into(),
+                    title: "Export".into(),
                     file_name: Some("report.csv".into()),
                     ..FileDialog::default()
                 };
                 let message = match platform::save_file(options).await? {
-                    Some(path) => format!("保存先: {}", path.display()),
-                    None => "キャンセルしました".to_string(),
+                    Some(path) => format!("Saving to {}", path.display()),
+                    None => "Cancelled".to_string(),
                 };
                 status.set(message);
                 Ok::<(), UiError>(())
@@ -147,13 +150,13 @@ mod tests {
         let screen = kivact::test::render(export);
 
         screen.respond_file_dialog(Some(PathBuf::from("out/report.csv")));
-        screen.get_by_role(Role::Button, "書き出す").click();
-        let expected = format!("保存先: {}", PathBuf::from("out/report.csv").display());
+        screen.get_by_role(Role::Button, "Export").click();
+        let expected = format!("Saving to {}", PathBuf::from("out/report.csv").display());
         screen.get_by_text(&expected);
 
-        // 答えを用意していないダイアログはキャンセルされます。
-        screen.get_by_role(Role::Button, "書き出す").click();
-        screen.get_by_text("キャンセルしました");
+        // No answer scripted: the dialog is cancelled.
+        screen.get_by_role(Role::Button, "Export").click();
+        screen.get_by_text("Cancelled");
     }
 }
 ```
@@ -168,12 +171,13 @@ mod tests {
 use kivact::platform;
 use kivact::prelude::*;
 
-fn exported() -> impl IntoView {
+#[component]
+fn exported() -> impl Element {
     row((
-        button("画像を開く").on_press(|| {
+        button("Open image").on_press(|| {
             spawn(platform::open_path("exports/frame.png"));
         }),
-        button("フォルダーで表示").on_press(|| {
+        button("Show in folder").on_press(|| {
             spawn(platform::reveal_path("exports/frame.png"));
         }),
     ))
@@ -203,9 +207,9 @@ fn open_with_message(path: &'static str, message: Signal<String>) {
         match platform::open_path(path).await {
             Ok(()) => {}
             Err(error) if *error.kind() == ErrorKind::Unsupported => {
-                message.set("このシステムでは、ここからファイルを開けません".into());
+                message.set("This system cannot open files from here".into());
             }
-            Err(error) => message.set(format!("開けませんでした: {error}")),
+            Err(error) => message.set(format!("Could not open it: {error}")),
         }
     });
 }
@@ -213,12 +217,13 @@ fn open_with_message(path: &'static str, message: Signal<String>) {
 
 ## インストール済みのフォントを一覧する
 
-`platform::font_families()` は、ウィンドウが使えるフォントのファミリー名を、重複なし・名前順・元の大文字小文字のまま返します。システムのフォントと、`App::font(..)` で登録したフォントが含まれます。呼び出した時点のスナップショットであり、リアクティブな値ではありません。
+`platform::font_families()` は、ウィンドウが使えるフォントのファミリー名を、重複なし・名前順・元の大文字小文字のまま返します。システムのフォントと、`Theme::with_fonts(..)` で登録したフォントが含まれます。呼び出した時点のスナップショットであり、リアクティブな値ではありません。
 
 ```rust,no_run
 use kivact::prelude::*;
 
-fn font_list() -> impl IntoView {
+#[component]
+fn font_list() -> impl Element {
     let families = kivact::platform::font_families();
     scroll(text(families.get().join("\n"))).style(style().size(320, 400))
 }
@@ -228,7 +233,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-一覧のファミリー名は `style().font_family("…")` に渡せます。フォントをアプリに同梱するには、最初の画面の前に登録します: `App::new("…").font(include_bytes!("../assets/Inter-Regular.ttf"))`。ファミリー名は、ファイル名ではなく、フォントの中に書かれた名前です。
+一覧のファミリー名は `style().font_family("…")` に渡せます。フォントをアプリに同梱するには、最初の画面の前に登録します: `App::new("…").theme(Theme::light().with_fonts([include_bytes!("../assets/Inter-Regular.ttf").as_slice()]))`。ファミリー名は、ファイル名ではなく、フォントの中に書かれた名前です。
 
 ## アプリの一時停止に対応する
 
@@ -238,15 +243,16 @@ fn main() -> kivact::Result<()> {
 use kivact::platform::{self, LifecycleEvent};
 use kivact::prelude::*;
 
-fn memory_status() -> impl IntoView {
+#[component]
+fn memory_status() -> impl Element {
     let warnings = signal(0usize);
     platform::on_lifecycle(move |event| {
         if event == LifecycleEvent::MemoryWarning {
-            // 作り直せるキャッシュを捨てます。
+            // Drop caches you can rebuild.
             warnings.update(|count| *count += 1);
         }
     });
-    text(move || format!("メモリー警告: {}", warnings.get()))
+    text(move || format!("Memory warnings: {}", warnings.get()))
 }
 
 fn main() -> kivact::Result<()> {
@@ -263,8 +269,8 @@ fn main() -> kivact::Result<()> {
 ```rust,no_run
 use kivact::prelude::*;
 
-fn app() -> impl IntoView {
-    text("サイズ変更できます")
+fn app() -> impl Element {
+    text("Resizable")
 }
 
 fn main() -> kivact::Result<()> {
@@ -283,10 +289,11 @@ fn main() -> kivact::Result<()> {
 use kivact::platform;
 use kivact::prelude::*;
 
-fn shell() -> impl IntoView {
+#[component]
+fn shell() -> impl Element {
     let narrow = memo(move || platform::window_size().get().width < 600.0);
     column(text(move || {
-        if narrow.get() { "狭いレイアウト" } else { "広いレイアウト" }
+        if narrow.get() { "Narrow layout" } else { "Wide layout" }
     }))
 }
 
@@ -300,10 +307,10 @@ mod tests {
 
     #[test]
     fn the_layout_follows_the_window() {
-        let screen = kivact::test::render(shell); // 既定は 800 x 600
-        screen.get_by_text("広いレイアウト");
+        let screen = kivact::test::render(shell); // 800 x 600 by default
+        screen.get_by_text("Wide layout");
         screen.resize(400.0, 600.0);
-        screen.get_by_text("狭いレイアウト");
+        screen.get_by_text("Narrow layout");
     }
 }
 ```
@@ -334,8 +341,8 @@ mod tests {
 use kivact::platform;
 use kivact::prelude::*;
 
-fn app() -> impl IntoView {
-    button("終了").on_press(|| platform::app_handle().close())
+fn app() -> impl Element {
+    button("Quit").on_press(|| platform::app_handle().close())
 }
 ```
 
@@ -351,8 +358,9 @@ fn app() -> impl IntoView {
 use kivact::platform;
 use kivact::prelude::*;
 
-fn settings() -> impl IntoView {
-    button("このウィンドウを前面に出す").on_press(|| {
+#[component]
+fn settings() -> impl Element {
+    button("Bring this window to the front").on_press(|| {
         spawn(platform::focus_window());
     })
 }

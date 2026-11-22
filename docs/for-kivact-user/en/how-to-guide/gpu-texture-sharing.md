@@ -79,7 +79,8 @@ use kivact::geometry::{Rect};
 use kivact::gpu_interop;
 use kivact::prelude::*;
 
-fn viewport() -> impl IntoView {
+#[component]
+fn viewport() -> impl Element {
     let image = gpu_interop::shared_image(1280, 720);
 
     // `ShareLink` is Send + Sync + Clone: it is the engine thread's handle.
@@ -98,7 +99,7 @@ fn viewport() -> impl IntoView {
                 d.pixels(&pixels, rect, ImageOptions::default());
             }
         })
-        .style(style().grow(1)),
+        .style(style().flex_grow(1)),
         text(move || format!("{:?}", status.status())),
     ))
 }
@@ -216,7 +217,7 @@ impl Engine {
             ..wgpu::InstanceDescriptor::new_without_display_handle()
         });
         let (_, device, queue) =
-            share::request_device(&instance, adapter, &Default::default()).map_err(|e| e.to_string())?;
+            kivact_gpu_share::device::request_device_for(&instance, adapter, &Default::default()).map_err(|e| e.to_string())?;
         let config = PoolConfig::new(request.width, request.height);
         let (pool, textures) = share::Pool::new(&device, adapter, config).map_err(|e| e.to_string())?;
 
@@ -342,7 +343,7 @@ To make the window choose a graphics API, a kind of adapter or an exact adapter,
 useful when the engine needs a specific one, set a wish:
 
 ```rust,no_run
-use kivact::launch::{GpuBackend, GpuPower, GpuPreference, GpuStart};
+use kivact::platform::{GpuBackend, GpuPower, GpuPreference, GpuStart};
 use kivact::prelude::*;
 # fn app() -> impl IntoView { text("Viewport") }
 
@@ -375,7 +376,7 @@ meantime are CPU frames. Choose `GpuStart::AtLaunch` when the first frame must
 already be the GPU's, for example a viewport that fills the window from the start,
 a measurement, or a case where a short CPU fallback is not acceptable.
 `ARVANE_RENDERER=gpu` forces `AtLaunch`, `ARVANE_RENDERER=auto` forces
-`OnDemand`, and `ARVANE_RENDERER=cpu` never starts the device.
+`OnDemand`, and `ARVANE_RENDERER=cpu` never starts the device. `GpuStart::Never` keeps the window on the CPU. The environment variable `ARVANE_RENDERER` overrides the choice at run time: `cpu`, `gpu` and `auto` mean `Never`, `AtLaunch` and `OnDemand`.
 
 ## Limits
 

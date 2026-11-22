@@ -1,8 +1,8 @@
-# Pop のテーマとトークンを設定する
+# Pop のテーマと変数を設定する
 
 [English](../../../en/pop/how-to-guide/theme-and-tokens.md)
 
-Pop の見た目を導入し、実行中にライトとダークを切り替え、色やフォントを変え、自分のコンポーネントからキットの値を読むための手引きです。
+この手引きでは、Pop の見た目を導入し、実行中にライトとダークを切り替え、色とフォントを変え、自分のコンポーネントからキットの値を読む方法を説明します。
 
 ## テーマを導入する
 
@@ -28,16 +28,16 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-このテーマは、`kivact::ui` の標準コンポーネント（ボタン、入力欄、チェックボックス、タブ、ラジオグループ、スライダー、テーブル、ダイアログ、メニュー、トースト）と、`kivact-ui-pop` のすべてのコンポーネントを描き替えます。キットのアイコンも組み込まれるので、`icon("check")` で Pop のアイコンを描けます。OS の設定は読みません。`ThemeMode::Light` か `ThemeMode::Dark` はアプリが選びます。
+このテーマは、`kivact::ui` の標準コンポーネント（ボタン、入力欄、チェックボックス、タブ、ラジオグループ、スライダー、テーブル、ダイアログ、メニュー、トースト）と、`kivact-ui-pop` のすべてのコンポーネントを描きます。キットのアイコンも組み込むので、`icon("check")` は Pop のアイコンを描きます。OS の設定は読みません。`ThemeMode::Light` と `ThemeMode::Dark` のどちらを使うかは、アプリが選びます。
 
 ## 実行中にライトとダークを切り替える
 
-選択をシグナルに持たせ、ルートを `provide_theme` で包みます。テーマを作るクロージャを渡すと、シグナルが変わるたびにすべてのスタイルが解決し直されます。ビューの作り直しは起きないので、入力中の文字やフォーカスはそのまま残ります。
+選択をシグナルに持たせ、ルートを `provide_theme` で包みます。テーマを作るクロージャを渡すと、シグナルが変わるたびにすべてのスタイルが解決し直されます。何も作り直されないので、入力中の文字とフォーカスはそのまま残ります。
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::style::provide_theme;
+use kivact::style::{color, provide_theme};
 use kivact_ui_pop as pop;
 
 fn app() -> impl IntoView {
@@ -52,15 +52,15 @@ fn app() -> impl IntoView {
     provide_theme(theme, move || {
         column((
             checkbox("Dark mode", dark),
-            text_input("Search", signal(String::new())),
+            text_input(signal(String::new())).label("Search"),
         ))
         .style(
             style()
                 .gap(12)
                 .padding(24)
                 .height(pct(100))
-                .background(pop::ColorName::Background)
-                .color(pop::ColorName::Text),
+                .background(color::SURFACE)
+                .color(color::TEXT),
         )
     })
 }
@@ -70,24 +70,26 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-`provide_theme` はノードを作らず、何も塗りません。そのため、サブツリーの最上位ノードが自分でページの色を指定します。`pop::ColorName` はキットの色の名前（`Background`、`Surface`、`Line`、`Text`、`TextMuted` など）です。スタイルにそのまま渡すと、ノードが描かれるテーマから値が引かれるので、クロージャを書かなくても切り替えに追従します。
+`provide_theme` はノードを作らず、何も描きません。そのため、サブツリーの最上位ノードが自分でページの色を指定します。`color::SURFACE` と `color::TEXT` は中核の色の変数です。Pop の見た目はこれらから描かれるので、どちらかを受け取るスタイルは、クロージャを書かなくても切り替えに追従します。
 
 ## 色を変える
 
-キットの色は `pop::Tokens` にあります。公開フィールドだけを持つ普通の構造体で、`blue`、`mint`、`yellow`、`pink`、`red`、`navy`、`surface`、`line`、`text` などを含みます。コンポーネントはテーマからこれを読むので、変更すればすべてに反映されます。トークンをコピーして、フィールドを書き換え、`Theme::with` で入れ直します。
+Pop の色は、`kivact_ui_pop` から公開される、キット自身のテーマ変数です。それぞれに、テーマで設定する変数（`BLUE_VAR`）と、スタイルで使う定数（`BLUE`）があります。
+
+- `BLUE`: キットの操作部品のアクセント（主ボタン、チェックされた箱、選ばれたタブとカレンダーの日）。
+- `RED`: 危険の色。破壊的な操作とエラーに使います。
+- `MINT` と `YELLOW`: 成功と警告の色。
+- `SURFACE`: カードとパネルの面。`TEXT` と `TEXT_MUTED` は本文と補助の文字。`LINE` は細い線と枠線。
+
+キットは、テーマを作るときにこれらを設定します。そこで、色を変えるには、テーマでその変数を設定します。コンポーネントは効いているテーマの変数を読むので、変えるとすべてが描き替わります。テーマは、これらから `kivact::style::color` の中核の変数（アクセント、危険、成功、警告、面、文字、枠線）も設定するので、`kivact::ui` のコンポーネントも同じ色に従います。
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
+use kivact::style::{Theme, ThemeMode, rgb};
 use kivact_ui_pop as pop;
 
 fn brand_theme() -> Theme {
-    let theme = pop::theme(ThemeMode::Light);
-    let mut tokens = (*theme.ext::<pop::Tokens>()).clone();
-    tokens.blue = rgb(0x0f766e);
-    let mut colors = theme.colors().clone();
-    colors.accent = tokens.blue;
-    theme.with(tokens).with_colors(colors)
+    pop::theme(ThemeMode::Light).set(&pop::BLUE_VAR, rgb(0x0f766e))
 }
 
 fn main() -> kivact::Result<()> {
@@ -97,84 +99,74 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-例で 2 か所を変えているのは、2 つの表が関わるためです。`Tokens` はキット自身の色（主ボタンの青、バッジの色相）を持ちます。`theme.colors()` は Kivact 共通のパレットで、スライダーのトラックのアクセントなど、標準の部品が読みます。`pop::theme` はトークンからパレットを一度だけ作るので、あとからトークンを変えてもパレットは動きません。上のように両方を設定してください。
+アプリがライトとダークを切り替えられるなら、それぞれの値を別々に設定します。テーマには、渡されたモードに対して `set` を呼びます。そうすると、モードごとに値を持てます。
 
-`Tokens::hue(hue)` は、6 つの `pop::Hue`（`Blue`、`Mint`、`Yellow`、`Pink`、`Red`、`Gray`）のいずれかについて、背景色と前景色を返します。バッジ、アバター、統計カードが使う色です。
+## 自分のコンポーネントで変数を読む
 
-## 自分のコンポーネントでトークンを読む
-
-スタイルには上のように `pop::ColorName::..` を渡すのが基本です。`Tokens` 構造体そのものを読むのは、色相の 2 色のように値から何かを計算したいときです。スタイルのクロージャの中で読むと、結果がテーマの切り替えに追従します。
+スタイルでは、上のように定数を使います。変数から何かを計算する必要があるときだけ、変数そのものを読みます。結果がテーマの切り替えに追従するよう、スタイルのクロージャの中で読みます。
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::use_theme;
-use kivact_ui_pop as pop;
+use kivact::style::{color, radius, use_theme};
 
-fn highlight(content: impl IntoView) -> Node {
+#[component]
+fn highlight(content: View) -> impl IntoView {
     column(content).style(move || {
-        let theme = use_theme().get();
-        let tokens = theme.ext::<pop::Tokens>();
-        let (background, foreground) = tokens.hue(pop::Hue::Yellow);
+        let accent = use_theme().get().get(&color::ACCENT_VAR);
         style()
             .padding(12)
-            .radius(tokens.control_radius)
-            .background(background)
-            .color(foreground)
+            .border_radius(radius::MD)
+            .background(accent.with_alpha(0.15))
+            .color(color::TEXT)
     })
 }
-# fn main() {}
 ```
-
-単純な色だけなら、キットは不要です。`ColorToken::Surface`、`Text`、`TextMuted`、`Border`、`Accent`、`Danger` は共通のパレットから来て、どのテーマでも動きます。これだけを使うコンポーネントは、他のキットでもそのまま使えます。
 
 ## フォントと文字組み
 
-フォントはアプリが持ちます。同梱するファイルを `App::font` で登録し、テーマの文字設定でファミリー名を指定します。キットのカタログは、本文に Inter、日本語に Noto Sans JP を使っています。Pop の 3 つのコンポーネント（`BadgeVariant::Slant` のバッジ、アバター、番号付きの `SectionNumber`）は `Barlow` というファミリーを指定し、登録がなければ `sans-serif` にフォールバックします。
+フォントはアプリのものです。テーマで `font::FAMILY_VAR` にファミリー名を書き、配布するファイルを `Theme::with_fonts` で登録します。キットのカタログは本文に Inter、日本語に Noto Sans JP を使います。Pop の部品のうち 3 つ（`kivact::ui::Slant` のバッジ、アバター、番号付きの `SectionNumber`）は `Barlow` というファミリーを指定し、登録がなければ `sans-serif` に戻ります。
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
-use kivact::style::theme::Typography;
+use kivact::style::{FontFamily, Theme, ThemeMode, font};
 use kivact_ui_pop as pop;
 
 fn themed() -> Theme {
-    let theme = pop::theme(ThemeMode::Light);
-    let text = Typography {
-        family: Some("Inter, 'Noto Sans JP', sans-serif".into()),
-        ..theme.text().clone()
-    };
-    theme.with_text(text)
+    // `Inter` and `Noto Sans JP` are the families the catalog uses.
+    pop::theme(ThemeMode::Light)
+        .set(&font::FAMILY_VAR, FontFamily::from("Inter, 'Noto Sans JP', sans-serif"))
 }
 
 /// `inter` and `noto` are font files you embed, for example
 /// `include_bytes!("../assets/Inter.ttf")`.
 fn application(inter: &'static [u8], noto: &'static [u8]) -> App {
-    App::new("Pop").font(inter).font(noto).theme(themed())
+    App::new("Pop").theme(themed().with_fonts([inter, noto]))
 }
 # fn main() {}
 ```
 
-ファミリー名には、ファイル名ではなく、フォントの内部に書かれた名前を使います。
+ファミリー名は、ファイル名ではなく、フォントファイルの中に書かれた名前です。
 
 ## キットの文言を差し替える
 
-コンポーネントが自分で描く文言（カレンダーの月ボタン、日付の形式エラー、ドロップゾーンの選択ボタンなど）は英語です。`App::messages` で差し替えます。標準コンポーネントは中核のキーを使い、たとえば `date.open` や `date.error.format` です。例は [日付と期間を選ばせる](dates-and-calendars.md) にあります。
+コンポーネントが自分で描く文言（カレンダーの月のボタン、日付の形式エラー、ドロップゾーンの選択ボタンなど）は英語です。`App::messages` で差し替えます。標準コンポーネントは正式なキーを使います。たとえば `date.open` と `date.error.format` です。例は [日付と期間を選ぶ](dates-and-calendars.md) にあります。
 
 ## 関連
 
-- [日付と期間を選ばせる](dates-and-calendars.md)
+- [日付と期間を選ぶ](dates-and-calendars.md)
 - [テーブルで行を表示する](tables.md)
-- すべてのトークンとコンポーネント: `cargo doc -p kivact-ui-pop --open`
+- コンポーネントの全一覧: `cargo doc -p kivact-ui-pop --open`
 
-Pop テーマでは標準のドロップ先を使います。ファイル選択と複数ファイルを明示的に有効にし、装飾アイコンを一度だけ構築するスロットに渡します。
+Pop のテーマで、標準のドロップ先を使います。ファイルの選択と複数ファイルを明示的に有効にします。装飾アイコンは、取り付けられるスロットです。
 
 ```rust,no_run
 use kivact::prelude::*;
 
-fn upload() -> impl IntoView {
+#[component]
+fn upload() -> impl Element {
     kivact::ui::dropzone("Upload")
-        .multiple()
-        .pick_on_press()
+        .multiple(true)
+        .pick_on_press(true)
         .icon(icon("cloud-upload").style(style().size(24, 24)))
         .hint("PNG, PDF")
         .on_files(|files| {
@@ -184,5 +176,3 @@ fn upload() -> impl IntoView {
         })
 }
 ```
-
-Pop のレシピは Core の行レイアウトによる RTL の自動反転を使います。アプリの方向は Core で設定し、Pop 専用の方向プロバイダーは不要です。

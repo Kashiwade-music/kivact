@@ -2,11 +2,11 @@
 
 [English](../../../en/pop/how-to-guide/tables.md)
 
-レコードの一覧を、検索・並べ替え・選択・ページ送りの付いたテーブルとして Pop の見た目で表示するための手引きです。テーブルは標準の `kivact::ui::data_table` です。Pop テーマは、角丸の面、高さ 40 px の見出し、高さ 52 px の行、幅 160 px の列として描き、収まらないときは横にスクロールします。キットが独自のテーブル型を足すことはありません。
+この手引きでは、レコードの一覧を、検索・並べ替え・選択・ページ送りのあるテーブルとして、Pop の見た目で表示します。テーブルは標準の `kivact::ui::data_table` です。Pop テーマは、角丸の面、高さ 40 px の見出し、高さ 52 px の行、幅 160 px の列として描きます。列が収まらないときは横にスクロールします。キットが独自のテーブル型を足すことはありません。
 
 ## 行を表示する
 
-行はアプリのシグナルに置いたままにします。テーブルに渡すのは、行、各行の一意なキーを返す関数、列の 3 つです。
+行はアプリのシグナルに置いたままにします。テーブルには、行、各行の一意なキーを返す関数、列が必要です。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -21,28 +21,29 @@ struct Order {
     total: f64,
 }
 
-fn orders() -> impl IntoView {
+#[component]
+fn orders() -> impl Element {
     let rows = signal(vec![
         Order { id: 1, customer: "Haruka Sato", status: "Paid", total: 120.0 },
         Order { id: 2, customer: "Ren Mori", status: "Pending", total: 48.5 },
         Order { id: 3, customer: "Aoi Ito", status: "Paid", total: 310.0 },
     ]);
-    data_table(
+    kivact::ui::data_table(
         rows,
         |order: &Order| order.id,
         vec![
-            DataColumn::new("Customer", |order: &Order| order.customer.to_owned()).sortable(),
-            DataColumn::new("Status", |order: &Order| order.status.to_owned()).cell(
+            kivact::ui::DataColumn::new("Customer", |order: &Order| order.customer.to_owned()).sortable(),
+            kivact::ui::DataColumn::new("Status", |order: &Order| order.status.to_owned()).cell(
                 |order: &Order| {
                     let hue = if order.status == "Paid" {
                         pop::Hue::Mint
                     } else {
                         pop::Hue::Yellow
                     };
-                    kivact::ui::badge(order.status).variant(pop::BadgeHue::new(hue))
+                    kivact::ui::badge(order.status).variant(hue)
                 },
             ),
-            DataColumn::new("Total", |order: &Order| format!("${:.2}", order.total))
+            kivact::ui::DataColumn::new("Total", |order: &Order| format!("${:.2}", order.total))
                 .compare(|a, b| a.total.total_cmp(&b.total))
                 .numeric(true),
         ],
@@ -57,15 +58,15 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-実行して見出しをクリックすると、行が昇順、次に降順で並び替わります。見出しが並べ替えられるのは、列に `.sortable()`（テキストで並べ替え、両方が数値なら数値として比較）か `.compare(..)`（自分で順序を決める）があるときです。どちらもない列は、シグナルの順序のままです。
+実行して見出しをクリックすると、行は昇順、次に降順に並び替わります。見出しは、列に `.sortable()`（テキストで並べ替えます。両方のセルが数なら数として比べます）か、`.compare(..)`（自分で決めた順序で並べ替えます）がある場合に並べ替わります。どちらもない列は、シグナルの順序のままです。
 
-**Rust メモ。** 行の型には `Clone + PartialEq`、キーの型には `Clone + Eq + Hash` が必要です。`u32` の id や `String` のスラッグが使えます。`|order: &Order|` と行の型を書いているのは、クロージャの型を推論させるためです。
+**Rust のメモ。** 行の型には `Clone + PartialEq`、キーの型には `Clone + Eq + Hash` が必要です。`u32` の id や `String` のスラッグが使えます。`|order: &Order|` と行の型を書くのは、クロージャの型を推論させるためです。
 
-`.cell(|row| view)` はセルの中身を置き換えます。ここではバッジです。列のテキストは、スクリーンリーダーやフィルタのために、セルの名前として使われ続けます。
+`.cell(|row| view)` はセルの中身を置き換えます。ここではバッジに置き換えています。列のテキストは、スクリーンリーダーと絞り込みのために、セルの名前として使われ続けます。
 
 ## 検索・選択・ページ送りを足す
 
-追加機能は、保持させたい状態をテーブルに渡すと有効になります。その状態はアプリのものなので、どこからでも読み書きできます。
+追加の機能は、テーブルに保持させたい状態を渡すと有効になります。その状態はアプリのものなので、どこからでも読んだり設定したりできます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -79,22 +80,23 @@ struct Order {
     total: f64,
 }
 
-fn orders(rows: Signal<Vec<Order>>) -> impl IntoView {
+#[component]
+fn orders(rows: Signal<Vec<Order>>) -> impl Element {
     let selected = signal(Vec::<u32>::new());
     let query = signal(String::new());
     let page = signal(0_usize);
     let sort = signal(Some((1_usize, SortOrder::Descending)));
     column((
-        data_table(
+        kivact::ui::data_table(
             rows,
             |order: &Order| order.id,
             vec![
-                DataColumn::new("Customer", |order: &Order| order.customer.clone())
+                kivact::ui::DataColumn::new("Customer", |order: &Order| order.customer.clone())
                     .sortable()
                     .filter(|order, query| {
                         order.customer.to_lowercase().contains(&query.to_lowercase())
                     }),
-                DataColumn::new("Total", |order: &Order| format!("${:.2}", order.total))
+                kivact::ui::DataColumn::new("Total", |order: &Order| format!("${:.2}", order.total))
                     .compare(|a, b| a.total.total_cmp(&b.total))
                     .numeric(true),
             ],
@@ -119,7 +121,7 @@ fn orders(rows: Signal<Vec<Order>>) -> impl IntoView {
 
 ## 検索の横にボタンを置く
 
-`.toolbar(|context| view)` はテーブルの上の領域を置き換えます。通常は絞り込み欄だけが入っています。`context` にはテーブルの現在の状態が入っています。選択と絞り込みのバインディング、件数を持つ `context.model` です。絞り込み欄を残したい場合は、自分で描く必要があります。
+`.toolbar(|context| view)` はテーブルの上の領域を置き換えます。通常、この領域には絞り込み欄だけが入っています。`context` にはテーブルの現在の状態が入っています。選択と絞り込みはバインディングとして、件数は `context.model` にあります。絞り込み欄を残したい場合は、自分で描く必要があります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -131,21 +133,22 @@ struct Order {
     customer: String,
 }
 
-fn orders(rows: Signal<Vec<Order>>) -> impl IntoView {
+#[component]
+fn orders(rows: Signal<Vec<Order>>) -> impl Element {
     let selected = signal(Vec::<u32>::new());
     let query = signal(String::new());
-    data_table(
+    kivact::ui::data_table(
         rows,
         |order: &Order| order.id,
-        vec![DataColumn::new("Customer", |order: &Order| order.customer.clone()).sortable()],
+        vec![kivact::ui::DataColumn::new("Customer", |order: &Order| order.customer.clone()).sortable()],
     )
     .selection(selected)
     .filter(query)
     .toolbar(move |_context| {
         row((
-            text_input("Filter orders", query)
+            text_input(query).label("Filter orders")
                 .placeholder("Search customers")
-                .style(style().grow(1)),
+                .style(style().flex_grow(1)),
             button("Delete selected")
                 .variant(pop::ButtonTone::Soft)
                 .disabled(move || selected.with(Vec::is_empty))
@@ -161,13 +164,13 @@ fn orders(rows: Signal<Vec<Order>>) -> impl IntoView {
 # fn main() {}
 ```
 
-行の削除はアプリのコードです。テーブルが行を書き換えることはありません。`.footer(|context| view)` は同じ方法で、テーブルの下の領域（選択の要約とページャ）を置き換えます。
+行の削除はアプリのコードです。テーブルが行を変えることはありません。`.footer(|context| view)` は同じ方法で、テーブルの下の領域（選択の要約とページャー）を置き換えます。
 
-## 行ごとのコントロール
+## 行ごとのコントロールをさらに足す
 
 - `.row_actions(width, |row| view)` は、メニューボタンのようなコントロールを並べた最後の列を足します。見出しにタイトルはなく、"Actions" という名前が付きます。
 - `.resizable(signal_of_widths)` は、見出しにリサイズのハンドルを付け、幅（列ごとの `Vec<f64>`）をシグナルに保持します。
-- `.row_details(|row| view)` は各行の下にビューを置き、`.cell_controls(..)` はセルの中にコントロールを置きます。どちらも、並べ替えやページ送りのあいだ配置されたままなので、入力途中の状態が保たれます。
+- `.row_details(|row| view)` は各行の下にビューを置き、`.cell_controls(..)` はセルの中にコントロールを置きます。どちらも、並べ替えやページ送りのあいだ配置されたままなので、入力途中の編集などの状態が保たれます。
 - `.row_color(|row| Option<Color>)` は行に色を付けます。期限切れの行などに使えます。
 
 ## 文言
@@ -176,6 +179,6 @@ fn orders(rows: Signal<Vec<Order>>) -> impl IntoView {
 
 ## 関連
 
-- [業務画面で数値・状態・レコードを見せる](status-and-figures.md): 行数の少ない一覧向け。
-- [Pop のテーマとトークンを設定する](theme-and-tokens.md)
+- [状態と数値を表示する](status-and-figures.md): 行数の少ない一覧向け。
+- [Pop のテーマと変数を設定する](theme-and-tokens.md)
 - テーブル、列、コンテキストの API: `cargo doc -p kivact --open` の `kivact::ui::DataTable`、`DataColumn`、`DataTableContext`

@@ -47,6 +47,10 @@ mod size;
 
 pub use avatar_decorations::{AvatarDecorations, avatar_decorations};
 pub use chips::{ChipList, RemovableChip, chip_list, removable_chip};
+pub use color::{
+    BLUE, BLUE_VAR, LINE, LINE_VAR, MINT, MINT_VAR, RED, RED_VAR, SURFACE, SURFACE_VAR, TEXT,
+    TEXT_MUTED, TEXT_MUTED_VAR, TEXT_VAR, YELLOW, YELLOW_VAR,
+};
 pub use empty_illustration::empty_illustration;
 pub use messaging::{Thread, thread};
 pub use notifications::{NotificationItem, NotificationMenu, notification_menu};

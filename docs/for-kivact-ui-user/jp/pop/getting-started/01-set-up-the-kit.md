@@ -37,12 +37,13 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_pop as pop;
 
-fn sign_up() -> impl IntoView {
+#[component]
+fn sign_up() -> impl Element {
     let name = signal(String::new());
     kivact::ui::card((
-        text("新規アカウント").style(style().font_size(20).weight(600)),
-        text_input("名前", name),
-        button("アカウントを作成"),
+        text("New account").style(style().font_size(20).font_weight(600)),
+        text_input(name).label("Name"),
+        button("Create account"),
     ))
     .style(style().width(360).margin(24).gap(12))
 }
@@ -72,6 +73,6 @@ cargo run
 
 ## フォント
 
-Pop は Kivact が同梱するフォントでそのまま動くので、このチュートリアルでは何も足す必要はありません。キット付属のカタログは、元のデザインに合わせて Inter、Barlow、Noto Sans JP を `App::font` で登録しています。フォントはアプリが持つもので、同じことをしたい場合は [Pop のテーマとトークンを設定する](../how-to-guide/theme-and-tokens.md) を参照してください。
+Pop は Kivact が同梱するフォントでそのまま動くので、このチュートリアルでは何も足す必要はありません。キット付属のカタログは、元のデザインに合わせて Inter、Barlow、Noto Sans JP を `App::font` で登録しています。フォントはアプリが持つもので、同じことをしたい場合は [Pop のテーマと変数を設定する](../how-to-guide/theme-and-tokens.md) を参照してください。
 
 次へ: [ステップ 2: フォームを組み立てる](02-build-the-form.md)

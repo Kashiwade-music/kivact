@@ -14,25 +14,26 @@ use kivact::style::ThemeMode;
 use kivact_ui_game as game;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-enum Difficulty {
+enum Level {
     Easy,
     Normal,
     Hard,
 }
 
-fn difficulty() -> impl IntoView {
-    let level = signal(Some(Difficulty::Normal));
+#[component]
+fn difficulty() -> impl Element {
+    let level = signal(Some(Level::Normal));
     column((
         radio_group(
             "Difficulty",
             vec![
-                ListItem::new(Difficulty::Easy, "EASY"),
-                ListItem::new(Difficulty::Normal, "NORMAL"),
-                ListItem::new(Difficulty::Hard, "HARD"),
+                ListItem::new(Level::Easy, "EASY"),
+                ListItem::new(Level::Normal, "NORMAL"),
+                ListItem::new(Level::Hard, "HARD"),
             ],
             level,
         )
-        .orientation(Orientation::Horizontal)
+        .orientation(kivact::view::Orientation::Horizontal)
         .variant(kivact::ui::RadioGroupVariant::Segmented),
         game::mono(move || format!("{:?}", level.get())),
     ))
@@ -56,7 +57,8 @@ fn main() -> kivact::Result<()> {
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
-fn plans() -> impl IntoView {
+#[component]
+fn plans() -> impl Element {
     let plan = signal(Some("team"));
     radio_group(
         "Plan",
@@ -89,7 +91,8 @@ use kivact::prelude::*;
 use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
-fn menu() -> impl IntoView {
+#[component]
+fn menu() -> impl Element {
     let section = signal("inbox");
     tabs(
         "Sections",
@@ -99,8 +102,8 @@ fn menu() -> impl IntoView {
         ],
         section,
     )
-    .orientation(Orientation::Vertical)
-    .variant(game::Navigation)
+    .orientation(kivact::view::Orientation::Vertical)
+    .variant(game::TabsVariant::Navigation)
     .item(|item, state| {
         let count = match item.with(|item| *item.key()) {
             "inbox" => Some(kivact::ui::badge("3").tone(Tone::Info)),
@@ -113,26 +116,23 @@ fn menu() -> impl IntoView {
 # fn main() {}
 ```
 
-`game::navigation_label` はアイコン、ラベル、説明を描き、スロットはその後ろにバッジや件数を置きます。横のタブは、既定では下線の見た目で、`.variant(game::Boxed)` を付けるとタブが箱の中に収まります（[チュートリアル](../getting-started/03-tabs-and-items.md) と同じ）。タブを切り替えても、パネルに入力した内容を保ちたいときは `.keep_mounted()` を足します。すべてのパネルが一度だけ作られ、選択されていないタブのパネルは隠されます。
+`game::navigation_label` はアイコン、ラベル、説明を描き、スロットはその後ろにバッジや件数を置きます。横のタブは、既定では下線の見た目で、`.variant(game::TabsVariant::Boxed)` を付けるとタブが箱の中に収まります（[チュートリアル](../getting-started/03-tabs-and-items.md) と同じ）。タブを切り替えても、パネルに入力した内容を保ちたいときは `.keep_mounted()` を足します。すべてのパネルが一度だけ作られ、選択されていないタブのパネルは隠されます。
 
 ## ツールバーにクイック操作を置く
 
-`kivact::ui::toolbar(label).start(children)` は枠線付きの密な行、`kivact::ui::button_group(label, children)` は関連するボタンを寄せ集め、`game::tool_button(label)` はアイコン用の正方形のゴーストボタンです。ツールボタンにはアイコンを付けてラベルを隠します。ラベルはアクセシブルな名前として残ります。
+`kivact::ui::toolbar(label).start(children)` は枠線付きの密な行、`kivact::ui::button_group(label, children)` は関連するボタンを寄せ集め、`kivact::ui::icon_button(icon, label)` はアイコンだけを表示するボタンです。ラベルはアクセシブルな名前として残り、ツールチップにもなります。`game::tool_button(label)` はキットの正方形のゴーストボタンで、短い文字のラベルに使います。
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
-fn tools(zoom: Signal<f64>) -> impl IntoView {
+#[component]
+fn tools(zoom: Signal<f64>) -> impl Element {
     kivact::ui::toolbar("View tools").start((
         kivact::ui::button_group("Zoom", (
-            game::tool_button("Zoom out")
-                .icon(icon("chevron-down"))
-                .hide_label(true)
+            kivact::ui::icon_button("chevron-down", "Zoom out")
                 .on_press(move || zoom.update(|z| *z = (*z - 0.25).max(0.25))),
-            game::tool_button("Zoom in")
-                .icon(icon("chevron-up"))
-                .hide_label(true)
+            kivact::ui::icon_button("chevron-up", "Zoom in")
                 .on_press(move || zoom.update(|z| *z += 0.25)),
         )),
         game::mono(move || format!("{:.0}%", zoom.get() * 100.0)),

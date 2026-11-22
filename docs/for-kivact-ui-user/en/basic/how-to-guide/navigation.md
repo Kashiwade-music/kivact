@@ -8,39 +8,39 @@ None of these components keeps the current location. You hold it in a signal (`p
 
 ## Build an app shell with a sidebar
 
-`basic::sidebar_provider(open, sidebar, page)` puts a sidebar beside the page area and shares the `open` signal with them. A menu button marks the current page with `.active(..)` and changes it in `.on_press(..)`:
+`kivact::ui::sidebar_provider(open, sidebar, page)` puts a sidebar beside the page area and shares the `open` signal with them. A menu button marks the current page with `.active(..)` and changes it in `.on_press(..)`:
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn shell() -> impl IntoView {
+#[component]
+fn shell() -> impl Element {
     let open = signal(true);
     let page = signal("home");
     let entry = move |key: &'static str, label: &'static str, name: &'static str| {
-        basic::sidebar_menu_button(label)
+        kivact::ui::sidebar_menu_button(label)
             .icon(icon(name))
             .active(move || page.get() == key)
             .on_press(move || page.set(key))
     };
-    let sidebar = basic::sidebar()
-        .collapsible(basic::SidebarCollapsible::Icon)
+    let sidebar = kivact::ui::sidebar()
         .rail(true)
         .header(basic::large("Acme Inc"))
         .content({
-            basic::sidebar_group("Application").content({
-                basic::sidebar_menu((
-                    entry("home", "Home", "house"),
-                    entry("inbox", "Inbox", "inbox"),
-                    entry("settings", "Settings", "settings"),
-                ))
+            kivact::ui::sidebar_group("Application").content({
+                kivact::ui::sidebar_menu(vec![
+                    entry("home", "Home", "house").into_view(),
+                    entry("inbox", "Inbox", "inbox").into_view(),
+                    entry("settings", "Settings", "settings").into_view(),
+                ])
             })
         });
     let content = column((
         row((
-            basic::sidebar_trigger(),
+            kivact::ui::sidebar_trigger(),
             basic::separator()
-                .orientation(Orientation::Vertical)
+                .orientation(kivact::view::Orientation::Vertical)
                 .style(style().height(16)),
             kivact::ui::breadcrumb(move || vec![
                 kivact::interaction::ListItem::new("root", "Acme"),
@@ -51,23 +51,26 @@ fn shell() -> impl IntoView {
         .style(style().height(48).padding_x(12).gap(8).align_items(Align::Center)),
         kivact::ui::heading(move || page.get().to_string(), 4).style(style().padding(12)),
     ))
-    .style(style().grow(1));
-    column(basic::sidebar_provider(open, sidebar, content)).style(
+    .style(style().flex_grow(1));
+    column(
+        kivact::ui::sidebar_provider(open, sidebar, content)
+            .collapsible(kivact::ui::SidebarCollapsible::Icon),
+    )
+    .style(
         style()
             .size(pct(100), pct(100))
-            .background(basic::ColorName::Background)
-            .color(basic::ColorName::Foreground),
+            .background(basic::BACKGROUND)
+            .color(basic::FOREGROUND),
     )
 }
 ```
 
 - The provider fills its parent. In a bounded frame, give the parent a width and a height.
-- `.collapsible(..)` decides what closing does: `Offcanvas` (default) slides the sidebar out of view, `Icon` shrinks it to a 48 px column of icons whose labels become tooltips, and `None` cannot be closed. `.rail(true)` adds a thin strip at the edge that toggles it.
-- `basic::sidebar_trigger()`, the rail and Ctrl+B (Cmd+B on macOS) all write `open`. To make the shortcut work anywhere in the window, make the provider the root view of the app.
-- `.side(basic::SidebarSide::Right)` moves the sidebar to the right, and `.variant(basic::SidebarVariant::Floating)` or `Inset` change how it is framed.
-- `.header(..)`, `.content(..)` and `.footer(..)` take functions. Groups are `sidebar_group(label)` with `.content(..)` and an optional `.action(..)`; separate them with `basic::sidebar_separator()`.
-- A button can show a count with `.badge("12")`, and a nested list with `.sub(|| (basic::sidebar_menu_sub_button("Overview").active(true), basic::sidebar_menu_sub_button("Roadmap")))`.
-- Put a search field in the sidebar with `basic::sidebar_input(label, signal)`.
+- `.collapsible(..)` on the provider decides what closing does: `Offcanvas` (default) slides the sidebar out of view, `Icon` shrinks it to a 48 px column of icons whose labels become tooltips, and `None` cannot be closed. `.rail(true)` adds a thin strip at the edge that toggles it.
+- `kivact::ui::sidebar_trigger()`, the rail and Ctrl+B (Cmd+B on macOS) all write `open`. To make the shortcut work anywhere in the window, make the provider the root view of the app.
+- `.side(kivact::ui::SidebarSide::Right)` moves the sidebar to the right, and `.frame(kivact::ui::SidebarFrame::Floating)` or `Inset` change how it is framed.
+- `.header(..)`, `.content(..)` and `.footer(..)` take views. Groups are `kivact::ui::sidebar_group(label)` with `.content(..)` and an optional `.action(..)`; separate them with `kivact::ui::sidebar_separator()`.
+- Put a search field in the sidebar with `kivact::ui::sidebar_input(signal)`; its `.name(..)` is the label.
 
 ## Switch views with tabs
 
@@ -77,7 +80,8 @@ Tabs are the standard `tabs(label, items, value)`. `current` holds the key of th
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn account() -> impl IntoView {
+#[component]
+fn account() -> impl Element {
     let current = signal("account");
     let options = vec![
         ListItem::new("account", "Account"),
@@ -108,7 +112,8 @@ Pass keyed `ListItem`s to `kivact::ui::breadcrumb(items)`. The last item is the 
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn trail() -> impl IntoView {
+#[component]
+fn trail() -> impl Element {
     let at = signal(String::from("Components"));
     kivact::ui::breadcrumb(move || vec![
         kivact::interaction::ListItem::new("home", "Home"),
@@ -130,7 +135,8 @@ Use `.item(..)` to draw an ellipsis for a disabled entry representing hidden lev
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn bar() -> impl IntoView {
+#[component]
+fn bar() -> impl Element {
     let last = signal(String::from("Nothing chosen yet."));
     column((
         basic::menubar(vec![
@@ -167,7 +173,8 @@ The entries are the same `MenuEntry` values as for any menu (items, check and ra
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn top_nav() -> impl IntoView {
+#[component]
+fn top_nav() -> impl Element {
     let clicks = signal(0usize);
     let getting_started = move || {
         column((
@@ -198,7 +205,8 @@ fn top_nav() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn pager() -> impl IntoView {
+#[component]
+fn pager() -> impl Element {
     let page = signal(0usize);
     column((
         kivact::ui::pagination(12usize, page),
@@ -217,6 +225,6 @@ fn pager() -> impl IntoView {
 
 - [Overlays](overlays.md): menus, popovers and dialogs.
 - [Data display](data-display.md): tables with sorting and paging.
-- Rustdoc: `cargo doc -p kivact-ui-basic --open` for the sidebar parts and the navigation components.
+- Rustdoc: `cargo doc -p kivact-ui --open` for the sidebar parts and the navigation components.
 
 `basic::MenuVariant::Bar` is the public compact appearance of the standard menu used by the Basic menubar. Pass it through `.variant(..)` when composing the same appearance directly.

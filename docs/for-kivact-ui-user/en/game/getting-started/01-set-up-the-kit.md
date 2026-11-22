@@ -44,12 +44,13 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_game::{self as game, Density, ThemeOptions};
 
-fn loadout() -> impl IntoView {
+#[component]
+fn loadout() -> impl Element {
     game::hud(
         column((
             game::mono("SQUAD 04 / SLOT 2"),
-            text("LOADOUT").style(style().font_size(24).weight(700)),
-            button("Deploy").variant(game::Slant),
+            text("LOADOUT").style(style().font_size(24).font_weight(700)),
+            button("Deploy").variant(kivact::ui::Slant),
         ))
         .style(style().gap(10).padding(20)),
     )
@@ -58,7 +59,7 @@ fn loadout() -> impl IntoView {
 
 fn main() -> kivact::Result<()> {
     App::new("Loadout")
-        .theme(game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Comfortable }))
+        .theme(game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Comfortable, ..Default::default() }))
         .run(loadout)
 }
 ```
@@ -84,18 +85,18 @@ Four things are new:
 - `game::hud(..)` is a Game component: a bordered surface with accent brackets
   on two opposite corners. `game::mono(..)` is a small monospaced caption for
   ids, shortcuts and machine-like values.
-- `.variant(game::Slant)` is how a kit adds a look to a standard component.
+- `.variant(kivact::ui::Slant)` is how a kit adds a look to a standard component.
   The button is still the `button` you know; only its drawing changes.
 
 The app keeps its state in signals, as before. The kit never owns your data.
 
 ## Fonts
 
-The Game kit works with the font that Kivact bundles, so you need nothing
-more for this tutorial. The kit's catalog also registers Barlow Condensed and
-JetBrains Mono with `App::font` and names them in the theme's tokens for
-the display and monospaced text. Fonts belong to the application. See
-[Set the theme and density](../how-to-guide/theme-and-density.md) if you want to
-do the same.
+The Game kit works with the system fonts, so you need nothing more for this
+tutorial. The theme has two font family variables: `game::fonts::DISPLAY_FAMILY_VAR`
+for headings, buttons and numbers, and `game::fonts::MONO_FAMILY_VAR` for codes and
+identifiers. To name other families, set the `display_font` and `mono_font` fields of
+`ThemeOptions`. Fonts belong to the application. See
+[Set the theme and density](../how-to-guide/theme-and-density.md) for the details.
 
 Next: [Step 2: Build the panel](02-build-the-panel.md)

@@ -20,7 +20,7 @@ use kivact_ui_creative as ui;
 const WIDTH: u32 = 640;
 const HEIGHT: u32 = 360;
 
-/// あなたのレンダラー。ここでは、青のチャンネルが `tint` のグラデーションを描く。
+/// Your renderer. Here: a procedural gradient whose blue channel is `tint`.
 fn render(tint: f64) -> Pixels {
     let mut rgba = Vec::with_capacity((WIDTH * HEIGHT * 4) as usize);
     for y in 0..HEIGHT {
@@ -34,23 +34,24 @@ fn render(tint: f64) -> Pixels {
     Pixels::new(WIDTH, HEIGHT, rgba)
 }
 
-fn viewer() -> impl IntoView {
+#[component]
+fn viewer() -> impl Element {
     let tint = signal(0.5);
     let transform = signal(ViewTransform::default());
     let zoom = use_zoom_pan(transform);
     let surface = signal(Size::new(0.0, 0.0));
     let pointer = signal(Point::new(0.0, 0.0));
 
-    // `tint` が変わるたびに描き直す。
+    // Re-renders whenever `tint` changes.
     let frame = memo(move || render(tint.get()));
 
     column((
         row((
-            ui::value_slider("色合い", tint).range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range")).step(0.01).precision(2),
-            button("全体表示").on_press(move || {
+            ui::value_slider("Tint", tint).range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range")).step(0.01).precision(2),
+            button("Fit").on_press(move || {
                 transform.set(ViewTransform::fit(
                     Size::new(WIDTH as f64, HEIGHT as f64),
-                    surface.get_untracked(),
+                    surface.get(),
                 ));
             }),
             text(move || {
@@ -72,14 +73,14 @@ fn viewer() -> impl IntoView {
                     let b = zoom.to_view(Point::new(440.0, 260.0));
                     draw.stroke_rect(Rect::new(a.x, a.y, b.x-a.x, b.y-a.y), 1.0, rgb(0xffd25a));
                 }))
-            .name("ビューアー")
+            .name("Viewer")
             .style(style().height(400)),
     ))
     .style(style().gap(8).padding(12))
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("ビューアー")
+    App::new("Viewer")
         .theme(ui::theme(ThemeMode::Dark))
         .run(viewer)
 }
@@ -91,7 +92,7 @@ fn main() -> kivact::Result<()> {
 
 ### 描画面がしてくれること
 
-- **`.transform(..)` がなければ `.fit(..)` に従って表示します。** 既定は `ImageFit::Contain` です。`use_zoom_pan(transform)` を渡すと、同じ binding を使うズームとパンの振る舞いを接続します。
+- **`.transform(..)` がなければ `.fit(..)` に従って表示します。** 既定は `ImageFit::Contain` です。`use_zoom_pan(transform)` を渡すと、同じシグナルを使うズームとパンの振る舞いを接続します。
 - **座標は `ZoomPanApi` で変換します。** pointer event はビュー内の座標です。`zoom.to_content(event.pos())` で画像内へ、`zoom.to_view(point)` でビュー内へ変換し、`draw_over` にも使います。
 - **支援技術の対象は canvas の region です。** `Node::region` または `regions` で宣言し、`Draw::region` でビュー内の形を描きます。pointer capture も標準 API を使います。
 - **`pixelated(true)`** は、ネイティブサイズより大きく拡大したときに最近傍のピクセルを使います。ピクセルを確認する用途に向いています。
@@ -116,14 +117,14 @@ fn render(frame: u32) -> Pixels {
     Pixels::new(2, 2, [shade, 80, 160, 255].repeat(4))
 }
 
-/// レンダラーを起動し、最新のフレームを常に保持するシグナルを返す。
+/// Starts a renderer and returns the signal that always holds its latest frame.
 fn start_renderer() -> Signal<Pixels> {
     let image = signal(render(0));
     let (sender, receiver) = async_channel::bounded::<Pixels>(2);
 
     std::thread::spawn(move || {
         for frame in 0.. {
-            // ビューがなくなり受信側が破棄されると失敗する: 終了する。
+            // Fails once the view is gone and the receiver is dropped: stop.
             if sender.send_blocking(render(frame)).is_err() {
                 break;
             }
@@ -133,7 +134,7 @@ fn start_renderer() -> Signal<Pixels> {
 
     spawn(async move {
         while let Ok(mut newest) = receiver.recv().await {
-            // UI が間に合わなかったフレームは読み飛ばす。
+            // Skip frames the UI was too slow to show.
             while let Ok(later) = receiver.try_recv() {
                 newest = later;
             }
@@ -143,11 +144,12 @@ fn start_renderer() -> Signal<Pixels> {
     image
 }
 
-fn live_view() -> impl IntoView {
+#[component]
+fn live_view() -> impl Element {
     let image = start_renderer();
     kivact::view::viewport(image)
         .pixelated(true)
-        .name("ライブビュー")
+        .name("Live view")
         .style(style().height(300))
 }
 ```

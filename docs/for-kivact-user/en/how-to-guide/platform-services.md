@@ -25,7 +25,8 @@ a render effect.
 use kivact::platform;
 use kivact::prelude::*;
 
-fn clipboard() -> impl IntoView {
+#[component]
+fn clipboard() -> impl Element {
     let pasted = signal(String::new());
     column((
         button("Copy").on_press(|| {
@@ -83,7 +84,8 @@ Cancelling is not an error.
 use kivact::platform::{self, FileDialog};
 use kivact::prelude::*;
 
-fn open_document() -> impl IntoView {
+#[component]
+fn open_document() -> impl Element {
     let status = signal(String::from("Nothing opened"));
     column((
         button("Open…").on_press(move || {
@@ -97,7 +99,7 @@ fn open_document() -> impl IntoView {
                 match platform::pick_file(options).await? {
                     Some(path) => {
                         // Read on the blocking pool; `?` turns io::Error into UiError.
-                        let text = blocking(move || std::fs::read_to_string(&path)).await?;
+                        let text = kivact::task::blocking(move || std::fs::read_to_string(&path)).await?;
                         status.set(format!("Read {} bytes", text.len()));
                     }
                     None => status.set("Cancelled".into()),
@@ -133,7 +135,8 @@ use std::path::PathBuf;
 use kivact::platform::{self, FileDialog};
 use kivact::prelude::*;
 
-fn export() -> impl IntoView {
+#[component]
+fn export() -> impl Element {
     let status = signal(String::new());
     column((
         button("Export").on_press(move || {
@@ -193,7 +196,8 @@ process's current directory.
 use kivact::platform;
 use kivact::prelude::*;
 
-fn exported() -> impl IntoView {
+#[component]
+fn exported() -> impl Element {
     row((
         button("Open image").on_press(|| {
             spawn(platform::open_path("exports/frame.png"));
@@ -248,13 +252,14 @@ fn open_with_message(path: &'static str, message: Signal<String>) {
 
 `platform::font_families()` returns the family names the window can use, sorted,
 without duplicates, with their original capitalization. It includes the system
-fonts and the fonts you registered with `App::font(..)`. It is a snapshot taken
+fonts and the fonts you registered with `Theme::with_fonts(..)`. It is a snapshot taken
 at the call, not a reactive value.
 
 ```rust,no_run
 use kivact::prelude::*;
 
-fn font_list() -> impl IntoView {
+#[component]
+fn font_list() -> impl Element {
     let families = kivact::platform::font_families();
     scroll(text(families.get().join("\n"))).style(style().size(320, 400))
 }
@@ -266,7 +271,7 @@ fn main() -> kivact::Result<()> {
 
 A family from the list is what `style().font_family("…")` takes. To ship a font
 with your app, register it before the first screen:
-`App::new("…").font(include_bytes!("../assets/Inter-Regular.ttf"))`. The
+`App::new("…").theme(Theme::light().with_fonts([include_bytes!("../assets/Inter-Regular.ttf").as_slice()]))`. The
 family is the name written inside the font, not the file name.
 
 ## React when the app is suspended
@@ -281,7 +286,8 @@ whether memory warnings are reported at all.
 use kivact::platform::{self, LifecycleEvent};
 use kivact::prelude::*;
 
-fn memory_status() -> impl IntoView {
+#[component]
+fn memory_status() -> impl Element {
     let warnings = signal(0usize);
     platform::on_lifecycle(move |event| {
         if event == LifecycleEvent::MemoryWarning {
@@ -311,7 +317,7 @@ Values are logical pixels. The default is 960 × 720.
 ```rust,no_run
 use kivact::prelude::*;
 
-fn app() -> impl IntoView {
+fn app() -> impl Element {
     text("Resizable")
 }
 
@@ -335,7 +341,8 @@ responsive layouts, where CSS would use a media query:
 use kivact::platform;
 use kivact::prelude::*;
 
-fn shell() -> impl IntoView {
+#[component]
+fn shell() -> impl Element {
     let narrow = memo(move || platform::window_size().get().width < 600.0);
     column(text(move || {
         if narrow.get() { "Narrow layout" } else { "Wide layout" }
@@ -403,7 +410,7 @@ a dismissal:
 use kivact::platform;
 use kivact::prelude::*;
 
-fn app() -> impl IntoView {
+fn app() -> impl Element {
     button("Quit").on_press(|| platform::app_handle().close())
 }
 ```
@@ -432,7 +439,8 @@ gives it the keyboard focus:
 use kivact::platform;
 use kivact::prelude::*;
 
-fn settings() -> impl IntoView {
+#[component]
+fn settings() -> impl Element {
     button("Bring this window to the front").on_press(|| {
         spawn(platform::focus_window());
     })

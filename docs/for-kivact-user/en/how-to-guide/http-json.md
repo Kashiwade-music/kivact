@@ -11,13 +11,14 @@ reqwest = { version = "0.13.5", default-features = false, features = ["rustls", 
 serde_json = "1"
 ```
 
-`resource` is Solid's `createResource`: changing `id` cancels the previous request. `async_view` shows loading, the result, or an error with Retry. `?` converts HTTP and JSON errors to `UiError`.
+`resource` is Solid's `createResource`: changing `id` cancels the previous request. `async_view` shows loading, the result, or an error with a retry button. `?` converts HTTP and JSON errors to `UiError`.
 
 ```no_run
 use kivact::prelude::*;
 use kivact::task::on_tokio;
 
-fn user_page() -> impl IntoView {
+#[component]
+fn user_page() -> impl Element {
     let id = signal(1_u32);
     let user = resource(id, |id| async move {
         on_tokio(async move {
@@ -40,4 +41,4 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-`on_tokio` runs the Send future on one runtime owned by the App, then wakes the UI. Read signals before entering it; move plain data into the future. Dropping the awaiting future aborts the task, including on source changes and owner disposal. App shutdown stops its runtime. Customize presentation with `.loading(|| text("Loading"))` and `.fallback(|error, retry| button(error.to_string()).on_press(move || retry.run()))`. An action works with the same `async_view`; its idle view is empty and Retry repeats its latest input.
+`on_tokio` runs the Send future on one runtime owned by the App, then wakes the UI. Read signals before entering it; move plain data into the future. Dropping the awaiting future aborts the task, including on source changes and owner disposal. App shutdown stops its runtime. Customize presentation with `.loading(|| text("Loading"))` and `.fallback(|error, retry| button(error.to_string()).on_press(retry))`, where `retry` is a `Callback<()>` that fetches again. An action works with the same `async_view`; its idle view is empty and `retry` repeats its latest input.

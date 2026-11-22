@@ -15,22 +15,23 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_pop as pop;
 
-fn sign_up() -> impl IntoView {
+#[component]
+fn sign_up() -> impl Element {
     let name = signal(String::new());
     let email = signal(String::new());
     let plan = signal(Some("team"));
     let terms = signal(false);
 
     kivact::ui::card((
-        text("New account").style(style().font_size(20).weight(600)),
+        text("New account").style(style().font_size(20).font_weight(600)),
         field(
             "Name",
-            text_input("Name", name).placeholder("Your full name"),
+            text_input(name).label("Name").placeholder("Your full name"),
         )
         .hint("Shown on your invoices."),
         field(
             "Email",
-            text_input("Email", email).placeholder("you@example.com"),
+            text_input(email).label("Email").placeholder("you@example.com"),
         ),
         field(
             "Plan",
@@ -43,7 +44,7 @@ fn sign_up() -> impl IntoView {
                 ],
                 plan,
             )
-            .orientation(Orientation::Horizontal)
+            .orientation(kivact::view::Orientation::Horizontal)
             .variant(kivact::ui::RadioGroupVariant::Segmented),
         )
         .hint("You can change the plan later."),
@@ -84,7 +85,7 @@ slice here or your own `enum` later.
 
 **`radio_group(..).variant(kivact::ui::RadioGroupVariant::Segmented)`** draws a radio group as a
 segmented control. A segmented control picks exactly one option, so it is a
-radio group, not tabs. `.orientation(Orientation::Horizontal)` lays the
+radio group, not tabs. `.orientation(kivact::view::Orientation::Horizontal)` lays the
 options out in a row. `.variant(..)` is how a kit adds a look to a standard
 component: the component stays the same, only its drawing changes.
 
@@ -92,9 +93,9 @@ component: the component stays the same, only its drawing changes.
 button tones. Pop has `Accent` (yellow), `Pink`, `Soft`, `Glass` and `Dark`.
 Without a tone, `kivact::ui::ButtonVariant::Primary`, `Secondary`, `Outline`, `Ghost` and
 `Link` from the core tutorial still work and are drawn in Pop colors. A button
-can take a tone and a shape: add `.variant(pop::Slant)` to draw it as a
+can take a tone and a shape: add `.variant(kivact::ui::Slant)` to draw it as a
 parallelogram. Try `button("Create account").variant(pop::ButtonTone::Pink)
-.variant(pop::Slant)`.
+.variant(kivact::ui::Slant)`.
 
 The signals `name`, `email`, `plan` and `terms` are the form's state. Nothing
 reads them yet; the next step does.

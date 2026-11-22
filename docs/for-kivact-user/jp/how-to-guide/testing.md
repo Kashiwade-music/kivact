@@ -23,11 +23,12 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["test"
 ```rust,test_harness
 use kivact::prelude::*;
 
-fn counter() -> impl IntoView {
+#[component]
+fn counter() -> impl Element {
     let count = signal(0);
     column((
-        text(move || format!("回数: {}", count.get())),
-        button("1 増やす").on_press(move || count.update(|n| *n += 1)),
+        text(move || format!("Count: {}", count.get())),
+        button("Add one").on_press(move || count.update(|n| *n += 1)),
     ))
 }
 
@@ -42,9 +43,9 @@ mod tests {
     #[test]
     fn pressing_the_button_adds_one() {
         let screen = kivact::test::render(counter);
-        screen.get_by_text("回数: 0");
-        screen.get_by_role(Role::Button, "1 増やす").click();
-        screen.get_by_text("回数: 1");
+        screen.get_by_text("Count: 0");
+        screen.get_by_role(Role::Button, "Add one").click();
+        screen.get_by_text("Count: 1");
         assert!(screen.errors().is_empty());
     }
 }
@@ -77,7 +78,7 @@ mod tests {
 # use kivact::prelude::*;
 # fn demo(screen: &kivact::test::Screen) {
 let row = screen.get_by_test_id("row-2");
-screen.within(row).get_by_role(Role::Button, "削除").click();
+screen.within(row).get_by_role(Role::Button, "Delete").click();
 # }
 ```
 
@@ -108,11 +109,12 @@ screen.within(row).get_by_role(Role::Button, "削除").click();
 ```rust,test_harness
 use kivact::prelude::*;
 
-fn todo() -> impl IntoView {
+#[component]
+fn todo() -> impl Element {
     let draft = signal(String::new());
     let tasks = signal(Vec::<String>::new());
     column((
-        text_input("新しいタスク", draft).on_submit(move || {
+        text_input(draft).label("New task").on_submit(move || {
             let task = draft.get();
             if !task.trim().is_empty() {
                 tasks.update(|tasks| tasks.push(task));
@@ -122,7 +124,7 @@ fn todo() -> impl IntoView {
         dynamic(move || tasks.get(), |tasks| {
             column(tasks.into_iter().map(text).collect::<Vec<_>>())
         }),
-        text(move || format!("{} 件のタスク", tasks.get().len())),
+        text(move || format!("{} tasks", tasks.get().len())),
     ))
     .style(style().gap(8).padding(12))
 }
@@ -138,12 +140,12 @@ mod tests {
     #[test]
     fn enter_adds_a_task_and_clears_the_field() {
         let screen = kivact::test::render(todo);
-        let input = screen.get_by_role(Role::TextBox, "新しいタスク");
-        input.type_text("牛乳を買う");
+        let input = screen.get_by_role(Role::TextBox, "New task");
+        input.type_text("Buy milk");
         input.press_key(Key::Enter);
 
-        screen.get_by_text("牛乳を買う");
-        screen.get_by_text("1 件のタスク");
+        screen.get_by_text("Buy milk");
+        screen.get_by_text("1 tasks");
         assert_eq!(input.value().as_deref(), Some(""));
     }
 }
@@ -169,11 +171,12 @@ mod tests {
 ```rust,test_harness
 use kivact::prelude::*;
 
-fn terms() -> impl IntoView {
+#[component]
+fn terms() -> impl Element {
     let accepted = signal(false);
     column((
-        checkbox("利用規約に同意する", accepted),
-        button("続ける").disabled(move || !accepted.get()),
+        checkbox("I accept the terms", accepted),
+        button("Continue").disabled(move || !accepted.get()),
     ))
     .style(style().gap(8).padding(12))
 }
@@ -189,10 +192,10 @@ mod tests {
     #[test]
     fn continue_needs_the_terms() {
         let screen = kivact::test::render(terms);
-        let proceed = screen.get_by_role(Role::Button, "続ける");
+        let proceed = screen.get_by_role(Role::Button, "Continue");
         assert!(proceed.is_disabled());
 
-        let terms = screen.get_by_role(Role::CheckBox, "利用規約に同意する");
+        let terms = screen.get_by_role(Role::CheckBox, "I accept the terms");
         assert_eq!(terms.checked(), Some(CheckedState::Unchecked));
         terms.toggle();
 
@@ -210,9 +213,9 @@ mod tests {
 ```rust,test_harness
 use kivact::prelude::*;
 
-fn app() -> impl IntoView {
+fn app() -> impl Element {
     button("Misuse").on_press(|| {
-        // ハンドラーの中の setup 関数はバグです。
+        // A setup function in a handler is a bug.
         let _late = signal(0);
     })
 }
@@ -242,12 +245,13 @@ mod tests {
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, render_with_handle};
 
-/// 自分の持つ数値を挟む「減らす」「増やす」のペア。
-fn stepper(value: Signal<i32>) -> impl IntoView {
+/// A `−` and `+` pair around a number you own.
+#[component]
+fn stepper(value: Signal<i32>) -> impl Element {
     row((
-        button("減らす").on_press(move || value.update(|n| *n -= 1)),
+        button("Decrease").on_press(move || value.update(|n| *n -= 1)),
         text(move || value.get().to_string()),
-        button("増やす").on_press(move || value.update(|n| *n += 1)),
+        button("Increase").on_press(move || value.update(|n| *n += 1)),
     ))
     .style(style().gap(8).padding(12))
 }
@@ -266,10 +270,10 @@ mod tests {
             let value = signal(5);
             (value, stepper(value))
         });
-        screen.get_by_role(Role::Button, "増やす").click();
-        assert_eq!(value.get_untracked(), 6);
+        screen.get_by_role(Role::Button, "Increase").click();
+        assert_eq!(value.get(), 6);
 
-        // 逆向き: テストが書き込むと、画面は整定したあとに追従します。
+        // The other direction: the test writes, the screen follows once it settles.
         value.set(1);
         screen.run_until_idle();
         screen.get_by_text("1");
@@ -290,8 +294,8 @@ mod tests {
 ```rust,no_run
 # use kivact::prelude::*;
 # fn demo(screen: &kivact::test::Screen) {
-let settings = screen.window("設定");
-settings.get_by_role(Role::Button, "適用").click();
+let settings = screen.window("Settings");
+settings.get_by_role(Role::Button, "Apply").click();
 assert!(settings.is_open());
 
 settings.request_close();
@@ -320,17 +324,18 @@ use std::time::Duration;
 use kivact::prelude::*;
 use kivact::task::sleep;
 
-fn saver() -> impl IntoView {
+#[component]
+fn saver() -> impl Element {
     let shown = signal(false);
     column((
-        button("保存").on_press(move || {
+        button("Save").on_press(move || {
             spawn(async move {
                 shown.set(true);
                 sleep(Duration::from_secs(2)).await;
                 shown.set(false);
             });
         }),
-        show(shown, || text("保存しました")),
+        show(shown, || text("Saved")),
     ))
 }
 
@@ -345,20 +350,20 @@ mod tests {
     #[test]
     fn the_notice_disappears_after_two_seconds() {
         let screen = kivact::test::render(saver);
-        screen.get_by_role(Role::Button, "保存").click();
-        screen.get_by_text("保存しました");
+        screen.get_by_role(Role::Button, "Save").click();
+        screen.get_by_text("Saved");
 
         screen.advance(Duration::from_millis(1900));
-        assert!(screen.query_by_text("保存しました").is_some());
+        assert!(screen.query_by_text("Saved").is_some());
         screen.advance(Duration::from_millis(200));
-        assert!(screen.query_by_text("保存しました").is_none());
+        assert!(screen.query_by_text("Saved").is_none());
     }
 
     #[test]
     fn waiting_for_a_condition() {
         let screen = kivact::test::render(saver);
-        screen.get_by_role(Role::Button, "保存").click();
-        let waited = screen.wait_for(Duration::from_secs(5), |s| s.query_by_text("保存しました").is_none());
+        screen.get_by_role(Role::Button, "Save").click();
+        let waited = screen.wait_for(Duration::from_secs(5), |s| s.query_by_text("Saved").is_none());
         assert!(waited >= Duration::from_secs(2));
     }
 }
@@ -374,7 +379,8 @@ mod tests {
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, render_with};
 
-fn size_label() -> impl IntoView {
+#[component]
+fn size_label() -> impl Element {
     text(|| {
         let size = kivact::platform::window_size().get();
         format!("{} x {}", size.width, size.height)
@@ -394,7 +400,7 @@ mod tests {
         let options = RenderOptions::default().window_size(390.0, 844.0).scale(2.0);
         let screen = render_with(options, size_label);
         screen.get_by_text("390 x 844");
-        assert_eq!(screen.screenshot().width, 780); // 物理ピクセル
+        assert_eq!(screen.screenshot().width, 780); // physical pixels
 
         screen.resize(800.0, 600.0);
         screen.get_by_text("800 x 600");
@@ -406,7 +412,7 @@ mod tests {
 
 画面が動いている間は、テストがシステムの役を演じられます: `resize`・`set_scale`・`set_dark`・`set_reduced_motion`・`set_host_locale`・`set_safe_area`・`set_window_focused`・`suspend` と `resume`・`memory_warning`・`lose_surface` と `restore_surface`・`request_close`。プラットフォームのサービスもスクリプト化されています: `clipboard` と `set_clipboard`・`respond_file_dialog`・`respond_files_dialog`・`opened_paths`・`revealed_paths`・`fail_next_platform_request`。[プラットフォームのサービスを使う](platform-services.md) を参照してください。
 
-文字は、既定では**同梱フォント**（Tuffy）で組まれるので、レイアウトと画素はどのマシンでも同じになります。このフォントには日本語などの CJK の字形がありません。そのような文字はどのマシンでも同じ幅を取りますが、空の四角として描かれます。実際の字形でテストするには、同梱するフォントのファイルを使って `.fonts(TestFonts::Only(vec![Asset::from(bytes)]))` を指定するか、`TestFonts::System` でマシンのフォントを使います（その場合、レイアウトはマシンに依存します）。
+文字は、既定では**同梱フォント**（Tuffy）で組まれるので、レイアウトと画素はどのマシンでも同じになります。このフォントには日本語などの CJK の字形がありません。そのような文字はどのマシンでも同じ幅を取りますが、空の四角として描かれます。実際の字形でテストするには、同梱するフォントのファイルを使い、`RenderOptions::with_theme(theme.with_fonts([font_bytes]))` でテストを始めるか、`.fonts(TestFonts::System)` でマシンのフォントを使います（その場合、レイアウトはマシンに依存します）。
 
 ## スクリーンショット
 
@@ -416,8 +422,9 @@ mod tests {
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, render_with};
 
-fn badge() -> impl IntoView {
-    column(text("新着")).style(style().padding(8).background(rgb(0x2050d0)))
+#[component]
+fn badge() -> impl Element {
+    column(text("New")).style(style().padding(8).background(rgb(0x2050d0)))
 }
 
 fn main() -> kivact::Result<()> {
@@ -434,7 +441,7 @@ mod tests {
         let screen = render_with(options, badge);
         let shot = screen.screenshot();
         assert_eq!((shot.width, shot.height), (200, 100));
-        // 余白の中の角は背景色です。
+        // A corner inside the padding shows the background.
         assert_eq!(shot.pixel(2, 2), Some(0x2050d0));
     }
 }
@@ -462,7 +469,7 @@ mod tests {
 GPU のテストは、`RenderOptions::from_env().gpu()` でレーンを要求し、`.mirror(MirrorMode::Required)` でネイティブのウィンドウを必須にし、`gpu_unavailable()` が理由を返したら早く戻ります。`from_env()` は `KIVACT_TEST_GPU=1` も読むので、`.gpu()` を省いたテストは、CI のジョブがその変数を設定した、グラフィックスカードのあるマシンでだけ GPU のレーンで動きます。飛ばされた GPU のテストは、シェーダーをコンパイルしません。そのため、下の例のように、どのマシンでも WGSL をコンパイルする CPU のテストも一緒に書いてください。
 
 ```rust,test_harness
-use kivact::draw::PaintShader;
+use kivact::style::PaintShader;
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 
@@ -476,10 +483,11 @@ fn paint(position: vec2<f32>, context: Context, params: Params) -> vec4<f32> {
 }
 "#;
 
-fn wave() -> impl IntoView {
+#[component]
+fn wave() -> impl Element {
     let shader = PaintShader::wgsl(WAVE).expect("the shader is valid WGSL");
     canvas(move |draw, size| {
-        // CPU のレーンでは、シェーダーの代わりに単色の fallback を描く。
+        // The CPU lane draws the solid fallback instead of the shader.
         let paint = shader
             .paint()
             .param("speed", 2.0)

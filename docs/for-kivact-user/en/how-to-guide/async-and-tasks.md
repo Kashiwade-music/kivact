@@ -16,7 +16,7 @@ everything:
 | start a future that has no result to show (a timer, a channel reader) | `spawn` |
 | run blocking or CPU-heavy code | `blocking` |
 
-`resource`, `action`, `spawn` and `blocking` are also in `kivact::prelude`.
+`resource`, `action` and `spawn` are also in `kivact::prelude`; `blocking` is in `kivact::task`.
 
 ## Load data and show loading, error and ready
 
@@ -29,7 +29,7 @@ shows loading and retryable errors for you, and its callback builds the ready vi
 use std::time::Duration;
 use kivact::prelude::*;
 
-fn app() -> impl IntoView {
+fn app() -> impl Element {
     let id = signal(1u32);
     let user = resource(id, |id| async move {
         kivact::task::sleep(Duration::from_millis(300)).await;
@@ -89,7 +89,8 @@ one per concern:
 ```rust,no_run
 # use std::time::Duration;
 # use kivact::prelude::*;
-fn search() -> impl IntoView {
+#[component]
+fn search() -> impl Element {
     let query = signal(String::new());
     let hits = resource(query, |word| async move {
         kivact::task::sleep(Duration::from_millis(200)).await;
@@ -100,7 +101,7 @@ fn search() -> impl IntoView {
     });
 
     column((
-        text_input("Search", query),
+        text_input(query).label("Search"),
         show(move || hits.state().is_pending(), || text("Searching…")),
         show_some(move || hits.error(), |error| {
             text(move || error.get().to_string()).role(Role::Alert)
@@ -130,9 +131,10 @@ a side effect. It has the same `AsyncState` and the same `latest()`.
 use std::time::Duration;
 use kivact::prelude::*;
 
-fn save_form() -> impl IntoView {
+#[component]
+fn save_form() -> impl Element {
     let name = signal(String::new());
-    let save = action(ActionMode::Latest, |name: String| async move {
+    let save = action(|name: String| async move {
         kivact::task::sleep(Duration::from_millis(300)).await;
         if name.is_empty() {
             Err(UiError::msg("Name is empty"))
@@ -142,7 +144,7 @@ fn save_form() -> impl IntoView {
     });
 
     column((
-        text_input("Name", name),
+        text_input(name).label("Name"),
         button("Save")
             .disabled(move || save.state().is_pending())
             .on_press(move || save.run(name.get())),
@@ -178,8 +180,7 @@ mod tests {
 }
 ```
 
-The first argument of `action` says what a new `run` does while one is still
-going (see below); `ActionMode::Latest` cancels the old one. The closure
+A new `run` while one is still going cancels the old one (see below). The closure
 takes the input (`|name: String|`) or no input at all (`|| async { … }`, run
 with `save.run(())`). Rust cannot infer an argument's type before it sees how
 you use it, so write the type when you call a method on the input.
@@ -190,44 +191,90 @@ handles you already have.
 
 ### What happens when the user clicks twice
 
-The `ActionMode` you pass to `action` decides how a new `run` treats one that is still going:
+Choose the constructor by what a new `run` does to one that is still going:
 
-| Policy | Behaviour |
+| Constructor | Behaviour |
 |---|---|
-| `ActionMode::Latest` | The new run starts at once and cancels the old one. |
-| `ActionMode::Queue` | Runs go one at a time, in order. |
-| `ActionMode::QueueLatest` | Like `Queue`, but a new run replaces the one that is waiting. The running one is never interrupted. |
+| `action(f)` | The new run starts at once and cancels the old one. |
+| `queued_action(f)` | Runs go one at a time, in order; every run is kept. |
 
 ```rust,no_run
 # use kivact::prelude::*;
-fn drafts() -> impl IntoView {
+# use kivact::task::queued_action;
+#[component]
+fn drafts() -> impl Element {
     let draft = signal(String::new());
-    let save = action(ActionMode::QueueLatest, |text: String| async move {
+    let save = queued_action(|text: String| async move {
         kivact::task::sleep(std::time::Duration::from_millis(500)).await;
         Ok(text.len())
     });
-    let save = save.on_complete(|outcome| match outcome {
-        kivact::task::ActionOutcome::Succeeded(count) => println!("saved: {count}"),
-        kivact::task::ActionOutcome::Failed(error) => eprintln!("save failed: {error}"),
+    let save = save.on_complete(|result: Result<usize, UiError>| match result {
+        Ok(count) => println!("saved: {count}"),
+        Err(error) => eprintln!("save failed: {error}"),
     });
     column((
-        text_input("Draft", draft),
-        // Pressing this ten times quickly runs the first save and the last one.
+        text_input(draft).label("Draft"),
+        // Pressing this ten times quickly saves ten times, one after another.
         button("Save draft").on_press(move || save.run(draft.get())),
     ))
 }
 # fn main() -> kivact::Result<()> { App::new("Drafts").run(drafts) }
 ```
 
-Use `Queue` or `QueueLatest` for work that must finish even if the user moves
-on, such as writing a file. A queued action keeps draining for up to three
-seconds after its component is gone, and closing the window waits for it for
-the same time.
+An action belongs to the component that created it. When that component is
+removed (its screen closes, its row disappears), its runs are cancelled, queued
+ones included. For a save that must finish even when the user leaves the screen,
+create the action in the root function and hand it to the screens through
+context. Closing the app waits up to three seconds for the runs still queued.
+
+```rust,no_run
+use std::time::Duration;
+
+use kivact::prelude::*;
+use kivact::task::queued_action;
+
+/// The app's saves. The root creates them, so closing a screen does not cancel them.
+#[derive(Clone, Copy)]
+struct Saves {
+    document: Action<usize, String>,
+}
+
+#[component]
+fn editor_screen() -> impl Element {
+    let save = use_context::<Saves>().document;
+    let draft = signal(String::new());
+    column((
+        text_input(draft).label("Draft"),
+        button("Save").on_press(move || save.run(draft.get())),
+    ))
+}
+
+fn app() -> impl IntoView {
+    let saves = Saves {
+        document: queued_action(|text: String| async move {
+            kivact::task::sleep(Duration::from_millis(500)).await;
+            Ok(text.len())
+        }),
+    };
+    let editing = signal(true);
+    provide(saves, move || {
+        column((
+            button("Close editor").on_press(move || editing.set(false)),
+            show(editing, editor_screen),
+        ))
+    })
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Saves").run(app)
+}
+```
 
 Other `Action` methods: `retry()` re-runs the input of the latest run,
 `cancel()` stops the run in flight, `input()` returns the input of the run
-the state describes, and `on_complete(|outcome| …)` registers a handler that runs
-when a run finishes (not when it is cancelled). You can register several.
+the state describes, and `on_complete(|result| …)`, which gets a
+`Result<T, UiError>`, registers a handler that runs when a run finishes (not
+when it is cancelled). You can register several.
 
 ## Start a future that has no result to show
 
@@ -239,7 +286,8 @@ use std::time::Duration;
 use kivact::prelude::*;
 use kivact::task::sleep;
 
-fn copy_with_confirmation() -> impl IntoView {
+#[component]
+fn copy_with_confirmation() -> impl Element {
     let copied = signal(false);
     column((
         button("Copy").on_press(move || {
@@ -275,10 +323,11 @@ stops when its owner goes away:
 ```rust,no_run
 # use std::time::Duration;
 # use kivact::prelude::*;
-fn countdown() -> impl IntoView {
+#[component]
+fn countdown() -> impl Element {
     let remaining = signal(10u32);
     spawn(async move {
-        while remaining.get_untracked() > 0 {
+        while remaining.get() > 0 {
             kivact::task::sleep(Duration::from_secs(1)).await;
             remaining.update(|s| *s -= 1);
         }
@@ -315,11 +364,12 @@ fn count_primes(limit: u32, cancel: &CancelToken) -> Option<u32> {
     Some(count)
 }
 
-fn primes() -> impl IntoView {
+#[component]
+fn primes() -> impl Element {
     let limit = signal(200_000u32);
     let result = resource(limit, |limit| async move {
         // `limit` is a plain number here, so it can move to another thread.
-        let count = blocking(move |cancel: CancelToken| count_primes(limit, &cancel)).await;
+        let count = kivact::task::blocking(move |cancel: CancelToken| count_primes(limit, &cancel)).await;
         count.ok_or_else(|| UiError::msg("Stopped"))
     });
     column((
@@ -354,52 +404,56 @@ result. You `await` it inside a resource, an action or a spawned task.
 ## Receive values from another thread
 
 If your own code produces values in the background (a game or audio engine, a
-file watcher, a network client on its own runtime), send them over an async
-channel and read them in a `spawn`ed task. `async-channel` works; any channel
-that wakes a `Waker` does.
+file watcher, a network client on its own runtime), give it the sender of a
+`remote` signal. `remote(initial)` returns a `Signal<T>` for the UI and a
+`Remote<T>` that is `Send`, so it can go to any thread.
 
 ```rust,no_run
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use kivact::prelude::*;
 
-fn sensor() -> impl IntoView {
-    let reading = signal(0u32);
-    let (tx, rx) = async_channel::unbounded::<u32>();
+use kivact::prelude::*;
+use kivact::task::remote;
+
+#[component]
+fn sensor() -> impl Element {
+    let (reading, sender) = remote(0u32);
+    let stop = Arc::new(AtomicBool::new(false));
 
     // Your own thread, started in setup.
+    let stopped = stop.clone();
     std::thread::spawn(move || {
         for n in 0.. {
-            // `Err` means the receiver is gone, i.e. the component was disposed.
-            if tx.send_blocking(n).is_err() {
+            if stopped.load(Ordering::Relaxed) {
                 break;
             }
+            sender.set(n);
             std::thread::sleep(Duration::from_millis(500));
         }
     });
-
-    spawn(async move {
-        while let Ok(n) = rx.recv().await {
-            reading.set(n);
-        }
-    });
+    // Tell the thread to end when this component is removed.
+    on_cleanup(move || stop.store(true, Ordering::Relaxed));
 
     text(move || format!("reading: {}", reading.get()))
 }
 # fn main() -> kivact::Result<()> { App::new("Sensor").run(sensor) }
 ```
 
-The channel's waker asks the UI to run a turn, so values show up even when the
-user is not touching the window. When the component is disposed, the task and
-its `rx` are dropped, and the worker's next send fails: that is its signal to
-stop. Always end worker loops on a failed send.
+`set` wakes the UI, so values show up even when the user is not touching the
+window. Writes are merged: the UI sees the latest value once, at the start of
+its next turn, however often the thread writes. `set` is the only operation:
+compute the new value in your thread and send it whole. When the component is
+removed the sender closes, and a later `set` drops the value; stop the thread
+with your own flag, as `on_cleanup` does here.
 
-Do not call a blocking `recv()` on the UI thread, and do not hold a `Mutex`
-that a worker also takes for a long time. For continuous pictures from your own
+Do not block the UI thread waiting for a worker, and do not hold a `Mutex` that
+a worker also takes for a long time. For continuous pictures from your own
 renderer, see [Draw with a canvas](canvas.md#show-frames-from-your-own-renderer).
 
 Futures that bring their own reactor (for example `tokio` timers and sockets)
 expect to run inside that runtime. Run such a runtime on its own thread and
-send the results through a channel as above.
+send the results through a `remote` sender as above.
 
 ### End the app from a worker
 
@@ -427,55 +481,46 @@ cleanup. The close cannot be cancelled and runs no `on_dismiss`; see
 
 ## Wake the UI without queueing values
 
-When the worker only has to say "something changed, read the latest", do not
-queue a value per change: send a unit and let the task pull. A channel of
-capacity 1 coalesces by itself. `try_send` on a full channel means a wake is
-already pending, so the extra one is dropped; a closed channel means the task
-is gone, so the worker stops.
+When the worker only has to say "something changed, read the latest", it does not
+need to send a value at all. `remote_trigger()` returns a `Trigger` for the UI
+and a `RemoteTrigger` for the worker: `notify()` never blocks, and several
+notifications before the next turn count as one.
 
 ```rust,no_run
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use kivact::prelude::*;
+use kivact::task::remote_trigger;
 
-fn level_meter() -> impl IntoView {
-    let level = signal(0u32);
+#[component]
+fn level_meter() -> impl Element {
     let shared = Arc::new(Mutex::new(0u32));
-    let (changed, wake) = async_channel::bounded::<()>(1);
+    let (changed, wake) = remote_trigger();
 
     // Your own thread, started in setup.
     let latest = shared.clone();
     std::thread::spawn(move || {
         for n in 0.. {
             *latest.lock().expect("invariant: the level lock is not poisoned") = n;
-            match changed.try_send(()) {
-                // Full: a wake is already pending, so this change is coalesced.
-                Ok(()) | Err(async_channel::TrySendError::Full(())) => {}
-                // Closed: the component was disposed; stop.
-                Err(async_channel::TrySendError::Closed(())) => break,
-            }
+            wake.notify();
             std::thread::sleep(Duration::from_millis(100));
         }
     });
 
-    spawn(async move {
-        while wake.recv().await.is_ok() {
-            let n = *shared.lock().expect("invariant: the level lock is not poisoned");
-            level.set(n);
-        }
-    });
-
-    text(move || format!("level: {}", level.get()))
+    text(move || {
+        changed.track();
+        let level = *shared.lock().expect("invariant: the level lock is not poisoned");
+        format!("level: {level}")
+    })
 }
 # fn main() -> kivact::Result<()> { App::new("Level").run(level_meter) }
 ```
 
-`try_send` never waits, so the producer never blocks on a busy UI thread.
-Sending wakes the UI's event loop with a system call (`EventLoopProxy::send_event`
-on Windows, a posted message or an eventfd in an embedded app). Never call it
-from a real-time audio callback: relay the change through your own lock-free
-flag to a non-real-time thread and wake from there.
+`notify` never waits, so the producer never blocks on a busy UI thread. It wakes
+the UI's event loop, which is a system call on most platforms: from a real-time
+audio callback, set your own lock-free flag and notify from a non-real-time
+thread.
 
 ## What cancels a task
 
@@ -486,7 +531,9 @@ that part of the UI is removed:
 - the future is dropped, so it never resumes after its next `await`;
 - its `sleep` timers are released;
 - a `blocking` job's `CancelToken` turns true;
-- a queued `Action` finishes what is waiting, within three seconds.
+- an action's runs are cancelled, queued ones included (an action created by the
+  root lives as long as the app; closing the app waits up to three seconds for
+  its queued runs).
 
 So you do not need cleanup code for ordinary async work. If you start something
 that is not a Kivact task (a thread, a file handle), release it with

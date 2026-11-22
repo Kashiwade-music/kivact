@@ -2,7 +2,7 @@
 
 [English](../../../en/creative/how-to-guide/knobs-and-faders.md)
 
-Creative キットの数値部品（`number`、`value_slider`、`knob`、`fader`）は一つの実装を共有します。binding、範囲、ステップ、キー、ホイール、編集フェーズは同じです。このガイドでは、利用者が考える単位で値を表示し、正しいカーブに従わせ、ポインター操作をプラグインの部品らしくする方法を説明します。
+Creative キットの数値部品（`number`、`value_slider`、`knob`、`fader`）は一つの実装を共有します。シグナル、範囲、ステップ、キー、ホイール、編集フェーズは同じです。このガイドでは、利用者が考える単位で値を表示し、正しいカーブに従わせ、ポインター操作をプラグインの部品らしくする方法を説明します。
 
 ## 利用者が読む形で値を表示する
 
@@ -12,7 +12,8 @@ Creative キットの数値部品（`number`、`value_slider`、`knob`、`fader`
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn gain() -> impl IntoView {
+#[component]
+fn gain() -> impl Element {
     let gain = signal(0.5);
     ui::knob("Gain", gain)
         .range(0.0..=2.0)
@@ -48,7 +49,7 @@ fn gain() -> impl IntoView {
 
 ## 値を移動量に写す
 
-既定では、同じ移動量が同じ値の変化になります。`mapping` は binding の単位を変えずに、その関係だけを変えます。
+既定では、同じ移動量が同じ値の変化になります。`mapping` はシグナルの単位を変えずに、その関係だけを変えます。
 
 | 写像 | 位置 |
 |---|---|
@@ -64,7 +65,8 @@ use kivact::interaction::{ScalarMapping, ScalarStep};
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn frequency() -> impl IntoView {
+#[component]
+fn frequency() -> impl Element {
     ui::knob("Frequency", signal(440.0))
         .range(20.0..=20_000.0)
         .mapping(ScalarMapping::logarithmic())
@@ -84,7 +86,8 @@ fn frequency() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn threshold() -> impl IntoView {
+#[component]
+fn threshold() -> impl Element {
     ui::knob("Threshold", signal(-18.0))
         .range(-60.0..=0.0)
         .unit(" dB")
@@ -125,7 +128,8 @@ fn editor_theme() -> kivact::style::Theme {
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn mix() -> impl IntoView {
+#[component]
+fn mix() -> impl Element {
     ui::knob("Mix", signal(100.0))
         .range(0.0..=100.0)
         .reset_to(100.0)

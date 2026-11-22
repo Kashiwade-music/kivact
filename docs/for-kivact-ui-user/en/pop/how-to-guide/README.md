@@ -8,7 +8,7 @@ list of components and options, run `cargo doc -p kivact-ui-pop --open`.
 
 | Guide | Goal |
 | --- | --- |
-| [Set up the Pop theme and tokens](theme-and-tokens.md) | Install the theme, switch light and dark, change colors and fonts, read tokens. |
+| [Set up the Pop theme and variables](theme-and-tokens.md) | Install the theme, switch light and dark, change colors and fonts, read variables. |
 | [Pick dates and ranges](dates-and-calendars.md) | Let people enter a date or a range, and show a calendar with events. |
 | [Show figures, status and records on a business screen](status-and-figures.md) | Build an overview with stat cards, record lists, badges and detail rows. |
 | [Show rows in a table](tables.md) | Show records with search, sorting, selection, paging and bulk actions. |

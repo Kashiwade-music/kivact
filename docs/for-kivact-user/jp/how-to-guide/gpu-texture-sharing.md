@@ -56,10 +56,11 @@ use kivact::geometry::{Rect};
 use kivact::gpu_interop;
 use kivact::prelude::*;
 
-fn viewport() -> impl IntoView {
+#[component]
+fn viewport() -> impl Element {
     let image = gpu_interop::shared_image(1280, 720);
 
-    // `ShareLink` は Send + Sync + Clone で、エンジンスレッドが持つハンドルです。
+    // `ShareLink` is Send + Sync + Clone: it is the engine thread's handle.
     let link = image.link();
     std::thread::spawn(move || engine_thread(link));
 
@@ -68,14 +69,14 @@ fn viewport() -> impl IntoView {
     column((
         canvas(move |d, size| {
             let rect = Rect::new(0.0, 0.0, size.width, size.height);
-            // 追跡されます。エンジンが新しいフレームを公開するたびに canvas が再描画されます。
+            // Tracked: the canvas redraws for each new frame the engine publishes.
             if let Some(frame) = view.frame() {
                 d.gpu_frame(&frame, rect, ImageOptions::default());
             } else if let Some(pixels) = view.pixels() {
                 d.pixels(&pixels, rect, ImageOptions::default());
             }
         })
-        .style(style().grow(1)),
+        .style(style().flex_grow(1)),
         text(move || format!("{:?}", status.status())),
     ))
 }
@@ -120,7 +121,7 @@ use kivact::view::ShareError;
 
 struct Engine {
     request: ShareRequest,
-    // drop の順序が重要です。pool は最後のフレームを待つので、最初に drop されます。
+    // Drop order matters: the pool goes first, because it waits for its last frame.
     pool: share::Pool,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -129,24 +130,24 @@ struct Engine {
 fn engine_thread(link: ShareLink) {
     let mut engine: Option<Engine> = None;
     while !link.is_closed() {
-        // 新しいリクエストは pool を置き換えます。エンジンがなければ、リクエストを待ちます。
+        // A newer request replaces the pool. Without an engine, wait for one.
         let request = match engine {
             Some(_) => link.poll_request(),
             None => link.wait_request(Duration::from_millis(100)),
         };
         if let Some(request) = request {
-            drop(engine.take()); // 古い pool を先に解放します
+            drop(engine.take()); // release the old pool first
             engine = match &request.mode {
                 ShareMode::Gpu(_) => Engine::serve(&link, request).ok(),
                 ShareMode::Pixels => {
-                    serve_pixels(&link, &request); // CPU で描きます
+                    serve_pixels(&link, &request); // draw on the CPU
                     None
                 }
             };
         }
         if let Some(running) = &mut engine {
             if running.draw_and_publish(&link).is_err() {
-                engine = None; // 次のリクエストを待ちます
+                engine = None; // wait for the next request
             }
         }
     }
@@ -178,21 +179,20 @@ impl Engine {
             return Err("a Pixels request".into());
         };
 
-        // Direct3D 12 のウィンドウと併用するときは `InstanceFlags::DEBUG` と
-        // `VALIDATION` を付けません。デバイスができたあとにデバッグレイヤーを
-        // 有効にすると、そのデバイスが消えます。
+        // No `InstanceFlags::DEBUG` or `VALIDATION` next to a Direct3D 12 window:
+        // turning the debug layer on after a device exists removes that device.
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             flags: wgpu::InstanceFlags::empty().with_env(),
             ..wgpu::InstanceDescriptor::new_without_display_handle()
         });
         let (_, device, queue) =
-            share::request_device(&instance, adapter, &Default::default()).map_err(|e| e.to_string())?;
+            kivact_gpu_share::device::request_device_for(&instance, adapter, &Default::default()).map_err(|e| e.to_string())?;
         let config = PoolConfig::new(request.width, request.height);
         let (pool, textures) = share::Pool::new(&device, adapter, config).map_err(|e| e.to_string())?;
 
-        // SAFETY: pool は `kivact_gpu_share` が作ったもので、`SharedTextures` の契約を
-        // 守ります。このエンジンは `wait_ready` のあと、`Target::submit` 経由でのみ
-        // テクスチャに描きます。
+        // SAFETY: the pool comes from `kivact_gpu_share`, which keeps the contract of
+        // `SharedTextures`; this engine draws into a texture only after `wait_ready`
+        // and only through `Target::submit`.
         unsafe { link.provide(&request, textures) }.map_err(|e| e.to_string())?;
         link.wait_ready(&request, Duration::from_secs(5)).map_err(|e| e.to_string())?;
         Ok(Engine { request, pool, device, queue })
@@ -202,8 +202,8 @@ impl Engine {
         let target = self.pool.acquire(Duration::from_secs(1)).map_err(|e| ShareError::Failed(e.to_string()))?;
         let view = target.create_view(&Default::default());
         let mut encoder = self.device.create_command_encoder(&Default::default());
-        draw_scene(&mut encoder, &view); // エンジン自前のレンダーパス
-        // SAFETY: `queue` は pool のキューで、このスレッドだけが使います。
+        draw_scene(&mut encoder, &view); // the engine's own render pass
+        // SAFETY: `queue` is the pool's queue and only this thread uses it.
         let ready: FrameReady = unsafe { target.submit(&self.queue, [encoder.finish()]) }
             .map_err(|e| ShareError::Failed(e.to_string()))?;
         link.publish(&self.request, ready.slot, ready.value);
@@ -234,7 +234,7 @@ use kivact::draw::Pixels;
 # fn render_on_cpu(width: u32, height: u32) -> Vec<u8> { vec![0; (width * height * 4) as usize] }
 
 fn serve_pixels(link: &ShareLink, request: &ShareRequest) {
-    let rgba: Vec<u8> = render_on_cpu(request.width, request.height); // ストレートアルファの RGBA8
+    let rgba: Vec<u8> = render_on_cpu(request.width, request.height); // straight-alpha RGBA8
     link.publish_pixels(Pixels::new(request.width, request.height, rgba));
 }
 ```
@@ -274,7 +274,7 @@ GPU デバイスを先に作るのはウィンドウで、どのアダプター�
 エンジンが特定のものを必要とする場合など、ウィンドウにグラフィックス API、アダプターの種類、特定のアダプターを選ばせたいときは、希望を設定します。
 
 ```rust,no_run
-use kivact::launch::{GpuBackend, GpuPower, GpuPreference, GpuStart};
+use kivact::platform::{GpuBackend, GpuPower, GpuPreference, GpuStart};
 use kivact::prelude::*;
 # fn app() -> impl IntoView { text("Viewport") }
 
@@ -292,7 +292,7 @@ fn main() -> kivact::Result<()> {
 
 これは要求ではなく希望です。応えられなければウィンドウは別のアダプターや API に切り替わり、環境変数 `WGPU_BACKEND` と `WGPU_POWER_PREF` が優先されます。希望がなければ、ウィンドウは省電力のアダプターを好み、Vulkan、次に (Windows では) Direct3D 12 の順で選びます。エンジンは自前の希望ではなく、常に `adapter()` に従ってください。
 
-`start` は device を作る時期を決めます。既定の `GpuStart::OnDemand` は CPU で frame を描き、ウィンドウが初めて GPU を必要としたときに device を起動します。必要とするのは、ユーザーの shader を描いたとき、App が `gpu_interop::adapter()` を読んだとき（`shared_image` が読みます。texture を import する engine や drawable の export を受け取る engine も先に読みます）、または CPU の frame が表示周期の半分を続けて超えたときです。GPU を一度も使わない画面はドライバーのメモリを負担せず、最初の shader や共有画像は device の準備後に少し遅れて現れます。その間に描かれる frame は CPU の frame です。最初の frame から GPU で描く必要があるとき（起動直後からウィンドウ全体が viewport の画面、計測、短い CPU への切り替えが許されない場合）は `GpuStart::AtLaunch` を選びます。`ARVANE_RENDERER=gpu` は `AtLaunch`、`ARVANE_RENDERER=auto` は `OnDemand` を強制し、`ARVANE_RENDERER=cpu` は device を起動しません。
+`start` は device を作る時期を決めます。既定の `GpuStart::OnDemand` は CPU で frame を描き、ウィンドウが初めて GPU を必要としたときに device を起動します。必要とするのは、ユーザーの shader を描いたとき、App が `gpu_interop::adapter()` を読んだとき（`shared_image` が読みます。texture を import する engine や drawable の export を受け取る engine も先に読みます）、または CPU の frame が表示周期の半分を続けて超えたときです。GPU を一度も使わない画面はドライバーのメモリを負担せず、最初の shader や共有画像は device の準備後に少し遅れて現れます。その間に描かれる frame は CPU の frame です。最初の frame から GPU で描く必要があるとき（起動直後からウィンドウ全体が viewport の画面、計測、短い CPU への切り替えが許されない場合）は `GpuStart::AtLaunch` を選びます。`ARVANE_RENDERER=gpu` は `AtLaunch`、`ARVANE_RENDERER=auto` は `OnDemand` を強制し、`ARVANE_RENDERER=cpu` は device を起動しません。`GpuStart::Never` はウィンドウを CPU に留めます。環境変数 `ARVANE_RENDERER` は実行時に選択を上書きします。`cpu`、`gpu`、`auto` は、それぞれ `Never`、`AtLaunch`、`OnDemand` を意味します。
 
 ## 制限
 
