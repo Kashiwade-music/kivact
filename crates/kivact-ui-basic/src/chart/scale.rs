@@ -1,6 +1,6 @@
 //! Role: Value scales and nice ticks of the chart kinds.
 
-use crate::nice::round_step;
+use kivact_plot::nice::round_step;
 
 /// The ticks a value axis aims for: about four intervals, as the round step
 /// of [`round_step`] counts them.

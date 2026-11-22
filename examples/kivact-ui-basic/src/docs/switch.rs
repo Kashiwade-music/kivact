@@ -1,56 +1,49 @@
 //! Catalog page of Switch: basic, description, disabled and settings.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "switch",
-        name: "Switch",
-        description: "オンとオフを切り替えるスイッチです。標準の kivact::ui::switch に Lyra の見た目を当てたものです。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("switch.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "basic",
-                "Basic",
-                "ラベルと signal を渡します。クリックと Space で切り替わります。",
-                basic,
-            ),
-            Example::new(
-                "description",
-                "With description",
-                "ラベルの下に補足の文章を添える例です。",
-                description,
-            ),
-            Example::new(
-                "disabled",
-                "Disabled",
-                "disabled のスイッチは薄く表示され、操作できません。",
-                disabled,
-            ),
-            Example::new(
-                "invalid",
-                "Invalid",
-                "invalid を true にすると、枠が destructive の色になり、薄い ring が付きます。",
-                invalid,
-            ),
-            Example::new(
-                "settings",
-                "Settings list",
-                "複数のスイッチを並べた設定の例です。状態はそれぞれ別の signal が持ちます。",
-                settings,
-            ),
-            Example::new(
-                "field",
-                "In a field",
-                "basic::field の Horizontal で、ラベルと説明を左、スイッチを右に置きます。",
-                in_field,
-            ),
-        ],
-    }
+    Page::new("switch", "Switch", "Components", include_str!("switch.rs"))
+        .description("A switch that turns on and off. It is the standard kivact::ui::switch in the Lyra look.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "basic",
+            "Basic",
+            "Pass a label and a signal. Click or Space toggles it.",
+            basic,
+        ))
+        .example(Example::new(
+            "description",
+            "With description",
+            "An example with a supporting sentence under the label.",
+            description,
+        ))
+        .example(Example::new(
+            "disabled",
+            "Disabled",
+            "A disabled switch is drawn faint and cannot be operated.",
+            disabled,
+        ))
+        .example(Example::new(
+            "invalid",
+            "Invalid",
+            "invalid set to true makes the border the destructive color and adds a faint ring.",
+            invalid,
+        ))
+        .example(Example::new(
+            "settings",
+            "Settings list",
+            "An example of a settings list with several switches. Each switch holds its state in its own signal.",
+            settings,
+        ))
+        .example(Example::new(
+            "field",
+            "In a field",
+            "With Horizontal in basic::field, the label and the description sit on the left and the switch on the right.",
+            in_field,
+        ))
 }
 
 // example: basic
@@ -116,7 +109,7 @@ fn in_field() -> impl IntoView {
     let on = signal(false);
     kivact::ui::field("Share across devices", switch("Share across devices", on))
         .hint("Focus is shared across devices.")
-        .style(style().direction(kivact::style::Direction::Row))
+        .style(style().flex_direction(kivact::style::FlexDirection::Row))
         .style(style().width(420))
 }
 // end example

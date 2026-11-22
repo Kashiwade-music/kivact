@@ -1,44 +1,37 @@
 //! Catalog page of Card: login form, small, bordered header and image.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "card",
-        name: "Card",
-        description: "見出し、内容、フッターを持つ枠付きの表示領域です。header、image、content、footer の各スロットに渡します。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("card.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "card_header に見出しと説明、右上の操作を渡し、content にフォーム、footer にボタンを置いたログインの例です。",
-                default,
-            ),
-            Example::new(
-                "small",
-                "Small",
-                "size に Sm を渡すと、余白が 12 px になります。",
-                small,
-            ),
-            Example::new(
-                "bordered",
-                "Bordered header",
-                "bordered で見出しの下に線を引きます。",
-                bordered,
-            ),
-            Example::new(
-                "image",
-                "Image",
-                "image は上端いっぱいに表示され、上の余白がなくなります。",
-                with_image,
-            ),
-        ],
-    }
+    Page::new("card", "Card", "Components", include_str!("card.rs"))
+        .description("A bordered area with a header, content and a footer. Pass them to the header, image, content and footer slots.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "card_header takes the title, a description and an action at the top right; the content holds a form and the footer holds the buttons. This is a login example.",
+            default,
+        ))
+        .example(Example::new(
+            "small",
+            "Small",
+            "Pass Sm as size to make the padding 12 px.",
+            small,
+        ))
+        .example(Example::new(
+            "bordered",
+            "Bordered header",
+            "bordered draws a line under the header.",
+            bordered,
+        ))
+        .example(Example::new(
+            "image",
+            "Image",
+            "The image fills the top edge, so the top padding disappears.",
+            with_image,
+        ))
 }
 
 // example: default
@@ -49,11 +42,15 @@ fn default() -> impl IntoView {
         basic::field_group((
             kivact::ui::field(
                 "Email",
-                text_input("Email", email).placeholder("m@example.com"),
+                text_input(email)
+                    .label("Email")
+                    .placeholder("m@example.com"),
             ),
             kivact::ui::field(
                 "Password",
-                text_input("Password", password).purpose(kivact::view::InputPurpose::Password),
+                text_input(password)
+                    .label("Password")
+                    .purpose(kivact::view::InputPurpose::Password),
             ),
         ))
     })
@@ -87,7 +84,7 @@ fn small() -> impl IntoView {
 // example: bordered
 fn bordered() -> impl IntoView {
     kivact::ui::card(text("You have 3 unread messages."))
-        .variant(basic::CardLook::default().header_bordered(true))
+        .variant(basic::CardHeaderBordered(true))
         .header(basic::card_header("Notifications"))
         .style(style().width(360))
 }

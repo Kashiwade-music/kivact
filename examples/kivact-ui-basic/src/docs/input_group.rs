@@ -1,44 +1,37 @@
 //! Catalog page of Input Group: icons, text, buttons and block addons.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "input-group",
-        name: "Input Group",
-        description: "入力欄に前後の文字、アイコン、ボタンを付ける部品です。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("input_group.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "icon",
-                "Icon and text",
-                "start と end にアイコンや文字を置きます。枠とフォーカスのリングは入力欄ではなくグループが描きます。",
-                icon,
-            ),
-            Example::new(
-                "button",
-                "Button",
-                "input_group_button で、グループの中に押せるボタンを置きます。",
-                button_addon,
-            ),
-            Example::new(
-                "textarea",
-                "Textarea",
-                "block_end でテキストエリアの下に操作を並べます。",
-                textarea,
-            ),
-            Example::new(
-                "invalid",
-                "Invalid",
-                "invalid を true にすると、グループの枠とリングが destructive の色になります。",
-                invalid,
-            ),
-        ],
-    }
+    Page::new("input-group", "Input Group", "Components", include_str!("input_group.rs"))
+        .description("A component that attaches text, icons or buttons before and after an input.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "icon",
+            "Icon and text",
+            "Put icons or text in start and end. The group, not the input, draws the frame and the focus ring.",
+            icon,
+        ))
+        .example(Example::new(
+            "button",
+            "Button",
+            "input_group_button places a pressable button inside the group.",
+            button_addon,
+        ))
+        .example(Example::new(
+            "textarea",
+            "Textarea",
+            "block_end puts actions below a text area.",
+            textarea,
+        ))
+        .example(Example::new(
+            "invalid",
+            "Invalid",
+            "invalid set to true makes the frame and the ring of the group the destructive color.",
+            invalid,
+        ))
 }
 
 // example: icon
@@ -46,7 +39,8 @@ fn icon() -> impl IntoView {
     let query = signal(String::new());
     kivact::ui::input_group(
         "Search",
-        (kivact::ui::text_input("Search", query)
+        (kivact::ui::text_input(query)
+            .label("Search")
             .variant(basic::InputGroupControl)
             .placeholder("Search..."),),
     )
@@ -62,7 +56,9 @@ fn button_addon() -> impl IntoView {
     let copied = signal(false);
     kivact::ui::input_group(
         "Link",
-        (kivact::ui::text_input("Link", url).variant(basic::InputGroupControl),),
+        (kivact::ui::text_input(url)
+            .label("Link")
+            .variant(basic::InputGroupControl),),
     )
     .end(
         kivact::ui::button("Copy")
@@ -85,7 +81,8 @@ fn textarea() -> impl IntoView {
     let body = signal(String::new());
     kivact::ui::input_group(
         "Message",
-        (kivact::ui::text_area("Message", body)
+        (kivact::ui::text_area(body)
+            .label("Message")
             .variant(basic::InputGroupControl)
             .placeholder("Write a message"),),
     )
@@ -99,7 +96,9 @@ fn invalid() -> impl IntoView {
     let value = signal(String::from("not an email"));
     kivact::ui::input_group(
         "Email",
-        (kivact::ui::text_input("Email", value).variant(basic::InputGroupControl),),
+        (kivact::ui::text_input(value)
+            .label("Email")
+            .variant(basic::InputGroupControl),),
     )
     .start(kivact::view::icon("mail"))
     .invalid(true)

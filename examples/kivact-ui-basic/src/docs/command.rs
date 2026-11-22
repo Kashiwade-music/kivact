@@ -1,34 +1,28 @@
 //! Catalog page of Command: the standard command palette in a dialog.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page, PreviewAlign};
 use kivact::interaction::Command;
 use kivact::prelude::*;
 use kivact::ui::command_palette;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "command",
-        name: "Command",
-        description: "検索しながらコマンドや項目を選ぶメニューです。標準の command_palette をモーダルのダイアログに表示します。入力で項目を絞り込み、矢印キーで移動し、Enter かクリックで選びます。グループ、アイコン、ショートカットを持てます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("command.rs"),
-        align: PreviewAlign::Start,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "Command の一覧と、選ばれたキーを受け取るコールバックを渡します。開くショートカットの割り当てはアプリの役目です。選ぶと閉じます。",
-                default,
-            ),
-            Example::new(
-                "simple",
-                "Simple",
-                "グループを使わない一覧です。placeholder と empty_text で文言を差し替えます。",
-                simple,
-            ),
-        ],
-    }
+    Page::new("command", "Command", "Components", include_str!("command.rs"))
+        .description("A menu that searches as you type and chooses a command or an item. It shows the standard command_palette in a modal dialog. Typing narrows the items, the arrow keys move, and Enter or a click chooses. Items can have groups, icons and shortcuts.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .align(PreviewAlign::Start)
+        .example(Example::new(
+            "default",
+            "Default",
+            "Pass the list of Commands and a callback that receives the key of the chosen one. The shortcut that opens it is the application's job. Choosing an item closes it.",
+            default,
+        ))
+        .example(Example::new(
+            "simple",
+            "Simple",
+            "A list without groups. placeholder and empty_text change the texts.",
+            simple,
+        ))
 }
 
 // example: default

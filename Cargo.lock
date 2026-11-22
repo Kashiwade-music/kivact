@@ -2635,13 +2635,16 @@ name = "kivact-ui-basic"
 version = "0.1.0"
 dependencies = [
  "kivact",
+ "kivact-plot",
 ]
 
 [[package]]
 name = "kivact-ui-basic-catalog"
 version = "0.1.0"
 dependencies = [
+ "catalog-shell",
  "kivact",
+ "kivact-plot",
  "kivact-ui-basic",
 ]
 

@@ -1,46 +1,39 @@
 //! Catalog page of Dropdown Menu: items, checkboxes, radio group and submenu.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact::view::OverlayAlign;
 use kivact::view::Placement;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "dropdown-menu",
-        name: "Dropdown Menu",
-        description: "ボタンから開く、操作の一覧メニューです。標準の kivact::ui::menu を Lyra の見た目で描きます。矢印キー、Home、End、先頭の文字の入力で項目を移動し、Enter か Space で選びます。見出しと区切りには移動しません。",
-        usage: "use kivact::prelude::*;\nuse kivact::view::{OverlayAlign, Placement};",
-        source: include_str!("dropdown_menu.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "basic",
-                "Basic",
-                "MenuEntry の一覧と、選ばれた項目の key を受け取る関数を渡します。icon、shortcut、destructive(bool)、disabled(bool) は項目のメソッドで付けます。メニューは attach に渡したボタンから開き、at_least_trigger_width(true) でボタン以上の幅になります。",
-                basic,
-            ),
-            Example::new(
-                "checkboxes",
-                "Checkboxes",
-                "checked(bool) の項目は選ぶたびに受け取る関数が呼ばれるだけです。keep_open(true) でメニューを開いたままにします。チェックの状態はアプリが持ち、次の一覧の checked に反映します。",
-                checkboxes,
-            ),
-            Example::new(
-                "radio-group",
-                "Radio Group",
-                "MenuEntry::radio は Role::MenuItemRadio の項目で、選ばれている項目にチェックが付きます。チェックと同じく、keep_open(true) で選んでもメニューを閉じません。",
-                radio_group,
-            ),
-            Example::new(
-                "submenu",
-                "Submenu",
-                "MenuEntry::submenu に key と子の一覧を渡します。右矢印で開き、左矢印か Escape で閉じます。placement（kivact::view::Placement）と align（kivact::style::Align）で開く位置を選べます。",
-                submenu,
-            ),
-        ],
-    }
+    Page::new("dropdown-menu", "Dropdown Menu", "Components", include_str!("dropdown_menu.rs"))
+        .description("A menu of actions that opens from a button. It is the standard kivact::ui::menu in the Lyra look. The arrow keys, Home, End and typing the first letter move between items; Enter or Space chooses. The keys do not stop on headings or separators.")
+        .usage("use kivact::prelude::*;\nuse kivact::view::{OverlayAlign, Placement};")
+        .example(Example::new(
+            "basic",
+            "Basic",
+            "Pass a list of MenuEntry and a function that receives the key of the chosen item. icon, shortcut, destructive(bool) and disabled(bool) are methods of an item. The menu opens from the button passed to attach, and at_least_trigger_width(true) makes it at least as wide as the button.",
+            basic,
+        ))
+        .example(Example::new(
+            "checkboxes",
+            "Checkboxes",
+            "A checked(bool) item only calls the function that receives the choice each time. keep_open(true) keeps the menu open. The app holds the checked state and feeds it back in the checked of the next list.",
+            checkboxes,
+        ))
+        .example(Example::new(
+            "radio-group",
+            "Radio Group",
+            "MenuEntry::radio is a Role::MenuItemRadio item, and the chosen item shows a check. As with check items, keep_open(true) keeps the menu open after a choice.",
+            radio_group,
+        ))
+        .example(Example::new(
+            "submenu",
+            "Submenu",
+            "MenuEntry::submenu takes a key and a list of children. The right arrow opens it, and the left arrow or Escape closes it. placement (kivact::view::Placement) and align (kivact::style::Align) choose where it opens.",
+            submenu,
+        ))
 }
 
 // example: basic
@@ -72,7 +65,7 @@ fn basic() -> impl IntoView {
 // end example
 
 // example: checkboxes
-// xtask-allow(state): legacy: status, activity; the Status Bar checkbox, flipped only by its own menu entry; the Activity Bar entry never touches it, so both, either or neither
+// xtask-allow(state): independent: status and activity back the Status Bar and Activity Bar menu checkboxes; on_activate flips only the one whose key was activated
 fn checkboxes() -> impl IntoView {
     let status = signal(true);
     let activity = signal(false);

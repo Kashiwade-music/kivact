@@ -1,56 +1,49 @@
 //! Catalog page of Checkbox: basic, description, disabled and select all.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "checkbox",
-        name: "Checkbox",
-        description: "オンとオフを切り替えるチェックボックスです。標準の kivact::ui::checkbox に Lyra の見た目を当てたもので、状態は呼び出し側の signal が持ちます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("checkbox.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "basic",
-                "Basic",
-                "ラベルと signal を渡すだけで使えます。クリックと Space で切り替わります。",
-                basic,
-            ),
-            Example::new(
-                "description",
-                "With description",
-                "ラベルの下に補足の文章を添える例です。",
-                description,
-            ),
-            Example::new(
-                "disabled",
-                "Disabled",
-                "disabled のチェックボックスは薄く表示され、操作できません。",
-                disabled,
-            ),
-            Example::new(
-                "invalid",
-                "Invalid",
-                "invalid を true にすると、枠が destructive の色になり、薄い ring が付きます。支援技術にも伝わります。",
-                invalid,
-            ),
-            Example::new(
-                "select-all",
-                "Select all",
-                "indeterminate で一部だけ選ばれた状態を表します。親の状態は子の signal から導きます。",
-                select_all,
-            ),
-            Example::new(
-                "field",
-                "In a field",
-                "basic::field_set に複数のチェックボックスを入れ、見出しと説明を付けます。",
-                in_field,
-            ),
-        ],
-    }
+    Page::new("checkbox", "Checkbox", "Components", include_str!("checkbox.rs"))
+        .description("A checkbox that turns on and off. It is the standard kivact::ui::checkbox in the Lyra look; the caller's signal holds the state.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "basic",
+            "Basic",
+            "Pass a label and a signal and it works. Click or Space toggles it.",
+            basic,
+        ))
+        .example(Example::new(
+            "description",
+            "With description",
+            "An example with a supporting sentence under the label.",
+            description,
+        ))
+        .example(Example::new(
+            "disabled",
+            "Disabled",
+            "A disabled checkbox is drawn faint and cannot be operated.",
+            disabled,
+        ))
+        .example(Example::new(
+            "invalid",
+            "Invalid",
+            "invalid set to true makes the border the destructive color and adds a faint ring. Assistive technology hears it too.",
+            invalid,
+        ))
+        .example(Example::new(
+            "select-all",
+            "Select all",
+            "indeterminate shows that only some of the items are selected. The state of the parent is derived from the signals of the children.",
+            select_all,
+        ))
+        .example(Example::new(
+            "field",
+            "In a field",
+            "Put several checkboxes in a basic::field_set and give it a title and a description.",
+            in_field,
+        ))
 }
 
 // example: basic

@@ -1,32 +1,25 @@
 //! Catalog page of Marker: default, separator, border and icon.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "marker",
-        name: "Marker",
-        description: "文章の中に目印や区切りを入れる部品です。会話の日付の区切りなどに使います。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("marker.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "variants",
-                "Variants",
-                "MarkerVariant の Default、Separator、Border です。",
-                variants,
-            ),
-            Example::new(
-                "icon",
-                "With icon",
-                "icon で内容の前に 14 px のアイコンを添えます。",
-                with_icon,
-            ),
-        ],
-    }
+    Page::new("marker", "Marker", "Components", include_str!("marker.rs"))
+        .description("A mark or a divider placed in running text. It is used for things such as the date divider in a conversation.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "variants",
+            "Variants",
+            "The MarkerVariant values Default, Separator and Border.",
+            variants,
+        ))
+        .example(Example::new(
+            "icon",
+            "With icon",
+            "icon adds a 14 px icon before the content.",
+            with_icon,
+        ))
 }
 
 // example: variants

@@ -1,51 +1,44 @@
 //! Catalog page of Tabs: default, disabled tab, vertical and the line variant.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact::view::Orientation;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "tabs",
-        name: "Tabs",
-        description: "同じ領域で複数の内容を切り替えます。標準の kivact::ui::tabs に Lyra の見た目（default の variant）を当てたもので、左右の矢印キーでタブを移動します。line の variant は .variant(basic::TabsVariant::Line) で、塗りつぶしの代わりに選択中のタブの下へ線を引きます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("tabs.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "ListItem の一覧と選択中のキーを渡し、show に選ばれたキーごとのパネルを返す関数を渡します。",
-                default,
-            ),
-            Example::new(
-                "disabled",
-                "Disabled tab",
-                "ListItem の disabled で、選べないタブを作れます。",
-                disabled,
-            ),
-            Example::new(
-                "vertical",
-                "Vertical",
-                "vertical で、タブを縦に並べます。上下の矢印キーで移動します。",
-                vertical,
-            ),
-            Example::new(
-                "line",
-                "Line",
-                ".variant(basic::TabsVariant::Line) で、その tabs が line の variant になります。選択中のタブの下に 2 px の線が引かれ、背景は塗られません。",
-                line,
-            ),
-            Example::new(
-                "line-vertical",
-                "Line, vertical",
-                "vertical にすると線はタブの右に付き、上下の矢印キーで移動します。パネルはタブの右に並びます。",
-                line_vertical,
-            ),
-        ],
-    }
+    Page::new("tabs", "Tabs", "Components", include_str!("tabs.rs"))
+        .description("Switches between several panels in the same area. It is the standard kivact::ui::tabs in the Lyra look (the default variant), and the left and right arrow keys move between the tabs. The line variant is .variant(basic::TabsVariant::Line); instead of a filled background it draws a line under the selected tab.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "Pass the ListItem list, the selected key, and a function to show returns the panel for each selected key.",
+            default,
+        ))
+        .example(Example::new(
+            "disabled",
+            "Disabled tab",
+            "Set disabled on a ListItem to make a tab that cannot be chosen.",
+            disabled,
+        ))
+        .example(Example::new(
+            "vertical",
+            "Vertical",
+            "vertical lines the tabs up in a column; the up and down arrow keys move between them.",
+            vertical,
+        ))
+        .example(Example::new(
+            "line",
+            "Line",
+            ".variant(basic::TabsVariant::Line) makes the tabs the line variant. A 2 px line is drawn under the selected tab, and no background is filled.",
+            line,
+        ))
+        .example(Example::new(
+            "line-vertical",
+            "Line, vertical",
+            "With vertical the line sits on the right of the tabs, the up and down arrow keys move, and the panels sit to the right of the tabs.",
+            line_vertical,
+        ))
 }
 
 // example: default

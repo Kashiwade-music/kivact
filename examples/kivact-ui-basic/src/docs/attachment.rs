@@ -1,45 +1,38 @@
 //! Catalog page of Attachment: default, sizes, states and vertical.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact::view::Orientation;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "attachment",
-        name: "Attachment",
-        description: "添付ファイルの名前、状態、操作を一行にまとめて表示する部品です。on_press で全体を押せるようにでき、操作は actions に置きます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("attachment.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "media、description、actions を持つ基本の形です。",
-                default,
-            ),
-            Example::new(
-                "sizes",
-                "Sizes",
-                "AttachmentSize の Default、Sm、Xs です。",
-                sizes,
-            ),
-            Example::new(
-                "states",
-                "States",
-                "AttachmentState の Idle（破線）、Uploading（スピナー）、Error（警告色）です。",
-                states,
-            ),
-            Example::new(
-                "vertical",
-                "Vertical",
-                "orientation に Orientation::Vertical を渡すと、メディアが上に来ます。",
-                vertical,
-            ),
-        ],
-    }
+    Page::new("attachment", "Attachment", "Components", include_str!("attachment.rs"))
+        .description("Shows the name, the state and the actions of an attached file on one line. on_press makes the whole row pressable, and the actions go in actions.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "The basic form, with media, a description and actions.",
+            default,
+        ))
+        .example(Example::new(
+            "sizes",
+            "Sizes",
+            "The AttachmentSize values Default, Sm and Xs.",
+            sizes,
+        ))
+        .example(Example::new(
+            "states",
+            "States",
+            "The AttachmentState values Idle (dashed), Uploading (a spinner) and Error (the warning color).",
+            states,
+        ))
+        .example(Example::new(
+            "vertical",
+            "Vertical",
+            "Pass Orientation::Vertical to orientation to put the media on top.",
+            vertical,
+        ))
 }
 
 // example: default

@@ -1,38 +1,31 @@
 //! Catalog page of Menubar: basic menus, checks and radios, and a submenu.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "menubar",
-        name: "Menubar",
-        description: "アプリのメニューバーです。左右の矢印キーで隣のメニューへ移り、メニューを開いたまま切り替わります。メニューを 1 つ開くと、ほかの見出しにポインタを置くだけで開きます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("menubar.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "basic",
-                "Basic",
-                "見出しと項目の一覧の組を並べて渡します。項目の種類は Dropdown Menu と同じです。",
-                basic,
-            ),
-            Example::new(
-                "checkboxes",
-                "Checkboxes and radios",
-                "check と radio の状態はアプリが持ち、一覧を返す関数に反映します。",
-                checkboxes,
-            ),
-            Example::new(
-                "submenu",
-                "Submenu",
-                "MenuEntry::submenu で入れ子にします。最後の項目から右矢印を押すと隣のメニューへ移ります。",
-                submenu,
-            ),
-        ],
-    }
+    Page::new("menubar", "Menubar", "Components", include_str!("menubar.rs"))
+        .description("The menu bar of an application. The left and right arrow keys move to the next menu and it stays open as you move. Once one menu is open, merely pointing at another heading opens that one.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "basic",
+            "Basic",
+            "Pass the pairs of heading and list of items side by side. The kinds of items are the same as in Dropdown Menu.",
+            basic,
+        ))
+        .example(Example::new(
+            "checkboxes",
+            "Checkboxes and radios",
+            "The app holds the state of check and radio items and reflects it in the function that returns the list.",
+            checkboxes,
+        ))
+        .example(Example::new(
+            "submenu",
+            "Submenu",
+            "MenuEntry::submenu nests a menu. From the last item, the right arrow moves to the next menu.",
+            submenu,
+        ))
 }
 
 // example: basic

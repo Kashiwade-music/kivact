@@ -3,7 +3,7 @@
 use super::model::{Frame, Hit, HitRow, series_color};
 use super::polar::{MARGIN, locate, polar};
 use super::scale::{Domain, text_width};
-use crate::tokens::Tokens;
+use crate::color::{BORDER, MUTED_FOREGROUND, RING};
 use kivact::draw::{Draw, LineJoin, Path, Stroke, TextBaseline, TextFormat};
 use kivact::geometry::{Point, Size};
 use kivact::style::TextAlign;
@@ -59,13 +59,12 @@ impl Web {
 
 /// Paint the chart; `hit` is the axis under the pointer.
 pub(super) fn paint(d: &mut Draw, size: Size, f: &Frame, hit: Option<&Hit>) {
-    let tokens = d.theme().ext::<Tokens>();
     let web = Web::new(size, f);
     if f.grid {
-        paint_web(d, &web, &tokens);
+        paint_web(d, &web);
     }
     if f.axis {
-        paint_labels(d, &web, f, &tokens);
+        paint_labels(d, &web, f);
     }
     if let Some(hit) = hit {
         let spoke = Path::new().move_to(web.center).line_to(polar(
@@ -73,11 +72,11 @@ pub(super) fn paint(d: &mut Draw, size: Size, f: &Frame, hit: Option<&Hit>) {
             web.radius,
             web.angle(hit.index),
         ));
-        d.stroke_path(&spoke, &Stroke::new(1.0), tokens.ring);
+        d.stroke_path(&spoke, &Stroke::new(1.0), RING);
     }
     let stroke = Stroke::new(2.0).join(LineJoin::Round);
     for series in 0..f.config.series.len() {
-        let color = series_color(f.config, series, &tokens);
+        let color = series_color(f.config, series);
         let points: Vec<Point> = (0..f.rows.len())
             .map(|row| web.point(row, f.value(row, series)))
             .collect();
@@ -98,7 +97,7 @@ pub(super) fn paint(d: &mut Draw, size: Size, f: &Frame, hit: Option<&Hit>) {
     }
 }
 
-fn paint_web(d: &mut Draw, web: &Web, tokens: &Tokens) {
+fn paint_web(d: &mut Draw, web: &Web) {
     let stroke = Stroke::new(1.0);
     for tick in web.domain.ticks() {
         if tick <= web.domain.lo {
@@ -108,17 +107,17 @@ fn paint_web(d: &mut Draw, web: &Web, tokens: &Tokens) {
         for axis in 1..web.axes {
             ring = ring.line_to(web.point(axis, tick));
         }
-        d.stroke_path(&ring.close(), &stroke, tokens.border);
+        d.stroke_path(&ring.close(), &stroke, BORDER);
     }
     for axis in 0..web.axes {
         let spoke = Path::new()
             .move_to(web.center)
             .line_to(web.point(axis, web.domain.hi));
-        d.stroke_path(&spoke, &stroke, tokens.border);
+        d.stroke_path(&spoke, &stroke, BORDER);
     }
 }
 
-fn paint_labels(d: &mut Draw, web: &Web, f: &Frame, tokens: &Tokens) {
+fn paint_labels(d: &mut Draw, web: &Web, f: &Frame) {
     for (axis, row) in f.rows.iter().enumerate() {
         let degrees = web.angle(axis);
         let at = polar(web.center, web.radius + LABEL_GAP, degrees);
@@ -139,7 +138,7 @@ fn paint_labels(d: &mut Draw, web: &Web, f: &Frame, tokens: &Tokens) {
         };
         let style = TextFormat {
             size: 12.0,
-            color: tokens.muted_foreground,
+            color: MUTED_FOREGROUND,
             align,
             baseline,
             ..TextFormat::default()
