@@ -1,25 +1,15 @@
 //! Role: The default recipes of the sidebar's parts, read from the theme's variables.
 
-use super::look::{SidebarItemState, SidebarState, SidebarTheme};
-use super::state::{SidebarCollapsible, SidebarFrame, SidebarMenuButtonSize, SidebarSide};
+use super::state::{
+    SidebarCollapsible, SidebarFrame, SidebarItemState, SidebarMenuButtonSize, SidebarSide,
+    SidebarState,
+};
 use super::vars;
-use crate::layer::with_base_recipe_style;
-use crate::recipe::{Look, Recipe};
-use kivact_core::state::Value;
+use crate::recipe::Look;
 use kivact_core::style::{
     Align, Color, Cursor, FlexDirection, Justify, Overflow, Position, Shadow, Style, Theme, color,
     font, pct, space, style,
 };
-use kivact_core::view::{Element, Variants};
-
-/// The part `node` with the recipe `pick` chooses, for `state`, under the caller's styles.
-pub(super) fn themed<N: Element, S: Clone + PartialEq + 'static>(
-    node: N,
-    pick: fn(&SidebarTheme) -> &Recipe<S>,
-    state: Value<S>,
-) -> N {
-    with_base_recipe_style(node, pick, &Variants::default(), move || state.get())
-}
 
 /// Whether the frame insets the panel by 8 px (`Floating` and `Inset`).
 fn framed(frame: SidebarFrame) -> bool {

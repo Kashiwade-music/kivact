@@ -1,42 +1,11 @@
 //! Role: The sidebar's recipe states and recipe table.
 
 use super::recipes;
-use super::state::{SidebarCollapsible, SidebarFrame, SidebarMenuButtonSize, SidebarSide};
-use crate::recipe::recipe_table;
-
-/// What the panel-level parts of a sidebar read.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SidebarState {
-    /// Whether the sidebar is open.
-    pub open: bool,
-    /// Whether the sidebar is an icon column (`Icon` and closed).
-    pub icon_only: bool,
-    /// The side of the window.
-    pub side: SidebarSide,
-    /// The frame.
-    pub frame: SidebarFrame,
-    /// What closing does.
-    pub collapsible: SidebarCollapsible,
-}
-
-/// What a row of a sidebar menu (and its badge, action and sub list) reads.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SidebarItemState {
-    /// Whether the row is the current page.
-    pub active: bool,
-    /// Whether the sidebar is an icon column.
-    pub icon_only: bool,
-    /// Whether the row has an action control.
-    pub has_action: bool,
-    /// Whether the reading direction is right to left.
-    pub rtl: bool,
-    /// Whether the row is disabled: it takes no press.
-    pub disabled: bool,
-    /// The row's height.
-    pub size: SidebarMenuButtonSize,
-    /// Whether the row's sub list is open, or `None` when the row has no toggle.
-    pub expanded: Option<bool>,
-}
+pub use super::state::{SidebarItemState, SidebarState};
+use crate::layer::with_base_recipe_style;
+use crate::recipe::{Recipe, recipe_table};
+use kivact_core::state::Value;
+use kivact_core::view::{Element, Variants};
 
 recipe_table! {
     /// The recipes of the sidebar components.
@@ -102,4 +71,13 @@ recipe_table! {
         /// A link in a sub list.
         sub_button(sub_button_recipe): SidebarItemState = recipes::sub_button,
     }
+}
+
+/// The part `node` with the recipe `pick` chooses, for `state`, under the caller's styles.
+pub(super) fn themed<N: Element, S: Clone + PartialEq + 'static>(
+    node: N,
+    pick: fn(&SidebarTheme) -> &Recipe<S>,
+    state: Value<S>,
+) -> N {
+    with_base_recipe_style(node, pick, &Variants::default(), move || state.get())
 }

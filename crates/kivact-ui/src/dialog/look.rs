@@ -2,10 +2,21 @@
 use crate::look_common::mark;
 use crate::theme::Look;
 
-use crate::DialogKind;
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
+use kivact_core::geometry::Edge;
 use kivact_core::style::{Position, Style, Theme, pct, style};
+
+/// What a dialog is: a modal dialog, an alert dialog, a drawer from an edge
+/// or a popover.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DialogKind {
+    Modal,
+    AlertModal,
+    Drawer(Edge),
+    Popover,
+}
+
 /// Where a theme centers modal dialogs opened by an attached trigger.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum DialogCenter {

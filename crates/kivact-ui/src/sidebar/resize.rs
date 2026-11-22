@@ -1,7 +1,7 @@
 //! Role: The style of a resizable sidebar's width and the handle that drags it.
 
+use super::look::themed;
 use super::look::{SidebarState, SidebarTheme};
-use super::recipes::themed;
 use super::state::{SidebarCx, SidebarResize, SidebarSide};
 use kivact_core::i18n::message;
 use kivact_core::state::Value;

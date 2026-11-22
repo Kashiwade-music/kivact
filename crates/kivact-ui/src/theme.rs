@@ -1,4 +1,5 @@
-//! Role: The kit-author contract of the standard components: recipe tables, recipe states and theme variables.
+//! Role: The kit-author contract of the standard components.
+//! Recipe tables, recipe states and theme variables.
 //!
 //! Every standard component has one `<Name>Theme` (a recipe table, a
 //! [`ThemeExtension`](kivact_core::style::ThemeExtension)) and the state its
@@ -140,200 +141,59 @@ pub use crate::progress::look::ProgressMotion;
 pub use crate::sparkline::look::SparklineFill;
 pub use crate::toggle_button::look::ToggleLabelReservation;
 
-/// The theme variables of the `avatar_group` component.
-pub mod avatar_group {
-    pub use crate::avatar_group::look::{OVERLAP, OVERLAP_VAR};
-}
+pub mod avatar_group;
 
-/// The theme variables of the `breadcrumb` component.
-pub mod breadcrumb {
-    pub use crate::breadcrumb::look::{
-        CONTROL_HEIGHT, CONTROL_HEIGHT_VAR, GAP, GAP_VAR, PADDING, PADDING_VAR, PANEL_PADDING,
-        PANEL_PADDING_VAR,
-    };
-}
+pub mod breadcrumb;
 
-/// The theme variables of the `button` component.
-pub mod button {
-    pub use crate::button::look::{
-        BUSY_REDUCED_SPIN_MS_VAR, BUSY_REVEAL_DELAY_MS_VAR, BUSY_REVEAL_FADE_MS_VAR,
-        BUSY_SPIN_MS_VAR,
-    };
-}
+pub mod button;
 
-/// The theme variables of the `button_group` component.
-pub mod button_group {
-    pub use crate::button_group::look::{
-        DIVIDER_VAR, GAP, GAP_VAR, RADIUS, RADIUS_VAR, SOLID_DIVIDER_VAR, TEXT_BACKGROUND_VAR,
-        TEXT_COLOR_VAR,
-    };
-}
+pub mod button_group;
 
-/// The theme variables of the `calendar` component.
-pub mod calendar {
-    pub use crate::calendar::look::{
-        CELL_SIZE, CELL_SIZE_VAR, MONTH_GAP, MONTH_GAP_VAR, WEEK_GAP, WEEK_GAP_VAR,
-    };
-}
+pub mod calendar;
 
-/// The theme variables of the `carousel` component.
-pub mod carousel {
-    pub use crate::carousel::look::{
-        EDGE_FADE_WIDTH, EDGE_FADE_WIDTH_VAR, GAP, GAP_VAR, PADDING, PADDING_VAR,
-    };
-}
+pub mod carousel;
 
-/// The theme variables of the `chat_thread` component.
-pub mod chat_thread {
-    pub use crate::chat_thread::look::{FOLLOW_SLACK, FOLLOW_SLACK_VAR};
-}
+pub mod chat_thread;
 
-/// The theme variables of the `code_block` component.
-pub mod code_block {
-    pub use crate::code_block::look::{
-        COPY_FEEDBACK_MS_VAR, FONT_SIZE, FONT_SIZE_VAR, LINE_HEIGHT, LINE_HEIGHT_VAR,
-    };
-}
+pub mod code_block;
 
-/// The theme variables of the `combobox` component.
-pub mod combobox {
-    pub use crate::combobox::look::{
-        ACTIVE_BACKGROUND, ACTIVE_BACKGROUND_VAR, BACKGROUND, BACKGROUND_VAR, BORDER, BORDER_VAR,
-        CHIP_BACKGROUND, CHIP_BACKGROUND_VAR, CHIP_HEIGHT, CHIP_HEIGHT_VAR, CHIP_RADIUS,
-        CHIP_RADIUS_VAR, DISABLED_OPACITY_VAR, EMPTY_FONT_SIZE, EMPTY_FONT_SIZE_VAR, FIELD_HEIGHT,
-        FIELD_HEIGHT_VAR, FIELD_PADDING, FIELD_PADDING_VAR, FIELD_RADIUS, FIELD_RADIUS_VAR, FOCUS,
-        FOCUS_RING, FOCUS_RING_VAR, FOCUS_VAR, FOREGROUND, FOREGROUND_VAR, LIST_HEIGHT,
-        LIST_HEIGHT_VAR, MUTED, MUTED_VAR, OPTION_HEIGHT, OPTION_HEIGHT_VAR, OPTION_PADDING_X,
-        OPTION_PADDING_X_VAR, OPTION_PADDING_Y, OPTION_PADDING_Y_VAR, OPTION_RADIUS,
-        OPTION_RADIUS_VAR, POPUP_OFFSET, POPUP_OFFSET_VAR,
-    };
-}
+pub mod combobox;
 
-/// The theme variables of the `data_table` component.
-pub mod data_table {
-    pub use crate::data_table::look::{
-        ROW_STATUS_ACCENT, ROW_STATUS_ACCENT_VAR, ROW_STATUS_DANGER, ROW_STATUS_DANGER_VAR,
-        ROW_STATUS_INFO, ROW_STATUS_INFO_VAR, ROW_STATUS_NEUTRAL, ROW_STATUS_NEUTRAL_VAR,
-        ROW_STATUS_SUCCESS, ROW_STATUS_SUCCESS_VAR, ROW_STATUS_WARNING, ROW_STATUS_WARNING_VAR,
-        STICKY_HOVER, STICKY_HOVER_VAR, STICKY_SELECTED, STICKY_SELECTED_VAR, STICKY_SHADOW,
-        STICKY_SHADOW_VAR, STICKY_SHADOW_WIDTH, STICKY_SHADOW_WIDTH_VAR, STICKY_SURFACE,
-        STICKY_SURFACE_VAR,
-    };
-}
+pub mod data_table;
 
-/// The theme variables of the `date_input` component.
-pub mod date_input {
-    pub use crate::date_input::look::{
-        WHEEL_ROW_HEIGHT, WHEEL_ROW_HEIGHT_VAR, WHEEL_WIDTH, WHEEL_WIDTH_VAR,
-    };
-}
+pub mod date_input;
 
-/// The theme variables of the `dropzone` component.
-pub mod dropzone {
-    pub use crate::dropzone::look::{MIN_HEIGHT, MIN_HEIGHT_VAR, PADDING, PADDING_VAR};
-}
+pub mod dropzone;
 
-/// The theme variables of the `hover_card` component.
-pub mod hover_card {
-    pub use crate::hover_card::look::{OFFSET, OFFSET_VAR, VIEWPORT_MARGIN, VIEWPORT_MARGIN_VAR};
-}
+pub mod hover_card;
 
-/// The theme variables of the `item_list` component.
-pub mod item_list {
-    pub use crate::item_list::look::{
-        DESCRIPTION_SIZE, DESCRIPTION_SIZE_VAR, GAP, GAP_VAR, PADDING, PADDING_VAR, ROW_GAP,
-        ROW_GAP_VAR,
-    };
-}
+pub mod item_list;
 
-/// The theme variables of the `navigation_menu` component.
-pub mod navigation_menu {
-    pub use crate::navigation_menu::look::{
-        CONTROL_HEIGHT, CONTROL_HEIGHT_VAR, GAP, GAP_VAR, PADDING, PADDING_VAR, PANEL_PADDING,
-        PANEL_PADDING_VAR,
-    };
-}
+pub mod navigation_menu;
 
-/// The theme variables of the `pagination` component.
-pub mod pagination {
-    pub use crate::pagination::look::{
-        CONTROL_HEIGHT, CONTROL_HEIGHT_VAR, GAP, GAP_VAR, PADDING, PADDING_VAR, PANEL_PADDING,
-        PANEL_PADDING_VAR,
-    };
-}
+pub mod pagination;
 
-/// The theme variables of the `skeleton` component.
-pub mod skeleton {
-    pub use crate::skeleton::look::{
-        DELAY_MS, DELAY_MS_VAR, GAP, GAP_VAR, LINE_HEIGHT, LINE_HEIGHT_VAR, PERIOD_MS,
-        PERIOD_MS_VAR, STAGGER_MS, STAGGER_MS_VAR,
-    };
-}
+pub mod skeleton;
 
-/// The theme variables of the `sparkline` component.
-pub mod sparkline {
-    pub use crate::sparkline::look::{
-        INSET, INSET_VAR, LINE, LINE_VAR, LINE_WIDTH, LINE_WIDTH_VAR,
-    };
-}
+pub mod sparkline;
 
-/// The theme variables of the `spinner` component.
-pub mod spinner {
-    pub use crate::spinner::look::{GAP, GAP_VAR, PERIOD_MS, PERIOD_MS_VAR};
-}
+pub mod spinner;
 
-/// The theme variables of the `stepper` component.
-pub mod stepper {
-    pub use crate::stepper::look::{
-        CONNECTOR_GAP, CONNECTOR_GAP_VAR, GAP, GAP_VAR, MIN_STEP_WIDTH, MIN_STEP_WIDTH_VAR,
-        PADDING, PADDING_VAR,
-    };
-}
+pub mod stepper;
 
-/// The theme variables of the `table` component.
-pub mod table {
-    pub use crate::table::look::{
-        CELL_PADDING, CELL_PADDING_VAR, FONT_SIZE, FONT_SIZE_VAR, HEADER_HEIGHT, HEADER_HEIGHT_VAR,
-    };
-}
+pub mod table;
 
-/// The theme variables of the `time_input` component.
-pub mod time_input {
-    pub use crate::time_input::look::{
-        WHEEL_ROW_HEIGHT, WHEEL_ROW_HEIGHT_VAR, WHEEL_WIDTH, WHEEL_WIDTH_VAR,
-    };
-}
+pub mod time_input;
 
-/// The theme variables of the `toast` component.
-pub mod toast {
-    pub use crate::toast::look::{ROW_GAP, ROW_GAP_VAR};
-}
+pub mod toast;
 
-/// The theme variables of the `toggle_group` component.
-pub mod toggle_group {
-    pub use crate::toggle_group::look::{GAP, GAP_VAR};
-}
+pub mod toggle_group;
 
-/// The theme variables of the `toolbar` component.
-pub mod toolbar {
-    pub use crate::toolbar::look::{
-        BACKGROUND, BACKGROUND_VAR, BORDER, BORDER_VAR, GAP, GAP_VAR, MIN_HEIGHT, MIN_HEIGHT_VAR,
-        PADDING, PADDING_VAR,
-    };
-}
+pub mod toolbar;
 
-/// The theme variables of the `tree` component.
-pub mod tree {
-    pub use crate::tree::look::{
-        GAP, GAP_VAR, INDENT, INDENT_VAR, MARKER_WIDTH, MARKER_WIDTH_VAR, PADDING, PADDING_VAR,
-        RADIUS, RADIUS_VAR, ROW_HEIGHT, ROW_HEIGHT_VAR,
-    };
-}
+pub mod tree;
 
-/// The theme variables of the `typing_indicator` component.
-pub mod typing_indicator {
-    pub use crate::typing_indicator::look::{PERIOD_MS, PERIOD_MS_VAR};
-}
+pub mod typing_indicator;
 
 /// The theme variables of the `sidebar` component.
 pub use crate::sidebar::vars as sidebar;

@@ -1,5 +1,4 @@
 //! Role: Hold passive combobox construction inputs shared by configuration and rendering.
-use super::ComboboxMode;
 use crate::SelectPresentation;
 use kivact_core::state::{ItemKey, Signal, Value};
 use kivact_core::view::Node;
@@ -34,4 +33,12 @@ pub struct Combobox<K: ItemKey> {
     pub(super) exclude_selected: bool,
     pub(super) presentation: SelectPresentation,
     pub(super) at: &'static std::panic::Location<'static>,
+}
+
+/// Structural presentation of a combobox list: inline, always shown, or a
+/// popup that the caller's `open` signal shows and hides.
+#[derive(Clone, Copy)]
+pub enum ComboboxMode {
+    Inline,
+    Popup,
 }

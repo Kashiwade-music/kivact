@@ -1,104 +1,95 @@
-//! Role: The toggle group builder, its item slots and its keyed selection.
+//! Role: The toggle group component: toggles over a keyed selection.
 
-use crate::control_size::ControlSize;
+use crate::control_size::{ControlSize, default_control_size};
 use crate::layer::with_base_recipe_style;
 use crate::toggle_button::look::ToggleButtonState;
-use crate::toggle_group::look::ToggleGroupItemState;
-use crate::toggle_group::look::ToggleGroupState;
-use crate::toggle_group::look::ToggleGroupTheme;
-use kivact_core::state::{
-    Callback, IntoText, IntoValue, ItemKey, Signal, Value, binding, callback, memo,
-};
+use crate::toggle_group::look::{ToggleGroupItemState, ToggleGroupState, ToggleGroupTheme};
+use kivact_core::custom::Caller;
+use kivact_core::state::{Callback, IntoValue, ItemKey, Signal, Value, binding, memo};
 use kivact_core::view::{
-    EditPhase, Element, HandlerResult, IntoView, Node, Orientation, ReadingDirection, Role, View,
-    ViewFn, for_each, node, use_direction,
+    EditPhase, IntoView, Node, Orientation, ReadingDirection, Role, View, for_each, node,
+    use_direction,
 };
-use kivact_interaction::{IntoSelection, ListItem, Selection};
+use kivact_interaction::{IntoSelection, ListItem, Selection, ToggleState, use_toggle_button};
+use kivact_macros::component;
+use std::rc::Rc;
 
-type ToggleItemSlot<K> = ViewFn<(Value<ListItem<K>>, Value<ToggleButtonState>)>;
+/// The view of one item of a group, given the item and its toggle state.
+type ToggleItemSlot<K> = Rc<dyn Fn(Value<ListItem<K>>, Value<ToggleButtonState>) -> View>;
 
-// xtask-allow(state): independent: spacing overrides the theme gap and item replaces each toggle's contents; both are set only by their by-value setters
-/// Single or multiple toggles with native roving focus, created by [`toggle_group`].
-pub struct ToggleGroup<K: ItemKey> {
-    root: Node,
-    options: Value<Vec<ListItem<K>>>,
+/// The shared inputs of every item of one group.
+struct ItemCtx<K: ItemKey> {
     selection: Selection<K>,
+    options: Value<Vec<ListItem<K>>>,
     orientation: Value<Orientation>,
     size: Value<ControlSize>,
     spacing: Option<Value<f64>>,
     icon_only: Value<bool>,
+    disabled: Option<Value<bool>>,
     on_edit: Option<Callback<EditPhase>>,
-    item: Option<ToggleItemSlot<K>>,
+    slot: Option<ToggleItemSlot<K>>,
+    variants: kivact_core::view::Variants,
+    rtl: bool,
 }
 
 /// A named group whose toggles edit `selected`. `Option<K>` allows zero or
 /// one pressed item; `Vec<K>` allows many. Pressing a selected item releases
 /// it. Arrows only move focus; Space, Enter, click and accessibility activation
 /// toggle the focused item. Missing keys remain in the caller's selection.
-#[track_caller]
-pub fn toggle_group<K: ItemKey>(
-    label: impl IntoText,
-    items: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl IntoSelection<K>,
-) -> ToggleGroup<K> {
-    ToggleGroup {
-        root: node().role(Role::Group).name(label),
-        options: items.into_value(),
+///
+/// `item` replaces the content of each item, keeping its behavior and name.
+#[component]
+pub fn toggle_group<K: ItemKey, S: IntoSelection<K>>(
+    label: Value<String>,
+    items: Value<Vec<ListItem<K>>>,
+    selected: S,
+    orientation: Option<Value<Orientation>>,
+    size: Option<Value<ControlSize>>,
+    spacing: Option<Value<f64>>,
+    icon_only: Option<Value<bool>>,
+    on_edit: Option<Callback<EditPhase>>,
+    item: Option<Rc<dyn Fn(Value<ListItem<K>>, Value<ToggleButtonState>) -> View>>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let variants = caller.variants();
+    let orientation = orientation.unwrap_or_else(|| Orientation::Horizontal.into_value());
+    let size = size.unwrap_or_else(|| default_control_size().into_value());
+    let icon_only = icon_only.unwrap_or_else(|| false.into_value());
+    let direction = use_direction();
+    let ctx = ItemCtx {
         selection: selected.into_selection(),
-        orientation: Orientation::Horizontal.into_value(),
-        size: crate::control_size::default_control_size().into_value(),
-        spacing: None,
-        icon_only: false.into_value(),
-        on_edit: None,
-        item: None,
-    }
-}
-impl<K: ItemKey> ToggleGroup<K> {
-    /// The constant or reactive layout and keyboard navigation axis.
-    #[track_caller]
-    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
-        self.orientation = orientation.into_value();
-        self
-    }
-    /// Size of all toggle items.
-    #[track_caller]
-    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
-        self.size = size.into_value();
-        self
-    }
-    /// Space in four-pixel units; zero joins the controls.
-    #[track_caller]
-    pub fn spacing(mut self, spacing: impl IntoValue<f64>) -> Self {
-        self.spacing = Some(spacing.into_value());
-        self
-    }
-    /// Hide visible labels while retaining accessible names.
-    #[track_caller]
-    pub fn icon_only(mut self, icon_only: impl IntoValue<bool>) -> Self {
-        self.icon_only = icon_only.into_value();
-        self
-    }
-    /// Observe each item's edit phases.
-    pub fn on_edit<R: HandlerResult>(
-        mut self,
-        observer: impl Fn(EditPhase) -> R + 'static,
-    ) -> Self {
-        self.on_edit = Some(callback(observer));
-        self
-    }
-    /// Replace the content of each item, retaining its behavior and name.
-    pub fn item<V: IntoView>(
-        mut self,
-        content: impl Fn(Value<ListItem<K>>, Value<ToggleButtonState>) -> V + 'static,
-    ) -> Self {
-        self.item = Some(ViewFn::from(move |(item, state)| content(item, state)));
-        self
-    }
-}
-impl<K: ItemKey> Element for ToggleGroup<K> {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
+        options: items,
+        orientation,
+        size,
+        spacing,
+        icon_only,
+        disabled: caller.disabled(),
+        on_edit,
+        slot: item,
+        variants: variants.clone(),
+        rtl: direction == ReadingDirection::Rtl,
+    };
+    let rows = for_each(
+        items,
+        |item| item.key().clone(),
+        move |item| toggle_item(&ctx, item),
+    );
+    with_base_recipe_style(
+        node()
+            .role(Role::Group)
+            .name(label)
+            .orientation(orientation)
+            .roving_focus(orientation),
+        |r: &ToggleGroupTheme| r.root_recipe(),
+        &variants,
+        move || ToggleGroupState {
+            orientation: orientation.get(),
+            size: size.get(),
+            spacing: spacing.map(|spacing| spacing.get().max(0.0)),
+            rtl: direction == ReadingDirection::Rtl,
+        },
+    )
+    .child(rows)
 }
 
 fn member<K: ItemKey>(selection: Selection<K>, key: K) -> Signal<bool> {
@@ -130,90 +121,55 @@ fn member<K: ItemKey>(selection: Selection<K>, key: K) -> Signal<bool> {
         ),
     }
 }
-impl<K: ItemKey> IntoView for ToggleGroup<K> {
-    fn into_view(mut self) -> View {
-        let variants = self.root.authored().variants();
-        let orientation = self.orientation;
-        let size = self.size;
-        let spacing = self.spacing;
-        let icon_only = self.icon_only;
-        let selection = self.selection;
-        let options = self.options;
-        let direction = use_direction();
-        let slot = self.item;
-        let on_edit = self.on_edit;
-        let disabled = self.root.accessible_disabled();
-        let variants = variants.clone();
-        let item_variants = variants.clone();
-        let rows = for_each(
-            self.options,
-            |item| item.key().clone(),
-            move |item| {
-                let key = item.with_untracked(|item| item.key().clone());
-                let at = key.clone();
-                let pressed = member(selection, key);
-                let mut behavior =
-                    kivact_interaction::use_toggle_button(pressed).disabled(move || {
-                        disabled.is_some_and(|disabled| disabled.get()) || item.get().is_disabled()
-                    });
-                if let Some(observer) = on_edit {
-                    behavior = behavior.on_edit(move |phase| observer.call(phase));
-                }
-                // Only an item with an icon loses its label in an icon-only group;
-                // an iconless item keeps its label, so it is not drawn as a square.
-                let hide = memo(move || icon_only.get() && item.get().icon().is_some());
-                let part =
-                    behavior
-                        .control()
-                        .map_state(move |state: kivact_interaction::ToggleState| {
-                            ToggleButtonState {
-                                input: state.input,
-                                pressed: state.checked.is_checked(),
-                                size: size.get(),
-                                leading_icon: item.get().icon().is_some()
-                                    || item.get().pressed_icon().is_some(),
-                                label_hidden: hide.get(),
-                            }
-                        });
-                let state = part.state();
-                let content = item_content(slot.as_ref(), item, state, pressed, hide);
-                with_base_recipe_style(
-                    node().name(move || item.get().label()),
-                    |r: &ToggleGroupTheme| r.item_recipe(),
-                    &item_variants,
-                    move || ToggleGroupItemState {
-                        toggle: state.get(),
-                        layout: ToggleGroupState {
-                            orientation: orientation.get(),
-                            size: size.get(),
-                            spacing: spacing.map(|spacing| spacing.get().max(0.0)),
-                            rtl: direction == ReadingDirection::Rtl,
-                        },
-                        first: options
-                            .with(|options| options.first().is_some_and(|item| item.key() == &at)),
-                        last: options
-                            .with(|options| options.last().is_some_and(|item| item.key() == &at)),
-                    },
-                )
-                .part(part)
-                .child(content)
-            },
-        );
-        let direction = use_direction();
-        with_base_recipe_style(
-            self.root.orientation(orientation).roving_focus(orientation),
-            |r: &ToggleGroupTheme| r.root_recipe(),
-            &variants,
-            move || ToggleGroupState {
+
+/// One toggle item of the group: its behavior, its state and its content.
+fn toggle_item<K: ItemKey>(ctx: &ItemCtx<K>, item: Value<ListItem<K>>) -> Node {
+    let key = item.with_untracked(|item| item.key().clone());
+    let at = key.clone();
+    let pressed = member(ctx.selection, key);
+    let disabled = ctx.disabled;
+    let mut behavior = use_toggle_button(pressed).disabled(move || {
+        disabled.is_some_and(|disabled| disabled.get()) || item.get().is_disabled()
+    });
+    if let Some(observer) = ctx.on_edit {
+        behavior = behavior.on_edit(move |phase| observer.call(phase));
+    }
+    // Only an item with an icon loses its label in an icon-only group;
+    // an iconless item keeps its label, so it is not drawn as a square.
+    let (icon_only, size) = (ctx.icon_only, ctx.size);
+    let hide = memo(move || icon_only.get() && item.get().icon().is_some());
+    let part = behavior
+        .control()
+        .map_state(move |state: ToggleState| ToggleButtonState {
+            input: state.input,
+            pressed: state.checked.is_checked(),
+            size: size.get(),
+            leading_icon: item.get().icon().is_some() || item.get().pressed_icon().is_some(),
+            label_hidden: hide.get(),
+        });
+    let state = part.state();
+    let content = item_content(ctx.slot.as_ref(), item, state, pressed, hide);
+    let (orientation, spacing, options) = (ctx.orientation, ctx.spacing, ctx.options);
+    let rtl = ctx.rtl;
+    let variants = ctx.variants.clone();
+    with_base_recipe_style(
+        node().name(move || item.get().label()),
+        |r: &ToggleGroupTheme| r.item_recipe(),
+        &variants,
+        move || ToggleGroupItemState {
+            toggle: state.get(),
+            layout: ToggleGroupState {
                 orientation: orientation.get(),
                 size: size.get(),
                 spacing: spacing.map(|spacing| spacing.get().max(0.0)),
-                rtl: direction == ReadingDirection::Rtl,
+                rtl,
             },
-        )
-        .child(rows)
-        .into_view()
-    }
+            first: options.with(|options| options.first().is_some_and(|item| item.key() == &at)),
+            last: options.with(|options| options.last().is_some_and(|item| item.key() == &at)),
+        },
+    )
+    .part(part)
+    .child(content)
 }
 
 fn item_content<K: ItemKey>(
@@ -224,7 +180,7 @@ fn item_content<K: ItemKey>(
     hide: Value<bool>,
 ) -> View {
     match slot {
-        Some(slot) => slot.call((item, state)),
+        Some(slot) => slot(item, state),
         None => (
             crate::helpers::item_icon(move || {
                 let item = item.get();

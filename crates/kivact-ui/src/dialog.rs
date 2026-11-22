@@ -20,4 +20,5 @@ mod drawer_swipe;
 pub(crate) mod look;
 mod view;
 
-pub use view::{Dialog, DialogKind, dialog};
+pub use look::DialogKind;
+pub use view::{Dialog, dialog};

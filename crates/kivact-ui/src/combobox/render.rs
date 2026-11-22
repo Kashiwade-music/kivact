@@ -1,6 +1,6 @@
 //! Role: Render one combobox query and selection through themed editor and list parts.
-use super::ComboboxMode;
 use super::data::Combobox;
+use super::data::ComboboxMode;
 use super::labels::label;
 use super::notices::Notices;
 use crate::combobox::look::ComboboxTheme;

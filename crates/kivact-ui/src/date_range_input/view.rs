@@ -432,11 +432,14 @@ fn range_draft(
 ) -> DraftApi<Option<DateRange>, RangeFields> {
     use_draft(
         value,
-        DraftOptions::new(RangeFields::following, move |fields: &RangeFields| {
-            fields
-                .candidate()
-                .filter(|range| range.is_none_or(|range| accept(range)))
-        })
+        DraftOptions::new(
+            |range: &Option<DateRange>| RangeFields::following(range.as_ref()),
+            move |fields: &RangeFields| {
+                fields
+                    .candidate()
+                    .filter(|range| range.is_none_or(|range| accept(range)))
+            },
+        )
         .commit(DraftCommit::Live)
         .valid(valid),
     )

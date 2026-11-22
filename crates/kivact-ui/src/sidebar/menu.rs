@@ -1,7 +1,8 @@
-//! Role: The sidebar's groups, menus, menu buttons, sub-menus, separator, input and skeleton.
+//! Role: The sidebar's groups, menus and menu buttons.
+//! Also its sub-menus, separator, input and skeleton.
 
+use super::look::themed;
 use super::look::{SidebarItemState, SidebarTheme};
-use super::recipes::themed;
 use super::state::{SidebarCollapsible, SidebarCx, SidebarMenuButtonSize, current, part_state};
 use crate::skeleton::skeleton;
 use crate::text_input;
