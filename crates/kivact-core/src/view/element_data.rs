@@ -626,7 +626,7 @@ impl Common {
     /// Append a style layer (`.style(..)`).
     pub(crate) fn push_style(&mut self, s: InputProp<Style>, at: &'static Location<'static>) {
         self.style.push(StyleLayer {
-            f: LayerFn::Plain(s.into_fn()),
+            f: LayerFn::Plain(style_fn(s)),
             at: Some(at),
             origin: LayerOrigin::Caller,
         });
@@ -640,7 +640,7 @@ impl Common {
         at: &'static Location<'static>,
     ) {
         self.style.push(StyleLayer {
-            f: LayerFn::Plain(s.into_fn()),
+            f: LayerFn::Plain(style_fn(s)),
             at: Some(at),
             origin: LayerOrigin::Recipe(name),
         });
@@ -841,4 +841,17 @@ pub(super) struct Constraints {
 pub(crate) enum Modifier {
     Caller(Box<Common>),
     Part(Box<dyn FnOnce(Node) -> Node>),
+}
+
+/// The closure of a style layer. A style that never changes is kept for the
+/// node's lifetime, so it is kept without the spare capacity its builder
+/// grew (a few hundred bytes per node).
+fn style_fn(s: InputProp<Style>) -> Rc<dyn Fn() -> Style> {
+    match s.fixed() {
+        Some(mut style) => {
+            kivact_style::internal::shrink(&mut style);
+            Rc::new(move || style.clone())
+        }
+        None => s.into_fn(),
+    }
 }

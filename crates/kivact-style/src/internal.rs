@@ -13,6 +13,12 @@ pub fn duplicates(style: &crate::sheet::Style) -> u32 {
     style.duplicates()
 }
 
+/// Drop the spare capacity of `style`'s declarations (core keeps a style
+/// layer whose value never changes for the node's lifetime).
+pub fn shrink(style: &mut crate::sheet::Style) {
+    style.decls.shrink_to_fit();
+}
+
 /// The property `name` (a setter's or a longhand's name) in DevTools form.
 pub fn style_property(name: &str) -> Option<&'static StyleProperty> {
     crate::sheet::props::STYLE_PROPERTIES
