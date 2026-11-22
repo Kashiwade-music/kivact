@@ -51,7 +51,6 @@ pub use async_state::AsyncState;
 pub use blocking::{BlockingWork, CancelToken, blocking};
 pub use clock::clock;
 pub use completion::Completion;
-pub(crate) use remote::Deliver;
 pub use remote::{Remote, RemoteTrigger, remote, remote_trigger};
 pub use resource::{Resource, resource};
 pub use spawn::{Task, spawn, spawn_in};

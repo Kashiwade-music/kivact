@@ -24,8 +24,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use crate::reactive::arena::{Arena, Key};
-use crate::reactive::detail::TurnRecord;
-use crate::reactive::diag::RecordBits;
+use crate::reactive::detail::{RecordBits, Turn, TurnRecord};
 use crate::reactive::error::UiError;
 use crate::reactive::host_types::Stage;
 use crate::reactive::links::Links;
@@ -40,6 +39,34 @@ pub struct TurnGuard<'a> {
     pub(crate) started: std::time::Instant,
     /// The deferred, timer and task rounds this turn ran (12 章 ST-03).
     pub(crate) work_rounds: std::cell::Cell<u32>,
+}
+
+/// One value per type. It is filled when the App is created and never
+/// changed afterwards.
+#[derive(Default)]
+pub(crate) struct Extensions(Vec<(TypeId, Box<dyn Any>)>);
+
+impl Extensions {
+    /// No extension.
+    pub(crate) fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    /// With `value` installed, replacing an earlier value of its type.
+    pub(crate) fn with<T: 'static>(mut self, value: T) -> Self {
+        let id = TypeId::of::<T>();
+        self.0.retain(|(ty, _)| *ty != id);
+        self.0.push((id, Box::new(value)));
+        self
+    }
+
+    /// The extension of type `T`, if it was installed.
+    pub(crate) fn get<T: 'static>(&self) -> Option<&T> {
+        let id = TypeId::of::<T>();
+        let (_, value) = self.0.iter().find(|(ty, _)| *ty == id)?;
+        let value: &dyn Any = &**value;
+        value.downcast_ref::<T>()
+    }
 }
 
 /// Live-object counts (lifecycle leak checks).
@@ -92,10 +119,9 @@ pub struct Runtime {
     /// Handlers deferred until the running one returns (`Runtime::defer`),
     /// each with the owner it runs for and where it was deferred.
     pub(crate) deferred: RefCell<VecDeque<(Key, &'static Location<'static>, Box<dyn FnOnce()>)>>,
-    /// Tasks, timers, the blocking pool and the exit drain of this App.
-    pub(crate) tasks: crate::task::TaskState,
-    /// Frame loops and animations of this App.
-    pub(crate) motion: crate::motion::MotionState,
+    /// The state of the layers above the graph (tasks, motion), installed
+    /// when the App is created: see `extensions`.
+    pub(crate) extensions: Extensions,
     /// What the host layer installs while `Runtime::new` runs: written once,
     /// before `Runtime::new` returns, and only read afterwards.
     pub(crate) app: kivact_types::cell::Deferred<AppSlot>,
@@ -452,16 +478,6 @@ pub(crate) struct Sched {
     pub(crate) user: BTreeSet<(u64, Key)>,
 }
 
-/// Which turn something happened in.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Turn {
-    /// While the App was set up (its first mount), before the first turn.
-    #[default]
-    Setup,
-    /// A turn, numbered from 1.
-    Number(u64),
-}
-
 // xtask-allow(state): independent: cause is the index of the last cause recorded in the current turn, written by cause() and cleared at turn boundaries; open_stage is the stage being timed, written by stage() and taken by end_turn; next_seq is the report sequence, written by record_error and record_diagnostic; no field's value decides another's
 /// Ring buffers of errors, diagnostics and turn records, plus the turn
 /// being recorded.
@@ -501,7 +517,6 @@ pub(crate) struct Graveyard {
 
 /// The host layer's part of the runtime (`AppParts`, stored).
 pub(crate) struct AppSlot {
-    pub(crate) motion_env: crate::motion::MotionEnv,
     pub(crate) state: Box<dyn Any>,
 }
 
@@ -577,11 +592,6 @@ pub struct Var<T: 'static> {
     pub(crate) app: AppId,
     pub(crate) key: Key,
     pub(crate) _m: PhantomData<(fn() -> T, UiThreadOnly)>,
-}
-
-pub(crate) struct CallbackFn<E> {
-    pub(crate) owner: Key,
-    pub(crate) f: crate::reactive::Handler<E>,
 }
 
 /// A Copy callback (child → parent), made by [`callback`](crate::reactive::callback).

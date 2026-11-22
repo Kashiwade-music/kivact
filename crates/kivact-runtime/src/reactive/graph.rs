@@ -938,7 +938,7 @@ mod meta_tests {
 
     use crate::reactive::NodeId;
     use crate::reactive::data::Runtime;
-    use crate::reactive::diag::RecordBits;
+    use crate::reactive::detail::RecordBits;
     use crate::reactive::host_types::Host;
 
     struct Quiet;
@@ -951,7 +951,7 @@ mod meta_tests {
         let rt = Runtime::register(
             Rc::new(Quiet),
             0,
-            crate::driver::TaskState::new(None, crate::driver::ThreadWaker::new(|| {})),
+            crate::reactive::extensions::test_extensions(),
         );
         let at = Location::caller();
         // The root owner takes the first owner slot, as `Runtime::new` makes it.

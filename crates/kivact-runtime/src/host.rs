@@ -1,7 +1,10 @@
 //! Role: Runtime construction and task and motion turn operations.
 use crate::driver::{
-    ExitState, Host, MotionEnv, RecordBits, Runtime, TaskState, ThreadWaker, TurnGuard, TurnReport,
+    ExitState, Host, MotionEnv, MotionState, RecordBits, Runtime, TaskState, ThreadWaker,
+    TurnGuard, TurnReport,
 };
+use crate::reactive::Extensions;
+use crate::reactive::extensions::TurnWork;
 use crate::reactive::host_types::TurnState;
 use crate::{Cause, CauseTag, ErrorKind, Owner, Stage, UiError};
 use std::panic::Location;
@@ -48,8 +51,12 @@ impl Runtime {
         config: RuntimeConfig,
         build: impl FnOnce(&Rc<Runtime>, Owner) -> AppParts,
     ) -> Rc<Runtime> {
-        let tasks = TaskState::new(config.blocking_threads, waker);
-        let rt = Runtime::register(host, config.start_ns, tasks);
+        let tasks = Rc::new(TaskState::new(config.blocking_threads, waker));
+        let extensions = Extensions::new()
+            .with(Rc::clone(&tasks))
+            .with(tasks as Rc<dyn TurnWork>)
+            .with(MotionState::default());
+        let rt = Runtime::register(host, config.start_ns, extensions);
         let registration = RegistrationGuard(rt.id());
         rt.set_recorder(config.record, true);
         let root = rt.create_owner(None, config.at);
@@ -61,10 +68,9 @@ impl Runtime {
             let _frame = rt.setup_frame(rt.root);
             build(&rt, rt.root())
         };
-        rt.app.get_or_init(|| crate::reactive::AppSlot {
-            motion_env: parts.motion_env,
-            state: parts.state,
-        });
+        MotionState::of(&rt).set_env(parts.motion_env);
+        rt.app
+            .get_or_init(|| crate::reactive::AppSlot { state: parts.state });
         rt.state.set(TurnState::Quiet);
         std::mem::forget(registration);
         rt
@@ -91,17 +97,17 @@ impl Runtime {
 
     /// The motion environment given by `AppParts::motion_env`.
     pub(crate) fn motion_env(&self) -> &MotionEnv {
-        &self.app_slot().motion_env
+        MotionState::of(self).env()
     }
 
     /// The tasks, timers and blocking pool of this App.
     pub fn tasks(&self) -> &TaskState {
-        &self.tasks
+        TaskState::of(self)
     }
 
     /// The frame loops and animations of this App.
-    pub fn motion(&self) -> &crate::motion::MotionState {
-        &self.motion
+    pub fn motion(&self) -> &MotionState {
+        MotionState::of(self)
     }
     /// Begin the exit drain, retaining the first requested deadline.
     pub fn request_exit(&self) {
@@ -190,7 +196,7 @@ impl TurnGuard<'_> {
             return false;
         }
         self.stage(Stage::Async);
-        let wakers = rt.tasks.take_due_timers(rt.now_ns());
+        let wakers = rt.tasks().take_due_timers(rt.now_ns());
         let woke = !wakers.is_empty();
         if woke {
             self.cause(Cause {
@@ -202,7 +208,7 @@ impl TurnGuard<'_> {
         for w in wakers {
             w.wake();
         }
-        let polled = rt.tasks.poll_tasks(rt);
+        let polled = rt.tasks().poll_tasks(rt);
         if polled > 0 {
             self.cause(Cause {
                 tag: CauseTag::Task,

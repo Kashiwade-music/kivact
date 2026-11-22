@@ -547,7 +547,7 @@ mod tests {
             AppId(1),
             Rc::new(Quiet),
             0,
-            crate::driver::TaskState::new(None, crate::driver::ThreadWaker::new(|| {})),
+            crate::reactive::extensions::test_extensions(),
         );
         let at = Location::caller();
         let log = Rc::new(RefCell::new(Vec::<&'static str>::new()));

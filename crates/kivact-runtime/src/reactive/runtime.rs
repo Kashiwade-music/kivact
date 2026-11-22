@@ -5,7 +5,7 @@ use std::cell::{Cell, RefCell};
 use std::panic::Location;
 
 use crate::reactive::arena::Arena;
-use crate::reactive::data::{Diag, Graveyard, LiveCounts, Runtime, Sched};
+use crate::reactive::data::{Diag, Extensions, Graveyard, LiveCounts, Runtime, Sched};
 use crate::reactive::host_types::{ExitState, Host, Stage, TurnState};
 use crate::reactive::identity::{OwnerId, key_raw};
 use std::rc::Rc;
@@ -49,13 +49,13 @@ pub struct LiveSnapshot {
 }
 
 impl Runtime {
-    /// A runtime for App `id` with its tasks (registered by
+    /// A runtime for App `id` with its extensions (registered by
     /// [`Runtime::register`]).
     pub(crate) fn with_id(
         id: AppId,
         host: Rc<dyn Host>,
         start_ns: u64,
-        tasks: crate::task::TaskState,
+        extensions: Extensions,
     ) -> Runtime {
         Runtime {
             id,
@@ -76,8 +76,7 @@ impl Runtime {
                 slot: 0,
                 generation: 0,
             },
-            tasks,
-            motion: crate::motion::MotionState::default(),
+            extensions,
             app: kivact_types::cell::Deferred::new(),
             unstamped: RefCell::new(Vec::new()),
             awaiting: RefCell::new(std::collections::VecDeque::new()),

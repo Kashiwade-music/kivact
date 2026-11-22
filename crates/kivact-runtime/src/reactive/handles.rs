@@ -13,9 +13,10 @@ use super::graph::{memo_cell, source_cell};
 use crate::reactive::Handled;
 use crate::reactive::arena::Key;
 use crate::reactive::data::{
-    Callback, CallbackFn, LensCell, Runtime, Signal, SignalRepr, Value, ValueRepr, Var,
+    Callback, LensCell, Runtime, Signal, SignalRepr, Value, ValueRepr, Var,
 };
 use crate::reactive::error::{ErrorKind, UiError, misuse, misuse_at, new_error};
+use crate::reactive::handler::CallbackFn;
 use crate::reactive::registry::{runtime, try_runtime};
 
 // ---------------------------------------------------------------------------

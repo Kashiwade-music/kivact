@@ -1,5 +1,6 @@
 //! Role: Shared event outcomes and erased effectful handlers.
 
+use crate::reactive::arena::Key;
 use crate::reactive::error::UiError;
 use std::rc::Rc;
 
@@ -111,6 +112,12 @@ impl IntoHandler<(), Handle> for crate::Callback<()> {
     }
 }
 
+/// The callback object a `Callback` handle names: its owner and its handler.
+pub(crate) struct CallbackFn<E> {
+    pub(crate) owner: Key,
+    pub(crate) f: Handler<E>,
+}
+
 /// Return values accepted by effectful handlers.
 #[diagnostic::on_unimplemented(
     message = "a handler returns `()`, `Handled`, `Result<(), UiError>` or `Result<Handled, UiError>`",
@@ -165,7 +172,7 @@ mod tests {
         let rt = crate::reactive::data::Runtime::register(
             Rc::new(Quiet),
             0,
-            crate::driver::TaskState::new(None, crate::driver::ThreadWaker::new(|| {})),
+            crate::reactive::extensions::test_extensions(),
         );
         let at = Location::caller();
         // The first owner takes the arena's first slot, which `rt.root`

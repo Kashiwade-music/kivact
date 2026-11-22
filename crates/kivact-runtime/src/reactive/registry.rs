@@ -21,7 +21,7 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use crate::reactive::data::Runtime;
+use crate::reactive::data::{Extensions, Runtime};
 use crate::reactive::error::{ErrorKind, misuse_at};
 use crate::reactive::execution::executing_app;
 use crate::reactive::host_types::Host;
@@ -44,17 +44,17 @@ pub(crate) fn check_not_foreign(app: AppId, at: &'static Location<'static>) {
 }
 
 impl Runtime {
-    /// Create and register a new runtime (App) with its tasks. Ids are
+    /// Create and register a new runtime (App) with its extensions. Ids are
     /// never reused.
     pub(crate) fn register(
         host: Rc<dyn Host>,
         start_ns: u64,
-        tasks: crate::task::TaskState,
+        extensions: Extensions,
     ) -> Rc<Runtime> {
         REGISTRY.with(|r| {
             let mut reg = r.borrow_mut();
             let id = AppId(reg.len() as u32 + 1);
-            let rt = Rc::new(Runtime::with_id(id, host, start_ns, tasks));
+            let rt = Rc::new(Runtime::with_id(id, host, start_ns, extensions));
             reg.push(Some(rt.clone()));
             rt
         })

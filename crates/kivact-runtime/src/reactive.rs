@@ -31,6 +31,7 @@ mod detail;
 mod diag;
 mod error;
 mod execution;
+pub(crate) mod extensions;
 mod frame;
 mod graph;
 pub mod handler;
@@ -56,13 +57,15 @@ mod trigger;
 mod turn;
 
 pub use clock::clock_now;
-pub(crate) use data::AppSlot;
+pub(crate) use data::{AppSlot, Extensions};
 pub use data::{
-    Callback, EffectKind, Kind, LiveCounts, NodeInfo, Runtime, Signal, Turn, TurnGuard,
-    UiThreadOnly, Value, Var,
+    Callback, EffectKind, Kind, LiveCounts, NodeInfo, Runtime, Signal, TurnGuard, UiThreadOnly,
+    Value, Var,
 };
-pub use detail::{Cause, CauseTag, StageSpan, TraceEdge, TraceRun, TraceWrite, TurnRecord};
-pub use diag::{RecordBits, ReportKind, Reported};
+pub use detail::{
+    Cause, CauseTag, RecordBits, StageSpan, TraceEdge, TraceRun, TraceWrite, Turn, TurnRecord,
+};
+pub use diag::{ReportKind, Reported};
 pub use error::{ErrorKind, Result, UiError, raise};
 pub use frame::{pure, require_effectful, require_setup, untrack};
 pub(crate) use graph::watch;

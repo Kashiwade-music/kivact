@@ -206,7 +206,7 @@ mod tests {
         let rt = Runtime::register(
             Rc::new(Quiet),
             0,
-            crate::driver::TaskState::new(None, crate::driver::ThreadWaker::new(|| {})),
+            crate::reactive::extensions::test_extensions(),
         );
         let at = Location::caller();
         // The root owner takes the first owner slot, as `Runtime::new` makes it.
@@ -246,7 +246,7 @@ mod tests {
         let rt = Runtime::register(
             Rc::new(Quiet),
             0,
-            crate::driver::TaskState::new(None, crate::driver::ThreadWaker::new(|| {})),
+            crate::reactive::extensions::test_extensions(),
         );
         let at = Location::caller();
         assert_eq!(rt.create_owner(None, at), rt.root);

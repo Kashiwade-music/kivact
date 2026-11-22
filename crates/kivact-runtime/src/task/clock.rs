@@ -5,17 +5,9 @@ use std::panic::Location;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
+use super::state::ClockEntry;
 use crate::driver::Runtime;
 use crate::{Owner, Value};
-
-/// One shared clock: the owner that holds its signal and timer task, and
-/// how many live callers use it.
-pub(crate) struct ClockEntry {
-    every_ns: u64,
-    owner: Owner,
-    value: Value<SystemTime>,
-    users: Cell<u32>,
-}
 
 /// The wall-clock time, updated every `every` (setup only). Calls with the
 /// same period share one timer and one value; it stops when the last

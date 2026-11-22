@@ -20,8 +20,10 @@
 
 use std::panic::Location;
 
-use crate::reactive::data::{Diag, Runtime, Turn};
-use crate::reactive::detail::{Cause, StageSpan, TraceEdge, TraceRun, TraceWrite, TurnRecord};
+use crate::reactive::data::{Diag, Runtime};
+use crate::reactive::detail::{
+    Cause, RecordBits, StageSpan, TraceEdge, TraceRun, TraceWrite, Turn, TurnRecord,
+};
 use crate::reactive::error::UiError;
 use crate::reactive::host_types::Stage;
 use crate::reactive::identity::NodeId;
@@ -37,35 +39,6 @@ pub enum ReportKind {
     Error,
     /// A non-fatal diagnostic (a write after dispose, a stale event, ...).
     Diagnostic,
-}
-
-/// Which recorders want the turn trace ([`Runtime::set_recorder`]). The
-/// trace (turn records, causes, writes, re-runs, edges and stage times) is
-/// kept only while one of them is on; errors and diagnostics are always kept.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct RecordBits(u8);
-
-impl RecordBits {
-    /// The DevTools agent records updates.
-    pub const DEVTOOLS: RecordBits = RecordBits(1);
-    /// A `kivact::test` screen (`Screen::trace`).
-    pub const TEST: RecordBits = RecordBits(2);
-    /// The debug comparison trace (`KIVACT_TRACE`).
-    pub const TRACE_SINK: RecordBits = RecordBits(4);
-
-    /// Whether any recorder is on.
-    pub const fn any(self) -> bool {
-        self.0 != 0
-    }
-
-    /// These bits with `bits` turned on or off.
-    pub const fn with(self, bits: RecordBits, on: bool) -> RecordBits {
-        if on {
-            RecordBits(self.0 | bits.0)
-        } else {
-            RecordBits(self.0 & !bits.0)
-        }
-    }
 }
 
 /// One error or diagnostic in report order, as the DevTools reads them.
