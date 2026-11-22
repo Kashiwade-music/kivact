@@ -394,6 +394,41 @@ fn a_busy_button_is_not_pressed_even_when_its_caller_enables_it() {
 }
 
 #[test]
+fn a_busy_spinner_shows_after_its_reveal_delay() {
+    // The spinner waits 225 ms, then fades in over 125 ms: nothing of it is
+    // drawn before the delay, and it is drawn once the delay has passed.
+    let theme = Theme::light()
+        .set(&kivact::ui::theme::button::BUSY_REVEAL_DELAY_MS_VAR, 225.0)
+        .set(&kivact::ui::theme::button::BUSY_REVEAL_FADE_MS_VAR, 125.0)
+        .with(ButtonTheme::default().busy(|_, _, _| {
+            kivact::style::style()
+                .position(kivact::style::Position::Absolute)
+                .top(0)
+                .left(0)
+                .size(16, 16)
+                .background(kivact::style::rgb(0xff0000))
+        }));
+    let screen =
+        kivact::test::render_with(kivact::test::RenderOptions::default().theme(theme), || {
+            button("Loading example").busy(true)
+        });
+    // The spinner is tinted by the disabled busy button, so its red is
+    // tested by range, not by the exact value.
+    let spinner_is_visible = || {
+        screen.screenshot().pixels.iter().any(|&p| {
+            let (r, g, b) = ((p >> 16) & 0xff, (p >> 8) & 0xff, p & 0xff);
+            r >= 200 && g <= 160 && b <= 160
+        })
+    };
+    assert!(!spinner_is_visible());
+    screen.advance(std::time::Duration::from_millis(224));
+    assert!(!spinner_is_visible());
+    screen.advance(std::time::Duration::from_millis(176));
+    assert!(spinner_is_visible());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
 fn the_root_content_and_icon_recipes_read_the_same_variant() {
     type Seen = std::sync::Arc<std::sync::Mutex<Vec<Option<ButtonVariant>>>>;
     let seen: Seen = Seen::default();
