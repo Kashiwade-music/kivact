@@ -9,26 +9,28 @@
 ダイアログの開閉状態は、あなたが持つ `bool` です。`true` を書くと開き、ユーザーが閉じると、ダイアログが `false` を書きます。
 
 ```rust,test_harness
+use kivact::interaction::DismissOn;
 use kivact::prelude::*;
+use kivact::ui::DialogKind;
 
 fn app() -> impl IntoView {
     let open = signal(false);
     let deleted = signal(false);
 
     column((
-        button("メモを削除").on_press(move || open.set(true)),
-        text(move || if deleted.get() { "削除しました" } else { "残っています" }),
-        dialog("このメモを削除しますか?", open)
-            .mode(DialogMode::AlertModal)
+        button("Delete note").on_press(move || open.set(true)),
+        text(move || if deleted.get() { "Deleted" } else { "Kept" }),
+        dialog("Delete this note?", open)
+            .mode(DialogKind::AlertModal)
             .dismiss(DismissOn { escape: true, outside: false })
-            .description("この操作は元に戻せません。")
-            .content(|| text("メモと添付ファイルが削除されます。"))
+            .description("This cannot be undone.")
+            .content(|| text("The note and its attachments will be removed."))
             .footer(move || {
                 row((
-                    button("キャンセル")
+                    button("Cancel")
                         .variant(ButtonVariant::Outline)
                         .on_press(move || open.set(false)),
-                    button("削除する")
+                    button("Delete")
                         .variant(ButtonVariant::Danger)
                         .on_press(move || {
                             deleted.set(true);
@@ -52,18 +54,18 @@ mod tests {
     #[test]
     fn escape_closes_the_dialog_and_returns_the_focus() {
         let screen = kivact::test::render(app);
-        let opener = screen.get_by_role(Role::Button, "メモを削除");
+        let opener = screen.get_by_role(Role::Button, "Delete note");
         opener.focus();
         opener.click();
-        screen.get_by_role(Role::AlertDialog, "このメモを削除しますか?");
+        screen.get_by_role(Role::AlertDialog, "Delete this note?");
 
         screen.press_key(Key::Escape);
-        assert!(screen.query_by_role(Role::AlertDialog, "このメモを削除しますか?").is_none());
+        assert!(screen.query_by_role(Role::AlertDialog, "Delete this note?").is_none());
         assert!(opener.is_focused());
 
         opener.click();
-        screen.get_by_role(Role::Button, "削除する").click();
-        screen.get_by_text("削除しました");
+        screen.get_by_role(Role::Button, "Delete").click();
+        screen.get_by_text("Deleted");
     }
 }
 ```
@@ -75,14 +77,13 @@ mod tests {
 - **アクセシビリティ。** タイトルがダイアログのアクセシブルな名前と見出しになります。`.hide_title(true)` は名前を保ったまま見出しを描かず、`.description(..)` は説明を加えます。
 - **幅。** `.width(480)` でテーマの幅を上書きします。
 
-`DialogMode` で種類を選びます。
+`DialogKind` で種類を選びます。
 
 | 種類 | 見た目 | 外側のクリック |
 | --- | --- | --- |
 | `Modal`(既定) | 中央のダイアログ | 閉じる |
 | `AlertModal` | 答えを求める中央のダイアログ(`Role::AlertDialog`) | `Dismiss` で許可しない限り閉じない |
 | `Drawer(Edge::Right)` | 端に固定されたシート(`Left`、`Right`、`Top`、`Bottom`) | 閉じる |
-| `Popover` | トリガーの隣に出るモーダルでないパネル | 閉じる |
 
 ### 内容は開くたびに作り直される
 
@@ -91,19 +92,20 @@ mod tests {
 ```rust,no_run
 use kivact::prelude::*;
 
-fn rename(name: Signal<String>) -> impl IntoView {
+#[component]
+fn rename(name: Signal<String>) -> impl Element {
     let open = signal(false);
-    let draft = signal(String::new()); // ダイアログが閉じても残る
+    let draft = signal(String::new()); // survives the dialog closing
 
     column((
-        button("名前を変更").on_press(move || {
+        button("Rename").on_press(move || {
             draft.set(name.get());
             open.set(true);
         }),
-        dialog("名前の変更", open)
-            .content(move || text_input("名前", draft))
+        dialog("Rename", open)
+            .content(move || text_input(draft).label("Name"))
             .footer(move || {
-                button("保存").on_press(move || {
+                button("Save").on_press(move || {
                     name.set(draft.get());
                     open.set(false);
                 })
@@ -112,23 +114,27 @@ fn rename(name: Signal<String>) -> impl IntoView {
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("Rename").run(|| rename(signal("無題".to_owned())))
+    App::new("Rename").run(|| rename(signal("Untitled".to_owned())))
 }
 ```
 
 ### トリガーから開く、ポップオーバーにする
 
-`.attach(trigger)` は、トリガーでダイアログを開くようにして、トリガーとダイアログをまとめて返します。`Popover` には必須です。パネルはトリガーの位置に出て、もう一度トリガーを押すと閉じます。
+`.attach(trigger)` は、トリガーでダイアログを開くようにして、トリガーとダイアログをまとめて返します。トリガーの隣に出る非モーダルのパネルには、ポップアップの振る舞いを使います。`use_popup(open)` はトリガーに Part を与え、`surface(placement, content)` はパネルをトリガーの位置に置きます。もう一度トリガーを押すと閉じます。
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::interaction::use_popup;
+use kivact::view::Placement;
 
-fn help() -> impl IntoView {
+#[component]
+fn help() -> impl Element {
     let open = signal(false);
-    dialog("ヘルプ", open)
-        .mode(DialogMode::Popover)
-        .content(|| text("Tab で入力欄を移動できます。"))
-        .attach(button("ヘルプ"))
+    let popup = use_popup(open);
+    row((
+        button("Help").with_node(move |n| n.part(popup.trigger())),
+        popup.surface(Placement::Below, || text("Press Tab to move between fields.")),
+    ))
 }
 
 fn main() -> kivact::Result<()> {
@@ -136,19 +142,19 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-側と寄せ方は `.placement(Placement::Above)` と `.align(OverlayAlign::End)`(どちらも `kivact::view`)で選びます。パネルが収まらないときは、Kivact が反対側へ反転します。
+`Placement::Above` を `surface` に渡すと側を選べます(`Placement` は `kivact::view` にあります)。パネルが収まらないときは、Kivact が反対側へ反転します。
 
 ## ツールチップを付ける
 
-`tooltip(text).attach(trigger)` は、ポインターがトリガーの上で止まるか、トリガーにキーボードフォーカスがあるとき、少し遅れてヒントを表示します。Escape かポインターが離れると隠れます。一度に表示されるツールチップは 1 つだけです。トリガーがすでに説明を持っていなければ、ヒントは支援技術に対するトリガーの説明にもなります。
+`tooltip(text, trigger)` は、ポインターがトリガーの上で止まるか、トリガーにキーボードフォーカスがあるとき、少し遅れてヒントを表示します。Escape かポインターが離れると隠れます。一度に表示されるツールチップは 1 つだけです。トリガーがすでに説明を持っていなければ、ヒントは支援技術に対するトリガーの説明にもなります。
 
 ```rust,no_run
 use kivact::prelude::*;
 
 fn app() -> impl IntoView {
     row((
-        tooltip("文書を保存します (Ctrl+S)").attach(button("保存")),
-        tooltip("別のファイルを開きます").attach(button("開く")),
+        tooltip("Save the document (Ctrl+S)", button("Save")),
+        tooltip("Open another file", button("Open")),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -158,7 +164,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-ツールチップは短いヒントです。読ませるべき文章や、クリックさせるものには使わず、その場合はポップオーバーを使います。`.placement(..)`、`.align(..)`、`.offset(px)` で位置を決め、`.content(|| view)` で素のテキストを自分の view に置き換えられます。
+ツールチップは短いヒントです。読ませるべき文章や、クリックさせるものには使わず、その場合はポップオーバーを使います。
 
 ## メニューを表示する
 
@@ -169,31 +175,31 @@ use kivact::prelude::*;
 
 fn app() -> impl IntoView {
     let show_grid = signal(true);
-    let last = signal(String::from("なし"));
+    let last = signal(String::from("nothing"));
 
     let entries = move || {
         vec![
-            MenuEntry::item("new", "新規").with_shortcut("Ctrl N"),
-            MenuEntry::item("open", "開く"),
+            MenuEntry::item("new", "New").with_shortcut("Ctrl N"),
+            MenuEntry::item("open", "Open"),
             MenuEntry::separator(),
-            MenuEntry::checkbox("grid", "グリッドを表示", show_grid.get()).keep_open(true),
+            MenuEntry::checkbox("grid", "Show grid", show_grid.get()).keep_open(true),
             MenuEntry::submenu(
                 "export",
-                "書き出し",
+                "Export",
                 vec![MenuEntry::item("png", "PNG"), MenuEntry::item("svg", "SVG")],
             ),
-            MenuEntry::item("delete", "削除").destructive(true),
+            MenuEntry::item("delete", "Delete").destructive(true),
         ]
     };
 
     column((
-        menu("ファイル", entries).on_activate(move |key: &'static str| {
+        menu("File", entries).on_activate(move |key: &'static str| {
             if key == "grid" {
                 show_grid.update(|on| *on = !*on);
             }
             last.set(key.to_owned());
         }),
-        text(move || format!("最後に選んだ項目: {}", last.get())),
+        text(move || format!("last: {}", last.get())),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -209,9 +215,9 @@ mod tests {
     #[test]
     fn choosing_an_item_reports_its_key() {
         let screen = kivact::test::render(app);
-        screen.get_by_role(Role::Button, "ファイル").click();
-        screen.get_by_role(Role::MenuItem, "開く").click();
-        screen.get_by_text("最後に選んだ項目: open");
+        screen.get_by_role(Role::Button, "File").click();
+        screen.get_by_role(Role::MenuItem, "Open").click();
+        screen.get_by_text("last: open");
     }
 }
 ```
@@ -228,11 +234,11 @@ use kivact::prelude::*;
 
 fn app() -> impl IntoView {
     let entries = vec![
-        MenuEntry::item("copy", "コピー"),
-        MenuEntry::item("paste", "貼り付け"),
+        MenuEntry::item("copy", "Copy"),
+        MenuEntry::item("paste", "Paste"),
     ];
-    menu("編集", entries).on_activate(|_key: &'static str| {})
-        .attach_context(node().child(text("右クリックしてください")).style(style().padding(48)))
+    menu("Edit", entries).on_activate(|_key: &'static str| {})
+        .attach_context(node().child(text("Right-click me")).style(style().padding(48)))
 }
 
 fn main() -> kivact::Result<()> {
@@ -249,31 +255,32 @@ fn main() -> kivact::Result<()> {
 ```rust,test_harness
 use std::time::Duration;
 
+use kivact::interaction::{Tone, use_toaster};
 use kivact::prelude::*;
 
 fn app() -> impl IntoView {
-    let toaster = toaster();
+    let toasts = use_toaster();
     let count = signal(0);
 
     column((
-        button("保存").on_press(move || {
-            toaster.push(
-                Toast::new("保存しました")
-                    .body("変更をディスクへ書き込みました。")
+        button("Save").on_press(move || {
+            toasts.push(
+                Toast::new("Saved")
+                    .body("Your changes were written to disk.")
                     .tone(Tone::Success),
             );
         }),
-        button("削除").on_press(move || {
+        button("Delete").on_press(move || {
             count.update(|n| *n += 1);
-            toaster.push(
-                Toast::new("削除しました")
+            toasts.push(
+                Toast::new("Deleted")
                     .tone(Tone::Danger)
                     .duration(Some(Duration::from_secs(10)))
-                    .action("元に戻す", move || count.update(|n| *n -= 1)),
+                    .action("Undo", move || count.update(|n| *n -= 1)),
             );
         }),
-        text(move || format!("削除した数: {}", count.get())),
-        toast_region(toaster),
+        text(move || format!("deleted: {}", count.get())),
+        toast_region(toasts),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -289,22 +296,22 @@ mod tests {
     #[test]
     fn a_toast_appears_and_its_action_runs() {
         let screen = kivact::test::render(app);
-        screen.get_by_role(Role::Button, "保存").click();
-        screen.find_by_text("保存しました");
+        screen.get_by_role(Role::Button, "Save").click();
+        screen.find_by_text("Saved");
 
-        screen.get_by_role(Role::Button, "削除").click();
-        screen.get_by_text("削除した数: 1");
-        screen.find_by_role(Role::Button, "元に戻す").click();
-        screen.get_by_text("削除した数: 0");
+        screen.get_by_role(Role::Button, "Delete").click();
+        screen.get_by_text("deleted: 1");
+        screen.find_by_role(Role::Button, "Undo").click();
+        screen.get_by_text("deleted: 0");
     }
 }
 ```
 
-- `toaster()` はアプリで共有される唯一のキューを返します。どのコンポーネントから呼んでも同じキューが得られます。ハンドラーへはクロージャで取り込んで渡します(`Copy` のハンドルです)。
+- `use_toaster()` はアプリで共有される唯一のキューを返します。どのコンポーネントから呼んでも同じキューが得られます。ハンドラーへはクロージャで取り込んで渡します(`Copy` のハンドルです)。
 - トーストは既定で 5 秒表示されます。`.duration(Some(d))` で変え、`.duration(None)` にするとユーザーが閉じるまで残ります。ポインターがトーストの上にあるか、フォーカスが中にある間は、時間が止まります。
 - `Tone`(`Neutral`、`Info`、`Success`、`Warning`、`Danger`、`Accent`)はアイコンと読み上げ方を決めます。`Warning` と `Danger` はすぐに読み上げられ、ほかは控えめに読み上げられます。
 - `.action(label, f)` は、`f` を実行してトーストを閉じるボタンを 1 つ加えます。
-- 同時に表示されるのは最大 3 つです(`toaster.max_visible(n)` で変更)。残りは待機します。`toaster.dismiss(id)` で途中で消せます。`id` は `push` が返した値です。
+- 同時に表示されるのは最大 3 つです(`toasts.max_visible(n)` で変更)。残りは待機します。`toasts.dismiss(id)` で途中で消せます。`id` は `push` が返した値です。
 - テーマが region をウィンドウの右下に置きます。region はアプリのルート付近に 1 つ置いてください。
 
 ## 関連項目

@@ -26,7 +26,7 @@ fn app() -> impl IntoView {
     };
 
     column((
-        field("Name", text_input("Name", name).on_submit(save))
+        field("Name", text_input(name).on_submit(save))
             .hint("Shown on your profile")
             .error(error),
         button("Save").disabled(move || error.get().is_some()).on_press(save),
@@ -59,7 +59,7 @@ mod tests {
 
 Three pieces make this work:
 
-1. **The signal you give an input is the draft.** `text_input("Name", name)`
+1. **The signal you give an input is the draft.** `text_input(name)`
    writes every committed edit to `name` immediately. Nothing is "saved" yet;
    `saved` changes only when `save` runs.
 2. **The error is a derived value.** A `memo` returning `Option<String>` is
@@ -92,7 +92,7 @@ validation.
 ## Keep a draft apart from the saved model
 
 For more than one value, keep a whole struct as the draft and a second copy as
-the saved value. `Signal::field` makes a `Binding` to one field of the struct
+the saved value. `bind!(draft.name)` makes a `Signal` for one field of the struct
 for each input.
 
 ```rust,test_harness
@@ -123,14 +123,14 @@ fn app() -> impl IntoView {
         public: true,
         terms: false,
     });
-    let draft = signal(saved.get_untracked());
+    let draft = signal(saved.get());
 
-    let name = draft.project(|p| &p.name, |p| &mut p.name);
-    let bio = draft.project(|p| &p.bio, |p| &mut p.bio);
-    let plan = draft.project(|p| &p.plan, |p| &mut p.plan).optional();
-    let volume = draft.project(|p| &p.volume, |p| &mut p.volume);
-    let public = draft.project(|p| &p.public, |p| &mut p.public);
-    let terms = draft.project(|p| &p.terms, |p| &mut p.terms);
+    let name = bind!(draft.name);
+    let bio = bind!(draft.bio);
+    let plan = bind!(draft.plan).optional();
+    let volume = bind!(draft.volume);
+    let public = bind!(draft.public);
+    let terms = bind!(draft.terms);
 
     let name_error = memo(move || {
         draft.with(|p| p.name.trim().is_empty()).then(|| "Enter a name".to_owned())
@@ -142,17 +142,16 @@ fn app() -> impl IntoView {
     let changed = memo(move || draft.with(|d| saved.with(|s| d != s)));
 
     column((
-        field("Name", text_input("Name", name)).error(name_error),
-        field("Bio", text_area("Bio", bio).wrap(true).rows(2..=5)),
+        field("Name", text_input(name)).error(name_error),
+        field("Bio", text_area(bio).wrap(true).rows(2..=5)),
         field(
             "Plan",
             select(
-                "Plan",
                 vec![ListItem::new(Plan::Free, "Free"), ListItem::new(Plan::Pro, "Pro")],
                 plan,
             ),
         ),
-        field("Volume", slider("Volume", volume).step(5.0)),
+        field("Volume", slider(volume).step(5.0)),
         switch("Public profile", public),
         field("Terms", checkbox("I accept the terms", terms)).error(terms_error),
         row((
@@ -205,10 +204,7 @@ mod tests {
 
 What each piece does:
 
-- `draft.project(get, get_mut)` returns a `Binding<U>` for one field. The first
-  closure borrows the field for reading, the second borrows it for writing; you
-  do not clone anything. Reading is a memo, so a control re-renders only when its
-  own field changes.
+- `bind!(draft.field)` returns a `Signal<U>` for one field of the draft; writing it writes into the draft.
 - `select` and `radio_group` edit an `Option<K>` (nothing chosen yet is `None`).
   When the model holds a plain value, append `.optional()`: reading gives
   `Some(current)` and writing `None` is ignored. `K` needs `Clone + Eq + Hash`,
@@ -226,21 +222,20 @@ or `f64` already satisfy them.
 
 ## Pick the right control
 
-| Value | Control | Binding type |
+| Value | Control | Value type |
 | --- | --- | --- |
-| Short text | `text_input(name, Binding<String>)` | `Signal<String>` or a field |
-| Long text | `text_area(name, Binding<String>)` | same, Enter inserts a new line |
-| One of a few options | `radio_group(name, items, Binding<Option<K>>)` | all options visible |
-| One of many options | `select(name, items, Binding<Option<K>>)` | a drop-down list |
-| A number in a range | `slider(name, Binding<f64>)` | `.range(..)`, `.step(..)` |
-| On or off, applied at once | `switch(label, Binding<bool>)` | |
-| A yes or no choice | `checkbox(label, Binding<bool>)` | `.indeterminate(..)` for a mixed state |
+| Short text | `text_input(Signal<String>)` | a `Signal<String>` or `bind!(form.field)` |
+| Long text | `text_area(Signal<String>)` | same, Enter inserts a new line |
+| One of a few options | `radio_group(name, items, Signal<Option<K>>)` | all options visible |
+| One of many options | `select(items, Signal<Option<K>>)` | a drop-down list |
+| A number in a range | `slider(Signal<f64>)` | `.range(..)`, `.step(..)` |
+| On or off, applied at once | `switch(label, Signal<bool>)` | |
+| A yes or no choice | `checkbox(label, Signal<bool>)` | `.indeterminate(..)` for a mixed state |
 | A number typed in | `number_input(..)` | see the `kivact::ui` rustdoc |
 
-The first argument of `text_input`, `text_area`, `select`, `radio_group` and
-`slider` is the accessible name and is **not drawn**. Wrap the control in
-`field("Label", ..)` to draw a visible label that also becomes the name. The
-first argument of `checkbox` and `switch` is their visible label.
+Controls without a visible label (text fields, selects, sliders, date and time fields) get their name from `.label(..)` or from the `field(..)` around them; a focusable control without a name is reported when it mounts.
+
+The first argument of `checkbox` and `switch` is their visible label.
 
 ## When to show an error
 
@@ -262,7 +257,7 @@ fn app() -> impl IntoView {
     let shown = memo(move || if tried.get() { problem.get() } else { None });
 
     column((
-        field("Email", text_input("Email", email)).error(shown),
+        field("Email", text_input(email)).error(shown),
         button("Subscribe").on_press(move || {
             tried.set(true);
             if problem.get().is_none() {
@@ -296,13 +291,13 @@ Other rules:
 ## Commit a single field with Enter or blur
 
 For an inline rename you may want the edit to apply only when the user confirms
-it. `text_input(..).on_draft_commit(on_commit)` turns the field into a draft: Enter or
+it. `text_input(..).on_commit(on_commit)` turns the field into a draft: Enter or
 leaving the field calls `on_commit` with the text, Escape restores the text from
 before the edit.
 
 An inline rename also needs to know which item is being renamed, to open the
 field with its text selected and to close it again. `use_inline_edit` keeps
-that: `show(id)` starts a rename, `is_open(&id)` tells whether it runs, and
+that: `edit(id)` starts a rename, `editing()` gives the key being renamed, and
 `field(..)` builds the field.
 
 ```rust,no_run
@@ -316,17 +311,17 @@ fn names() -> impl IntoView {
         items,
         |(id, _)| *id,
         move |item| {
-            let id = item.get_untracked().0;
+            let id = item.get().0;
             row((
                 text(move || item.get().1),
                 show(
-                    move || !rename.is_open(&id),
-                    move || button("Rename").on_press(move || rename.show(id)),
+                    move || rename.editing().get() != Some(id),
+                    move || button("Rename").on_press(move || rename.edit(id)),
                 ),
                 show(
-                    move || rename.is_open(&id),
+                    move || rename.editing().get() == Some(id),
                     move || {
-                        let api = rename.field(id, "Name", signal(item.get_untracked().1)).on_draft_commit(move |name| {
+                        let api = rename.field(id, "Name", signal(item.get().1)).on_draft_commit(move |name| {
                             items.update(|all| {
                                 if let Some(row) = all.iter_mut().find(|row| row.0 == id) {
                                     row.1 = name;
@@ -351,7 +346,7 @@ leaving it changed calls the commit function with the text, Escape drops the
 edit, and either one closes the field. The field also closes when its row is
 removed, so a rename never outlives its item. An input marked `invalid` does
 not commit. For a field that stays on screen, use
-`text_input(..).on_draft_commit(on_commit)` alone: `draft` replaces `on_submit`, because
+`text_input(..).on_commit(on_commit)` alone: `on_commit` replaces `on_submit`, because
 Enter belongs to the draft, and `.on_edit(..)` reports `Begin`, `Commit` and
 `Cancel`.
 
@@ -394,18 +389,19 @@ fn dates() -> impl IntoView {
     let appointment = signal(None::<DateTime>);
     column((
         ui::calendar(day),
-        ui::date_input("Date", day).format(DateStyle::Short),
-        ui::date_range_input("Period", range),
-        ui::time_input("Time", time).format(TimeStyle { seconds: false }),
-        ui::date_time_input("Appointment", appointment)
+        ui::date_input(day).label("Date").format(DateStyle::Short),
+        ui::date_range_input(range).label("Period"),
+        ui::time_input(time).label("Time").format(TimeStyle { seconds: false }),
+        ui::date_time_input(appointment)
+            .label("Appointment")
             .time_format(TimeStyle { seconds: true })
             .presentation(DatePresentation::Adaptive),
     ))
 }
 ```
 
-`calendar` accepts single-date and ordered-range signals/bindings. `month` is the
-paging binding; `today`, `min`, `max` and `week_start` accept reactive values.
+`calendar` accepts single-date and ordered-range signals. `month` is the
+paging signal; `today`, `min`, `max` and `week_start` accept reactive values.
 `disabled_dates` rejects dates; `marks` decorates them. `range_span` limits the
 inclusive day count. Use `caption(CalendarCaption::Dropdown)` for month/year menus.
 
@@ -416,9 +412,8 @@ navigate; Enter/Space selects. Month/weekday names follow the locale.
 `Desktop` and `BottomSheet` select explicitly. Sheet wheels support spinbutton
 keys and assistive value actions.
 
-Style them through `UiTokens.calendar`, `UiTokens.date_input`, `UiTokens.time_input`
-and the `calendar`, `date_input`, `date_range_input`, `time_input`, `date_time_input`
-recipe tables of `UiRecipes`.
+Style them through the theme variables and the `<Name>Theme` tables of
+`kivact::ui::theme` (`CalendarTheme`, `DateInputTheme`, `TimeInputTheme`).
 ## Group actions and toggles
 
 Use `toolbar` for three or more related controls. Its start, center and end
@@ -428,6 +423,7 @@ an accessible name even when no visible heading is needed.
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::ui::{button_group, toggle_group, toolbar};
 
 fn editor_actions() -> impl IntoView {
     let formatting = signal(Vec::<&'static str>::new());
@@ -457,7 +453,7 @@ For exclusive choices that always choose when navigating, use
 non-focusable cells. `.orientation(Orientation::Vertical)` changes both the
 layout and arrow navigation of any of these groups. `.disabled(source)` is
 the standard `Element` modifier. Themes customize the corresponding
-`UiTokens` groups and `UiRecipes` tables; caller styles still override recipes.
+component theme variables and `<Name>Theme` tables of `kivact::ui::theme`; caller styles still override them.
 
 `radio_group(...).item_node(|target, item, state| target.with_node(...))` exposes the complete canonical target for advanced attachments, such as a kit keyboard hint. Return that target with modifiers; do not create another native focus or selection owner. `.item(...)` continues to replace only inner content, and the two slots compose.
 

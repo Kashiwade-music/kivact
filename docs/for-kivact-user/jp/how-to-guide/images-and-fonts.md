@@ -2,20 +2,20 @@
 
 [English](../../en/how-to-guide/images-and-fonts.md)
 
-PNG、JPEG、SVG は `image(source)` で表示し、支援技術が説明できるよう名前を付け、スタイルで大きさを決めます。独自のフォントは `App::font` で登録します。このガイドでは、実行時に読み込む画像、動くアニメーション画像、アイコンとして使う SVG ファイル、自分で文字や画像を含む SVG、可変フォントの軸も扱います。
+PNG、JPEG、SVG は `image(source)` で表示し、支援技術が説明できるよう名前を付け、スタイルで大きさを決めます。独自のフォントは `Theme::with_fonts` で登録します。このガイドでは、実行時に読み込む画像、動くアニメーション画像、アイコンとして使う SVG ファイル、自分で文字や画像を含む SVG、可変フォントの軸も扱います。
 
 ## 最短で動く画像
 
 ```rust,test_harness
 use kivact::prelude::*;
 
-// 例を自己完結させるために、SVG のバイト列をインラインで書いている。アプリでは
-// ファイルを埋め込む: `static LOGO: &[u8] = include_bytes!("../assets/logo.svg");`
+// Inline SVG bytes keep the example self-contained. In an app, embed a file
+// instead: `static LOGO: &[u8] = include_bytes!("../assets/logo.svg");`
 static LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" width="48" height="24" viewBox="0 0 48 24"><rect width="48" height="24" rx="6" fill="#2563eb"/><circle cx="12" cy="12" r="6" fill="white"/></svg>"##;
 
 fn app() -> impl IntoView {
     column((
-        image(LOGO).name("Kivact のロゴ").test_id("logo"),
+        image(LOGO).name("Kivact logo").test_id("logo"),
         image(LOGO).style(style().width(96)).test_id("wide"),
     ))
     .style(style().gap(12).padding(16).align_items(Align::Start))
@@ -38,7 +38,7 @@ mod tests {
         };
         assert_eq!(size("logo"), (48.0, 24.0));
         assert_eq!(size("wide"), (96.0, 48.0));
-        screen.get_by_role(Role::Image, "Kivact のロゴ");
+        screen.get_by_role(Role::Image, "Kivact logo");
         assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
 }
@@ -65,9 +65,9 @@ use kivact::prelude::*;
 fn gallery(paths: Vec<&'static str>) -> impl IntoView {
     let current = signal(0_usize);
     column((
-        // `current` が変わるとクロージャが再実行され、別の Asset を返す。
+        // The closure re-runs when `current` changes and returns another Asset.
         image(move || Asset::from(paths[current.get()])).style(style().height(160)),
-        button("次へ").on_press(move || current.update(|i| *i = (*i + 1) % 3)),
+        button("Next").on_press(move || current.update(|i| *i = (*i + 1) % 3)),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -86,10 +86,10 @@ use kivact::view::Asset;
 use kivact::prelude::*;
 
 fn avatar(bytes: Vec<u8>) -> impl IntoView {
-    let asset = Asset::from(bytes); // 1 回だけ作る
+    let asset = Asset::from(bytes); // once
     column((
-        image(asset.clone()).style(style().size(64, 64)).name("プロフィール画像"),
-        image(asset).style(style().size(24, 24)), // デコード済みの同じ画像
+        image(asset.clone()).style(style().size(64, 64)).name("Profile picture"),
+        image(asset).style(style().size(24, 24)), // the same decoded image
     ))
 }
 
@@ -112,11 +112,11 @@ static PHOTO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" width="40" he
 
 fn thumbnails() -> impl IntoView {
     row((
-        // 縦横比を保って箱の中に収める(既定)。
+        // Fits inside the box, keeping the proportions (the default).
         image(PHOTO).style(style().size(80, 80)),
-        // 箱を埋め、はみ出した部分を切り取る。
+        // Fills the box and crops what overflows.
         image(PHOTO).fit(ImageFit::Cover).style(style().size(80, 80)),
-        // 箱に合わせて引き伸ばす。
+        // Stretches to the box.
         image(PHOTO).fit(ImageFit::Fill).style(style().size(80, 80)),
     ))
     .style(style().gap(12).padding(16))
@@ -129,7 +129,7 @@ fn main() -> kivact::Result<()> {
 
 - 幅と高さの両方を指定したとき、画像が箱をどう埋めるかは `fit` が決めます。`Contain`(既定)、`Cover`、`Fill`、`None`(本来の大きさ。箱で切り取られる)、`ScaleDown`(本来の大きさ。ただし箱が小さければ縮小)があります。
 - 縦横比を保つには、片方の辺だけ指定します。`style().height(160)` です。
-- `style().radius(8)` は角を丸め、`style().clip(true)` は子を切り取り、`style().opacity(..)` は画像を薄くします。
+- `style().border_radius(8)` は角を丸め、`style().clip(true)` は子を切り取り、`style().opacity(..)` は画像を薄くします。
 
 ## アニメーション画像を再生する
 
@@ -141,10 +141,10 @@ use kivact::prelude::*;
 fn loading(busy: Signal<bool>) -> impl IntoView {
     column((
         image("assets/spinner.gif")
-            .name("読み込み中")
+            .name("Loading")
             .playing(busy)
             .style(style().size(32, 32)),
-        text(move || String::from(if busy.get() { "読み込み中" } else { "完了" })),
+        text(move || String::from(if busy.get() { "Loading" } else { "Done" })),
     ))
     .style(style().gap(8).padding(16).align_items(Align::Start))
 }
@@ -177,8 +177,8 @@ fn favorite() -> impl IntoView {
     row((
         image(STAR)
             .monochrome(true)
-            .style(style().size(20, 20).color(ColorToken::Warning)),
-        text("お気に入り"),
+            .style(style().size(20, 20).color(color::WARNING)),
+        text("Favorite"),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -204,12 +204,12 @@ use kivact::prelude::*;
 static BADGE: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32" viewBox="0 0 120 32"><rect width="120" height="32" rx="6" fill="#1e3a8a"/><text x="12" y="21" font-family="Inter" font-size="14" fill="#ffffff">Online</text></svg>"##;
 
 fn status() -> impl IntoView {
-    image(BADGE).name("状態: オンライン")
+    image(BADGE).name("Status: online")
 }
 
 fn main() -> kivact::Result<()> {
     let regular = std::fs::read("assets/Inter-Regular.ttf").expect("font file");
-    App::new("Status").font(regular).run(status)
+    App::new("Status").theme(Theme::light().with_fonts([regular])).run(status)
 }
 ```
 
@@ -226,13 +226,13 @@ use kivact::prelude::*;
 
 fn headlines() -> impl IntoView {
     column((
-        text("可変の太さ").style(
+        text("Variable weight").style(
             style()
                 .font_family("Inter")
                 .font_variation_settings([("wght", 650.0)]),
         ),
-        text("詰まった幅").style(style().font_family("Inter").font_width(75.0)),
-        text("どの大きさでも同じ字形").style(
+        text("Condensed width").style(style().font_family("Inter").font_width(75.0)),
+        text("One design at every size").style(
             style()
                 .font_family("Inter")
                 .font_size(48)
@@ -244,7 +244,7 @@ fn headlines() -> impl IntoView {
 
 fn main() -> kivact::Result<()> {
     let inter = std::fs::read("assets/Inter-Variable.ttf").expect("font file");
-    App::new("Headlines").font(inter).run(headlines)
+    App::new("Headlines").theme(Theme::light().with_fonts([inter])).run(headlines)
 }
 ```
 
@@ -252,7 +252,7 @@ fn main() -> kivact::Result<()> {
 
 ## 独自のフォントを登録する
 
-`App::font` は、最初の画面の前に TTF、OTF、TTC ファイルを読み込みます。その後は、フォントの**ファミリー名**(フォントに書かれた名前で、ファイル名とは限りません)を `style().font_family(..)` に使えます。
+フォントはテーマに属します。`Theme::with_fonts([..])` は、TTF、OTF、TTC のフォントを受け取ります。各フォントは静的なバイト列、実行時に読んだ `Vec<u8>`、またはパスで指定し、アプリは最初の画面の前にそれらを読み込みます。その後は、フォントの**ファミリー名**(フォントに書かれた名前で、ファイル名とは限りません)を `style().font_family(..)` に使えます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -260,7 +260,7 @@ use kivact::prelude::*;
 fn app() -> impl IntoView {
     column((
         text("The quick brown fox").style(style().font_family("Inter")),
-        text("グリフごとにフォールバック")
+        text("Falls back per glyph")
             .style(style().font_family("Inter, 'Noto Sans JP', sans-serif")),
         text("let x = 1;").style(style().font_family("monospace")),
     ))
@@ -268,19 +268,19 @@ fn app() -> impl IntoView {
 }
 
 fn main() -> kivact::Result<()> {
-    // アプリではファイルを埋め込む: `.font(include_bytes!("../assets/Inter-Regular.ttf"))`。
+    // In an app, embed the files instead:
+    // .with_fonts([include_bytes!("../assets/Inter-Regular.ttf").as_slice(), include_bytes!("../assets/Inter-Bold.ttf").as_slice()])
     let regular = std::fs::read("assets/Inter-Regular.ttf").expect("font file");
     let bold = std::fs::read("assets/Inter-Bold.ttf").expect("font file");
-
-    App::new("Fonts").font(regular).font(bold).run(app)
+    App::new("Fonts").theme(Theme::light().with_fonts([regular, bold])).run(app)
 }
 ```
 
-- `.font(..)` はファイルごとに 1 回呼びます。標準と太字は別ファイルであることが多いので、両方を登録し、`style().weight(700)` で字体を選びます。`italic(true)` は、ファミリーに斜体があればそれを選びます。
+- すべてのファイルを `with_fonts` に渡すリストに入れます。標準と太字は別ファイルであることが多いので、両方を登録し、`style().font_weight(700)` で字体を選びます。`font_style(FontStyle::Italic)` は、ファミリーに斜体があればそれを選びます。
 - `font_family` は node の子孫に継承されるので、コンテナに指定するとパネル全体が変わります。総称名の `system-ui`、`sans-serif`、`serif`、`monospace` は常に使えます。
 - カンマ区切りのリストは、**グリフごと**にフォントを選びます。その文字を持つ最初のファミリーが使われます。欧文フォントを日本語フォントの前に置くときに使います。
 - インストールされていないファミリーは、システムの UI フォントにフォールバックし、`Asset` エラーとして 1 回だけ報告されます。使えないフォントのファイル(WOFF や壊れたファイル)も同様に報告されますが、アプリは起動します。
-- アプリ全体の既定フォントを 1 つにするには、テーマのテキストのファミリーを設定します。`theme.with_text(Typography { family: Some("Inter".into()), ..theme.text().clone() })` です。`Typography` は `kivact::style::theme` にあります。
+- アプリ全体の既定フォントを 1 つにするには、ルートの view に `font_family` を設定します。下のすべての部品に継承されます。
 - `kivact::platform::font_families()` は、登録したものを含めて、使えるファミリーを一覧にします。セットアップかハンドラーの中で呼びます。
 
 ## 画像が表示されないとき
