@@ -1,4 +1,4 @@
-//! Role: Install the Lyra Neutral colors and the core variables of the standard components.
+//! Role: Install the Lyra Neutral colors and the core variables of the components.
 
 use kivact::style::{Color, Theme, ThemeMode, control, font, radius, rgb, space};
 use kivact::style::{LineHeight, color};

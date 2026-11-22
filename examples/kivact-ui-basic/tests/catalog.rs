@@ -1,4 +1,4 @@
-//! Role: The Basic catalog's tests: the shared page walker, and the theme toggle, the search
+//! Role: The Basic catalog's tests: the page walker, the theme toggle, the search
 //! and the keyboard walk of the list.
 
 use catalog_shell::check::{

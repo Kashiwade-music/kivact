@@ -1,4 +1,4 @@
-//! Role: Lyra recipes of the standard button: its root, content row, icon box and busy ring.
+//! Role: Lyra recipes of the standard button: root, content row, icon box, busy ring.
 
 use crate::recipe_parts::{ButtonLook, metrics, stroke_loader, trigger_style};
 use kivact::geometry::Point;

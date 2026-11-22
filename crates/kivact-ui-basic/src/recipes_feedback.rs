@@ -1,4 +1,4 @@
-//! Role: Lyra recipes of the feedback parts: toasts, skeletons, spinners and keyboard keys.
+//! Role: Lyra recipes of the feedback parts: toasts, skeletons, spinners, keyboard keys.
 //!
 //! The looks of sonner.tsx (the stacked toasts), skeleton.tsx, spinner.tsx,
 //! kbd.tsx, badge.tsx, empty.tsx and alert.tsx. The avatar recipes are in

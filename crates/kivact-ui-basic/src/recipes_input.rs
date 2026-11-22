@@ -1,4 +1,4 @@
-//! Role: Lyra recipes of the input group, and the adornments and borderless controls it joins.
+//! Role: Lyra recipes of the input group and the adornments and borderless controls.
 //!
 //! The looks of input-group.tsx. A canonical button and a text input or text
 //! area inside a group take their looks from the helpers here, which the

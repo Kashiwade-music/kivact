@@ -1,8 +1,10 @@
-//! Role: The Data Table page of the game catalog: Sorting, searching, row selection and bulk actions over the production records.
+//! Role: The Data Table page of the game catalog: sorting, searching, selection.
+//! Row selection and bulk actions over the production records.
 
 use crate::support::common::{choice_options, segmented};
 use crate::support::dialogs::overlay_layer;
-use crate::support::state::{Demo, Overlay, Record};
+use crate::support::record::Record;
+use crate::support::state::{Demo, Overlay};
 use catalog_shell::{Example, Page};
 use kivact::interaction::{Tone, use_toaster};
 use kivact::prelude::*;

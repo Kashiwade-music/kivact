@@ -1,4 +1,4 @@
-//! Role: The page walker of the catalogs' tests: open every page, check the layout and the glyphs.
+//! Role: The page walker of the catalogs' tests: open pages, check layout and glyphs.
 
 use crate::model::Page;
 use crate::shell::{CatalogTheme, catalog};

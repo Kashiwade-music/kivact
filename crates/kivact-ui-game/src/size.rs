@@ -1,6 +1,15 @@
 //! Role: The game kit's length theme variables, which take the values of its density.
-use crate::theme::Density;
 use kivact::style::{Length, Theme, ThemeVar, control};
+
+/// Comfortable or compact metrics.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Density {
+    /// The comfortable metrics: 34 px controls and 42 px rows.
+    #[default]
+    Comfortable,
+    /// The compact metrics: 28 px controls and 32 px rows.
+    Compact,
+}
 
 /// `--control-height`: the height of a control; the theme's control height by default.
 pub(crate) static CONTROL_HEIGHT_VAR: ThemeVar<f64> =

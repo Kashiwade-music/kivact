@@ -20,6 +20,7 @@ pub mod fonts;
 mod button;
 mod choice;
 mod choice_style;
+mod control_parts;
 mod display;
 mod icons;
 mod kpi;
@@ -36,6 +37,7 @@ mod recipes_navigation;
 mod recipes_overlays;
 mod shapes;
 mod size;
+mod sparkline;
 mod surface;
 mod table;
 mod theme;
@@ -48,12 +50,13 @@ pub use display::{ActivityEntry, activity};
 pub use kpi::{Kpi, kpi};
 pub use overlays::{IconMenu, icon_menu};
 pub use shapes::cut_corner;
+pub use size::Density;
 pub use surface::{halo, hud, mono};
 pub use table::{
     BadgeCell, DetailCell, IdentifierCell, ProgressCell, UserCell, badge_cell, detail_cell,
     identifier_cell, progress_cell, user_cell,
 };
-pub use theme::{Density, ThemeOptions, theme, theme_with};
+pub use theme::{ThemeOptions, theme, theme_with};
 pub use variants::{
     AvatarVariant, BadgeVariant, ChoiceCard, GaugeSegments, HeadingVariant, InputGroupVariant,
     SkeletonVariant, StatVariant, TabsVariant,

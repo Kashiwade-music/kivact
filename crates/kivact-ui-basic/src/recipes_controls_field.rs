@@ -1,4 +1,4 @@
-//! Role: Lyra recipes of the text input and text area, and of a field's label, hint and error.
+//! Role: Lyra recipes of the text input, text area and a field's label, hint and error.
 //!
 //! The look of input.tsx, textarea.tsx and the field's text beside them.
 

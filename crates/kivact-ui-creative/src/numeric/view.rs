@@ -15,12 +15,12 @@ use kivact::view::{
 };
 use std::rc::Rc;
 
-use super::builder::{NumericKind, PropertyState, Setup};
 use super::machine;
 use super::paint::{draw_fader, draw_knob};
 use super::text::{
     Formatter, TextParser, builtin_formatter, display_value, editor_formatter, scalar_parser,
 };
+use super::types::{NumericKind, PropertyState, Setup};
 use crate::color::{
     ACCENT, DRIVEN_PROPERTY_COLOR, HAIR_STRONG, HEADER, KEY, MUTED, STRONG, TEXT, X, Y,
 };

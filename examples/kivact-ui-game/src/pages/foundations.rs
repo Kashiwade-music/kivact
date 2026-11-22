@@ -1,4 +1,4 @@
-//! Role: The Foundations page of the game catalog: Color, type and shape foundations of the console.
+//! Role: The Foundations page of the game catalog: color, type and shape foundations.
 
 use crate::support::common::{cards, display_family, line, list, meta, specimen};
 use crate::support::specimens::{ShapeKind, shape_tile, swatch};
@@ -38,7 +38,7 @@ fn demo() -> impl IntoView {
                 mode.get(),
                 g::ThemeOptions {
                     density: density.get(),
-                    ..crate::options()
+                    ..crate::theme::options()
                 },
             )
         },

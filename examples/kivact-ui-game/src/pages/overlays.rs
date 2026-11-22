@@ -1,4 +1,5 @@
-//! Role: The Overlays page of the game catalog: Menus, dialogs, drawers, tooltips, popovers and the command palette.
+//! Role: The Overlays page of the game catalog: menus, dialogs, drawers, tooltips.
+//! Popovers and the command palette.
 
 use crate::support::common::{cards, line, list, specimen};
 use crate::support::dialogs::overlay_layer;

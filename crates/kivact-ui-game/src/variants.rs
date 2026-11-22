@@ -1,4 +1,4 @@
-//! Role: The console's variant types, which a standard component takes with `.variant(..)`.
+//! Role: The console's variant types, taken by a standard component's `.variant(..)`.
 //!
 //! Each one is a look of a standard component. A theme that does not know
 //! the type draws the component's plain look.

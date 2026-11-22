@@ -1,4 +1,5 @@
-//! Role: The game catalog's offline OFL fonts: Barlow Condensed, JetBrains Mono and Noto Sans JP (subset).
+//! Role: The game catalog's offline OFL fonts: Barlow, JetBrains Mono, Noto Sans JP.
+//! The Noto Sans JP file is a subset.
 
 /// The fonts the catalog registers with its theme.
 pub(crate) static FONTS: &[&[u8]] = &[

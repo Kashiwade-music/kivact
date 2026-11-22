@@ -1,4 +1,5 @@
-//! Role: Creative appearance of the standard buttons, toggles, text fields, radio groups, sliders, splitters, progress bars and disclosures.
+//! Role: Creative appearance of the standard buttons, toggles, fields and sliders.
+//! The radio groups, splitters, progress bars and disclosures too.
 use crate::color;
 use crate::fonts::mono_family;
 use crate::recipe_parts::{
