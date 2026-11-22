@@ -28,7 +28,7 @@ fn region(notice: Value<Announcement>, level: LiveRegion) -> Node {
         .role(Role::Status)
         .live_region(level)
         .hit_testable(false)
-        .test_id("kivact.announcer")
+        .test_id("kivact.sr-only")
         .style(
             style()
                 .position(Position::Absolute)
