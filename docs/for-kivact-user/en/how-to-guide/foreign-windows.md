@@ -24,6 +24,7 @@ use kivact::platform::NativeWindow;
 use kivact::prelude::*;
 use kivact::view::ForeignChild;
 use kivact::view::SurfaceSize;
+use kivact::view::WindowMode;
 use kivact::view::foreign_window;
 
 struct Editor;
@@ -34,6 +35,7 @@ impl Editor {
     fn close(&self) {}
 }
 
+#[component]
 fn plugin_window(editor: Arc<Editor>, open: Signal<bool>) -> impl IntoView {
     let resize_editor = editor.clone();
     let close_editor = editor.clone();
@@ -98,7 +100,7 @@ fn resizer(child: Signal<Option<ForeignChild>>, wanted: Signal<Option<(u32, u32)
         let Some((width, height)) = wanted.get() else {
             return;
         };
-        let Some(child) = child.get_untracked() else {
+        let Some(child) = child.get() else {
             return;
         };
         spawn(async move {

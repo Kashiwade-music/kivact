@@ -29,7 +29,8 @@ Write tests in a `#[cfg(test)] mod tests` next to the code, or in `tests/`.
 ```rust,test_harness
 use kivact::prelude::*;
 
-fn counter() -> impl IntoView {
+#[component]
+fn counter() -> impl Element {
     let count = signal(0);
     column((
         text(move || format!("Count: {}", count.get())),
@@ -134,11 +135,12 @@ contacts at once. `Key`, `Modifiers`, `MouseButton` and `PointerKind` are in
 ```rust,test_harness
 use kivact::prelude::*;
 
-fn todo() -> impl IntoView {
+#[component]
+fn todo() -> impl Element {
     let draft = signal(String::new());
     let tasks = signal(Vec::<String>::new());
     column((
-        text_input("New task", draft).on_submit(move || {
+        text_input(draft).label("New task").on_submit(move || {
             let task = draft.get();
             if !task.trim().is_empty() {
                 tasks.update(|tasks| tasks.push(task));
@@ -199,7 +201,8 @@ Asserting it is empty at the end of a test catches a lot.
 ```rust,test_harness
 use kivact::prelude::*;
 
-fn terms() -> impl IntoView {
+#[component]
+fn terms() -> impl Element {
     let accepted = signal(false);
     column((
         checkbox("I accept the terms", accepted),
@@ -248,7 +251,7 @@ fails. To test that Kivact detects a misuse, expect the panic:
 ```rust,test_harness
 use kivact::prelude::*;
 
-fn app() -> impl IntoView {
+fn app() -> impl Element {
     button("Misuse").on_press(|| {
         // A setup function in a handler is a bug.
         let _late = signal(0);
@@ -283,7 +286,8 @@ use kivact::prelude::*;
 use kivact::test::{RenderOptions, render_with_handle};
 
 /// A `−` and `+` pair around a number you own.
-fn stepper(value: Signal<i32>) -> impl IntoView {
+#[component]
+fn stepper(value: Signal<i32>) -> impl Element {
     row((
         button("Decrease").on_press(move || value.update(|n| *n -= 1)),
         text(move || value.get().to_string()),
@@ -307,7 +311,7 @@ mod tests {
             (value, stepper(value))
         });
         screen.get_by_role(Role::Button, "Increase").click();
-        assert_eq!(value.get_untracked(), 6);
+        assert_eq!(value.get(), 6);
 
         // The other direction: the test writes, the screen follows once it settles.
         value.set(1);
@@ -376,7 +380,8 @@ use std::time::Duration;
 use kivact::prelude::*;
 use kivact::task::sleep;
 
-fn saver() -> impl IntoView {
+#[component]
+fn saver() -> impl Element {
     let shown = signal(false);
     column((
         button("Save").on_press(move || {
@@ -434,7 +439,8 @@ has a default, so set only what the test is about:
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, render_with};
 
-fn size_label() -> impl IntoView {
+#[component]
+fn size_label() -> impl Element {
     text(|| {
         let size = kivact::platform::window_size().get();
         format!("{} x {}", size.width, size.height)
@@ -478,8 +484,8 @@ scripted too: `clipboard` and `set_clipboard`, `respond_file_dialog`,
 Text is shaped with a **bundled font** (Tuffy) by default, so layout and pixels
 are the same on every machine. That font has no Japanese or other CJK glyphs:
 such text takes the same space on every machine but is drawn as empty boxes. To
-test with real glyphs, set `.fonts(TestFonts::Only(vec![Asset::from(bytes)]))` with a font file
-you ship, or `TestFonts::System` to use the machine's fonts (layout then depends
+test with real glyphs, start the test with `RenderOptions::with_theme(theme.with_fonts([font_bytes]))`
+and the font files you ship, or set `.fonts(TestFonts::System)` to use the machine's fonts (layout then depends
 on the machine).
 
 ## Screenshots
@@ -494,7 +500,8 @@ under one element.
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, render_with};
 
-fn badge() -> impl IntoView {
+#[component]
+fn badge() -> impl Element {
     column(text("New")).style(style().padding(8).background(rgb(0x2050d0)))
 }
 
@@ -571,7 +578,7 @@ that is skipped does not compile the shader, so keep a CPU test that renders the
 screen, as below: it compiles the WGSL on every machine.
 
 ```rust,test_harness
-use kivact::draw::PaintShader;
+use kivact::style::PaintShader;
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 
@@ -585,7 +592,8 @@ fn paint(position: vec2<f32>, context: Context, params: Params) -> vec4<f32> {
 }
 "#;
 
-fn wave() -> impl IntoView {
+#[component]
+fn wave() -> impl Element {
     let shader = PaintShader::wgsl(WAVE).expect("the shader is valid WGSL");
     canvas(move |draw, size| {
         // The CPU lane draws the solid fallback instead of the shader.

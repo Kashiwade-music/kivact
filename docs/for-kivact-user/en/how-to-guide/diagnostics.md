@@ -144,7 +144,7 @@ fn export() -> Result<(), UiError> {
     Ok(())
 }
 
-fn app() -> impl IntoView {
+fn app() -> impl Element {
     column((
         // No boundary: the error goes to the default sink.
         button("Export").on_press(export),
@@ -157,7 +157,7 @@ fn app() -> impl IntoView {
         .fallback(|error, reset| {
             column((
                 text(format!("Failed: {error}")),
-                button("Retry").on_press(move || reset.run()),
+                button("Try again").on_press(reset),
             ))
         }),
     ))
@@ -186,7 +186,7 @@ mod tests {
         // The boundary handled it, so the sink did not get a second error.
         assert_eq!(screen.errors().len(), 1);
 
-        screen.get_by_role(Role::Button, "Retry").click();
+        screen.get_by_role(Role::Button, "Try again").click();
         screen.get_by_role(Role::Button, "Risky");
     }
 }
@@ -213,7 +213,8 @@ when a "Report a problem" dialog opens:
 ```rust,no_run
 use kivact::prelude::*;
 
-fn report_button() -> impl IntoView {
+#[component]
+fn report_button() -> impl Element {
     let summary = signal(String::new());
     column((
         button("Report a problem").on_press(move || {
@@ -246,7 +247,7 @@ meet most often.
 | `BorrowedWrite` | A signal was written (or read) inside its own `with` or `update` closure. | Return the decision from `with`, then write after it returns. |
 | `Disposed { .. }` | A handle was used after the component that created it was removed. The error names where the handle and its owner were created. | Do not keep handles in places that outlive the component, or read with `try_get`. |
 | `WrongApp` | A handle from another App, or from an App that no longer exists, was used. | Keep handles inside the App that created them. |
-| `Cycle { path }` | Effects or memos depend on each other in a loop. `path` lists their creation sites. | Break the loop: let one side read with `get_untracked`, or merge the two. |
+| `Cycle { path }` | Effects or memos depend on each other in a loop. `path` lists their creation sites. | Break the loop: let one side read with `untrack(|| ..)`, or merge the two. |
 | `DuplicateKey` | Two rows of `for_each` returned the same key; the later row is dropped. | Return a unique key per item. |
 | `Unsupported` | A setting does not apply to this kind of node or the platform. The message names it and the node is mounted without it. | Remove the setting or use the node it applies to. |
 | `Platform` | A clipboard, dialog or focus request failed. | Handle the failure in the caller; it is a normal outcome on some systems. |
@@ -295,7 +296,7 @@ are never recorded, only types and source locations.
 use kivact::diagnostics::why;
 use kivact::prelude::*;
 
-fn app() -> impl IntoView {
+fn app() -> impl Element {
     let count = signal(0);
     let doubled = memo(move || count.get() * 2);
     let label = node_ref();
@@ -342,7 +343,7 @@ element you found.
 ```rust,test_harness
 use kivact::prelude::*;
 
-fn app() -> impl IntoView {
+fn app() -> impl Element {
     let count = signal(0);
     let doubled = memo(move || count.get() * 2);
     column((
@@ -389,7 +390,7 @@ the writes and re-runs show which signal started them.
 ```rust,test_harness
 use kivact::prelude::*;
 
-fn app() -> impl IntoView {
+fn app() -> impl Element {
     let count = signal(0);
     column((
         text(move || format!("count: {}", count.get())),
@@ -413,7 +414,7 @@ mod tests {
         let turns = screen.trace();
         let click = turns
             .iter()
-            .find(|turn| turn.causes.iter().any(|cause| cause.starts_with("Activate")))
+            .find(|turn| turn.causes.iter().any(|cause| cause.event.starts_with("Activate")))
             .expect("the click started a turn");
         let writes: Vec<_> = click.writes.iter().filter(|w| w.ty == "i32").collect();
         assert_eq!(writes.len(), 1);
