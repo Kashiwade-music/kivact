@@ -2,13 +2,12 @@
 
 [English](../../en/getting-started/06-style-and-accessibility.md)
 
-このステップでは、アプリに見た目を付けます。大きなタイトル、控えめな色の補足テキスト、一覧を囲むカード、ボタンの種類を加えます。さらに、すべてのコントロールに支援技術が読める名前を付け、ダークモードのスイッチを加えます。
+このステップでは、アプリに見た目を与えます。タイトルを大きくし、補足の文字を灰色にし、一覧をカードで囲み、ボタンの種類を加えます。また、支援技術が読める名前をすべてのコントロールに与え、ダークモードのスイッチを加えます。
 
 ## ここまでのプログラム
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::provide_theme;
 
 const LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#336699"/><path d="M6 12.5l4 4 8-9" stroke="white" stroke-width="2.5" fill="none"/></svg>"##;
 
@@ -19,26 +18,27 @@ struct Task {
     done: bool,
 }
 
+#[component]
 fn header(dark: Signal<bool>) -> impl Element {
     row((
-        image(LOGO).name("タスクのロゴ").style(style().size(32, 32)),
+        image(LOGO).name("Tasks logo").style(style().size(32, 32)),
         column((
-            text("タスク").role(Role::Heading).level(1).style(style().font_size(28).weight(700)),
-            text("今日やること").style(style().color(ColorToken::TextMuted)),
+            text("Tasks").role(Role::Heading).level(1).style(style().font_size(28).font_weight(700)),
+            text("Things to do today").style(style().color(color::TEXT_MUTED)),
         ))
-        .style(style().gap(2).grow(1)),
-        switch("ダークモード", dark),
+        .style(style().gap(2).flex_grow(1)),
+        switch("Dark mode", dark),
     ))
     .style(style().gap(12).align_items(Align::Center))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Element {
-    let id = task.get_untracked().id;
-    let done = bind!(task.done);
+#[component]
+fn task_row(tasks: Signal<Vec<Task>>, task: Signal<Task>) -> impl Element {
+    let id = task.get().id;
     row((
-        checkbox(move || task.get().title, done),
-        button("削除")
-            .name(move || format!("{} を削除", task.get().title))
+        checkbox(move || task.get().title, bind!(task.done)),
+        button("Remove")
+            .name(move || format!("Remove {}", task.get().title))
             .variant(ButtonVariant::Ghost)
             .on_press(move || tasks.update(|list| list.retain(|task| task.id != id))),
     ))
@@ -46,6 +46,7 @@ fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Element {
     .style(style().gap(8).align_items(Align::Center).justify_content(Justify::SpaceBetween))
 }
 
+#[component]
 fn task_list(tasks: Signal<Vec<Task>>) -> impl Element {
     column(for_each(
         tasks,
@@ -53,28 +54,29 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl Element {
         move |task| task_row(tasks, task),
     ))
     .role(Role::List)
-    .name("タスク一覧")
+    .name("Task list")
     .style(
         style()
             .gap(8)
-            .padding(12)
-            .radius(8)
-            .background(ColorToken::SurfaceAlt)
-            .border(1, ColorToken::Border),
+            .padding(space::MD)
+            .border_radius(radius::MD)
+            .background(color::SURFACE_ALT)
+            .border(1, color::BORDER),
     )
 }
 
+#[component]
 fn tasks_screen(dark: Signal<bool>) -> impl Element {
     let tasks = signal(vec![
-        Task { id: 1, title: "牛乳を買う".to_owned(), done: false },
-        Task { id: 2, title: "チュートリアルを書く".to_owned(), done: false },
-        Task { id: 3, title: "散歩に行く".to_owned(), done: false },
+        Task { id: 1, title: "Buy milk".to_owned(), done: false },
+        Task { id: 2, title: "Write the tutorial".to_owned(), done: false },
+        Task { id: 3, title: "Go for a walk".to_owned(), done: false },
     ]);
     let next_id = var(4);
     let draft = signal(String::new());
     let left = memo(move || tasks.with(|list| list.iter().filter(|task| !task.done).count()));
 
-    let add = move || {
+    let add = callback(move |_| {
         let title = draft.get().trim().to_owned();
         if !title.is_empty() {
             let id = next_id.get();
@@ -82,23 +84,24 @@ fn tasks_screen(dark: Signal<bool>) -> impl Element {
             tasks.update(|list| list.push(Task { id, title, done: false }));
             draft.set(String::new());
         }
-    };
+    });
 
     column((
         header(dark),
         row((
-            text_input("新しいタスク", draft)
-                .placeholder("やることを入力")
+            text_input(draft)
+                .label("New task")
+                .placeholder("What needs doing?")
                 .on_submit(add)
                 .style(style().width(240)),
-            button("追加")
+            button("Add")
                 .disabled(move || draft.with(|text| text.trim().is_empty()))
                 .on_press(add),
         ))
         .style(style().gap(8)),
         show(move || tasks.with(|list| !list.is_empty()), move || task_list(tasks))
-            .fallback(|| text("やることはありません。上の欄からタスクを追加してください。")),
-        text(move || format!("残り {} 件", left.get())).style(style().color(ColorToken::TextMuted)),
+            .fallback(|| text("Nothing to do. Add a task above.")),
+        text(move || format!("{} left", left.get())).style(style().color(color::TEXT_MUTED)),
     ))
     .style(
         style()
@@ -106,48 +109,50 @@ fn tasks_screen(dark: Signal<bool>) -> impl Element {
             .gap(16)
             .width(pct(100))
             .height(pct(100))
-            .background(ColorToken::Surface)
-            .color(ColorToken::Text),
+            .background(color::SURFACE)
+            .color(color::TEXT),
     )
 }
 
 fn app() -> impl IntoView {
     let dark = signal(false);
-    let theme = memo(move || if dark.get() { Theme::dark() } else { Theme::light() });
-    provide_theme(theme, move || tasks_screen(dark))
+    provide_theme(
+        move || if dark.get() { Theme::dark() } else { Theme::light() },
+        move || tasks_screen(dark),
+    )
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("タスク").run(app)
+    App::new("Tasks").run(app)
 }
 ```
 
-## 新しく出てきたもの
+## 新しいこと
 
-**スタイル。** `style()` には、文字、色、大きさ、枠線のためのメソッドがあります。
+**スタイルは CSS の名前を使います。** `style()` には、文字、色、大きさ、枠線のためのメソッドがあります。名前は、対応する CSS のプロパティにならっています。
 
-- `font_size(28)` と `weight(700)` は、その view とその下にあるすべての文字の大きさと太さを決めます。`weight` は CSS と同じ数値で、400 が標準、700 が太字です。
-- `color(..)` は文字の色を決めます。`background(..)`、`border(1, ..)`、`radius(8)` は、箱そのもののスタイルです。
-- `grow(1)` は、`row` の余った幅をその view に割り当てます。ここでは、スイッチが右端に寄ります。`align_items(Align::Center)` と `justify_content(Justify::SpaceBetween)` は、子の位置をそろえます。
+- `font_size(28)` と `font_weight(700)` は、view の中の文字と、その下にあるすべての文字の大きさと太さを設定します。`font_weight` は CSS 風の数値で、400 が通常、700 が太字です。
+- `color(..)` は文字の色を設定します。`background(..)`、`border(1, ..)`、`border_radius(..)` は、箱そのものを装飾します。
+- `flex_grow(1)` は、`row` の中の空きスペースを view が取れるようにします。これでスイッチが右端に押しやられます。`align_items(Align::Center)` と `justify_content(Justify::SpaceBetween)` は、子を揃えます。
 
-**テーマの色。** `ColorToken::Surface`、`Text`、`TextMuted`、`SurfaceAlt`、`Border`、`Accent` などは色の*名前*で、実際にどんな色になるかは、そのときのテーマが決めます。ほとんどの色にはトークンを使うと、同じコードがライトテーマでもダークテーマでも通用します。固定の色が必要なときは、`rgb(0x336699)` を使います。
+**テーマ変数。** `color::SURFACE`、`color::TEXT`、`color::TEXT_MUTED`、`color::SURFACE_ALT`、`color::BORDER`、`color::ACCENT` などは、CSS の `var(--surface)` のような、*テーマ変数* です。どの値になるかは、有効なテーマが決めます。`space::MD` と `radius::MD` は、テーマの中くらいの間隔と角の丸みです。値を置きたい場所には、どこにでも変数を置けます。テーマが変わると、その変数を使うすべてのスタイルが、クロージャなしで追従します。ほとんどの色にはテーマ変数を使ってください。そうすると、同じコードがライトテーマとダークテーマの両方で動きます。色を 1 つに固定したいときは、`rgb(0x336699)` を使います。`padding(24)` のような数値は、論理ピクセルの固定の長さです。
 
-**画像とフォントのバイト列。** `image(LOGO)` は、このプログラムに埋め込んだ SVG のバイト列を使います。ファイルをビルド時に埋め込む場合は `include_bytes!("logo.svg").as_slice()` を渡せます。実行時に得たバイト列は、`kivact::view::AssetBytes::new(bytes)` に所有する `Vec<u8>` を渡して保持します。生成した生の RGBA 画素には `kivact::draw::Pixels::new(width, height, rgba)` を使い、`rgba` にも 1 画素あたり 4 バイトの `Vec<u8>` を渡せます。同じバイト列を再利用するときは、保持した `AssetBytes` を clone します。フォントは `.run(app)` の前に `App::fonts(iter)` で登録し、埋め込みフォントのバイトスライスなどをイテレーターから渡します。これらの API が、データを保持する領域を管理します。
+**画像とフォントのバイト列。** `image(LOGO)` は、このプログラムに埋め込んだ SVG のバイト列を使います。`include_bytes!("logo.svg").as_slice()` は、ビルド時に埋め込まれたファイルを渡します。実行時に作られるバイト列には、`kivact::view::AssetBytes::new(bytes)` を使うと、所有する `Vec<u8>` を保持できます。生成された RGBA のピクセルには、`kivact::draw::Pixels::new(width, height, rgba)` を使います。`rgba` には、1 ピクセルあたり 4 バイトを含む、所有するベクターも渡せます。変わらないバイト列を再利用するときは、既存の `AssetBytes` を複製します。フォントはテーマに属します。アプリを起動するときに次のように書きます。`App::new("Tasks").theme(Theme::light().with_fonts([include_bytes!("Inter.ttf").as_slice()]))`。`with_fonts` はフォントの一覧を受け取ります。各フォントは、静的なバイト列、実行時に読み込む `Vec<u8>`、またはパスのいずれかです。
 
-**ボタンの種類。** ボタンは、既定では主要な操作です (`Primary`、アクセントカラーで塗りつぶし)。`.variant(ButtonVariant::Ghost)` を付けると、ホバーするまで塗りのない控えめな見た目になるので、削除ボタンに使っています。ほかの種類は、`Secondary`、`Outline`、`Danger`、`Link` です。
+**ボタンの種類。** ボタンは、既定では主要な操作になります（`Primary`。アクセントの色で塗りつぶされます）。`.variant(ButtonVariant::Ghost)` は、Remove に控えめな見た目を与えます。ホバーするまで塗りつぶしがありません。ほかの種類は、`Secondary`、`Outline`、`Danger`、`Link` です。
 
-**アクセシブルな名前。** スクリーンリーダーはコントロールを役割と名前で読み上げ、キーボード操作やテストのツールも、同じ方法でコントロールを見つけます。そのため、すべてのコントロールに名前が必要です。
+**アクセシブルな名前。** 支援技術は、コントロールをロールと名前で読み上げます。キーボードやテストのツールも、同じ方法でコントロールを探します。そのため、すべてのコントロールに名前が必要です。
 
-- 文字から作るコントロールは、すでに名前を持っています。ボタンのラベル、チェックボックスの名前、テキスト欄の名前です。
-- `.name(..)` は、名前を設定または上書きします。削除ボタンはどれも「削除」と読まれてしまうので、それぞれ「牛乳を買う を削除」のように、タスクの名前を含めています。名前にはクロージャを渡せるので、タイトルの変更に追従します。
-- 画像のように文字を持たない要素は、`.name(..)` が代替テキストになるので、必ず付けます。名前のない画像は装飾とみなされ、支援技術には伝わりません。ここのロゴには「タスクのロゴ」という名前を付けています。
-- `.role(..)` は、view がどんな種類のものかを表します。`text(..)` に `Role::Heading` と `.level(1)` を付けると、タイトルがレベル 1 の見出しになります。`Role::List` と `Role::ListItem` を使い、一覧に名前を付けると、スクリーンリーダーは「タスク一覧」と読み上げ、項目数も伝えられます。
+- 見えるラベルのあるコントロールは、すでに名前を持っています。ボタンのラベル、チェックボックスのラベル、スイッチのラベルがそうです。テキスト欄は、ステップ 4 の `.label(..)` から名前を得ました。
+- `.name(..)` は、名前を設定または上書きします。Remove ボタンはすべて「Remove」と読まれてしまうので、それぞれをタスクの名前で呼びます。「Remove Buy milk」のようになります。名前はクロージャでもよいので、タイトルに従います。
+- 画像のように文字のない要素は、代替テキストとして `.name(..)` が必要です。名前のない画像は装飾として扱われ、支援技術から隠されます。ここのロゴは「Tasks logo」という名前です。
+- `.role(..)` は、view が何の種類のものかを表します。`Role::Heading` を付けた `text(..)` は、タイトルを見出しとして示します。`Role::List` と `Role::ListItem` を、一覧の名前と組み合わせると、スクリーンリーダーは「Task list」と読み上げ、項目の数を数えられます。
 
-**ダークモード。** アプリのテーマは値で、`provide_theme(theme, || ..)` で、その中のすべてに適用できます。シグナル、`memo`、クロージャを渡せば、アプリの実行中にテーマを切り替えられます。Kivact は既存の view のスタイルを更新するだけで、作り直しはしません。ここでは、「ダークモード」スイッチが `dark` シグナルを編集し、`memo` がそれを `Theme::dark()` または `Theme::light()` に変換します。`provide_theme` 自身は何も描かないため、いちばん外側の view に `background(ColorToken::Surface)` と `color(ColorToken::Text)` を付けています。Web ページが `body` に指定するのと同じです。
+**ダークモード。** `provide_theme(theme, || ..)` は、その中のすべてにテーマを適用します。テーマはクロージャでもよく、ここでは `dark` シグナルを読みます。そのため、「Dark mode」のスイッチを切り替えると、テーマも変わります。Kivact は既存の view のスタイルを更新するだけで、作り直すことはありません。`provide_theme` 自体は何も描きません。そのため、一番上の view に `background(color::SURFACE)` と `color(color::TEXT)` を設定します。Web ページで `body` に色を設定するのと同じです。
 
-スイッチが不要なら、テーマを固定するのは 1 行で済みます: `App::new("タスク").theme(Theme::dark())`。
+スイッチが要らなければ、固定のテーマは 1 行で書けます。`App::new("Tasks").theme(Theme::dark())` です。
 
-**文字装飾と visibility。** `text_decoration(TextDecorationLine::UNDERLINE)` と `text_decoration_style(TextDecorationStyle::Wavy)` で波線の下線を描きます。既定は `Solid` で、`Dashed` と `Dotted` も選べます。種類には定数、signal、closure を渡せます。`visibility(Visibility::Hidden)` は subtree の layout 領域を保ち、描画、支援技術、focus、pointer の当たり判定から外します。`Visibility::Visible` で戻せます。これらの enum は `kivact::style` にあります。文字色の変化は `TransitionProp::All` で補間します。`TextDecoration` を直接構築する場合は `style` field を指定するか、`..TextDecoration::default()` を使います。
+**文字の装飾と表示。** `text_decoration(TextDecorationLine::UNDERLINE)` と `text_decoration_style(TextDecorationStyle::Wavy)` を加えると、波線の下線が描かれます。既定の模様は `Solid` です。`Dashed` と `Dotted` も使えます。状態に応じて模様を変えたいときは、スタイル全体をクロージャにします。`.style(move || style().text_decoration_style(..))` です。`visibility(Visibility::Hidden)` は、部分木のレイアウトの空間を保ったまま、描画、支援技術、フォーカス、ポインターのヒットから除きます。`Visibility::Visible` は、それを元に戻します。これらの型は `kivact::style` にあります。文字の色の変化は、`TransitionProp::All` で補間されます。
 
 ## 実行する
 
@@ -155,6 +160,6 @@ fn main() -> kivact::Result<()> {
 cargo run
 ```
 
-ロゴ、太字のタイトルと灰色の補足、右端の「ダークモード」スイッチが表示されます。タスクは枠線つきのカードに入り、それぞれにチェックボックスと控えめな削除ボタンが付きます。スイッチをオンにすると、ウィンドウ全体が一度にダークの配色に変わります。Tab キーでコントロール間のフォーカスを移動し、Space キーでタスクにチェックを入れてみてください。
+ウィンドウには、ロゴ、灰色の補足文が付いた太字のタイトル、右側の「Dark mode」スイッチが表示されます。タスクは枠のあるカードに入り、それぞれにチェックボックスと控えめな Remove ボタンがあります。スイッチを入れると、ウィンドウ全体が一度にダークの色に変わります。Tab キーでコントロール間のフォーカスを移動し、Space キーでタスクにチェックを入れます。
 
 次へ: [ステップ 7: 非同期処理](07-async.md)

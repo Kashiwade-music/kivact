@@ -44,7 +44,7 @@ fn app() -> impl IntoView {
             |todo| todo.id,
             move |todo| {
                 let id = todo.get().id;
-                let done = todo.project(|t| &t.done, |t| &mut t.done);
+                let done = bind!(todo.done);
                 row((
                     checkbox(move || todo.get().title, done),
                     button("Remove")

@@ -21,7 +21,6 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["test"
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::style::provide_theme;
 
 const LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#336699"/><path d="M6 12.5l4 4 8-9" stroke="white" stroke-width="2.5" fill="none"/></svg>"##;
 
@@ -32,26 +31,27 @@ struct Task {
     done: bool,
 }
 
+#[component]
 fn header(dark: Signal<bool>) -> impl Element {
     row((
-        image(LOGO).name("タスクのロゴ").style(style().size(32, 32)),
+        image(LOGO).name("Tasks logo").style(style().size(32, 32)),
         column((
-            text("タスク").role(Role::Heading).level(1).style(style().font_size(28).weight(700)),
-            text("今日やること").style(style().color(ColorToken::TextMuted)),
+            text("Tasks").role(Role::Heading).level(1).style(style().font_size(28).font_weight(700)),
+            text("Things to do today").style(style().color(color::TEXT_MUTED)),
         ))
-        .style(style().gap(2).grow(1)),
-        switch("ダークモード", dark),
+        .style(style().gap(2).flex_grow(1)),
+        switch("Dark mode", dark),
     ))
     .style(style().gap(12).align_items(Align::Center))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Element {
-    let id = task.get_untracked().id;
-    let done = bind!(task.done);
+#[component]
+fn task_row(tasks: Signal<Vec<Task>>, task: Signal<Task>) -> impl Element {
+    let id = task.get().id;
     row((
-        checkbox(move || task.get().title, done),
-        button("削除")
-            .name(move || format!("{} を削除", task.get().title))
+        checkbox(move || task.get().title, bind!(task.done)),
+        button("Remove")
+            .name(move || format!("Remove {}", task.get().title))
             .variant(ButtonVariant::Ghost)
             .on_press(move || tasks.update(|list| list.retain(|task| task.id != id))),
     ))
@@ -59,6 +59,7 @@ fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Element {
     .style(style().gap(8).align_items(Align::Center).justify_content(Justify::SpaceBetween))
 }
 
+#[component]
 fn task_list(tasks: Signal<Vec<Task>>) -> impl Element {
     column(for_each(
         tasks,
@@ -66,24 +67,25 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl Element {
         move |task| task_row(tasks, task),
     ))
     .role(Role::List)
-    .name("タスク一覧")
+    .name("Task list")
     .style(
         style()
             .gap(8)
-            .padding(12)
-            .radius(8)
-            .background(ColorToken::SurfaceAlt)
-            .border(1, ColorToken::Border),
+            .padding(space::MD)
+            .border_radius(radius::MD)
+            .background(color::SURFACE_ALT)
+            .border(1, color::BORDER),
     )
 }
 
+#[component]
 fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Element {
     let next_id = var(saved.iter().map(|task| task.id).max().unwrap_or(0) + 1);
     let tasks = signal(saved);
     let draft = signal(String::new());
     let left = memo(move || tasks.with(|list| list.iter().filter(|task| !task.done).count()));
 
-    let add = move || {
+    let add = callback(move |_| {
         let title = draft.get().trim().to_owned();
         if !title.is_empty() {
             let id = next_id.get();
@@ -91,23 +93,24 @@ fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Element {
             tasks.update(|list| list.push(Task { id, title, done: false }));
             draft.set(String::new());
         }
-    };
+    });
 
     column((
         header(dark),
         row((
-            text_input("新しいタスク", draft)
-                .placeholder("やることを入力")
+            text_input(draft)
+                .label("New task")
+                .placeholder("What needs doing?")
                 .on_submit(add)
                 .style(style().width(240)),
-            button("追加")
+            button("Add")
                 .disabled(move || draft.with(|text| text.trim().is_empty()))
                 .on_press(add),
         ))
         .style(style().gap(8)),
         show(move || tasks.with(|list| !list.is_empty()), move || task_list(tasks))
-            .fallback(|| text("やることはありません。上の欄からタスクを追加してください。")),
-        text(move || format!("残り {} 件", left.get())).style(style().color(ColorToken::TextMuted)),
+            .fallback(|| text("Nothing to do. Add a task above.")),
+        text(move || format!("{} left", left.get())).style(style().color(color::TEXT_MUTED)),
     ))
     .style(
         style()
@@ -115,54 +118,54 @@ fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Element {
             .gap(16)
             .width(pct(100))
             .height(pct(100))
-            .background(ColorToken::Surface)
-            .color(ColorToken::Text),
+            .background(color::SURFACE)
+            .color(color::TEXT),
     )
 }
 
-/// 保存済みのタスクをディスクから読み込むふりをします。エラーの状態を確かめられる
-/// よう、最初の試行は失敗し、以降の試行は成功します。
+/// Pretends to read the saved tasks from disk. The first attempt fails so that
+/// you can see the error state; every later attempt succeeds.
 async fn load_tasks(attempt: u32) -> kivact::Result<Vec<Task>> {
     kivact::task::sleep(Duration::from_millis(600)).await;
     if attempt == 1 {
-        return Err(UiError::msg("保存したタスクを読み込めませんでした"));
+        return Err(UiError::msg("Could not read the saved tasks"));
     }
     Ok(vec![
-        Task { id: 1, title: "牛乳を買う".to_owned(), done: false },
-        Task { id: 2, title: "チュートリアルを書く".to_owned(), done: false },
-        Task { id: 3, title: "散歩に行く".to_owned(), done: false },
+        Task { id: 1, title: "Buy milk".to_owned(), done: false },
+        Task { id: 2, title: "Write the tutorial".to_owned(), done: false },
+        Task { id: 3, title: "Go for a walk".to_owned(), done: false },
     ])
 }
 
-fn loading_screen(dark: Signal<bool>, attempt: Signal<u32>) -> impl IntoView {
-    let saved = resource(attempt, load_tasks);
-    dynamic(
-        move || saved.state(),
-        move |state| match state {
-            AsyncState::Idle | AsyncState::Pending => text("タスクを読み込み中...")
-                .role(Role::Status)
-                .style(style().padding(24))
-                .into_view(),
-            AsyncState::Failed(error) => column((
-                text(format!("エラー: {error}")).role(Role::Alert),
-                button("もう一度試す").on_press(move || attempt.update(|n| *n += 1)),
+#[component]
+fn loading_screen(dark: Signal<bool>) -> impl Element {
+    // Counts the loads, so that the fake loader can fail only the first one.
+    let attempts = var(0);
+    let saved = resource((), move |()| {
+        attempts.update(|n| *n += 1);
+        load_tasks(attempts.get())
+    });
+    async_view(saved, move |tasks| tasks_screen(dark, tasks))
+        .loading(|| text("Loading tasks...").role(Role::Status).style(style().padding(24)))
+        .fallback(|error, retry| {
+            column((
+                text(format!("Error: {error}")).role(Role::Alert),
+                button("Try again").on_press(retry),
             ))
             .style(style().padding(24).gap(12))
-            .into_view(),
-            AsyncState::Ready(tasks) => tasks_screen(dark, tasks).into_view(),
-        },
-    )
+        })
 }
 
 fn app() -> impl IntoView {
     let dark = signal(false);
-    let attempt = signal(1);
-    let theme = memo(move || if dark.get() { Theme::dark() } else { Theme::light() });
-    provide_theme(theme, move || loading_screen(dark, attempt))
+    provide_theme(
+        move || if dark.get() { Theme::dark() } else { Theme::light() },
+        move || loading_screen(dark),
+    )
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("タスク").run(app)
+    App::new("Tasks").run(app)
 }
 
 #[cfg(test)]
@@ -172,71 +175,71 @@ mod tests {
 
     const LOAD: Duration = Duration::from_millis(600);
 
-    /// アプリを開き、最初の読み込みの擬似的な失敗を乗り越えます。
+    /// Opens the app and gets past the simulated failure of the first load.
     fn open() -> Screen {
         let screen = kivact::test::render(app);
         screen.advance(LOAD);
-        screen.get_by_role(Role::Button, "もう一度試す").click();
+        screen.get_by_role(Role::Button, "Try again").click();
         screen.advance(LOAD);
         screen
     }
 
     fn add(screen: &Screen, title: &str) {
-        screen.get_by_role(Role::TextBox, "新しいタスク").type_text(title);
-        screen.get_by_role(Role::Button, "追加").click();
+        screen.get_by_role(Role::TextBox, "New task").type_text(title);
+        screen.get_by_role(Role::Button, "Add").click();
     }
 
     #[test]
     fn the_first_load_fails_and_trying_again_shows_the_tasks() {
         let screen = kivact::test::render(app);
-        screen.get_by_text("タスクを読み込み中...");
+        screen.get_by_text("Loading tasks...");
 
         screen.advance(LOAD);
-        screen.get_by_text("エラー: 保存したタスクを読み込めませんでした");
+        screen.get_by_text("Error: Could not read the saved tasks");
 
-        screen.get_by_role(Role::Button, "もう一度試す").click();
+        screen.get_by_role(Role::Button, "Try again").click();
         screen.advance(LOAD);
-        screen.get_by_role(Role::CheckBox, "牛乳を買う");
-        screen.get_by_text("残り 3 件");
+        screen.get_by_role(Role::CheckBox, "Buy milk");
+        screen.get_by_text("3 left");
     }
 
     #[test]
     fn adding_a_task_clears_the_field() {
         let screen = open();
-        let field = || screen.get_by_role(Role::TextBox, "新しいタスク");
-        assert!(screen.get_by_role(Role::Button, "追加").is_disabled());
+        let field = || screen.get_by_role(Role::TextBox, "New task");
+        assert!(screen.get_by_role(Role::Button, "Add").is_disabled());
 
-        add(&screen, "植物に水をやる");
-        screen.get_by_role(Role::CheckBox, "植物に水をやる");
-        screen.get_by_text("残り 4 件");
+        add(&screen, "Water the plants");
+        screen.get_by_role(Role::CheckBox, "Water the plants");
+        screen.get_by_text("4 left");
         assert_eq!(field().value().as_deref(), Some(""));
-        assert!(screen.get_by_role(Role::Button, "追加").is_disabled());
+        assert!(screen.get_by_role(Role::Button, "Add").is_disabled());
     }
 
     #[test]
     fn enter_adds_the_task_too() {
         let screen = open();
-        screen.get_by_role(Role::TextBox, "新しいタスク").type_text("田中さんに電話する");
-        screen.get_by_role(Role::TextBox, "新しいタスク").press_key(Key::Enter);
-        screen.get_by_role(Role::CheckBox, "田中さんに電話する");
+        screen.get_by_role(Role::TextBox, "New task").type_text("Call Sam");
+        screen.get_by_role(Role::TextBox, "New task").press_key(Key::Enter);
+        screen.get_by_role(Role::CheckBox, "Call Sam");
     }
 
     #[test]
     fn checking_a_task_lowers_the_count() {
         let screen = open();
-        screen.get_by_role(Role::CheckBox, "牛乳を買う").click();
-        assert_eq!(screen.get_by_role(Role::CheckBox, "牛乳を買う").checked(), Some(CheckedState::Checked));
-        screen.get_by_text("残り 2 件");
+        screen.get_by_role(Role::CheckBox, "Buy milk").click();
+        assert_eq!(screen.get_by_role(Role::CheckBox, "Buy milk").checked(), Some(CheckedState::Checked));
+        screen.get_by_text("2 left");
     }
 
     #[test]
     fn removing_every_task_shows_the_hint() {
         let screen = open();
-        screen.get_by_role(Role::Button, "牛乳を買う を削除").click();
-        assert!(screen.query_by_role(Role::CheckBox, "牛乳を買う").is_none());
-        screen.get_by_role(Role::Button, "チュートリアルを書く を削除").click();
-        screen.get_by_role(Role::Button, "散歩に行く を削除").click();
-        screen.get_by_text("やることはありません。上の欄からタスクを追加してください。");
+        screen.get_by_role(Role::Button, "Remove Buy milk").click();
+        assert!(screen.query_by_role(Role::CheckBox, "Buy milk").is_none());
+        screen.get_by_role(Role::Button, "Remove Write the tutorial").click();
+        screen.get_by_role(Role::Button, "Remove Go for a walk").click();
+        screen.get_by_text("Nothing to do. Add a task above.");
     }
 }
 ```

@@ -18,6 +18,7 @@ to Kivact.
 | Guide | What it solves |
 | --- | --- |
 | [Map what you know from React or SolidJS to Kivact](coming-from-react-or-solid.md) | The concept map, setup-once components, `dynamic` match arms and the Rust points that trip up newcomers |
+| [Migrate an app to the reworked API](migrating-to-rework.md) | Every renamed and removed name with its replacement, and the Cargo settings to change |
 
 ## Build screens
 
@@ -42,7 +43,7 @@ to Kivact.
 
 | Guide | What it solves |
 | --- | --- |
-| [Change the theme and the look of components](theming.md) | Light and dark themes, tokens, recipes, variants, state looks, icons and your own tokens |
+| [Change the theme and the look of components](theming.md) | Light and dark themes, theme variables, component themes, variants, state looks, icons and your own theme variables |
 | [Translate the app and set its locale](i18n.md) | Locale, messages, switching language at run time and text direction |
 
 ## Behavior
@@ -65,6 +66,7 @@ to Kivact.
 | [Effects](effects.md) | Filters and filter graphs, masks, blend modes, backdrop effects, border images and gradient text |
 | [Shaders](shaders.md) | Your own WGSL paints and filters, their parameters and images, and their fallback on the CPU |
 | [Drawables](drawables.md) | Draw a subtree of views inside a canvas, hit testing and accessibility, and exporting pictures |
+| [Plot numeric data](plot.md) | XY plots the user can zoom and pan, for any kit, and exporting them as an image or SVG |
 
 ## Quality
 
