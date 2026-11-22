@@ -3,13 +3,13 @@ use super::labelled;
 use kivact::interaction::{Command, MenuEntry, Toast, use_toaster};
 use kivact::state::Signal;
 use kivact::state::signal;
-use kivact::style::style;
+use kivact::style::{rgb, style};
 use kivact::ui::{
     ButtonVariant, DialogKind, button, command_palette, dialog, hover_card, menu, toast_region,
     tooltip,
 };
 use kivact::view::IntoView;
-use kivact::view::{Element, Node, row, text};
+use kivact::view::{Element, Node, column, node, row, text};
 use kivact_ui_soft::{
     LightboxMedia, alert_dialog, bottom_sheet, bottom_sheet_flow, lightbox, media_overlay,
 };
@@ -125,7 +125,20 @@ pub(super) fn example_overlay() -> Node {
         "Overlay on a preview",
         media_overlay(
             button("Cover").into_view(),
-            text("Document preview").into_view(),
+            column((
+                text("Document preview").style(style().font_weight(600)),
+                node().style(style().size(208, 12).background(rgb(0x517983))),
+                node().style(style().size(160, 12).background(rgb(0x517983))),
+                node().style(style().size(184, 12).background(rgb(0x517983))),
+            ))
+            .style(
+                style()
+                    .size(240, 160)
+                    .padding(16)
+                    .gap(10)
+                    .background(rgb(0xdce9f4)),
+            )
+            .into_view(),
         ),
     )
 }

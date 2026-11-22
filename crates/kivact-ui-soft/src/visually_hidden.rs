@@ -11,14 +11,17 @@ use kivact::view::text;
 /// Text available to assistive technology without a visible layout box.
 #[component]
 pub fn visually_hidden(value: Value<String>, live: Option<LiveRegion>) -> impl Element {
-    let root = text(value).hit_testable(false).style(
-        style()
-            .position(Position::Absolute)
-            .size(1, 1)
-            .clip(true)
-            .text_wrap(false)
-            .color(Color::TRANSPARENT),
-    );
+    let root = text(value)
+        .test_id("kivact.sr-only")
+        .hit_testable(false)
+        .style(
+            style()
+                .position(Position::Absolute)
+                .size(1, 1)
+                .clip(true)
+                .text_wrap(false)
+                .color(Color::TRANSPARENT),
+        );
     match live {
         Some(priority) => root.live_region(priority),
         None => root,
