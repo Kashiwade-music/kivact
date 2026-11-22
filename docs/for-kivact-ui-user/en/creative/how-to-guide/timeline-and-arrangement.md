@@ -350,4 +350,4 @@ fn mixer_panel() -> impl Element {
 - Full API: `cargo doc -p kivact-ui-creative --open`
 - The catalog's timeline, animation and mixer chapters: `cargo run -p kivact-ui-creative-catalog`
 
-Time and arrangement editors use a single `transform: Signal<kivact::interaction::ViewTransform>`. Its `scale` is horizontal pixels per logical time unit (pixels per beat for arrangement), and its `offset` is pixel scrolling. Lane heights remain unscaled. A setup-time `bind!(transform.scale)` signal can connect a zoom slider to the same pose. Domain wheel mappings and sidebar anchors remain part of the time editor.
+Time and arrangement editors use a single `transform: Signal<kivact::interaction::ZoomPan>`. Its `scale` is horizontal pixels per logical time unit (pixels per beat for arrangement), and its `offset` is pixel scrolling. Lane heights remain unscaled. A setup-time `bind!(transform.scale)` signal can connect a zoom slider to the same pose. Domain wheel mappings and sidebar anchors remain part of the time editor.

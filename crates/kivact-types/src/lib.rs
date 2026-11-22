@@ -136,5 +136,5 @@ pub use window::{
 pub mod animatable;
 pub use animatable::Animatable;
 
-pub mod view_transform;
-pub use view_transform::ViewTransform;
+pub mod zoom_pan;
+pub use zoom_pan::ZoomPan;

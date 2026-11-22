@@ -1,6 +1,6 @@
 //! Role: Application-owned bindings for this component view state.
 use crate::editors::arrangement::model::TimelineTool;
-use kivact::interaction::ViewTransform;
+use kivact::interaction::ZoomPan;
 use kivact::state::Signal;
 use kivact::state::signal;
 /// The view state of an [`arrangement`](crate::editors::arrangement).
@@ -16,7 +16,7 @@ pub struct ArrangementState {
     pub cycling: Signal<bool>,
     /// The shared view pose. Scale is horizontal pixels per logical time unit;
     /// offset is scrolling in logical pixels. Lane heights remain unscaled.
-    pub transform: Signal<ViewTransform>,
+    pub transform: Signal<ZoomPan>,
     /// The editing tool.
     pub tool: Signal<TimelineTool>,
 }
@@ -31,9 +31,9 @@ impl ArrangementState {
             playhead: signal(0.0),
             loop_range: signal((0.0, 16.0)),
             cycling: signal(true),
-            transform: signal(ViewTransform {
+            transform: signal(ZoomPan {
                 scale: 26.0,
-                ..ViewTransform::default()
+                ..ZoomPan::default()
             }),
             tool: signal(TimelineTool::Select),
         }

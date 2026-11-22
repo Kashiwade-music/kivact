@@ -44,14 +44,14 @@ fn demo() -> impl IntoView {
         ui::NodeLink::new(6, 0, 8, 0),
     ]);
     let selected = signal(Vec::<u64>::new());
-    let transform = signal(kivact::interaction::ViewTransform {
+    let transform = signal(kivact::interaction::ZoomPan {
         offset: Point::new(300.0, 0.0),
         scale: 0.85,
     });
     col((node().style(style().position(Position::Relative).height(480)).child((
         ui::node_editor(data,connections, ui::NodeState { selection: selected, transform, ..ui::NodeState::new() }).can_connect(move |link| super::node_model::can_connect(&data.get_untracked(), link)).on_edit(super::node_model::edits(data, connections)).style(style().height(480)).test_id("creative-node-editor"),
         line((kivact::ui::select(keyed_options([("compositor", "Compositor"), ("geometry-nodes", "Geometry Nodes"), ("shader-editor", "Shader Editor")]), signal(Some("compositor".to_owned()))).label("Selection").placeholder("").style(style().width(136)),kivact::ui::toggle_button("Use Nodes", signal(true)))).style(style().position(Position::Absolute).bottom(8).left(8)),
-        line((kivact::ui::menu("Add", ["Image", "Blur", "Mix", "Color Balance", "Keying"].into_iter().map(|label| MenuEntry::item(label, label)).collect::<Vec<_>>()).on_activate(move |label: &'static str| super::node_model::add(data, label)).offset(0.0).attach(kivact::ui::button("Add").variant(kivact::ui::ButtonVariant::Secondary).trailing(kivact::view::icon("chevron-down"))),kivact::ui::button("Frame All").variant(kivact::ui::ButtonVariant::Secondary).on_press(move || transform.set(kivact::interaction::ViewTransform{offset:Point::new(300.0,0.0),scale:0.85})))).style(style().position(Position::Absolute).top(8).right(8)),
+        line((kivact::ui::menu("Add", ["Image", "Blur", "Mix", "Color Balance", "Keying"].into_iter().map(|label| MenuEntry::item(label, label)).collect::<Vec<_>>()).on_activate(move |label: &'static str| super::node_model::add(data, label)).offset(0.0).attach(kivact::ui::button("Add").variant(kivact::ui::ButtonVariant::Secondary).trailing(kivact::view::icon("chevron-down"))),kivact::ui::button("Frame All").variant(kivact::ui::ButtonVariant::Secondary).on_press(move || transform.set(kivact::interaction::ZoomPan{offset:Point::new(300.0,0.0),scale:0.85})))).style(style().position(Position::Absolute).top(8).right(8)),
     )), row((note(move || format!("{} nodes · {} links · {:.0}%", data.with(Vec::len), connections.with(Vec::len), transform.get().scale * 100.0)), spacer(), note("Drag the header; connect output to input; Del: delete selection; Ctrl-wheel: zoom; Middle: pan"))).style(style().padding(12))))
 }
 // end example

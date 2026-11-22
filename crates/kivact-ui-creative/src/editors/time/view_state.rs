@@ -1,5 +1,5 @@
 //! Role: Application-owned bindings for this component view state.
-use kivact::interaction::ViewTransform;
+use kivact::interaction::ZoomPan;
 use kivact::state::Signal;
 use kivact::state::signal;
 /// The view state of a [`timeline`](crate::timeline) or a
@@ -12,7 +12,7 @@ pub struct TimeState {
     pub playhead: Signal<f64>,
     /// The shared view pose. Scale is horizontal pixels per logical time unit;
     /// offset is scrolling in logical pixels. Lane heights remain unscaled.
-    pub transform: Signal<ViewTransform>,
+    pub transform: Signal<ZoomPan>,
 }
 
 impl TimeState {
@@ -23,9 +23,9 @@ impl TimeState {
         Self {
             selection: signal(Vec::new()),
             playhead: signal(0.0),
-            transform: signal(ViewTransform {
+            transform: signal(ZoomPan {
                 scale: 1.0,
-                ..ViewTransform::default()
+                ..ZoomPan::default()
             }),
         }
     }

@@ -1,5 +1,5 @@
 //! Role: Own zoom and pan contacts and the edit attached to each active gesture.
-use super::data::{Finger, Pan, Pinch, ViewTransform, ZoomPanOptions, finite, panned, pinched};
+use super::data::{Finger, Pan, Pinch, ZoomPan, ZoomPanOptions, finite, panned, pinched};
 use crate::EditSession;
 use kivact_core::geometry::Point;
 use kivact_core::state::{Machine as MachineTrait, Step};
@@ -15,14 +15,14 @@ pub(super) enum Gesture {
     Pan {
         pan: Pan,
         touches: Vec<(PointerId, Point)>,
-        session: Rc<EditSession<ViewTransform>>,
+        session: Rc<EditSession<ZoomPan>>,
         /// Space as the gesture last saw it; it is kept when the gesture ends.
         space: bool,
     },
     Pinch {
         pinch: Pinch,
         touches: Vec<(PointerId, Point)>,
-        session: Rc<EditSession<ViewTransform>>,
+        session: Rc<EditSession<ZoomPan>>,
         /// Space as the gesture last saw it; it is kept when the gesture ends.
         space: bool,
     },
@@ -102,7 +102,7 @@ impl Gesture {
             | Self::Pinch { touches, .. } => touches,
         }
     }
-    fn session(&self) -> Option<Rc<EditSession<ViewTransform>>> {
+    fn session(&self) -> Option<Rc<EditSession<ZoomPan>>> {
         match self {
             Self::Idle { .. } => None,
             Self::Pan { session, .. } | Self::Pinch { session, .. } => Some(session.clone()),
@@ -118,14 +118,14 @@ pub(super) enum Event {
     Space(bool),
 }
 pub(super) enum Effect {
-    Begin(Rc<EditSession<ViewTransform>>, ViewTransform),
-    Write(ViewTransform),
-    Finish(Rc<EditSession<ViewTransform>>, bool),
+    Begin(Rc<EditSession<ZoomPan>>, ZoomPan),
+    Write(ZoomPan),
+    Finish(Rc<EditSession<ZoomPan>>, bool),
 }
 pub(super) struct Machine {
     pub options: ZoomPanOptions,
-    pub transform: ViewTransform,
-    pub session: Rc<EditSession<ViewTransform>>,
+    pub transform: ZoomPan,
+    pub session: Rc<EditSession<ZoomPan>>,
 }
 impl MachineTrait for Machine {
     type State = State;
@@ -169,7 +169,7 @@ impl Machine {
         &self,
         state: &State,
         commit: bool,
-        write: Option<ViewTransform>,
+        write: Option<ZoomPan>,
         keep_space: bool,
     ) -> Step<State, Event, Effect> {
         let Some(session) = state.session() else {

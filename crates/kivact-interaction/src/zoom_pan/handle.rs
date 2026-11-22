@@ -1,5 +1,5 @@
 //! Role: Attach zoom and pan machines to the caller's viewport.
-use super::data::{ViewTransform, ZoomPanOptions, finite, valid_scale};
+use super::data::{ZoomPan, ZoomPanOptions, finite, valid_scale};
 use super::machine;
 use crate::EditSession;
 use crate::options_cell::OptionsCell;
@@ -18,9 +18,9 @@ use std::rc::Rc;
 /// to the caller's node; drawing and content remain the caller's responsibility.
 #[derive(Clone, Copy)]
 pub struct ZoomPanApi {
-    transform: Signal<ViewTransform>,
+    transform: Signal<ZoomPan>,
     settings: OptionsCell<ZoomPanOptions>,
-    edit: EditSession<ViewTransform>,
+    edit: EditSession<ZoomPan>,
     /// The one gesture; Space is held in its idle state, so
     /// `is_gesturing` and `is_space_armed` follow it.
     gesture: MachineHandle<machine::Machine>,
@@ -30,7 +30,7 @@ pub struct ZoomPanApi {
 
 /// Create shared zoom and pan behavior during setup.
 #[track_caller]
-pub fn use_zoom_pan(transform: kivact_core::state::Signal<ViewTransform>) -> ZoomPanApi {
+pub fn use_zoom_pan(transform: kivact_core::state::Signal<ZoomPan>) -> ZoomPanApi {
     let settings = OptionsCell::new(ZoomPanOptions::default());
     let edit = EditSession::new(move |initial| transform.set(initial));
     let session = Rc::new(edit);
@@ -71,7 +71,7 @@ pub fn use_zoom_pan(transform: kivact_core::state::Signal<ViewTransform>) -> Zoo
 }
 
 impl kivact_core::view::ViewportTransform for ZoomPanApi {
-    fn view_transform(&self) -> Value<ViewTransform> {
+    fn view_transform(&self) -> Value<ZoomPan> {
         self.transform.into_value()
     }
     fn attach(
@@ -141,11 +141,11 @@ impl ZoomPanApi {
         self.gesturing
     }
 
-    fn zoom(self, current: ViewTransform, anchor: Point, factor: f64) -> ViewTransform {
+    fn zoom(self, current: ZoomPan, anchor: Point, factor: f64) -> ZoomPan {
         let ZoomPanOptions { min, max, .. } = self.settings.get();
         let scale = (valid_scale(current.scale) * factor).clamp(min, max);
         let content = current.to_content(anchor);
-        ViewTransform {
+        ZoomPan {
             scale,
             offset: Point::new(anchor.x - content.x * scale, anchor.y - content.y * scale),
         }
@@ -190,13 +190,13 @@ impl ZoomPanApi {
                     return Handled::No;
                 };
                 let bounds = content.get();
-                let fit = ViewTransform::fit(
+                let fit = ZoomPan::fit(
                     Size::new(bounds.width, bounds.height),
                     Size::new(rect.width, rect.height),
                 );
                 // The bounds may not start at the origin: its corner
                 // goes to the surface's.
-                let fit = ViewTransform {
+                let fit = ZoomPan {
                     scale: fit.scale,
                     offset: Point::new(
                         fit.offset.x - bounds.x * fit.scale,

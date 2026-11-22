@@ -6,13 +6,13 @@ use crate::state::{IntoValue, Value, callback, effect, memo};
 use crate::view::{Element, HandlerResult, ImageFit, IntoView, Node, Role, View, node, node_ref};
 use kivact_style::{Overflow, style};
 use kivact_types::SurfaceSize;
-use kivact_types::ViewTransform;
+use kivact_types::ZoomPan;
 use kivact_types::cell::Sent;
 use std::cell::RefCell;
 
 #[doc(hidden)]
 pub trait ViewportTransform: 'static {
-    fn view_transform(&self) -> Value<ViewTransform>;
+    fn view_transform(&self) -> Value<ZoomPan>;
     fn attach(self, node: Node, content: Value<Rect>) -> Node;
 }
 type Attach = Box<dyn FnOnce(Node, Value<Rect>) -> Node>;
@@ -22,7 +22,7 @@ pub struct Viewport {
     pub(crate) root: Node,
     pixels: Value<Pixels>,
     fit: Value<ImageFit>,
-    transform: Option<(Value<ViewTransform>, Attach)>,
+    transform: Option<(Value<ZoomPan>, Attach)>,
     pixelated: Value<bool>,
     resize: Option<crate::state::Callback<SurfaceSize>>,
     gpu_frame: Value<Option<GpuFrame>>,
@@ -164,7 +164,7 @@ impl IntoView for Viewport {
     }
 }
 fn fit_rect(content: Size, view: Size, fit: ImageFit) -> Rect {
-    let contain = ViewTransform::fit(content, view);
+    let contain = ZoomPan::fit(content, view);
     let scale = match fit {
         ImageFit::Contain => contain.scale,
         ImageFit::Cover if content.width > 0.0 && content.height > 0.0 => {

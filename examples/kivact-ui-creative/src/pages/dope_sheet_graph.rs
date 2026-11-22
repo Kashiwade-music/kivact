@@ -32,7 +32,7 @@ fn demo() -> impl IntoView {
     let (keys, selected) = super::animation_model::bindings(graph, graph_selected);
     let initial_keys = super::txn::Txn::signal();
     let channels = [signal(true), signal(true), signal(true)];
-    let transform = signal(kivact::interaction::ViewTransform {
+    let transform = signal(kivact::interaction::ZoomPan {
         scale: 6.8,
         offset: Point::new(12.0, 0.0),
     });

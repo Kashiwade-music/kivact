@@ -5,7 +5,7 @@ use crate::editors::shared::targets::Scene;
 use kivact::UiError;
 use kivact::draw::RegionId;
 use kivact::geometry::Point;
-use kivact::interaction::{DragApi as Gesture, EditSession, ListApi, ViewTransform, ZoomPanApi};
+use kivact::interaction::{DragApi as Gesture, EditSession, ListApi, ZoomPan, ZoomPanApi};
 use kivact::state::{Callback, Machine, MachineHandle, Signal, Step, Value, machine};
 use kivact::view::{NodeRef, Role};
 use std::rc::Rc;
@@ -285,7 +285,7 @@ pub(crate) struct State {
     pub(crate) selected: Signal<Vec<u64>>,
     pub(crate) selected_link: Signal<Option<NodeLink>>,
     pub(crate) choose: ListApi<u64>,
-    pub(crate) transform: Signal<ViewTransform>,
+    pub(crate) transform: Signal<ZoomPan>,
     pub(crate) scene: Value<Result<Rc<Scene<Target>>, UiError>>,
     pub(crate) snap: Value<bool>,
     pub(crate) active: kivact::state::Signal<Option<(u64, usize)>>,

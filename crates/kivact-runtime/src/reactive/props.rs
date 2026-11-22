@@ -440,7 +440,7 @@ constant_value!(
     kivact_types::Justify,
     kivact_types::Asset,
     kivact_types::Pixels,
-    kivact_types::ViewTransform,
+    kivact_types::ZoomPan,
     kivact_types::Point,
     kivact_types::Size,
     kivact_types::ImageFit,

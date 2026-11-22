@@ -173,14 +173,14 @@ For a node that is only labeled text, `NodeData::parameters(["ViewLayer"])` list
 
 ## Keep the view state
 
-`NodeState` is a `Copy` struct of three signals: `selection` (node ids), `link` (the selected link) and `transform` (a `ViewTransform` with the pan offset and scale). To restore the view when a document opens, create your own signals and build the struct with them:
+`NodeState` is a `Copy` struct of three signals: `selection` (node ids), `link` (the selected link) and `transform` (a `ZoomPan` with the pan offset and scale). To restore the view when a document opens, create your own signals and build the struct with them:
 
 ```rust,no_run
-use kivact::interaction::ViewTransform;
+use kivact::interaction::ZoomPan;
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-let transform = signal(ViewTransform::default());
+let transform = signal(ZoomPan::default());
 let selection = signal(Vec::<u64>::new());
 let state = ui::NodeState {
     transform,

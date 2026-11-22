@@ -1,6 +1,6 @@
 //! Role: Verify viewport coordinate sharing, fitting, and CPU snapshot output.
 use kivact::draw::Pixels;
-use kivact::interaction::{ViewTransform, use_zoom_pan};
+use kivact::interaction::{ZoomPan, use_zoom_pan};
 use kivact::prelude::*;
 use kivact::view::{ImageFit, viewport};
 use kivact_public_api_tests::support::mount;
@@ -12,7 +12,7 @@ fn pixels() -> Pixels {
 #[test]
 fn viewport_maps_points_between_view_and_content() {
     let (screen, (position, api)) = mount(|| {
-        let api = use_zoom_pan(signal(ViewTransform {
+        let api = use_zoom_pan(signal(ZoomPan {
             offset: Point::new(10., 20.),
             scale: 2.,
         }));

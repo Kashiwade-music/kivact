@@ -18,7 +18,7 @@ use kivact::view::text;
 
 use kivact::geometry::Point;
 use kivact::interaction::DialogMode;
-use kivact::interaction::{ViewTransform, use_zoom_pan};
+use kivact::interaction::{ZoomPan, use_zoom_pan};
 use kivact::state::IntoValue;
 use kivact::state::Value;
 use kivact::state::binding;
@@ -267,19 +267,19 @@ fn control_position() -> Style {
         .color(c::ON_DARK)
 }
 
-fn gallery_transform(view: Signal<LightboxView>) -> Signal<ViewTransform> {
+fn gallery_transform(view: Signal<LightboxView>) -> Signal<ZoomPan> {
     binding(
         move || match view.get() {
-            LightboxView::Fit => ViewTransform {
+            LightboxView::Fit => ZoomPan {
                 scale: 1.0,
                 offset: Point::new(0.0, 0.0),
             },
-            LightboxView::Zoomed { pan } => ViewTransform {
+            LightboxView::Zoomed { pan } => ZoomPan {
                 scale: 2.0,
                 offset: pan,
             },
         },
-        move |transform: ViewTransform| {
+        move |transform: ZoomPan| {
             view.set(if transform.scale <= 1.0 {
                 LightboxView::Fit
             } else {
@@ -293,7 +293,7 @@ fn gallery_transform(view: Signal<LightboxView>) -> Signal<ViewTransform> {
 
 fn gallery_image(
     item: LightboxMedia,
-    transform: Signal<ViewTransform>,
+    transform: Signal<ZoomPan>,
     zoomed: impl Fn() -> bool + Copy + 'static,
     set_zoom: impl Fn(bool) + Copy + 'static,
     zoom: bool,

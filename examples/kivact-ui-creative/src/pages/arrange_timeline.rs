@@ -32,7 +32,7 @@ fn demo() -> impl IntoView {
     tracks.update(|tracks| tracks[4].automation_label = "Volume".into());
     let selected = signal(vec![10u64]);
     let snap = signal(true);
-    let transform = signal(kivact::interaction::ViewTransform {
+    let transform = signal(kivact::interaction::ZoomPan {
         scale: 10.0,
         ..Default::default()
     });
