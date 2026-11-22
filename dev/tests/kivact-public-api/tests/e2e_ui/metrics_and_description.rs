@@ -1,7 +1,6 @@
 //! Role: Verify accessible metrics, headings and term-detail associations.
 use kivact::Prop;
 use kivact::prelude::*;
-use kivact::style::{Theme, rgb};
 use kivact::ui::theme::{HeadingState, HeadingTheme, Look};
 use kivact::ui::{self, ProgressVariant, Trend};
 use kivact_public_api_tests::paint::{distance, pixel};
