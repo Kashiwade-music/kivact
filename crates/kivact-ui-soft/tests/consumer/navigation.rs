@@ -174,10 +174,11 @@ fn shell_adapts_navigation_and_opens_the_mobile_drawer() {
                         .start(soft::top_nav_item("Documents").on_press(|| {}))
                 })
                 .sidebar(|| {
+                    let mobile = soft::use_app_shell_mobile();
                     kivact::ui::sidebar_menu(vec![
                         kivact::ui::sidebar_menu_button("Files")
                             .icon(icon("menu"))
-                            .on_press(|| {})
+                            .on_press(move || mobile.hide())
                             .into_view(),
                     ])
                 })
