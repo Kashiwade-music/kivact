@@ -1,12 +1,11 @@
 //! Role: The hover tooltip card and the legend of a chart.
 
 use super::model::{ChartConfig, Hit, series_color};
-use crate::ColorName;
-
-use crate::typography::MONO;
+use crate::color::{BACKGROUND, BORDER_VAR, FOREGROUND, MUTED_FOREGROUND};
+use crate::recipe_parts::MONO;
 use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::Element;
-use kivact::style::{Align, Direction, Justify, Position, style};
+use kivact::style::{Align, FlexDirection, Justify, Position, Shadow, style};
 use kivact::view::{IntoView, Role};
 use kivact::view::{Node, column, node, row, text};
 use std::rc::Rc;
@@ -33,29 +32,24 @@ pub(super) fn tooltip(
             node().style(move || {
                 style()
                     .size(10, 10)
-                    .shrink(0)
-                    .radius(2)
-                    .background(series_color(
-                        &config,
-                        series,
-                        &kivact::style::use_tokens::<crate::Tokens>(),
-                    ))
+                    .flex_shrink(0.0)
+                    .border_radius(2.0)
+                    .background(series_color(&config, series))
             }),
             row((
-                text(hit_row.label.clone())
-                    .style(style().color(ColorName::MutedForeground).line_height(1.0)),
+                text(hit_row.label.clone()).style(style().color(MUTED_FOREGROUND).line_height(1.0)),
                 text(format(hit_row.value)).style(
                     style()
                         .font_family(MONO)
-                        .weight(500)
+                        .font_weight(500)
                         .tabular_nums()
                         .line_height(1.0)
-                        .color(ColorName::Foreground),
+                        .color(FOREGROUND),
                 ),
             ))
             .style(
                 style()
-                    .grow(1)
+                    .flex_grow(1.0)
                     .gap(16)
                     .align_items(Align::Center)
                     .justify_content(Justify::SpaceBetween),
@@ -71,14 +65,13 @@ pub(super) fn tooltip(
     column((
         hit.title
             .clone()
-            .map(|title| text(title).style(style().weight(500).line_height(1.0))),
+            .map(|title| text(title).style(style().font_weight(500).line_height(1.0))),
         column(rows.collect::<Vec<_>>()).style(style().gap(6)),
     ))
     .with_node(|root| root.role(Role::Group))
     // The pointer passes through the card to the plot (`pointer-events-none`).
     .hit_testable(false)
     .style(move || {
-        let p = kivact::style::use_tokens::<crate::Tokens>();
         let at = at.get();
         let size = bounds.get().map_or(Size::new(0.0, 0.0), |rect| {
             Size::new(rect.width, rect.height)
@@ -92,20 +85,21 @@ pub(super) fn tooltip(
         } else {
             placed.left(0).translate(at.x + OFFSET, top)
         };
-        let c = kivact::style::use_theme().get().colors().shadow;
+        let theme = kivact::style::use_theme().get();
+        let c = theme.get(&kivact::style::color::SHADOW_VAR);
         placed
             .z_index(10)
             .min_width(128)
             .gap(6)
             .padding_x(10)
             .padding_y(6)
-            .background(p.background)
-            .color(p.foreground)
-            .border(1, p.border.with_alpha(0.5))
-            .radius(0)
+            .background(BACKGROUND)
+            .color(FOREGROUND)
+            .border(1, theme.get(&BORDER_VAR).with_alpha(0.5))
+            .border_radius(0.0)
             .font_size(12)
-            .shadow(kivact::draw::Shadow::new(0, 20, 25, c).spread(-5))
-            .shadow(kivact::draw::Shadow::new(0, 8, 10, c).spread(-6))
+            .shadow(Shadow::new(0.0, 20.0, 25.0, c).spread(-5.0))
+            .shadow(Shadow::new(0.0, 8.0, 10.0, c).spread(-6.0))
     })
 }
 
@@ -121,15 +115,11 @@ pub(super) fn legend(config: &Rc<ChartConfig>) -> Node {
                 node().style(move || {
                     style()
                         .size(8, 8)
-                        .shrink(0)
-                        .radius(2)
-                        .background(series_color(
-                            &colors,
-                            index,
-                            &kivact::style::use_tokens::<crate::Tokens>(),
-                        ))
+                        .flex_shrink(0.0)
+                        .border_radius(2.0)
+                        .background(series_color(&colors, index))
                 }),
-                text(series.label.clone()).style(style().color(ColorName::Foreground)),
+                text(series.label.clone()).style(style().color(FOREGROUND)),
             ))
             .style(style().gap(6).align_items(Align::Center))
             .into_view()
@@ -137,7 +127,7 @@ pub(super) fn legend(config: &Rc<ChartConfig>) -> Node {
         .collect::<Vec<_>>();
     row(items).style(
         style()
-            .direction(Direction::Row)
+            .flex_direction(FlexDirection::Row)
             .justify_content(Justify::Center)
             .align_items(Align::Center)
             .gap(16)

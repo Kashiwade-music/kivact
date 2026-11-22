@@ -1,59 +1,57 @@
 //! Catalog page of Tooltip: default, sides, icon buttons and keyboard shortcut.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact::view::Placement;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "tooltip",
-        name: "Tooltip",
-        description: "要素へのホバーやフォーカスで短い補足を表示します。標準の kivact::ui::tooltip に Lyra の見た目（反転した配色と、対象を指す矢印）を当てたもので、attach で対象の要素に取り付けます。",
-        usage: "use kivact::prelude::*;\nuse kivact::view::Placement;\nuse kivact_ui_basic as basic;",
-        source: include_str!("tooltip.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "tooltip に文字を渡し、attach で対象を渡します。ホバーまたはフォーカスで表示されます。",
-                default,
-            ),
-            Example::new(
-                "sides",
-                "Sides",
-                "placement で表示する側を選びます。",
-                sides,
-            ),
-            Example::new(
-                "icon-button",
-                "Icon button",
-                "名前だけを持つアイコンボタンは、ツールチップで意味を補います。",
-                icon_button,
-            ),
-            Example::new(
-                "shortcut",
-                "With keyboard shortcut",
-                "content で表示内容を差し替えて、kivact::ui::kbd のキーキャップを並べます。",
-                shortcut,
-            ),
-        ],
-    }
+    Page::new("tooltip", "Tooltip", "Components", include_str!("tooltip.rs"))
+        .description("Shows a short note when the pointer rests on an element or it takes focus. It is the standard kivact::ui::tooltip in the Lyra look (inverted colors and an arrow pointing at the target), which wraps its target element.")
+        .usage("use kivact::prelude::*;\nuse kivact::view::Placement;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "Pass the text and the target to tooltip. It shows on hover or focus.",
+            default,
+        ))
+        .example(Example::new(
+            "sides",
+            "Sides",
+            "placement chooses the side it shows on.",
+            sides,
+        ))
+        .example(Example::new(
+            "icon-button",
+            "Icon button",
+            "An icon button that has only a name gets its meaning from the tooltip.",
+            icon_button,
+        ))
+        .example(Example::new(
+            "shortcut",
+            "With keyboard shortcut",
+            "content replaces the text with kivact::ui::kbd key caps in a row.",
+            shortcut,
+        ))
 }
 
 // example: default
 fn default() -> impl IntoView {
-    tooltip("Add to library").attach(button("Hover").variant(ButtonVariant::Outline))
+    tooltip(
+        "Add to library",
+        button("Hover").variant(ButtonVariant::Outline),
+    )
 }
 // end example
 
 // example: sides
 fn sides() -> impl IntoView {
     let side = |label: &'static str, placement: Placement| {
-        tooltip(format!("Add to {}", label.to_lowercase()))
-            .placement(placement)
-            .attach(button(label).variant(ButtonVariant::Outline))
+        tooltip(
+            format!("Add to {}", label.to_lowercase()),
+            button(label).variant(ButtonVariant::Outline),
+        )
+        .placement(placement)
     };
     row((
         side("Above", Placement::Above),
@@ -68,19 +66,22 @@ fn sides() -> impl IntoView {
 // example: icon-button
 fn icon_button() -> impl IntoView {
     row((
-        tooltip("Settings").attach(
+        tooltip(
+            "Settings",
             button("Settings")
                 .variant(ButtonVariant::Outline)
                 .hide_label(true)
                 .icon(icon("settings")),
         ),
-        tooltip("Notifications").attach(
+        tooltip(
+            "Notifications",
             button("Notifications")
                 .variant(ButtonVariant::Outline)
                 .hide_label(true)
                 .icon(icon("bell")),
         ),
-        tooltip("Delete").attach(
+        tooltip(
+            "Delete",
             button("Delete")
                 .variant(ButtonVariant::Outline)
                 .hide_label(true)
@@ -93,14 +94,12 @@ fn icon_button() -> impl IntoView {
 
 // example: shortcut
 fn shortcut() -> impl IntoView {
-    tooltip("Save")
-        .content(|| {
-            row((
-                text("Save"),
-                basic::kbd_group((kivact::ui::kbd("Ctrl"), kivact::ui::kbd("S"))),
-            ))
-            .style(style().gap(8).align_items(kivact::style::Align::Center))
-        })
-        .attach(button("Save").variant(ButtonVariant::Outline))
+    tooltip("Save", button("Save").variant(ButtonVariant::Outline)).content(|| {
+        row((
+            text("Save"),
+            basic::kbd_group((kivact::ui::kbd("Ctrl"), kivact::ui::kbd("S"))),
+        ))
+        .style(style().gap(8).align_items(kivact::style::Align::Center))
+    })
 }
 // end example

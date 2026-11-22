@@ -1,11 +1,9 @@
-//! The catalog's offline OFL font bytes, for the app and its tests.
+//! Role: The catalog's offline OFL fonts: Inter, Barlow and Noto Sans JP (subset).
 
-/// Application-owned, offline OFL font bytes for the catalog and regressions.
-pub fn fonts() -> &'static [&'static [u8]] {
-    &[
-        include_bytes!("../../shared-assets/fonts/inter/Inter[opsz,wght].ttf"),
-        include_bytes!("../assets/fonts/barlow/Barlow-BoldItalic.ttf"),
-        include_bytes!("../assets/fonts/barlow/Barlow-ExtraBoldItalic.ttf"),
-        include_bytes!("../../shared-assets/fonts/notosansjp/NotoSansJP-subset[wght].ttf"),
-    ]
-}
+/// The fonts the Pop catalog adds to its theme, shared by the app and its tests.
+pub(crate) static FONTS: &[&[u8]] = &[
+    include_bytes!("../../shared-assets/fonts/inter/Inter[opsz,wght].ttf"),
+    include_bytes!("../assets/fonts/barlow/Barlow-BoldItalic.ttf"),
+    include_bytes!("../assets/fonts/barlow/Barlow-ExtraBoldItalic.ttf"),
+    include_bytes!("../../shared-assets/fonts/notosansjp/NotoSansJP-subset[wght].ttf"),
+];

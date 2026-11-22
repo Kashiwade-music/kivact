@@ -414,4 +414,5 @@ pub(crate) fn install(theme: Theme) -> Theme {
                 .item(pagination_item)
                 .ellipsis(pagination_ellipsis),
         )
+        .with(crate::recipes_navigation_sidebar::sidebar())
 }

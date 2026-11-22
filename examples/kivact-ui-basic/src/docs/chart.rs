@@ -1,57 +1,50 @@
 //! Catalog page of Chart: bar, stacked, line, area, pie, radar and radial.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact::view::Orientation;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "chart",
-        name: "Chart",
-        description: "ChartConfig の系列と ChartRow のデータから、棒・折れ線・面・円・レーダーなどを描きます。ポインタを重ねると値のツールチップが出ます。軸・グリッド・凡例・ツールチップは axis、grid、legend、tooltip に false を渡して消せ、value_format で値の書き方を変えられます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("chart.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "bar",
-                "Bar Chart",
-                "既定の kind は Bar です。系列の色は省くとテーマの chart 1〜5 になり、凡例とツールチップにも同じ色が出ます。",
-                bar,
-            ),
-            Example::new(
-                "horizontal",
-                "Horizontal Stacked",
-                "kind に StackedBar、orientation に Orientation::Horizontal を渡すと、積み上げた横棒になります。value_format で軸とツールチップの値を「186k」の形に書きます。",
-                horizontal,
-            ),
-            Example::new(
-                "line",
-                "Line Chart",
-                "kind に Line を渡します。系列の色は ChartSeries::color で指定できます。",
-                line,
-            ),
-            Example::new(
-                "area",
-                "Minimal Area Chart",
-                "Area は折れ線の下を半透明で塗ります。ここでは axis、grid、legend をすべて false にして、面とツールチップだけを残しています。",
-                area,
-            ),
-            Example::new(
-                "pie",
-                "Pie and Donut",
-                "Pie と Donut は系列ごとの合計で円を分けます。Donut は中央に総計を表示します。",
-                pie,
-            ),
-            Example::new(
-                "radar",
-                "Radar and Radial",
-                "Radar は行ごとの軸に系列の多角形を重ねます。Radial は系列ごとの円弧で、最大の系列が 270 度になります。",
-                radar,
-            ),
-        ],
-    }
+    Page::new("chart", "Chart", "Components", include_str!("chart.rs"))
+        .description("Draws bars, lines, areas, pies, radars and more from the series of a ChartConfig and the rows of ChartRow data. Hovering shows a tooltip with the values. Pass false to axis, grid, legend or tooltip to remove them, and value_format changes how values are written.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "bar",
+            "Bar Chart",
+            "The default kind is Bar. A series color that is not given comes from the theme's chart 1 to 5, and the legend and the tooltip use the same colors.",
+            bar,
+        ))
+        .example(Example::new(
+            "horizontal",
+            "Horizontal Stacked",
+            "Pass StackedBar as kind and Orientation::Horizontal as orientation to get stacked horizontal bars. value_format writes the axis and the tooltip values in the form '186k'.",
+            horizontal,
+        ))
+        .example(Example::new(
+            "line",
+            "Line Chart",
+            "Pass Line as kind. A series color can be set with ChartSeries::color.",
+            line,
+        ))
+        .example(Example::new(
+            "area",
+            "Minimal Area Chart",
+            "Area fills the area under the line with a translucent color. Here axis, grid and legend are all false, so only the area and the tooltip remain.",
+            area,
+        ))
+        .example(Example::new(
+            "pie",
+            "Pie and Donut",
+            "Pie and Donut split the circle by the total of each series. Donut shows the grand total in its center.",
+            pie,
+        ))
+        .example(Example::new(
+            "radar",
+            "Radar and Radial",
+            "Radar overlays a polygon of each series on the axes of each row. Radial draws an arc per series, and the largest series spans 270 degrees.",
+            radar,
+        ))
 }
 
 // example: bar
@@ -71,14 +64,16 @@ fn bar() -> impl IntoView {
     kivact::ui::card(basic::chart(config, data))
         .header(
             column((
-                text("Bar Chart").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
-                text("January - June 2024").style(
+                text("Bar Chart").style(
                     style()
-                        .line_height(1.625)
-                        .color(basic::ColorName::MutedForeground),
+                        .font_size(14)
+                        .line_height(20.0 / 14.0)
+                        .font_weight(500),
                 ),
+                text("January - June 2024")
+                    .style(style().line_height(1.625).color(basic::MUTED_FOREGROUND)),
             ))
-            .style(style().gap(4).grow(1).min_width(0)),
+            .style(style().gap(4).flex_grow(1).min_width(0)),
         )
         .footer(text("Showing total visitors for the last 6 months"))
         .style(style().width(560))
@@ -105,15 +100,16 @@ fn horizontal() -> impl IntoView {
     kivact::ui::card(chart)
         .header(
             column((
-                text("Horizontal Stacked")
-                    .style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
-                text("Visitors by device").style(
+                text("Horizontal Stacked").style(
                     style()
-                        .line_height(1.625)
-                        .color(basic::ColorName::MutedForeground),
+                        .font_size(14)
+                        .line_height(20.0 / 14.0)
+                        .font_weight(500),
                 ),
+                text("Visitors by device")
+                    .style(style().line_height(1.625).color(basic::MUTED_FOREGROUND)),
             ))
-            .style(style().gap(4).grow(1).min_width(0)),
+            .style(style().gap(4).flex_grow(1).min_width(0)),
         )
         .style(style().width(560))
 }
@@ -136,15 +132,16 @@ fn line() -> impl IntoView {
     kivact::ui::card(basic::chart(config, data).kind(basic::ChartKind::Line))
         .header(
             column((
-                text("Line Chart")
-                    .style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
-                text("January - June 2024").style(
+                text("Line Chart").style(
                     style()
-                        .line_height(1.625)
-                        .color(basic::ColorName::MutedForeground),
+                        .font_size(14)
+                        .line_height(20.0 / 14.0)
+                        .font_weight(500),
                 ),
+                text("January - June 2024")
+                    .style(style().line_height(1.625).color(basic::MUTED_FOREGROUND)),
             ))
-            .style(style().gap(4).grow(1).min_width(0)),
+            .style(style().gap(4).flex_grow(1).min_width(0)),
         )
         .style(style().width(560))
 }
@@ -173,15 +170,16 @@ fn area() -> impl IntoView {
     kivact::ui::card(chart)
         .header(
             column((
-                text("Area Chart")
-                    .style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
-                text("Last 6 months").style(
+                text("Area Chart").style(
                     style()
-                        .line_height(1.625)
-                        .color(basic::ColorName::MutedForeground),
+                        .font_size(14)
+                        .line_height(20.0 / 14.0)
+                        .font_weight(500),
                 ),
+                text("Last 6 months")
+                    .style(style().line_height(1.625).color(basic::MUTED_FOREGROUND)),
             ))
-            .style(style().gap(4).grow(1).min_width(0)),
+            .style(style().gap(4).flex_grow(1).min_width(0)),
         )
         .style(style().width(560))
 }

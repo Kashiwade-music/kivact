@@ -1,45 +1,38 @@
 //! Catalog page of Toggle: default, outline, sizes, icons and disabled.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact::ui::toggle_button;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "toggle",
-        name: "Toggle",
-        description: "押した状態を保持する二状態のボタンです。kivact::ui::toggle を basic の theme で描きます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::{ControlSize, toggle_button};\nuse kivact_ui_basic as basic;",
-        source: include_str!("toggle.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "basic",
-                "Basic",
-                "名前と bool の binding を渡します。押した状態は binding が持ちます。",
-                basic,
-            ),
-            Example::new(
-                "outline",
-                "Outline",
-                "basic::ToggleVariant::Outline を variant に渡すと枠を付けます。",
-                outline,
-            ),
-            Example::new(
-                "sizes",
-                "Sizes",
-                "size の Small、Medium、Large は高さ 28、32、36 px です。",
-                sizes,
-            ),
-            Example::new(
-                "disabled",
-                "Disabled",
-                "disabled のトグルは薄く表示され、押せません。",
-                disabled,
-            ),
-        ],
-    }
+    Page::new("toggle", "Toggle", "Components", include_str!("toggle.rs"))
+        .description("A two-state button that stays pressed. It draws kivact::ui::toggle in the basic theme.")
+        .usage("use kivact::prelude::*;\nuse kivact::ui::{ControlSize, toggle_button};\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "basic",
+            "Basic",
+            "Pass a name and a bool binding. The binding holds the pressed state.",
+            basic,
+        ))
+        .example(Example::new(
+            "outline",
+            "Outline",
+            "Pass basic::ToggleVariant::Outline as variant to draw a border.",
+            outline,
+        ))
+        .example(Example::new(
+            "sizes",
+            "Sizes",
+            "Small, Medium and Large for size are 28, 32 and 36 px high.",
+            sizes,
+        ))
+        .example(Example::new(
+            "disabled",
+            "Disabled",
+            "A disabled toggle is drawn faint and cannot be pressed.",
+            disabled,
+        ))
 }
 
 // example: basic

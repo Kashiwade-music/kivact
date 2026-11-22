@@ -1,6 +1,8 @@
 # kivact-ui-game catalog
 
-Interactive styled learning catalog for [kivact-ui-game](../../crates/kivact-ui-game/README.md), with the original shell, chapters, themes and stateful demonstrations.
+The catalog of [kivact-ui-game](../../crates/kivact-ui-game/README.md): eleven
+pages of its components, shown by the shared shell of
+[catalog-shell](../catalog-shell).
 
 Run from the repository root:
 
@@ -9,6 +11,11 @@ cargo run -p kivact-ui-game-catalog
 cargo run -p kivact-ui-game-catalog --no-default-features
 ```
 
-The GPU feature is enabled by default; CPU remains available. Read src/game.rs and its modules alongside the kit's public component API. Fonts belong to this app; assets/fonts/SOURCE.md, OFL.txt and SHA256SUMS.txt record provenance, licensing and exact bytes.
+Each page is a file of `src/pages/`; its demo sits between `// example:` and
+`// end example`, so the code on screen is the code that runs. The fonts belong
+to this app: `assets/fonts/SOURCE.md`, `OFL.txt` and `SHA256SUMS.txt` record
+their provenance, licensing and exact bytes.
 
-Preserved public-driver regression tests are grouped in tests/catalog.rs and tests/catalog/. They retain optional KIVACT_TEST_GPU and KIVACT_CATALOG_EVIDENCE settings. Window mirroring follows KIVACT_TEST_MIRROR (auto by default, off for windowless runs). Execute tests with window mirroring serially through dev/tools/window-lock.sh.
+The tests walk every page in both modes (`catalog_shell::check`) and drive the
+controls of some pages through the public test driver. Execute them through
+`dev/tools/window-lock.sh`, because the test driver opens windows.

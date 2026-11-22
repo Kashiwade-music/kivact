@@ -184,7 +184,7 @@ impl OutlinerCell {
     }
 }
 
-// xtask-allow(state): legacy: generation, row_height, has_activation; generation of registered rows
+// xtask-allow(state): identity: generation is the mount-id allocator advanced only by RowFactory::register, so a row's cleanup can tell its own mount from a newer one; row_height and has_activation are copied once from the outliner and never written; generation of registered rows
 struct RowFactory {
     by_id: Value<HashMap<u64, TreeItem>>,
     data: Value<Vec<TreeItem>>,

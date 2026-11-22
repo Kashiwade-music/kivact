@@ -1,38 +1,31 @@
 //! Catalog page of Breadcrumb: basic trail, ellipsis and right-to-left.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "breadcrumb",
-        name: "Breadcrumb",
-        description: "現在のページまでの階層を示す部品です。「Breadcrumb」という名前の Navigation として公開され、direction の中では向きが反転します。",
-        usage: "use kivact::prelude::*;\nuse kivact::interaction::ListItem;",
-        source: include_str!("breadcrumb.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "ListItem のキーと名前を渡し、on_activate でリンクのキーを受け取ります。",
-                default,
-            ),
-            Example::new(
-                "ellipsis",
-                "Ellipsis",
-                "item スロットに basic::breadcrumb_ellipsis を置いて、省略した階層を表します。",
-                ellipsis,
-            ),
-            Example::new(
-                "rtl",
-                "Right to left",
-                "provide_direction で Rtl を渡すと、並びと区切りの向きが反転します。",
-                rtl,
-            ),
-        ],
-    }
+    Page::new("breadcrumb", "Breadcrumb", "Components", include_str!("breadcrumb.rs"))
+        .description("A trail that shows the path to the current page. It is published as a Navigation named 'Breadcrumb', and its direction reverses under a right-to-left direction.")
+        .usage("use kivact::prelude::*;\nuse kivact::interaction::ListItem;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "Pass the keys and the names of the ListItems; on_activate receives the key of the link that was pressed.",
+            default,
+        ))
+        .example(Example::new(
+            "ellipsis",
+            "Ellipsis",
+            "Put basic::breadcrumb_ellipsis in the item slot to show a hidden level.",
+            ellipsis,
+        ))
+        .example(Example::new(
+            "rtl",
+            "Right to left",
+            "provide_direction with Rtl reverses the order and the separators.",
+            rtl,
+        ))
 }
 
 // example: default

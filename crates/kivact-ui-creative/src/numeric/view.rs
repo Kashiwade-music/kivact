@@ -26,7 +26,7 @@ use crate::color::{
 };
 use crate::fonts::mono_family;
 
-// xtask-allow(state): legacy: accent, drag_distance, text_entry, wheel_rest; absent means the theme's accent
+// xtask-allow(state): independent: accent, drag_distance and text_entry are copied once from the builder in prepare(); wheel_rest is the sub-step wheel remainder, written only by NumericView::wheel; absent means the theme's accent
 /// The state a numeric control hands to its scrub, key and paint handlers.
 pub(super) struct NumericView {
     pub(super) label: Value<String>,

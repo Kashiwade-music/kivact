@@ -1,6 +1,6 @@
 # kivact-ui-pop catalog
 
-Interactive styled learning catalog for [kivact-ui-pop](../../crates/kivact-ui-pop/README.md), with the original shell, chapters, themes and stateful demonstrations.
+Interactive styled component catalog for [kivact-ui-pop](../../crates/kivact-ui-pop/README.md). The shared catalog shell shows one page per component family; each page's demos are in `src/pages/`, and each demo's code is the code on screen.
 
 Run from the repository root:
 
@@ -9,6 +9,6 @@ cargo run -p kivact-ui-pop-catalog
 cargo run -p kivact-ui-pop-catalog --no-default-features
 ```
 
-The GPU feature is enabled by default; CPU remains available. Read src/pop.rs and its modules alongside the kit's public component API. The catalog uses unchanged Inter bytes and a subset of Noto Sans JP from examples/shared-assets/fonts; Pop's Barlow files remain in assets/fonts. Each location retains provenance, OFL notices and exact SHA256 hashes.
+The GPU feature is enabled by default; CPU remains available. The catalog uses unchanged Inter bytes and a subset of Noto Sans JP from examples/shared-assets/fonts; Pop's Barlow files remain in assets/fonts. Each location retains provenance, OFL notices and exact SHA256 hashes.
 
-Preserved public-driver regression tests are grouped in tests/catalog.rs and tests/catalog/. They retain optional KIVACT_TEST_GPU and KIVACT_CATALOG_EVIDENCE settings. Window mirroring follows KIVACT_TEST_MIRROR (auto by default, off for windowless runs). Execute tests with window mirroring serially through dev/tools/window-lock.sh.
+The page walker of the shared shell and the stateful checks of the forms, the overlays and the conversation are in tests/catalog.rs. Execute tests with window mirroring serially through dev/tools/window-lock.sh.

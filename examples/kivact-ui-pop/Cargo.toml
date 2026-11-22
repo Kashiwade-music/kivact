@@ -12,10 +12,12 @@ complex-scripts = ["kivact/complex-scripts"]
 gpu = ["kivact/gpu"]
 
 [dependencies]
+catalog-shell = { path = "../catalog-shell" }
 kivact = { path = "../../crates/kivact", default-features = false }
 kivact-ui-pop = { path = "../../crates/kivact-ui-pop" }
 
 [dev-dependencies]
+catalog-shell = { path = "../catalog-shell", features = ["test"] }
 kivact = { path = "../../crates/kivact", default-features = false, features = ["test"] }
 
 [lints]

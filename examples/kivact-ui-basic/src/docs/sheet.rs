@@ -1,39 +1,32 @@
 //! Catalog page of Sheet: the standard dialog attached to a side of the window.
 
-use crate::model::{Example, Page, PreviewAlign};
-use kivact::interaction::DialogMode;
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
+use kivact::ui::DialogKind;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "sheet",
-        name: "Sheet",
-        description: "画面の端から出てくるモーダルのパネルです。標準の kivact::ui::dialog を DialogMode::Drawer(Side) にすると、このテーマでは sheet.tsx の見た目で描きます。題名、説明、本文、フッターを持ち、Escape、閉じるボタン、背景の押下で閉じます。",
-        usage: "use kivact::geometry::Edge;\nuse kivact::prelude::*;\nuse kivact::interaction::DialogMode;\nuse kivact_ui_basic as basic;",
-        source: include_str!("sheet.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "DialogMode::Drawer(kivact::geometry::Edge::Right) で右端に付けます。content と footer には、開くたびに呼ばれる関数を渡します。",
-                default,
-            ),
-            Example::new(
-                "side",
-                "Side",
-                "DialogMode::Drawer に kivact::geometry::Edge を渡して、Top、Right、Bottom、Left のどの端に付けるかを選びます。",
-                side,
-            ),
-            Example::new(
-                "no-close-button",
-                "No close button",
-                "closable を false にすると、右上の閉じるボタンを出しません。フッターのボタンで閉じます。",
-                no_close_button,
-            ),
-        ],
-    }
+    Page::new("sheet", "Sheet", "Components", include_str!("sheet.rs"))
+        .description("A modal panel that slides in from the edge of the screen. Make the standard kivact::ui::dialog a DialogKind::Drawer(Side) and this theme draws it in the look of sheet.tsx. It has a title, a description, a body and a footer, and it closes on Escape, the close button or a press on the background.")
+        .usage("use kivact::geometry::Edge;\nuse kivact::prelude::*;\nuse kivact::ui::DialogKind;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "DialogKind::Drawer(kivact::geometry::Edge::Right) attaches it at the right edge. Pass content and footer as functions that are called each time it opens.",
+            default,
+        ))
+        .example(Example::new(
+            "side",
+            "Side",
+            "Pass a kivact::geometry::Edge to DialogKind::Drawer to choose the edge it attaches to: Top, Right, Bottom or Left.",
+            side,
+        ))
+        .example(Example::new(
+            "no-close-button",
+            "No close button",
+            "closable(false) hides the close button at the top right. Close it with a footer button.",
+            no_close_button,
+        ))
 }
 
 // example: default
@@ -46,18 +39,22 @@ fn default() -> impl IntoView {
             .variant(ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         dialog("Edit profile", open)
-            .mode(DialogMode::Drawer(kivact::geometry::Edge::Right))
+            .mode(DialogKind::Drawer(kivact::geometry::Edge::Right))
             .description("Make changes to your profile here. Click save when you're done.")
             .content(move || {
                 column((
                     column((
                         basic::label("Name"),
-                        text_input("Name", name).style(style().width(pct(100))),
+                        text_input(name)
+                            .label("Name")
+                            .style(style().width(pct(100))),
                     ))
                     .style(style().gap(8)),
                     column((
                         basic::label("Username"),
-                        text_input("Username", username).style(style().width(pct(100))),
+                        text_input(username)
+                            .label("Username")
+                            .style(style().width(pct(100))),
                     ))
                     .style(style().gap(8)),
                 ))
@@ -90,7 +87,7 @@ fn side() -> impl IntoView {
                 .variant(ButtonVariant::Outline)
                 .on_press(move || open.set(true)),
             dialog(format!("{label} sheet"), open)
-                .mode(DialogMode::Drawer(side))
+                .mode(DialogKind::Drawer(side))
                 .description("This sheet is attached to one edge of the window.")
                 .content(|| basic::muted("Press Escape or the close button to dismiss it.")),
         ))
@@ -107,7 +104,7 @@ fn no_close_button() -> impl IntoView {
             .variant(ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         dialog("Terms of service", open)
-            .mode(DialogMode::Drawer(kivact::geometry::Edge::Right))
+            .mode(DialogKind::Drawer(kivact::geometry::Edge::Right))
             .closable(false)
             .description("Please read the terms before you continue.")
             .footer(move || {

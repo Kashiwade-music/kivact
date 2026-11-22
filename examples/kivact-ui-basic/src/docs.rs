@@ -1,18 +1,12 @@
-//! Page and example definitions of the catalog, one file per component.
+//! The pages of the catalog, one file per component.
 //!
 //! A page file defines its demos as functions between the marker lines
 //! `// example: <id>` and `// end example`. The page reads its own source
-//! with `include_str!` and shows the text between the markers, so the code on
-//! screen is the code that runs. To add a page, copy a file of `docs/`, list
-//! its examples and add the module and its `page()` here. The types are in
-//! `model`.
+//! with `include_str!`, so the code on screen is the code that runs. To add a
+//! page, copy a file of `docs/`, list its examples and add the module and its
+//! `page()` to [`pages`].
 
-use crate::model::Page;
-#[expect(
-    clippy::disallowed_types,
-    reason = "Static immutable catalog metadata is shared process-wide; no instance lifecycle or late-filled application state."
-)]
-use std::sync::LazyLock;
+use catalog_shell::Page;
 
 mod accordion;
 mod alert;
@@ -83,11 +77,7 @@ mod trace;
 mod typography;
 
 /// Every page in alphabetical order.
-#[expect(
-    clippy::disallowed_types,
-    reason = "Static immutable catalog metadata is shared process-wide; no instance lifecycle or late-filled application state."
-)]
-pub(crate) static PAGES: LazyLock<Vec<Page>> = LazyLock::new(|| {
+pub fn pages() -> Vec<Page> {
     vec![
         accordion::page(),
         alert::page(),
@@ -157,4 +147,4 @@ pub(crate) static PAGES: LazyLock<Vec<Page>> = LazyLock::new(|| {
         trace::page(),
         typography::page(),
     ]
-});
+}

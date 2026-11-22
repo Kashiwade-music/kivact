@@ -2,7 +2,7 @@
 
 use super::model::{ChartKind, Frame, Hit, HitRow, series_color};
 use super::polar::{disc, locate, polar};
-use crate::tokens::Tokens;
+use crate::color::{FOREGROUND, MUTED, MUTED_FOREGROUND};
 use kivact::draw::{Draw, Path, Stroke, TextBaseline, TextFormat};
 use kivact::geometry::{Point, Size};
 use kivact::style::TextAlign;
@@ -28,16 +28,15 @@ fn totals(f: &Frame) -> Vec<f64> {
 
 /// Paint the chart; `hit` is the slice or ring under the pointer.
 pub(super) fn paint(d: &mut Draw, size: Size, f: &Frame, hit: Option<&Hit>) {
-    let tokens = d.theme().ext::<Tokens>();
     let hovered = hit.map(|hit| hit.index);
     if f.kind == ChartKind::Radial {
-        paint_rings(d, size, f, &tokens, hovered);
+        paint_rings(d, size, f, hovered);
     } else {
-        paint_slices(d, size, f, &tokens, hovered);
+        paint_slices(d, size, f, hovered);
     }
 }
 
-fn paint_slices(d: &mut Draw, size: Size, f: &Frame, tokens: &Tokens, hovered: Option<usize>) {
+fn paint_slices(d: &mut Draw, size: Size, f: &Frame, hovered: Option<usize>) {
     let (center, radius) = disc(size);
     let donut = f.kind == ChartKind::Donut;
     let inner = if donut { radius * DONUT_INNER } else { 0.0 };
@@ -68,7 +67,7 @@ fn paint_slices(d: &mut Draw, size: Size, f: &Frame, tokens: &Tokens, hovered: O
                     .line_to(polar(center, inner, to))
                     .arc(center, inner, to, from, true);
             }
-            d.fill_path(&slice.close(), series_color(f.config, series, tokens));
+            d.fill_path(&slice.close(), series_color(f.config, series));
         }
         from = to;
     }
@@ -76,7 +75,7 @@ fn paint_slices(d: &mut Draw, size: Size, f: &Frame, tokens: &Tokens, hovered: O
         let value = TextFormat {
             size: 24.0,
             weight: 700,
-            color: tokens.foreground,
+            color: FOREGROUND,
             align: TextAlign::Center,
             baseline: TextBaseline::Middle,
             ..TextFormat::default()
@@ -84,7 +83,7 @@ fn paint_slices(d: &mut Draw, size: Size, f: &Frame, tokens: &Tokens, hovered: O
         d.text(&f.format(sum), Point::new(center.x, center.y - 8.0), value);
         let label = TextFormat {
             size: 12.0,
-            color: tokens.muted_foreground,
+            color: MUTED_FOREGROUND,
             align: TextAlign::Center,
             baseline: TextBaseline::Middle,
             ..TextFormat::default()
@@ -103,7 +102,7 @@ fn ring(radius: f64, count: usize, series: usize) -> (f64, f64) {
     )
 }
 
-fn paint_rings(d: &mut Draw, size: Size, f: &Frame, tokens: &Tokens, hovered: Option<usize>) {
+fn paint_rings(d: &mut Draw, size: Size, f: &Frame, hovered: Option<usize>) {
     let (center, radius) = disc(size);
     let totals = totals(f);
     let largest = totals.iter().copied().fold(0.0, f64::max);
@@ -115,14 +114,14 @@ fn paint_rings(d: &mut Draw, size: Size, f: &Frame, tokens: &Tokens, hovered: Op
             thickness
         };
         let track = Path::new().arc(center, middle, START, START + RADIAL_SWEEP, false);
-        d.stroke_path(&track, &Stroke::new(thickness), tokens.muted);
+        d.stroke_path(&track, &Stroke::new(thickness), MUTED);
         if largest > 0.0 && *total > 0.0 {
             let sweep = RADIAL_SWEEP * (total / largest);
             let value = Path::new().arc(center, middle, START, START + sweep, false);
             d.stroke_path(
                 &value,
                 &Stroke::new(thickness),
-                series_color(f.config, series, tokens),
+                series_color(f.config, series),
             );
         }
     }

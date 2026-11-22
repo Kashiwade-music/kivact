@@ -1,13 +1,13 @@
 //! Role: The public chart data types and the frame the kinds paint and hit-test.
 
-use crate::tokens::Tokens;
+use crate::color::{CHART_1, CHART_2, CHART_3, CHART_4, CHART_5};
 use kivact::Prop;
 use kivact::style::Color;
 
 /// One data series of a chart: a key, the name shown in the legend and tooltip, and a color.
 ///
-/// Without a color, series `i` uses chart color `i % 5` of the theme's
-/// [`Tokens`] (`--chart-1` to `--chart-5`), so a live theme switch recolors it.
+/// Without a color, series `i` uses chart color `i % 5` (`--chart-1` to
+/// `--chart-5`) of the theme, so a live theme switch recolors it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ChartSeries {
     /// An identifier for the series, such as `"desktop"`.
@@ -136,12 +136,13 @@ impl Frame<'_> {
 }
 
 /// The color of series `index`: its own or chart color `index % 5`.
-pub(super) fn series_color(config: &ChartConfig, index: usize, tokens: &Tokens) -> Color {
+pub(super) fn series_color(config: &ChartConfig, index: usize) -> Color {
+    const CHARTS: [Color; 5] = [CHART_1, CHART_2, CHART_3, CHART_4, CHART_5];
     config
         .series
         .get(index)
         .and_then(|series| series.color)
-        .unwrap_or(tokens.chart[index % tokens.chart.len()])
+        .unwrap_or(CHARTS[index % CHARTS.len()])
 }
 
 /// One tooltip row: a series and its value.

@@ -1625,3 +1625,23 @@ lane K5 の K33e（commit `94d1ed25`）の報告による。設計者の答え�
 
 ### 順序
 lane P（heading の variant、styled_text の node_ref、chat_composer の Shift+Enter、navigation menu の removed の確認）→ 統合 → K43 に取り込み → K43 の残り → L11。
+
+## 設計者の回答（K43 の続き 7 件：7e と (a)〜(g)、2026-11-22）
+
+- **7e（panel disposal）**：試験の期待値は正しい（A を消しても、B の hover の保留は残って B が開く）。中核の直しが足りない。
+  - 原因：機械の timer は variant ごとに一つ（`kivact-runtime/src/machine.rs` の `Step::cancel` は payload を見ない。設計どおり）。だから A を消したときの `cancel(HoverDue(..))` が、B の保留も消す。
+  - 直し（lane P の commit。`kivact-interaction` の navigation の機械）：`remove_panel(key)` は、保留中の hover・leave の対象がその key のときだけ `cancel` する。どの key が保留中かは、機械の状態（または保留の key を持つ field）で判断する。runtime の `Step` は変えない。
+  - soft の 7e が期待値のまま通ることを確かめる。
+- **(a) mobile の drawer**：期待値（menu button を押すと drawer が閉じる）は基点の挙動なので保つ。
+  - drawer は soft の app_shell が持つ（`sidebar_open`）ので、app_shell の drawer の形で、中の menu button の押下（sub list を持たないもの）の後に drawer を閉じる。中核の sidebar は変えない。
+  - 中の押下を app_shell が知る方法が中核に無く、新しい中核の API が要るなら返す。
+- **(b) button_busy、(c) table_sticky**：「採る」は試験の本体の書き換えを採るという意味で、試験は通さなければならない。
+  - (b)：soft の theme の busy の時間の変数（`BUSY_REVEAL_DELAY_MS_VAR`・`BUSY_REVEAL_FADE_MS_VAR`）が、基点の soft の値と同じかを確かめる。違えば theme を基点の値に直す。
+  - (c)：期待の色も解決した値で比べる（`theme.get(&<BG_CARD の変数>)`）。今の右辺は `var(..)` のままで、解決していない。
+- **(d) selector_touch の trigger**：中核の select の trigger の role（と名前）は中核のとおりにする。locator を中核の role に置き換える（7a・7b と同じ扱い）。名前の付け方が基点と違って見つからないなら、caller が `.name("Workspace")` を付ける。
+- **(e) styled_text**：(a) にする。thumbnail の答えと同じく、`tooltip(label, text).enabled(flag)` で常に包む。手書きの enum の型は増やさない。包むのは soft の `styled_text` の呼出しだけで、中核の text 全部ではない。
+- **(f) announcer outlet の文字**：outlet は読み上げのためだけの領域（見た目には出さない）で、clip は設計どおり。layout の検査が、その部分木を見ないように直す（lane P の commit）。
+  - 中核の outlet の node に「見た目に出さない」ことを表す明示の印を付け、検査（`check/findings.rs`）はその印の部分木を飛ばす。大きさ（1×1）で推測しない。
+  - 印の名前と置き場は、中核に同じ意味のもの（a11y だけの node の印）があればそれを使う。無ければ、`outlet` の node の part か property として足す。
+- **(g) `pagination_page_summary`・`pagination_count` の削除**：付属書 K の 4.4.5 の表に残す名前として載っているなら、消さずに `pub use` で公開する（公開の関数は dead ではない）。表に無ければ、削除を採る。
+- 順序：lane P（7e の navigation の機械、(f) の検査）→ 統合 → K43 → L11 → W10 の wave の終わり。
