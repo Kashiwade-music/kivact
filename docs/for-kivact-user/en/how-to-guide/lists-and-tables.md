@@ -46,7 +46,7 @@ fn app() -> impl IntoView {
         todos,
         |todo| todo.id,
         move |todo| {
-            let id = todo.get_untracked().id;
+            let id = todo.get().id;
             // Write the checkbox back to this row of the list.
             let done = bind!(todo.done);
             // State owned by the row: it lives as long as the key `id` does.
@@ -100,7 +100,7 @@ How it works:
   row keeps its owner, and every `signal` created inside the row closure, as
   long as its key stays in the list. Reordering moves the existing rows;
   removing an item disposes only its row.
-- The row closure runs **once per row**, with one `Binding<Todo>` that
+- The row closure runs **once per row**, with one `Signal<Todo>` that
   always holds the row's current item. Read it inside a closure
   (`move || todo.get().title`) so the text follows edits; do not read it once
   and store the result.
@@ -110,14 +110,13 @@ How it works:
 
 ## Write back to the list from a row
 
-A signal-backed row receives a binding to its item. Three ways to write,
+A signal-backed row receives a signal to its item. Three ways to write,
 from most to least convenient:
 
-1. **A binding to one field.** The row's `todo` is already a `Binding<Todo>`.
-   Use `bind!(todo.done)` or `todo.project(get, get_mut)` to narrow it to a
-   field. Make it during row setup. If the item disappears the binding keeps
-   the last value it saw, and writes do nothing. A `Value<Vec<T>>`, a plain
-   `Vec<T>` or a closure source instead gives each row a read-only `Value<T>`.
+1. **A signal for one field.** The row's `todo` is a `Signal<Todo>`;
+   `bind!(todo.done)` makes a `Signal<bool>` for its `done` field. Make it
+   during row setup. A `Value<Vec<T>>`, a plain `Vec<T>` or a closure source
+   instead gives each row a read-only `Value<T>`.
 2. **An update by key** in a handler: `todos.update(|list| list.retain(|t| t.id
    != id))` or `list.iter_mut().find(|t| t.id == id)`. Use it for remove, move
    and anything that changes the list itself.
@@ -167,11 +166,12 @@ cost the same as a screenful. It needs a bounded height and rows of a known
 height.
 
 Its row closure takes one row handle, as `for_each` does: a `Value<T>` for a
-plain source, and a writable `Binding<T>` when the source is a `Signal` (as in
-the example below) or a `Binding`.
+plain source, and a writable `Signal<T>` when the source is a `Signal` (as in
+the example below).
 
 ```rust,test_harness
 use kivact::prelude::*;
+use kivact::view::RowHeight;
 
 #[derive(Clone, PartialEq)]
 struct Entry {
@@ -192,7 +192,7 @@ fn app() -> impl IntoView {
         virtual_list(entries, |e| e.id, |entry| text(move || entry.get().message))
             .row_height(RowHeight::Fixed(24.0))
             .scroll_to(target)
-            .style(style().height(300).border(1, ColorToken::Border)),
+            .style(style().height(300).border(1, color::BORDER)),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -291,7 +291,7 @@ mod tests {
   name jumps to the item that starts with it, and disabled items are skipped.
 - `.multiple(keys)` switches to a `Signal<Vec<K>>`: a press selects one item,
   Ctrl toggles one, and Shift extends a range. The single
-  `selected` binding you passed to `list` is then ignored.
+  `selected` signal you passed to `list` is then ignored.
 - `.item(|item, state| view)` replaces what a row shows. `item` is a
   `Value<ListItem<K>>` and `state` a `Value<ListItemState>` with `selected`, `active`
   and the hover and focus state of the row; behavior and keyboard stay the
@@ -309,6 +309,7 @@ sort, the filter text and the page are signals you own.
 
 ```rust,test_harness
 use kivact::prelude::*;
+use kivact::ui::{DataColumn, data_table};
 
 #[derive(Clone, PartialEq)]
 struct Payment {
@@ -370,7 +371,7 @@ Each feature appears only when you give it a binding:
 | Call | What you get |
 | --- | --- |
 | `.selection(Signal<Vec<K>>)` | check boxes in each row and the header, and a "selected" count |
-| `.sort(Binding<Option<(usize, SortOrder)>>)` | read or set the sorted column (by position) and direction; without it the header still sorts by itself |
+| `.sort(Signal<Option<(usize, SortOrder)>>)` | read or set the sorted column (by position) and direction; without it the header still sorts by itself |
 | `.filter(Signal<String>)` | a filter box that keeps rows whose `DataColumn::filter` matches |
 | `.page(Signal<usize>, size)` | pages of `size` rows with Previous and Next |
 | `.resizable(Signal<Vec<f64>>)` | resize handles on the header; the widths are yours |
@@ -393,8 +394,9 @@ filtered, because every row of the current page is mounted.
 
 - Keep the item type cheap to compare: `for_each` and `data_table` compare items
   with `PartialEq` on every change. Put large payloads behind an `Rc` or an id.
-- Update one item with `update` or `the row binding’s `project(..)`` instead of replacing the
-  whole `Vec`; only the changed rows are touched.
+- Update one item with `update`, or write one field of a row through its
+  `bind!(row.field)` signal, instead of replacing the whole `Vec`; only the
+  changed rows are touched.
 - Prefer `virtual_list` for long logs and feeds, and `data_table` with `.page(..)`
   for tabular data.
 - Do the heavy filtering or sorting in a `memo` and give the memo to the list.

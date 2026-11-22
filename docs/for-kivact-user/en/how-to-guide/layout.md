@@ -83,11 +83,11 @@ fn main() -> kivact::Result<()> {
 
 - `pct(50)` is a percentage of the parent. `pct(100) - 40` and `pct(50) + 8`
   are calc lengths that mix a percentage and pixels.
-- `width`, `height`, `min_*`, `max_*`, `padding`, `margin`, `gap` and `basis`
+- `width`, `height`, `min_*`, `max_*`, `padding`, `margin`, `gap` and `flex_basis`
   all take a length. `padding_x`, `padding_y` and the one-side variants such as
   `padding_top` exist for `padding` and `margin`.
 - `Length::MinContent`, `MaxContent` and `FitContent` size a box by its
-  content. They only work for `width`, `height`, `basis` and grid tracks.
+  content. They only work for `width`, `height`, `flex_basis` and grid tracks.
 - `aspect_ratio(16.0 / 9.0)` derives one side from the other.
 - Every `style()` call returns a new value, so chain the setters in one
   expression. Setting the same property twice keeps the last value (a debug
@@ -98,11 +98,11 @@ fn main() -> kivact::Result<()> {
 By default a child takes the space its content needs and shrinks if the parent
 is too small. Three properties change that:
 
-- `grow(n)` hands out the free space along the main axis. A child with
-  `grow(1)` takes all of it; two children with `grow(1)` and `grow(3)` share it
+- `flex_grow(n)` hands out the free space along the main axis. A child with
+  `flex_grow(1)` takes all of it; two children with `flex_grow(1)` and `flex_grow(3)` share it
   one to three.
-- `shrink(0)` stops a child from getting smaller than its size.
-- `spacer()` is an empty box with `grow(1)`: it pushes what follows it to the
+- `flex_shrink(0)` stops a child from getting smaller than its size.
+- `spacer()` is an empty box with `flex_grow(1)`: it pushes what follows it to the
   end.
 
 ```rust,no_run
@@ -171,7 +171,7 @@ child overrides the parent's `align_items` for that child.
 
 ## Wrap
 
-A row that is too narrow normally overflows. Turn on `wrap(true)` and children
+A row that is too narrow normally overflows. Turn on `flex_wrap(true)` and children
 move to the next line instead. `gap` applies in both directions (`row_gap` and
 `column_gap` set them apart).
 
@@ -183,7 +183,7 @@ fn tags() -> impl IntoView {
         button("Rust"), button("GUI"), button("Signals"),
         button("Native"), button("Windows"), button("Linux"),
     ])
-    .style(style().wrap(true).gap(8).padding(12))
+    .style(style().flex_wrap(true).gap(8).padding(12))
 }
 
 fn main() -> kivact::Result<()> {
@@ -206,6 +206,7 @@ a parent with a definite height grow it.
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::view::ScrollAxes;
 
 fn log() -> impl IntoView {
     let lines: Vec<_> = (1..=100).map(|n| text(format!("line {n}"))).collect();
@@ -242,7 +243,7 @@ fn main() -> kivact::Result<()> {
 - For hundreds of rows use `virtual_list`, which mounts only the visible rows
   (see [Lists and tables](lists-and-tables.md)).
 - In a flex column, a scroll area that should fill the rest of the space needs
-  `grow(1)` and `min_height(0)`; without the minimum, the content's height
+  `flex_grow(1)` and `min_height(0)`; without the minimum, the content's height
   keeps the area from shrinking.
 
 ## Layers
@@ -255,8 +256,8 @@ use kivact::prelude::*;
 
 fn badge() -> impl IntoView {
     stack((
-        node().style(style().size(64, 64).background(ColorToken::SurfaceAlt)),
-        text("3").style(style().color(ColorToken::Danger).padding(4)),
+        node().style(style().size(64, 64).background(color::SURFACE_ALT)),
+        text("3").style(style().color(color::DANGER).padding(4)),
     ))
 }
 
@@ -279,8 +280,8 @@ use kivact::style::Track;
 
 fn form_grid() -> impl IntoView {
     grid((
-        text("Name"), text_input("Name", signal(String::new())),
-        text("Email"), text_input("Email", signal(String::new())),
+        text("Name"), text_input(signal(String::new())).label("Name"),
+        text("Email"), text_input(signal(String::new())).label("Email"),
     ))
     .style(
         style()
@@ -311,14 +312,14 @@ use kivact::prelude::*;
 
 fn sidebar() -> impl IntoView {
     column((text("Inbox"), text("Sent"), text("Archive")))
-        .style(style().width(200).padding(12).gap(8).background(ColorToken::SurfaceAlt))
+        .style(style().width(200).padding(12).gap(8).background(color::SURFACE_ALT))
         .test_id("sidebar")
 }
 
 fn content() -> impl IntoView {
     let items: Vec<_> = (1..=60).map(|n| text(format!("Message {n}"))).collect();
     scroll(column(items).style(style().padding(12).gap(8)))
-        .style(style().grow(1).min_width(0))
+        .style(style().flex_grow(1).min_width(0))
         .test_id("content")
 }
 
@@ -349,7 +350,7 @@ mod tests {
 ```
 
 The sidebar's `width(200)` is fixed, and the sidebar stretches to the row's
-height because of the default `Align::Stretch`. The content has `grow(1)`, so
+height because of the default `Align::Stretch`. The content has `flex_grow(1)`, so
 it takes the width that is left, and `min_width(0)` lets it shrink in a narrow
 window. The whole row is `pct(100)` high so the scroll area has a bounded
 height to scroll in.

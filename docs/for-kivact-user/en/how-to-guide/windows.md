@@ -15,6 +15,7 @@ next to the control that opens it:
 
 ```rust
 use kivact::prelude::*;
+use kivact::view::{WindowMode, WindowPlacement};
 
 fn editor() -> impl IntoView {
     let settings_open = signal(false);
@@ -30,7 +31,7 @@ fn editor() -> impl IntoView {
 ```
 
 `title` is reactive: pass a closure or a signal and the OS title follows it.
-`open` is an ordinary `bool` binding, like the ones inputs take. Writing `true`
+`open` is an ordinary `Signal<bool>`, like the ones inputs take. Writing `true`
 mounts the content in a new window; writing `false` unmounts it and closes the
 window. If the owner that declared the window is destroyed, the window closes
 too. Writing `true` while the window is already open does nothing: it does not
@@ -92,6 +93,7 @@ Setting `open` to false yourself does not call `on_dismiss`; the user's close
 request does. Closing the main window ends the app unless an `on_close_request` handler keeps
 it open (see [Ask before the App closes](#ask-before-the-app-closes)).
 `AppHandle::close` (below) is not a dismissal either, and no handler is asked.
+`on_close_request` applies to the window of the component that calls it: the main window, a `window(..)` or a foreign window. In a window other than the main window, a handler that does not return `Handled::Yes` lets the close continue to the window's `on_dismiss(DismissReason::WindowClose)`.
 
 ## Close the app from code
 
@@ -125,8 +127,8 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-- `close` returns at once. The app's next turn begins the exit: queued `ActionMode::Queue` runs drain (at most three seconds), owners are disposed, and `App::run` returns `Ok(())`.
-- A handle belongs to one run. `App::run` consumes the `App`, so there is no second run; a `close` after the run ended does nothing. Clones of the `App` share the handle.
+- `close` returns at once. The app's next turn begins the exit: queued `queued_action` runs drain (at most three seconds), owners are disposed, and `App::run` returns `Ok(())`.
+- A handle belongs to one run. `App::run` consumes the `App`, so there is no second run; a `close` after the run ended does nothing. Take `App::handle()` before `run` to reach the handle from elsewhere.
 - Before the run, `close` makes `run` return `Ok(())` without opening a window; the root never runs.
 - Closing is not a dismissal: no `on_dismiss` or `on_close_request` handler runs, and it cannot be cancelled. In an embedded editor (`App::embed`), `close` reports `ErrorKind::Unsupported` to the root owner: drop the `Embedded` handle instead.
 - While the UI thread is in a native modal loop (a file dialog, moving or resizing the window by the system), the exit starts when the loop returns.
@@ -172,7 +174,7 @@ If one returns `Handled::Yes` or `Handled::PreventDefault`, or fails (the error
 is reported), the app keeps running; the others still run. Return `()` or
 `Handled::No` to let the close go ahead. A handler is registered only while the
 owner it was called in is alive, so a handler inside a `show` branch stops
-asking once that branch unmounts.
+asking once that branch unmounts. `on_close_request` applies to the window of the component that calls it: the main window, a `window(..)` or a foreign window. In a window other than the main window, a handler that does not return `Handled::Yes` lets the close continue to the window's `on_dismiss(DismissReason::WindowClose)`.
 
 This is how an app with unsaved changes asks first. The flag is a signal, the
 handler keeps the app open while it is set, and the dialog's buttons decide:
@@ -182,6 +184,7 @@ closes only the dialog.
 ```rust,test_harness
 use kivact::platform;
 use kivact::prelude::*;
+use kivact::ui::DialogKind;
 
 fn app() -> impl IntoView {
     let dirty = signal(true);
@@ -197,7 +200,7 @@ fn app() -> impl IntoView {
     column((
         text(move || if dirty.get() { "Unsaved changes" } else { "Saved" }),
         dialog("Save changes?", asking)
-            .mode(DialogMode::AlertModal)
+            .mode(DialogKind::AlertModal)
             .content(|| text("Your changes are lost if you do not save them."))
             .footer(move || {
                 row((
@@ -304,7 +307,7 @@ struct Draft {
 
 fn form() -> impl IntoView {
     let draft = use_context::<Draft>();
-    text(move || if draft.get().dirty.get() { "Unsaved changes" } else { "Saved" })
+    text(move || if draft.dirty.get() { "Unsaved changes" } else { "Saved" })
 }
 
 fn app() -> impl IntoView {
@@ -360,7 +363,7 @@ fn settings() -> impl IntoView {
 - It is best effort. Windows may only flash the taskbar entry instead of
   raising the window, and Wayland has no way to raise a window. It needs no
   capability. In an embedded editor it fails with `ErrorKind::Unsupported`.
-- Writing `true` to the `open` binding of a window that is already open does
+- Writing `true` to the `open` signal of a window that is already open does
   nothing; it does not raise the window. To raise it from an action in another
   window, send a signal to that window and call `focus_window` from a handler
   or callback created in its content (see the next section).
@@ -385,10 +388,9 @@ use kivact::prelude::*;
 
 fn app() -> impl IntoView {
     let open = signal(false);
-    let choose: Callback<()> = (|| {
+    let choose = callback(|_| {
         spawn(async { let _ = platform::pick_file(FileDialog::default()).await; });
-    })
-    .into();
+    });
     column((
         button("Settings").on_press(move || open.set(true)),
         window("Settings", open)

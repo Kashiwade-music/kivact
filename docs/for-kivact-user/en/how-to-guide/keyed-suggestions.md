@@ -2,19 +2,20 @@
 
 [日本語](../../jp/how-to-guide/keyed-suggestions.md)
 
-`kivact::ui::combobox(label, items, selected)` edits one `Option<K>` or several `Vec<K>` keys. The label names the editor. Typing filters option labels; arrows highlight enabled suggestions, Enter chooses, and Escape dismisses without changing the choice. Native text editing keys continue to edit the text.
+`kivact::ui::combobox(items, selected)` edits one `Option<K>` or several `Vec<K>` keys. `.label(..)` names the editor. Typing filters option labels; arrows highlight enabled suggestions, Enter chooses, and Escape dismisses without changing the choice. Native text editing keys continue to edit the text.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::SelectPresentation;
+use kivact::ui::{combobox, SelectPresentation};
 
-fn pickers() -> impl IntoView {
+#[component]
+fn pickers() -> impl Element {
     let one = signal(None::<&str>);
     let many = signal(Vec::<&str>::new());
     let options = vec![ListItem::new("red", "Red"), ListItem::new("green", "Green")];
     column((
-        combobox("Colors", options.clone(), many).chips().exclude_selected(),
-        select("Color", options, one).presentation(SelectPresentation::Adaptive),
+        combobox(options.clone(), many).label("Colors").chips().exclude_selected(),
+        select(options, one).label("Color").presentation(SelectPresentation::Adaptive),
     ))
 }
 ```
@@ -27,8 +28,8 @@ Use `.query(binding)` to control the editor text and `.free_text()` to keep arbi
 
 Both combobox and select accept `.presentation(SelectPresentation::BottomSheet)` for touch input, or `Adaptive` to follow host touch capabilities. Keyboard and mouse retain the anchored popup. The sheet uses the same selection and returns focus to the trigger after dismissal.
 
-Themes supply `UiTokens::combobox` and `UiRecipes::combobox`. Its recipes cover `frame`, `input`, `surface`, `option`, `chip`, `remove` and `empty`. Apply `.variant(...)` for a theme-specific look.
+Themes supply the combobox theme variables and `ComboboxTheme`. Its recipes cover `frame`, `input`, `surface`, `option`, `chip`, `remove` and `empty`. Apply `.variant(...)` for a theme-specific look.
 
-For caller-owned chooser content, use `selection_field(label, value_label).content(factory)`. It reuses select trigger and surface recipes without inventing option keys. `.presentation(...)` selects the touch surface and `.open(binding)` makes visibility caller-owned. Keep search and chosen-value bindings outside the content factory to preserve them across popup and drawer openings.
+For a chooser with your own trigger content, give `select` the trigger view with `.trigger(view)`; it keeps the select's surface, keys and recipes. `.presentation(...)` selects the touch surface and `.open(binding)` makes visibility caller-owned. Keep search and chosen-value signals outside that view to preserve them across popup and drawer openings.
 
 Multiple-choice UI transactions announce accepted additions, removals, and clearing in a polite live region. Rejected selection writes produce no announcement. Override `combobox.token_added`, `combobox.token_removed`, and `combobox.all_removed` through the application message catalog.

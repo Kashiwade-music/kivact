@@ -13,8 +13,8 @@ use kivact::prelude::*;
 
 fn app() -> impl IntoView {
     column((
-        text("設定"),
-        row((button("キャンセル"), button("保存"))).style(style().gap(8)),
+        text("Settings"),
+        row((button("Cancel"), button("Save"))).style(style().gap(8)),
     ))
     .style(style().padding(16).gap(12))
 }
@@ -50,17 +50,17 @@ use kivact::style::{Length, auto};
 
 fn app() -> impl IntoView {
     column((
-        // 固定サイズ。
+        // A fixed size.
         node().style(style().width(120).height(32)),
-        // 親の幅の半分。
+        // Half of the parent's width.
         node().style(style().width(pct(50)).height(32)),
-        // 親の幅から 40 px を引いた幅(`calc(100% - 40px)`)。
+        // The parent's width minus 40 px (`calc(100% - 40px)`).
         node().style(style().width(pct(100) - 40).height(32)),
-        // 「内容に必要なだけ」に戻す。
+        // Back to "as big as the content needs".
         node().style(style().width(auto()).height(32)),
-        // 内容の幅。ただし使える幅を超えない。
+        // The content's width, but never wider than the available space.
         node().style(style().width(Length::FitContent).height(32)),
-        // 下限と上限: 最小 100 px、最大 400 px。
+        // Bounds: at least 100 px, at most 400 px.
         node().style(style().min_width(100).max_width(400).height(32)),
     ))
     .style(style().gap(8).padding(16))
@@ -72,8 +72,8 @@ fn main() -> kivact::Result<()> {
 ```
 
 - `pct(50)` は親に対する割合です。`pct(100) - 40` や `pct(50) + 8` は、割合とピクセルを組み合わせた calc の長さです。
-- `width`、`height`、`min_*`、`max_*`、`padding`、`margin`、`gap`、`basis` はすべて長さを受け取ります。`padding` と `margin` には `padding_x`、`padding_y` と、`padding_top` のような 1 辺だけの版があります。
-- `Length::MinContent`、`MaxContent`、`FitContent` は内容に合わせて大きさを決めます。使えるのは `width`、`height`、`basis` とグリッドのトラックだけです。
+- `width`、`height`、`min_*`、`max_*`、`padding`、`margin`、`gap`、`flex_basis` はすべて長さを受け取ります。`padding` と `margin` には `padding_x`、`padding_y` と、`padding_top` のような 1 辺だけの版があります。
+- `Length::MinContent`、`MaxContent`、`FitContent` は内容に合わせて大きさを決めます。使えるのは `width`、`height`、`flex_basis` とグリッドのトラックだけです。
 - `aspect_ratio(16.0 / 9.0)` は一方の辺からもう一方を決めます。
 - `style()` の各メソッドは新しい値を返すので、1 つの式でつなげて書きます。同じプロパティを 2 回指定すると最後の値が残ります(デバッグビルドでは重複が報告されます)。
 
@@ -81,19 +81,19 @@ fn main() -> kivact::Result<()> {
 
 既定では、子は内容に必要な大きさになり、親が小さすぎれば縮みます。これを変えるプロパティが 3 つあります。
 
-- `grow(n)` は主軸方向の余りを分け与えます。`grow(1)` の子は余りをすべて取り、`grow(1)` と `grow(3)` の 2 つの子は 1 対 3 で分け合います。
-- `shrink(0)` は、子が指定サイズより小さくならないようにします。
-- `spacer()` は `grow(1)` を持つ空の箱で、後ろに続くものを端へ押しやります。
+- `flex_grow(n)` は主軸方向の余りを分け与えます。`flex_grow(1)` の子は余りをすべて取り、`flex_grow(1)` と `flex_grow(3)` の 2 つの子は 1 対 3 で分け合います。
+- `flex_shrink(0)` は、子が指定サイズより小さくならないようにします。
+- `spacer()` は `flex_grow(1)` を持つ空の箱で、後ろに続くものを端へ押しやります。
 
 ```rust,no_run
 use kivact::prelude::*;
 
 fn toolbar() -> impl IntoView {
     row((
-        text("無題"),
+        text("Untitled"),
         spacer(),
-        button("元に戻す"),
-        button("やり直す"),
+        button("Undo"),
+        button("Redo"),
     ))
     .style(style().gap(8).padding(8))
 }
@@ -119,16 +119,16 @@ use kivact::prelude::*;
 
 fn app() -> impl IntoView {
     column((
-        // 高さ 240 px の箱の中で、縦横ともに中央。
-        column((text("こんにちは"),))
+        // Centered on both axes in a 240 px high box.
+        column((text("Hello"),))
             .style(style().height(240).align_items(Align::Center).justify_content(Justify::Center)),
-        // 1 つ目のボタンは本来の幅のまま。2 つ目は伸びる。
+        // The first button keeps its natural width; the second still stretches.
         column((
-            button("本来の幅").style(style().align_self(Align::Start)),
-            button("全幅"),
+            button("Natural width").style(style().align_self(Align::Start)),
+            button("Full width"),
         ))
         .style(style().gap(8)),
-        // 均等に広げる。
+        // Spread out.
         row((text("A"), text("B"), text("C"))).style(style().justify_content(Justify::SpaceBetween)),
     ))
     .style(style().gap(16).padding(16))
@@ -143,17 +143,17 @@ fn main() -> kivact::Result<()> {
 
 ## 折り返し
 
-row が狭すぎると、ふつうは子がはみ出します。`wrap(true)` を指定すると、子は次の行へ回ります。`gap` は縦横の両方に効きます(`row_gap` と `column_gap` で別々に指定できます)。
+row が狭すぎると、ふつうは子がはみ出します。`flex_wrap(true)` を指定すると、子は次の行へ回ります。`gap` は縦横の両方に効きます(`row_gap` と `column_gap` で別々に指定できます)。
 
 ```rust,no_run
 use kivact::prelude::*;
 
 fn tags() -> impl IntoView {
     row(vec![
-        button("Rust"), button("GUI"), button("シグナル"),
-        button("ネイティブ"), button("Windows"), button("Linux"),
+        button("Rust"), button("GUI"), button("Signals"),
+        button("Native"), button("Windows"), button("Linux"),
     ])
-    .style(style().wrap(true).gap(8).padding(12))
+    .style(style().flex_wrap(true).gap(8).padding(12))
 }
 
 fn main() -> kivact::Result<()> {
@@ -171,20 +171,21 @@ fn main() -> kivact::Result<()> {
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::view::ScrollAxes;
 
 fn log() -> impl IntoView {
-    let lines: Vec<_> = (1..=100).map(|n| text(format!("{n} 行目"))).collect();
+    let lines: Vec<_> = (1..=100).map(|n| text(format!("line {n}"))).collect();
     scroll(column(lines)).style(style().height(200))
 }
 
 fn strip() -> impl IntoView {
-    scroll(row(vec![button("一"), button("二"), button("三")]))
+    scroll(row(vec![button("one"), button("two"), button("three")]))
         .axes(ScrollAxes::Horizontal)
         .style(style().width(160))
 }
 
 fn table() -> impl IntoView {
-    scroll(column(vec![text("横にも縦にも大きい表")]))
+    scroll(column(vec![text("a very wide and tall table")]))
         .axes(ScrollAxes::Both)
         .style(style().size(300, 200))
 }
@@ -199,7 +200,7 @@ fn main() -> kivact::Result<()> {
 - `scroll` は `Scroll` ビルダーを返します。`.style(..)`、`.name(..)` などの node 用メソッドは、スクロール領域そのものに効きます。
 - ホイールとタッチのドラッグでスクロールします。端まで来ると、ホイールは親へ引き継がれます。
 - 何百行もある場合は、見えている行だけをマウントする `virtual_list` を使います([一覧と表](lists-and-tables.md)を参照)。
-- flex の column の中で、スクロール領域に残りの空間を埋めさせたいときは、`grow(1)` と `min_height(0)` が必要です。最小値を指定しないと、内容の高さが領域の縮小を妨げます。
+- flex の column の中で、スクロール領域に残りの空間を埋めさせたいときは、`flex_grow(1)` と `min_height(0)` が必要です。最小値を指定しないと、内容の高さが領域の縮小を妨げます。
 
 ## 重ね合わせ
 
@@ -210,8 +211,8 @@ use kivact::prelude::*;
 
 fn badge() -> impl IntoView {
     stack((
-        node().style(style().size(64, 64).background(ColorToken::SurfaceAlt)),
-        text("3").style(style().color(ColorToken::Danger).padding(4)),
+        node().style(style().size(64, 64).background(color::SURFACE_ALT)),
+        text("3").style(style().color(color::DANGER).padding(4)),
     ))
 }
 
@@ -232,8 +233,8 @@ use kivact::style::Track;
 
 fn form_grid() -> impl IntoView {
     grid((
-        text("名前"), text_input("名前", signal(String::new())),
-        text("メール"), text_input("メール", signal(String::new())),
+        text("Name"), text_input(signal(String::new())).label("Name"),
+        text("Email"), text_input(signal(String::new())).label("Email"),
     ))
     .style(
         style()
@@ -258,15 +259,15 @@ fn main() -> kivact::Result<()> {
 use kivact::prelude::*;
 
 fn sidebar() -> impl IntoView {
-    column((text("受信箱"), text("送信済み"), text("アーカイブ")))
-        .style(style().width(200).padding(12).gap(8).background(ColorToken::SurfaceAlt))
+    column((text("Inbox"), text("Sent"), text("Archive")))
+        .style(style().width(200).padding(12).gap(8).background(color::SURFACE_ALT))
         .test_id("sidebar")
 }
 
 fn content() -> impl IntoView {
-    let items: Vec<_> = (1..=60).map(|n| text(format!("メッセージ {n}"))).collect();
+    let items: Vec<_> = (1..=60).map(|n| text(format!("Message {n}"))).collect();
     scroll(column(items).style(style().padding(12).gap(8)))
-        .style(style().grow(1).min_width(0))
+        .style(style().flex_grow(1).min_width(0))
         .test_id("content")
 }
 
@@ -289,14 +290,14 @@ mod tests {
         let content = screen.get_by_test_id("content").rect().expect("laid out");
         assert_eq!(sidebar.width, 200.0);
         assert_eq!(content.x, 200.0);
-        // 既定のテストウィンドウの幅は 800 px。
+        // The default test window is 800 px wide.
         assert_eq!(content.width, 600.0);
         assert_eq!(content.height, sidebar.height);
     }
 }
 ```
 
-サイドバーの `width(200)` は固定です。既定の `Align::Stretch` により、サイドバーは row の高さまで伸びます。メイン領域は `grow(1)` で残りの幅を取り、`min_width(0)` により狭いウィンドウでも縮められます。row 全体を `pct(100)` の高さにしているのは、スクロール領域がスクロールするための上限の高さを持てるようにするためです。
+サイドバーの `width(200)` は固定です。既定の `Align::Stretch` により、サイドバーは row の高さまで伸びます。メイン領域は `flex_grow(1)` で残りの幅を取り、`min_width(0)` により狭いウィンドウでも縮められます。row 全体を `pct(100)` の高さにしているのは、スクロール領域がスクロールするための上限の高さを持てるようにするためです。
 
 手で開かずにレイアウトを確かめたいときは、テストで `Screen::assert_layout` を使います。文字が箱からはみ出す、ボタンの中で折り返す、中央からずれる、省略記号なしで切れる、といった問題を報告します。[アプリをテストする](testing.md)を参照してください。
 

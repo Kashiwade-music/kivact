@@ -10,11 +10,11 @@
 use kivact::prelude::*;
 
 fn app() -> impl IntoView {
-    let name = signal(String::new()); // 下書き
-    let saved = signal(None::<String>); // 確定した値
+    let name = signal(String::new()); // the draft
+    let saved = signal(None::<String>); // the committed value
 
     let error = memo(move || {
-        name.with(|n| n.trim().is_empty()).then(|| "名前を入力してください".to_owned())
+        name.with(|n| n.trim().is_empty()).then(|| "Enter a name".to_owned())
     });
     let save = move || {
         if error.get().is_none() {
@@ -23,11 +23,11 @@ fn app() -> impl IntoView {
     };
 
     column((
-        field("名前", text_input("名前", name).on_submit(save))
-            .hint("プロフィールに表示されます")
+        field("Name", text_input(name).on_submit(save))
+            .hint("Shown on your profile")
             .error(error),
-        button("保存").disabled(move || error.get().is_some()).on_press(save),
-        show_some(saved, |name| text(move || format!("保存しました: {}", name.get()))),
+        button("Save").disabled(move || error.get().is_some()).on_press(save),
+        show_some(saved, |name| text(move || format!("Saved: {}", name.get()))),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -43,20 +43,20 @@ mod tests {
     #[test]
     fn save_is_disabled_until_the_name_is_valid() {
         let screen = kivact::test::render(app);
-        screen.get_by_text("名前を入力してください");
-        assert!(screen.get_by_role(Role::Button, "保存").is_disabled());
+        screen.get_by_text("Enter a name");
+        assert!(screen.get_by_role(Role::Button, "Save").is_disabled());
 
-        screen.get_by_role(Role::TextBox, "名前").type_text("Ann");
-        assert!(screen.query_by_text("名前を入力してください").is_none());
-        screen.get_by_role(Role::Button, "保存").click();
-        screen.get_by_text("保存しました: Ann");
+        screen.get_by_role(Role::TextBox, "Name").type_text("Ann");
+        assert!(screen.query_by_text("Enter a name").is_none());
+        screen.get_by_role(Role::Button, "Save").click();
+        screen.get_by_text("Saved: Ann");
     }
 }
 ```
 
 この例は 3 つの部品で成り立っています。
 
-1. **入力に渡したシグナルが下書きです。** `text_input("名前", name)` は、確定した編集のたびに `name` へ即座に書き込みます。この時点では何も「保存」されていません。`saved` が変わるのは `save` が実行されたときだけです。
+1. **入力に渡したシグナルが下書きです。** `text_input(name)` は、確定した編集のたびに `name` へ即座に書き込みます。この時点では何も「保存」されていません。`saved` が変わるのは `save` が実行されたときだけです。
 2. **誤りは派生値です。** `Option<String>` を返す `memo` は、入力が正しい間は `None`、正しくない間は `Some(メッセージ)` になります。`name` が変わると再計算され、結果が変わったときだけ読み手に通知します。
 3. **`field` が部品をつなぎます。** ラベルは入力のアクセシブルな名前になり、hint は入力の説明になります。error が `Some` の間は、入力の下にメッセージを表示し、入力を invalid にし、メッセージを入力の説明に加えます。`invalid` や `described_by` を自分で結ぶ必要はありません。
 
@@ -72,7 +72,7 @@ mod tests {
 
 ## 下書きと保存済みモデルを分ける
 
-値が複数あるときは、構造体全体を下書きとして持ち、もう 1 つのコピーを保存済みの値にします。`Signal::field` は、構造体の 1 つのフィールドへの `Binding` を、入力ごとに作ります。
+値が複数あるときは、構造体全体を下書きとして持ち、もう 1 つのコピーを保存済みの値にします。`bind!(draft.name)` は、構造体の 1 つのフィールドへの `Signal` を、入力ごとに作ります。
 
 ```rust,test_harness
 use kivact::prelude::*;
@@ -102,43 +102,42 @@ fn app() -> impl IntoView {
         public: true,
         terms: false,
     });
-    let draft = signal(saved.get_untracked());
+    let draft = signal(saved.get());
 
-    let name = draft.project(|p| &p.name, |p| &mut p.name);
-    let bio = draft.project(|p| &p.bio, |p| &mut p.bio);
-    let plan = draft.project(|p| &p.plan, |p| &mut p.plan).optional();
-    let volume = draft.project(|p| &p.volume, |p| &mut p.volume);
-    let public = draft.project(|p| &p.public, |p| &mut p.public);
-    let terms = draft.project(|p| &p.terms, |p| &mut p.terms);
+    let name = bind!(draft.name);
+    let bio = bind!(draft.bio);
+    let plan = bind!(draft.plan).optional();
+    let volume = bind!(draft.volume);
+    let public = bind!(draft.public);
+    let terms = bind!(draft.terms);
 
     let name_error = memo(move || {
-        draft.with(|p| p.name.trim().is_empty()).then(|| "名前を入力してください".to_owned())
+        draft.with(|p| p.name.trim().is_empty()).then(|| "Enter a name".to_owned())
     });
     let terms_error = memo(move || {
-        (!draft.with(|p| p.terms)).then(|| "続けるには規約への同意が必要です".to_owned())
+        (!draft.with(|p| p.terms)).then(|| "Accept the terms to continue".to_owned())
     });
     let valid = memo(move || name_error.get().is_none() && terms_error.get().is_none());
     let changed = memo(move || draft.with(|d| saved.with(|s| d != s)));
 
     column((
-        field("名前", text_input("名前", name)).error(name_error),
-        field("自己紹介", text_area("自己紹介", bio).wrap(true).rows(2..=5)),
+        field("Name", text_input(name)).error(name_error),
+        field("Bio", text_area(bio).wrap(true).rows(2..=5)),
         field(
-            "プラン",
+            "Plan",
             select(
-                "プラン",
-                vec![ListItem::new(Plan::Free, "無料"), ListItem::new(Plan::Pro, "Pro")],
+                vec![ListItem::new(Plan::Free, "Free"), ListItem::new(Plan::Pro, "Pro")],
                 plan,
             ),
         ),
-        field("音量", slider("音量", volume).step(5.0)),
-        switch("プロフィールを公開", public),
-        field("規約", checkbox("規約に同意します", terms)).error(terms_error),
+        field("Volume", slider(volume).step(5.0)),
+        switch("Public profile", public),
+        field("Terms", checkbox("I accept the terms", terms)).error(terms_error),
         row((
-            button("保存")
+            button("Save")
                 .disabled(move || !valid.get() || !changed.get())
                 .on_press(move || saved.set(draft.get())),
-            button("元に戻す")
+            button("Reset")
                 .disabled(move || !changed.get())
                 .on_press(move || draft.set(saved.get())),
         ))
@@ -158,24 +157,24 @@ mod tests {
     #[test]
     fn save_needs_a_valid_changed_draft_and_reset_restores_the_saved_one() {
         let screen = kivact::test::render(app);
-        let save = || screen.get_by_role(Role::Button, "保存");
+        let save = || screen.get_by_role(Role::Button, "Save");
         assert!(save().is_disabled());
 
-        screen.get_by_role(Role::TextBox, "名前").type_text("Ann");
+        screen.get_by_role(Role::TextBox, "Name").type_text("Ann");
         assert!(save().is_disabled(), "the terms are not accepted yet");
 
-        // `field` がそのラベルをチェックボックスのアクセシブルな名前にした。
-        screen.get_by_role(Role::CheckBox, "規約").click();
+        // `field` made its label the checkbox's accessible name.
+        screen.get_by_role(Role::CheckBox, "Terms").click();
         assert!(!save().is_disabled());
 
         save().click();
         assert!(save().is_disabled(), "nothing differs from the saved profile");
 
-        screen.get_by_role(Role::TextBox, "名前").type_text(" B");
+        screen.get_by_role(Role::TextBox, "Name").type_text(" B");
         assert!(!save().is_disabled());
-        screen.get_by_role(Role::Button, "元に戻す").click();
+        screen.get_by_role(Role::Button, "Reset").click();
         assert_eq!(
-            screen.get_by_role(Role::TextBox, "名前").value().as_deref(),
+            screen.get_by_role(Role::TextBox, "Name").value().as_deref(),
             Some("Ann")
         );
     }
@@ -184,7 +183,7 @@ mod tests {
 
 各部分の役割です。
 
-- `draft.project(get, get_mut)` は、1 つのフィールドへの `Binding<U>` を返します。1 つ目のクロージャは読むためにフィールドを借用し、2 つ目は書くために借用します。何も clone しません。読み出しは memo なので、入力は自分のフィールドが変わったときだけ再描画されます。
+- `bind!(draft.field)` は、下書きの 1 つのフィールドへの `Signal<U>` を返します。書き込むと下書きに書かれます。
 - `select` と `radio_group` は `Option<K>` を編集します(何も選ばれていない状態が `None` です)。モデルが素の値を持つときは `.optional()` を付けます。読むと `Some(現在の値)` になり、`None` の書き込みは無視されます。`K` には `Clone + Eq + Hash` が必要で、上のような小さな enum なら derive できます。
 - `changed` は `with` で 2 つのコピーを、clone せずに借用して比較します。構造体が `PartialEq` を derive しているのはこのためです。
 - `field` は、入力のアクセシブルな名前をそのラベルで置き換えます。そのため上のチェックボックスは、支援技術からもテストからも「規約」として見つかります。
@@ -194,18 +193,20 @@ mod tests {
 
 ## 入力部品を選ぶ
 
-| 値 | 入力部品 | バインディングの型 |
+| 値 | 入力部品 | 値の型 |
 | --- | --- | --- |
-| 短い文字列 | `text_input(name, Binding<String>)` | `Signal<String>` またはフィールド |
-| 長い文字列 | `text_area(name, Binding<String>)` | 同上。Enter は改行になる |
-| 少数の選択肢から 1 つ | `radio_group(name, items, Binding<Option<K>>)` | 選択肢がすべて見える |
-| 多数の選択肢から 1 つ | `select(name, items, Binding<Option<K>>)` | ドロップダウン |
-| 範囲内の数 | `slider(name, Binding<f64>)` | `.range(..)`、`.step(..)` |
-| すぐ反映するオンとオフ | `switch(label, Binding<bool>)` | |
-| はい / いいえの選択 | `checkbox(label, Binding<bool>)` | 中間状態は `.indeterminate(..)` |
+| 短い文字列 | `text_input(Signal<String>)` | `Signal<String>` または `bind!(form.field)` |
+| 長い文字列 | `text_area(Signal<String>)` | 同上。Enter は改行になる |
+| 少数の選択肢から 1 つ | `radio_group(name, items, Signal<Option<K>>)` | 選択肢がすべて見える |
+| 多数の選択肢から 1 つ | `select(items, Signal<Option<K>>)` | ドロップダウン |
+| 範囲内の数 | `slider(Signal<f64>)` | `.range(..)`、`.step(..)` |
+| すぐ反映するオンとオフ | `switch(label, Signal<bool>)` | |
+| はい / いいえの選択 | `checkbox(label, Signal<bool>)` | 中間状態は `.indeterminate(..)` |
 | 入力する数値 | `number_input(..)` | `kivact::ui` の rustdoc を参照 |
 
-`text_input`、`text_area`、`select`、`radio_group`、`slider` の最初の引数はアクセシブルな名前で、**画面には描かれません**。見えるラベルが必要なら `field("ラベル", ..)` で包みます。そのラベルが名前にもなります。`checkbox` と `switch` の最初の引数は、見えるラベルです。
+ラベルの見えない部品(テキスト欄、選択、スライダー、日付と時刻の欄)は、`.label(..)` か、外側の `field(..)` から名前を得ます。名前のない操作可能な部品は、マウントされたときに報告されます。
+
+`checkbox` と `switch` の最初の引数は、見えるラベルです。
 
 ## 誤りを見せるタイミング
 
@@ -219,17 +220,17 @@ fn app() -> impl IntoView {
     let tried = signal(false);
 
     let problem = memo(move || {
-        email.with(|e| !e.contains('@')).then(|| "メールアドレスを入力してください".to_owned())
+        email.with(|e| !e.contains('@')).then(|| "Enter an email address".to_owned())
     });
-    // 最初に試みた後でだけ表示する。
+    // Visible only after the first attempt.
     let shown = memo(move || if tried.get() { problem.get() } else { None });
 
     column((
-        field("メール", text_input("メール", email)).error(shown),
-        button("購読する").on_press(move || {
+        field("Email", text_input(email)).error(shown),
+        button("Subscribe").on_press(move || {
             tried.set(true);
             if problem.get().is_none() {
-                println!("購読しました: {}", email.get());
+                println!("subscribed {}", email.get());
             }
         }),
     ))
@@ -252,32 +253,32 @@ fn main() -> kivact::Result<()> {
 
 ## 1 つの欄を Enter かフォーカス移動で確定する
 
-その場での名前変更のように、ユーザーが確定したときだけ編集を反映したいことがあります。`text_input(..).on_draft_commit(on_commit)` は、欄を下書きにします。Enter か欄からフォーカスが外れると、テキストを渡して `on_commit` が呼ばれ、Escape は編集前の文字列に戻します。
+その場での名前変更のように、ユーザーが確定したときだけ編集を反映したいことがあります。`text_input(..).on_commit(on_commit)` は、欄を下書きにします。Enter か欄からフォーカスが外れると、テキストを渡して `on_commit` が呼ばれ、Escape は編集前の文字列に戻します。
 
-その場での名前変更では、どの項目を変更中かも分かっている必要があります。欄を文字列を選択した状態で開き、確定後に閉じるためです。`use_inline_edit` がそれを持ちます。`show(id)` で変更を始め、`is_open(&id)` で変更中かを調べ、`field(..)` で欄を作ります。
+その場での名前変更では、どの項目を変更中かも分かっている必要があります。欄を文字列を選択した状態で開き、確定後に閉じるためです。`use_inline_edit` がそれを持ちます。`edit(id)` で変更を始め、`editing()` で変更中の項目のキーを得て、`field(..)` で欄を作ります。
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::interaction::use_inline_edit;
 
 fn names() -> impl IntoView {
-    let items = signal(vec![(1u32, "はじめに".to_owned()), (2, "おわりに".to_owned())]);
+    let items = signal(vec![(1u32, "Intro".to_owned()), (2, "Outro".to_owned())]);
     let rename = use_inline_edit(signal(None::<u32>));
     column(for_each(
         items,
         |(id, _)| *id,
         move |item| {
-            let id = item.get_untracked().0;
+            let id = item.get().0;
             row((
                 text(move || item.get().1),
                 show(
-                    move || !rename.is_open(&id),
-                    move || button("名前を変更").on_press(move || rename.show(id)),
+                    move || rename.editing().get() != Some(id),
+                    move || button("Rename").on_press(move || rename.edit(id)),
                 ),
                 show(
-                    move || rename.is_open(&id),
+                    move || rename.editing().get() == Some(id),
                     move || {
-                        let api = rename.field(id, "名前", signal(item.get_untracked().1)).on_draft_commit(move |name| {
+                        let api = rename.field(id, "Name", signal(item.get().1)).on_draft_commit(move |name| {
                             items.update(|all| {
                                 if let Some(row) = all.iter_mut().find(|row| row.0 == id) {
                                     row.1 = name;
@@ -297,7 +298,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-欄は現れたときにフォーカスを取り、文字列を選択した状態になります。Enter か、変更したまま欄を離れると、文字列を渡して確定の関数が呼ばれます。Escape は編集を捨てます。どちらの場合も欄は閉じます。行が取り除かれたときも欄は閉じるので、名前変更が項目より長く残ることはありません。`invalid` の入力は確定されません。画面に残る欄には、`text_input(..).on_draft_commit(on_commit)` だけを使います。Enter は下書きのものになるため `draft` は `on_submit` の代わりになり、`.on_edit(..)` は `Begin`、`Commit`、`Cancel` を報告します。
+欄は現れたときにフォーカスを取り、文字列を選択した状態になります。Enter か、変更したまま欄を離れると、文字列を渡して確定の関数が呼ばれます。Escape は編集を捨てます。どちらの場合も欄は閉じます。行が取り除かれたときも欄は閉じるので、名前変更が項目より長く残ることはありません。`invalid` の入力は確定されません。画面に残る欄には、`text_input(..).on_commit(on_commit)` だけを使います。Enter は下書きのものになるため `on_commit` は `on_submit` の代わりになり、`.on_edit(..)` は `Begin`、`Commit`、`Cancel` を報告します。
 
 ## 関連項目
 
@@ -336,18 +337,19 @@ fn dates() -> impl IntoView {
     let appointment = signal(None::<DateTime>);
     column((
         ui::calendar(day),
-        ui::date_input("Date", day).format(DateStyle::Short),
-        ui::date_range_input("Period", range),
-        ui::time_input("Time", time).format(TimeStyle { seconds: false }),
-        ui::date_time_input("Appointment", appointment)
+        ui::date_input(day).label("Date").format(DateStyle::Short),
+        ui::date_range_input(range).label("Period"),
+        ui::time_input(time).label("Time").format(TimeStyle { seconds: false }),
+        ui::date_time_input(appointment)
+            .label("Appointment")
             .time_format(TimeStyle { seconds: true })
             .presentation(DatePresentation::Adaptive),
     ))
 }
 ```
 
-`calendar` は単日または順序付き範囲の Signal / Binding を受け取ります。
-表示月は `month` の Binding で管理します。`today`、`min`、`max`、`week_start`
+`calendar` は単日または順序付き範囲の Signal を受け取ります。
+表示月は `month` の Signal で管理します。`today`、`min`、`max`、`week_start`
 はリアクティブな値を受け取れます。`disabled_dates` は選択を禁止し、`marks`
 は日付を装飾します。`range_span` は両端を含む日数を制限します。
 月・年のメニューには `caption(CalendarCaption::Dropdown)` を使います。
@@ -359,9 +361,8 @@ Page Up/Down は移動し、Enter / Space は選択します。月名・曜日�
 下端のシートを選び、`Desktop` / `BottomSheet` は表示方法を明示します。
 wheel は spinbutton のキーと支援技術の値操作に対応します。
 
-外観は `UiTokens.calendar`、`UiTokens.date_input`、`UiTokens.time_input` と
-`UiRecipes` の `calendar`、`date_input`、`date_range_input`、`time_input`、
-`date_time_input` の recipe table で変更します。
+外観は部品のテーマ変数と、`kivact::ui::theme` の `<Name>Theme` の表
+(`CalendarTheme`、`DateInputTheme`、`TimeInputTheme`)で変更します。
 ## 操作とトグルをまとめる
 
 関連する三つ以上の操作は `toolbar` でまとめます。start・center・end の領域全体が
@@ -370,6 +371,7 @@ End で利用可能な先頭と末尾へ移動します。見出しを表示し�
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::ui::{button_group, toggle_group, toolbar};
 
 fn editor_actions() -> impl IntoView {
     let formatting = signal(Vec::<&'static str>::new());
@@ -398,8 +400,8 @@ fn editor_actions() -> impl IntoView {
 `button_group_separator()` と `button_group_text(..)` はフォーカスを取りません。
 どのグループでも `.orientation(Orientation::Vertical)` で配置と操作の向きを
 変えられます。無効化には共通の `Element` の `.disabled(source)` を使います。
-テーマは対応する `UiTokens` と `UiRecipes` の表で見た目を変えます。
-呼び出し側のスタイルは recipe より優先します。
+テーマは対応する部品のテーマ変数と `kivact::ui::theme` の `<Name>Theme` の表で見た目を変えます。
+呼び出し側のスタイルは、それらより優先します。
 
 `radio_group(...).item_node(|target, item, state| target.with_node(...))` は、キットのキーボードヒントなどを付けるために完成済みの標準ターゲットを渡します。受け取った target に modifier を付けて返し、別のネイティブなフォーカスや選択の owner を作らないでください。`.item(...)` は内容だけを置き換え、両方の slot を組み合わせられます。
 

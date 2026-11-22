@@ -12,7 +12,8 @@ scroll following and clipboard feedback.
 use kivact::prelude::*;
 use kivact::ui::{chat_composer, chat_message, chat_thread, ChatMessageStatus, ChatSender};
 
-fn conversation() -> impl IntoView {
+#[component]
+fn conversation() -> impl Element {
     let draft = signal(String::new());
     let messages = signal(vec!["Welcome!".to_owned()]);
     let history = for_index(messages, |_, message| {
@@ -50,7 +51,7 @@ earlier-history loading at the top.
 
 ## Submit a draft
 
-The composer trims a nonempty draft, clears its binding and invokes `on_submit`.
+The composer trims a nonempty draft, clears its signal and invokes `on_submit`.
 Enter sends; Shift+Enter inserts a newline. IME composition consumes Enter before
 submission. Up and Down at the draft's edges recall submitted text and restore
 the unfinished draft; `.history(false)` turns recall off.
@@ -66,29 +67,28 @@ actions and drawer slots accept arbitrary views. `.status(..)` accepts a
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::StyledRange;
-use kivact::ui::code_block;
+use kivact::ui::{code_block, highlighter};
 
-fn snippet() -> impl IntoView {
+#[component]
+fn snippet() -> impl Element {
     let code = signal("fn main() {}\n".to_owned());
     code_block(code)
         .title("main.rs")
         .language("Rust")
         .line_numbers(true)
         .wrap(true)
-        .highlight((), |_, line, inside_comment: &bool| {
+        .highlight(highlighter((), |_, line, inside_comment: &bool| {
             let comment = *inside_comment || line.starts_with("/*");
             let ranges = if comment {
                 vec![StyledRange {
                     range: 0..line.len(),
-                    color: Some(Color::token(ColorToken::TextMuted)),
-                    background: None,
-                    decoration: None,
+                    style: style().color(color::TEXT_MUTED),
                 }]
             } else {
                 Vec::new()
             };
             (ranges, comment && !line.ends_with("*/"))
-        })
+        }))
         .max_height(240)
 }
 ```
@@ -98,7 +98,7 @@ and copy text with ordinary editing shortcuts. The copy button writes the whole
 current source and confirms success temporarily. `.on_copy(..)` observes the
 request; the component performs the clipboard write.
 
-`.highlight(content, f)` has the `TextEditing::line_styles` contract: the pure
+`highlighter(content, f)` gives `.highlight(..)` the `TextEditing::line_styles` contract: the pure
 callback gets content, one source line without its break, and the previous
 line's parser state. It returns styled byte ranges and the next state. The first
 state is `Default`. Theme-aware content can carry a kit's syntax palette; language
@@ -112,8 +112,10 @@ parsers and syntax palettes stay in the kits. `.language(..)` is a display label
 ## Change appearance
 
 Each component accepts `.variant(value)` and sends it to its recipes through
-`Look`. `UiRecipes` has `chat_thread`, `chat_message`, `typing_indicator`,
-`chat_composer` and `code_block` tables. Recipes return style; view slots supply
-content. `UiTokens::chat` sets typing timing, and `UiTokens::code_block` sets the
-code font size, line height and copy-feedback duration. Use the same code metrics
+`Look`. `kivact::ui::theme` has the `ChatThreadTheme`, `ChatMessageTheme`,
+`TypingIndicatorTheme`, `ChatComposerTheme` and `CodeBlockTheme` tables. Recipes
+return style; view slots supply content. The `typing_indicator::PERIOD_MS_VAR`
+variable sets the typing timing, and `code_block::FONT_SIZE`,
+`code_block::LINE_HEIGHT` and `code_block::COPY_FEEDBACK_MS_VAR` set the code font
+size, line height and copy-feedback duration. Use the same code metrics
 for the editor and gutter when replacing recipes.

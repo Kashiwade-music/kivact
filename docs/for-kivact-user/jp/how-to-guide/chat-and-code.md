@@ -12,7 +12,8 @@
 use kivact::prelude::*;
 use kivact::ui::{chat_composer, chat_message, chat_thread, ChatMessageStatus, ChatSender};
 
-fn conversation() -> impl IntoView {
+#[component]
+fn conversation() -> impl Element {
     let draft = signal(String::new());
     let messages = signal(vec!["Welcome!".to_owned()]);
     let history = for_index(messages, |_, message| {
@@ -51,7 +52,7 @@ fn conversation() -> impl IntoView {
 
 ## 下書きを送信する
 
-Composer は空白を除去した空でない下書きを取り出し、Binding を空にしてから
+Composer は空白を除去した空でない下書きを取り出し、signal を空にしてから
 `on_submit` を呼びます。Enter は送信、Shift+Enter は改行です。IME の変換中の
 Enter は送信前に IME が処理します。下書きの端で Up・Down を押すと送信済みの
 文章を呼び出し、作成中だった下書きへ戻れます。`.history(false)` で無効にできます。
@@ -67,29 +68,28 @@ Enter は送信前に IME が処理します。下書きの端で Up・Down を�
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::StyledRange;
-use kivact::ui::code_block;
+use kivact::ui::{code_block, highlighter};
 
-fn snippet() -> impl IntoView {
+#[component]
+fn snippet() -> impl Element {
     let code = signal("fn main() {}\n".to_owned());
     code_block(code)
         .title("main.rs")
         .language("Rust")
         .line_numbers(true)
         .wrap(true)
-        .highlight((), |_, line, inside_comment: &bool| {
+        .highlight(highlighter((), |_, line, inside_comment: &bool| {
             let comment = *inside_comment || line.starts_with("/*");
             let ranges = if comment {
                 vec![StyledRange {
                     range: 0..line.len(),
-                    color: Some(Color::token(ColorToken::TextMuted)),
-                    background: None,
-                    decoration: None,
+                    style: style().color(color::TEXT_MUTED),
                 }]
             } else {
                 Vec::new()
             };
             (ranges, comment && !line.ends_with("*/"))
-        })
+        }))
         .max_height(240)
 }
 ```
@@ -98,7 +98,7 @@ fn snippet() -> impl IntoView {
 選択、移動、コピーできます。コピーのボタンは現在のソース全体を書き込み、成功を
 一時的に表示します。`.on_copy(..)` は操作の通知で、コピー自体は部品が行います。
 
-`.highlight(content, f)` は `TextEditing::line_styles` と同じ契約です。
+`highlighter(content, f)` は `.highlight(..)` に `TextEditing::line_styles` と同じ契約を与えます。
 純粋な関数に content、改行を含まない一行、前の行の解析状態を渡し、装飾する
 バイト範囲と次の状態を返します。最初の状態は `Default` です。content にキットの
 構文パレットを含めることもできます。言語の解析関数と構文パレットはキットに残り、
@@ -112,8 +112,10 @@ fn snippet() -> impl IntoView {
 ## 見た目を変える
 
 各部品の `.variant(value)` は `Look` を通してレシピへ渡されます。
-`UiRecipes` には `chat_thread`、`chat_message`、`typing_indicator`、
-`chat_composer`、`code_block` のテーブルがあります。レシピは Style を返し、
-スロットが内容を供給します。`UiTokens::chat` は入力中のアニメーションの周期、
-`UiTokens::code_block` はコードの文字サイズ、行高、コピー成功の表示時間です。
+`kivact::ui::theme` には `ChatThreadTheme`、`ChatMessageTheme`、
+`TypingIndicatorTheme`、`ChatComposerTheme`、`CodeBlockTheme` のテーブルがあります。
+レシピは Style を返し、スロットが内容を供給します。
+`typing_indicator::PERIOD_MS_VAR` は入力中のアニメーションの周期、
+`code_block::FONT_SIZE`、`code_block::LINE_HEIGHT`、`code_block::COPY_FEEDBACK_MS_VAR` は
+コードの文字サイズ、行高、コピー成功の表示時間です。
 レシピを置き換える場合も、エディターと行番号には同じ文字の寸法を使います。

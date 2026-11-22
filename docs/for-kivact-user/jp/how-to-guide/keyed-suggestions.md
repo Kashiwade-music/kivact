@@ -2,19 +2,20 @@
 
 [English](../../en/how-to-guide/keyed-suggestions.md)
 
-`kivact::ui::combobox(label, items, selected)` は `Option<K>` の単一選択または `Vec<K>` の複数選択を編集します。label は入力欄のアクセシブルな名前です。入力すると候補のラベルを絞り、矢印キーで有効な候補を移動し、Enter で選びます。Escape は選択値を変えずに閉じます。通常のテキスト編集キーは入力欄を編集します。
+`kivact::ui::combobox(items, selected)` は `Option<K>` の単一選択または `Vec<K>` の複数選択を編集します。`.label(..)` は入力欄のアクセシブルな名前です。入力すると候補のラベルを絞り、矢印キーで有効な候補を移動し、Enter で選びます。Escape は選択値を変えずに閉じます。通常のテキスト編集キーは入力欄を編集します。
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::SelectPresentation;
+use kivact::ui::{combobox, SelectPresentation};
 
-fn pickers() -> impl IntoView {
+#[component]
+fn pickers() -> impl Element {
     let one = signal(None::<&str>);
     let many = signal(Vec::<&str>::new());
     let options = vec![ListItem::new("red", "Red"), ListItem::new("green", "Green")];
     column((
-        combobox("Colors", options.clone(), many).chips().exclude_selected(),
-        select("Color", options, one).presentation(SelectPresentation::Adaptive),
+        combobox(options.clone(), many).label("Colors").chips().exclude_selected(),
+        select(options, one).label("Color").presentation(SelectPresentation::Adaptive),
     ))
 }
 ```
@@ -27,8 +28,8 @@ fn pickers() -> impl IntoView {
 
 combobox と select の `.presentation(SelectPresentation::BottomSheet)` はタッチ操作で下からの sheet を開きます。`Adaptive` はホストのタッチ対応に従います。キーボードとマウスは入力欄に沿ったポップアップを使います。sheet も同じ選択値を編集し、閉じるとトリガーへフォーカスを戻します。
 
-テーマには `UiTokens::combobox` と `UiRecipes::combobox` を設定します。recipe は `frame`、`input`、`surface`、`option`、`chip`、`remove`、`empty` です。テーマ固有の見た目は `.variant(...)` で指定します。
+テーマには combobox の theme 変数と `ComboboxTheme` を設定します。recipe は `frame`、`input`、`surface`、`option`、`chip`、`remove`、`empty` です。テーマ固有の見た目は `.variant(...)` で指定します。
 
-独自の選択内容には `selection_field(label, value_label).content(factory)` を使います。架空の選択キーを作らず select のトリガーと表面の recipe を再利用します。`.presentation(...)` はタッチ時の表面を選び、`.open(binding)` は表示状態を呼び出し側で管理します。検索と選択値の binding は content factory の外で作り、ポップアップとドロワーを開き直しても保持します。
+トリガーの内容を独自にする場合は、`select` に `.trigger(view)` でトリガーの view を渡します。select の表面、キー、recipe をそのまま使います。`.presentation(...)` はタッチ時の表面を選び、`.open(binding)` は表示状態を呼び出し側で管理します。検索と選択値の signal はその view の外で作り、ポップアップとドロワーを開き直しても保持します。
 
 複数選択の UI 操作では、受理された追加、削除、全件削除を polite な live region で通知します。選択の書き込みが拒否された場合は通知しません。アプリケーションのメッセージカタログで `combobox.token_added`、`combobox.token_removed`、`combobox.all_removed` を上書きできます。
