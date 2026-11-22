@@ -98,16 +98,22 @@ fn soft_sticky_paint_uses_neutral_surface_and_edge_shadow() {
         let theme = kivact_ui_soft::theme(mode);
         let table = theme.ext::<DataTableTheme>();
         assert_eq!(
-            theme.get(&data_table_theme::STICKY_SURFACE_VAR),
-            kivact_ui_soft::BG_CARD
+            theme
+                .get(&data_table_theme::STICKY_SURFACE_VAR)
+                .components(&theme),
+            kivact_ui_soft::BG_CARD.components(&theme)
         );
         assert_eq!(
-            theme.get(&data_table_theme::STICKY_HOVER_VAR),
-            kivact_ui_soft::OVERLAY_HOVER
+            theme
+                .get(&data_table_theme::STICKY_HOVER_VAR)
+                .components(&theme),
+            kivact_ui_soft::OVERLAY_HOVER.components(&theme)
         );
         assert_eq!(
-            theme.get(&data_table_theme::STICKY_SELECTED_VAR),
-            kivact_ui_soft::ACCENT_MUTED
+            theme
+                .get(&data_table_theme::STICKY_SELECTED_VAR)
+                .components(&theme),
+            kivact_ui_soft::ACCENT_MUTED.components(&theme)
         );
         assert_eq!(
             theme.get(&data_table_theme::STICKY_SHADOW_VAR),

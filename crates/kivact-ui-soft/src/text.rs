@@ -9,13 +9,13 @@ use kivact::style::Style;
 use kivact::style::TextAlign;
 use kivact::style::TextDecorationLine;
 use kivact::style::style;
-use kivact::ui::{Tooltip, tooltip};
+use kivact::ui::tooltip;
 use kivact::view::ReadingDirection;
 use kivact::view::Role;
 use kivact::view::node_ref;
 use kivact::view::text as control_text;
 use kivact::view::use_direction;
-use kivact::view::{Element, IntoView, Node, Placement, View};
+use kivact::view::{Element, Placement};
 
 /// Named typography roles resolved from the current Soft theme.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Prop)]
@@ -207,50 +207,20 @@ pub fn styled_text(
             look
         })
     });
+    let anchor = node_ref();
+    let truncated = anchor.text_truncated();
     let placement = match truncate_tooltip.get() {
-        TruncateTooltip::Off => None,
-        TruncateTooltip::Above => Some(Placement::Above),
-        TruncateTooltip::Below => Some(Placement::Below),
-        TruncateTooltip::Start => Some(Placement::Start),
-        TruncateTooltip::End => Some(Placement::End),
+        TruncateTooltip::Below => Placement::Below,
+        TruncateTooltip::Start => Placement::Start,
+        TruncateTooltip::End => Placement::End,
+        TruncateTooltip::Above | TruncateTooltip::Off => Placement::Above,
     };
-    match placement.filter(|_| max_lines.get() > 0) {
-        Some(placement) => {
-            let anchor = node_ref();
-            TextBody::Tipped(
-                tooltip(value, root.node_ref(anchor))
-                    .placement(placement)
-                    .enabled(anchor.text_truncated()),
-            )
-        }
-        None => TextBody::Plain(root),
-    }
-}
-
-/// The element `styled_text` returns: the text node itself, with its
-/// truncation tooltip when one is asked for, so a caller's `node_ref` measures
-/// the text and not a wrapper.
-enum TextBody {
-    Plain(Node),
-    Tipped(Tooltip<Node>),
-}
-
-impl Element for TextBody {
-    fn node_mut(&mut self) -> &mut Node {
-        match self {
-            Self::Plain(node) => node,
-            Self::Tipped(tipped) => tipped.node_mut(),
-        }
-    }
-}
-
-impl IntoView for TextBody {
-    fn into_view(self) -> View {
-        match self {
-            Self::Plain(node) => node.into_view(),
-            Self::Tipped(tipped) => tipped.into_view(),
-        }
-    }
+    let enabled = move || {
+        truncate_tooltip.get() != TruncateTooltip::Off && max_lines.get() > 0 && truncated.get()
+    };
+    tooltip(value, root.node_ref(anchor))
+        .placement(placement)
+        .enabled(enabled)
 }
 
 /// The style of a Soft typography role with its optional overrides.

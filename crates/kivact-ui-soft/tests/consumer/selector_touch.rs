@@ -126,7 +126,7 @@ fn complex_selector_uses_the_same_search_binding_in_its_two_surfaces() {
             )
         },
     );
-    let trigger = screen.get_by_role(Role::Button, "Workspace");
+    let trigger = screen.get_by_role(Role::ComboBox, "Workspace");
     let rect = trigger.rect().unwrap();
     let touch = screen.contact_down(
         PointerKind::Touch,
