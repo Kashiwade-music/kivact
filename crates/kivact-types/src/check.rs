@@ -42,8 +42,8 @@ pub struct LayoutCheck {
     pub ignore_test_ids: Vec<String>,
 }
 
-/// The defaults: the outlet of an `Announcer` is left out, since its live
-/// regions are clipped to one pixel outside the layout by design.
+/// The defaults. By default it skips regions marked `kivact.sr-only`, which only
+/// screen readers read (the announcer outlet, a skip link while it is hidden).
 impl Default for LayoutCheck {
     fn default() -> Self {
         LayoutCheck {
@@ -61,7 +61,7 @@ impl Default for LayoutCheck {
                 Role::Link,
                 Role::ColumnHeader,
             ],
-            ignore_test_ids: vec![String::from("kivact.announcer")],
+            ignore_test_ids: vec![String::from("kivact.sr-only")],
         }
     }
 }
