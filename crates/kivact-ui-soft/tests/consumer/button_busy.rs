@@ -68,7 +68,8 @@ fn soft_delays_the_spinner_but_disables_input_immediately() {
         0.0
     );
 
-    let recipes = ButtonTheme::default().busy(|_, _, _| {
+    let base: ButtonTheme = (*theme.ext::<ButtonTheme>()).clone();
+    let recipes = base.busy(|_, _, _| {
         style()
             .position(Position::Absolute)
             .top(0)
