@@ -4,7 +4,9 @@
 //! [`ThemeExtension`](kivact_core::style::ThemeExtension)) and the state its
 //! recipes read. A kit changes a component's look with
 //! `theme.with(ButtonTheme::default().root(|_theme, _look, base| base.border_radius(0)))`;
-//! the third argument is the style of the recipe it replaces. A component's
+//! the third argument is the style of the recipe it replaces. To change one
+//! part of an installed theme, start from `theme.ext::<XTheme>()` and replace
+//! that part; `XTheme::default()` drops the kit's other recipes. A component's
 //! values (heights, colors, durations) are theme variables in the module of
 //! the component's name.
 pub use crate::recipe::Look;
