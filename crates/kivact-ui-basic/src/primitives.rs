@@ -23,7 +23,7 @@ use kivact::view::{Element, NodeRef, Orientation, Role, View, icon, node, row, t
 ///     let value = signal(String::new());
 ///     column((
 ///         basic::label("Email").target(field),
-///         text_input("Email", value).node_ref(field),
+///         text_input(value).label("Email").node_ref(field),
 ///     ))
 ///     .style(style().gap(8))
 /// }

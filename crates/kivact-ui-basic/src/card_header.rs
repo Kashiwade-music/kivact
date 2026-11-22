@@ -19,7 +19,7 @@ use kivact::view::{View, column, node, row, text};
 /// use kivact_ui_basic as basic;
 ///
 /// fn login() -> impl IntoView {
-///     kivact::ui::card(text_input("Email", signal(String::new())))
+///     kivact::ui::card(text_input(signal(String::new())).label("Email"))
 ///         .header(
 ///             basic::card_header("Login to your account")
 ///                 .description("Enter your email below to login")

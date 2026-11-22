@@ -43,9 +43,9 @@ impl OtpPattern {
 ///
 /// fn verify() -> impl IntoView {
 ///     let code = signal(String::new());
-///     basic::input_otp(code, 6)
+///     basic::input_otp(code, 6usize)
 ///         .name("Verification code")
-///         .groups(&[3, 3])
+///         .groups([3, 3])
 ///         .on_complete(move |code| println!("{code}"))
 /// }
 /// ```
