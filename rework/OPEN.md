@@ -1678,3 +1678,14 @@ lane P（heading の variant、styled_text の node_ref、chat_composer の Shif
   - 落ちるのは soft の側の差。中核の theme だけで 400ms に描かれる赤と、soft の theme で 400ms に描かれる paint を比べる。差を作る soft の recipe や theme の値（spinner の theme、busy の look、reduced_period、色の変数など）を突き止め、基点の soft と同じ見た目に直す（lane K5）。期待値は変えない。
   - 突き止められなければ、二つの paint の dump（400ms の時点）を返す。
 - **announcer の test id**：直す。caller の `.test_id(..)` が root の値を置き換えても飛ばしが効くように、印を root ではなく outlet の中の二つの region の子の node に付ける（`test_id("kivact.announcer")` を二つとも）。子の数と形は変わらないので、`e2e_core/view.rs` の試験はそのまま通る。`LayoutCheck` の既定はそのまま。lane P の小さな commit で行う。
+
+## 差戻し（W10 tier b・soft の catalog walker の layout 違反、2026-11-22）
+
+統合 `bb5da3f7`（K1 の doc 例、K5 の pagination の印を含む）で、`cargo test -p kivact-ui-soft-catalog --test catalog` の `every_page_opens_from_the_list_and_renders_cleanly` が、次の 3 件の違反（walker は最初の違反の page で止まるので、診断で全件を出した）で失敗する。W10 の tier b は、この 3 件の判断が済むまで完了しない。
+
+1. **overlay（`examples/kivact-ui-soft/src/pages/overlays.rs` の `example_overlay`、`crates/kivact-ui-soft/src/media_overlay.rs`）**：`media_overlay(button("Cover"), text("Document preview"))` の base は高さ 20px の text 1 行。overlay は `position:absolute; top:0; bottom:0`、`padding(12)` で、中の button は y=380〜400 に来る。media の clip は y=368〜388 なので、12px 切れる。選択肢：(a) example の base を preview の大きさの media にする（example だけ）。(b) `media_overlay` の、media より高い内容の扱い（padding か clip の規則）を変える（部品の仕様の変更）。
+2. **tree-list（`crates/kivact-ui/src/tree/view.rs:180`）**：展開の記号 `⌄` の text（高さ 20px）が、16×16 の box から 4px はみ出す。選択肢の判断が要る（box を 20px にするか、行の高さを変えるか、記号の text の line 高さを box に合わせるか）。
+3. **visually-hidden（`crates/kivact-ui-soft/src/visually_hidden.rs:14`）**：`Additional hint` の text が 1×1 の box に入る、読み上げだけの領域。`pagination_status` と同じ扱い（`kivact.sr-only` の印を node に付ける）でよいか。Orchestrator は、設計者の答え（読み上げだけの領域の印は一つの名前）から、この 1 件に印を付けるのが一貫すると考える。未実施。
+
+- 既に実施：`pagination_status` の node に `kivact.sr-only`（K5p `d83683f0`、統合 `d83683f0` と merge `bb5da3f7`）。
+- 基点との比較：この 3 件が基点 `2b8df5ac` にもあるかは未確認（K5 lane の walker は、前の page の違反で止まっていて、後の page を見ていなかった）。
