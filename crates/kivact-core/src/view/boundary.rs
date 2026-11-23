@@ -42,7 +42,9 @@ pub(crate) fn mount_in(
 }
 
 /// The one owner boundary: a child owner of the mounting owner, `install`
-/// run in it, then `build` set up in it and mounted under a fragment.
+/// run in it, then `build` set up in it and mounted in its place. Its view is
+/// mounted once and never replaced, so the boundary adds no node of its own:
+/// the owner, not a node, holds what belongs to it.
 fn boundary<V: IntoView>(
     at: &'static Location<'static>,
     install: impl FnOnce(Owner) + 'static,
@@ -51,10 +53,7 @@ fn boundary<V: IntoView>(
     view_fn(move |cx| {
         let owner = cx.owner.child(at);
         install(owner);
-        let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, cx.window, move || build().into_view());
-        cx.append(fragment, child);
-        fragment
+        mount_in(cx.rt, owner, cx.window, move || build().into_view())
     })
 }
 
@@ -62,7 +61,7 @@ fn boundary<V: IntoView>(
 ///
 /// The initializer inherits context from the mounting parent. Its signals, effects,
 /// and cleanup callbacks belong to this component and are disposed with it.
-/// The boundary adds a transparent fragment without a visible layout box.
+/// The boundary adds no node: the view it builds is mounted in its place.
 /// Use a factory for content that must be constructed again on later mounts.
 #[track_caller]
 pub fn scope<V: IntoView>(build: impl FnOnce() -> V + 'static) -> View {
