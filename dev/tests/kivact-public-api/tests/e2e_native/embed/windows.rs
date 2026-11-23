@@ -3,7 +3,7 @@
     unsafe_code,
     reason = "queries and input target only owned Win32 test windows"
 )]
-use super::support::{SERIAL, wait};
+use super::support::{serial, wait};
 use kivact::prelude::*;
 use kivact::test::TestParent;
 use std::sync::{Arc, Mutex};
@@ -22,7 +22,7 @@ fn embedded_surface_receives_native_mouse_hit_tests() {
         return;
     }
 
-    let _serial = SERIAL.lock().unwrap();
+    let _serial = serial();
     let parent = TestParent::open(200, 120).unwrap();
     let app = App::new("Native hit target")
         .window_size(160, 100)
@@ -54,7 +54,7 @@ fn chord_keeps_drag_and_alt_f4_reaches_host() {
         return;
     }
 
-    let _serial = SERIAL.lock().expect("Windows embed serial lock");
+    let _serial = serial();
     let parent = TestParent::open(320, 240).unwrap();
     let phases = Arc::new(Mutex::new(Vec::new()));
     let output = phases.clone();

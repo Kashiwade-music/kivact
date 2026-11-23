@@ -1,6 +1,6 @@
 //! Role: OS-independent real-window embedding contracts.
 
-use super::support::{SERIAL, painted, panel, wait};
+use super::support::{painted, panel, serial, wait};
 use kivact::embed::EmbedNotice;
 use kivact::embed::EmbedStatus;
 use kivact::embed::Embedded;
@@ -334,9 +334,7 @@ fn opening_runs_root_once_and_delivers_click_key_and_text() {
         return;
     }
 
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    let _serial = serial();
     native_click_key_and_text_reach_the_editor();
 }
 
@@ -347,9 +345,7 @@ fn resize_negotiation_handles_acceptance_refusal_missing_callback_and_host_corre
         return;
     }
 
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    let _serial = serial();
     accepted_startup_resize_rounds_and_changes_capture_then_host_size_wins();
     refusal_and_missing_callback_complete_with_their_errors();
     correction_inside_accepting_resize_callback_remains_authoritative();
@@ -363,9 +359,7 @@ fn parent_destruction_stops_the_app_without_an_error() {
         return;
     }
 
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    let _serial = serial();
     external_drop_joins_cleanup_after_parent_destruction();
 }
 
@@ -376,9 +370,7 @@ fn stopped_notice_carries_the_status_once() {
         return;
     }
 
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    let _serial = serial();
     let parent = TestParent::open(320, 240).expect("parent opens");
     let notices = Arc::new(Mutex::new(Vec::new()));
     let seen = notices.clone();
@@ -414,9 +406,7 @@ fn clipboard_text_round_trips_through_the_host_pump() {
         return;
     }
 
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    let _serial = serial();
     clipboard_requests_complete_through_the_host_pump();
 }
 
@@ -508,9 +498,7 @@ fn injected_input_reaches_an_embedded_app() {
         return;
     }
 
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    let _serial = serial();
     devtools_click_reaches_the_embedded_button();
 }
 
@@ -527,9 +515,7 @@ fn a_panic_in_the_editor_is_reported_and_never_unwinds() {
         return;
     }
 
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    let _serial = serial();
     let parent = TestParent::open(320, 240).expect("parent opens");
     let presses = Arc::new(AtomicUsize::new(0));
     let counter = presses.clone();
@@ -577,9 +563,7 @@ fn a_panic_in_root_returns_err() {
         return;
     }
 
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    let _serial = serial();
     let parent = TestParent::open(320, 240).expect("parent opens");
     let result = App::new("Panicking root").window_size(320, 240).embed(
         parent.parent().scale(1.0),

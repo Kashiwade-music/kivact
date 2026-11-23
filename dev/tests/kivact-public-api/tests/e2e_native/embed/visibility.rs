@@ -1,6 +1,6 @@
 //! Role: Real-window embedding contracts for showing and hiding an editor.
 
-use super::support::{SERIAL, panel, wait};
+use super::support::{panel, serial, wait};
 use kivact::embed::Embedded;
 use kivact::motion::FrameRate;
 use kivact::motion::frame_loop;
@@ -70,8 +70,6 @@ fn hidden_editors_have_no_surface_until_shown() {
         return;
     }
 
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    let _serial = serial();
     hidden_editor_draws_nothing_until_shown();
 }

@@ -1,5 +1,5 @@
 //! Role: X11-specific embedding services and native protocol checks.
-use super::support::{SERIAL, wait};
+use super::support::{serial, wait};
 use kivact::platform;
 use kivact::prelude::*;
 use kivact::test::TestParent;
@@ -13,9 +13,7 @@ fn x11_keyboard_input_works_whether_or_not_an_xim_server_runs() {
         return;
     }
 
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    let _serial = serial();
     let parent = TestParent::open(320, 240).unwrap();
     let keys = Arc::new(Mutex::new(0));
     let output = keys.clone();

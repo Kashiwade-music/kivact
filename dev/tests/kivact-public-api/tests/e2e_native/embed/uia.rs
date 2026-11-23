@@ -3,7 +3,7 @@
     unsafe_code,
     reason = "UI Automation's COM client API is unsafe; confined to this real-window test"
 )]
-use super::support::{SERIAL, wait};
+use super::support::{serial, wait};
 use kivact::prelude::*;
 use kivact::test::TestParent;
 use std::time::{Duration, Instant};
@@ -47,7 +47,7 @@ fn native_uia_client_reads_the_embedded_button() {
         return;
     }
 
-    let _serial = SERIAL.lock().unwrap();
+    let _serial = serial();
     let parent = TestParent::open(320, 240).unwrap();
     let app = App::new("Embedded accessibility")
         .window_size(240, 160)

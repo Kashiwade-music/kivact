@@ -1,7 +1,7 @@
 //! Role: Real-window checks that a panic in an embedded App stops it without
 //! aborting the host process.
 
-use super::support::{SERIAL, painted, panel, wait};
+use super::support::{painted, panel, serial, wait};
 use kivact::embed::EmbedNotice;
 use kivact::embed::EmbedStatus;
 use kivact::prelude::*;
@@ -28,9 +28,7 @@ fn child_process_scenarios_do_not_abort() {
         run_scenario(&scenario);
         return;
     }
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    let _serial = serial();
     for scenario in ["root", "event", "cleanup", "payload"] {
         let status = std::process::Command::new(
             std::env::current_exe().expect("the test binary has a path"),

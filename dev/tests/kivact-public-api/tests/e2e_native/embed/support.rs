@@ -2,9 +2,14 @@
 use kivact::prelude::*;
 use kivact::test::TestParent;
 use kivact::view::Node;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
-pub(super) static SERIAL: Mutex<()> = Mutex::new(());
+static SERIAL: Mutex<()> = Mutex::new(());
+/// Run the embed tests one at a time. The lock guards nothing but the order,
+/// so a test that panicked while holding it does not fail the ones after it.
+pub(super) fn serial() -> MutexGuard<'static, ()> {
+    SERIAL.lock().unwrap_or_else(PoisonError::into_inner)
+}
 #[track_caller]
 pub(super) fn wait(parent: &TestParent, mut ready: impl FnMut() -> bool) {
     let deadline = Instant::now() + Duration::from_secs(20);
