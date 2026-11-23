@@ -3,15 +3,15 @@
 use std::borrow::Cow;
 use std::f64::consts::SQRT_2;
 
+use arvane_protocol::{
+    CompositeLayer, LayerEffects, LayerItem, Plane, RasterGrid, RenderBackdrop, RenderScene,
+};
+use kivact_types::Composite;
 use kivact_types::Matrix4;
-use kivact_types::geometry::{Point, Rect, Size, Transform};
+use kivact_types::geometry::{Affine, Point, Rect, Size};
 use kivact_types::geometry3d::Projective;
 use kivact_types::pixel::BlendMode;
-use kivact_types::render::{
-    Composite, CompositeLayer, LayerEffects, LayerItem, Plane, RasterGrid, RenderBackdrop,
-    RenderScene,
-};
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 
 use super::bounds::{mapped_bounds, points_bounds};
 use super::builder::Builder;
@@ -19,7 +19,7 @@ use super::frame::{
     Behind, Dest, ItemCtx, ceil_px, coverage_scene, filter_reach, full_polygon, inline_candidate,
     px_map, subtree_has_backdrop,
 };
-use super::hash::{self, Fnv};
+use super::hash::{self, WordHash};
 use super::ops::{DrawOp, Grid, Op, PlanError, Sampling, Scissor, Source, TargetId, TargetKind};
 use crate::cache::{ChunkKey, ChunkRole, LayerRecord, Retained};
 
@@ -126,14 +126,14 @@ fn visible_part(base: Rect, h: &Projective, target: Rect, reach: f64) -> Option<
 }
 
 /// Whether a surface's map is the whole window's: axis-parallel with positive scales.
-fn axis_parallel(h: &Projective) -> Option<Transform> {
+fn axis_parallel(h: &Projective) -> Option<Affine> {
     h.as_affine()
         .filter(|t| t.b.abs() < 1e-12 && t.c.abs() < 1e-12 && t.a > 0.0 && t.d > 0.0)
 }
 
 /// The hash of a layer's own drawing parameters and window mapping.
-fn own_hash(layer: &CompositeLayer, to_win: &Matrix4, clips: &[Shape]) -> u64 {
-    let mut h = Fnv::new();
+fn own_hash(layer: &CompositeLayer, to_win: &Matrix4, clips: &[Outline]) -> u64 {
+    let mut h = WordHash::new();
     hash::layer_key(&mut h, layer.key);
     h.rect(layer.bounds);
     h.tag(layer.plane as u8);
@@ -151,7 +151,7 @@ fn own_hash(layer: &CompositeLayer, to_win: &Matrix4, clips: &[Shape]) -> u64 {
 /// The shared allocations a layer record keeps alive: its effects' and its items' pixels.
 fn layer_retain(layer: &CompositeLayer) -> Vec<Retained> {
     let mut retain = Vec::new();
-    let mut h = Fnv::new();
+    let mut h = WordHash::new();
     hash::effects(&mut h, &layer.effects, &mut retain);
     for item in &layer.items {
         match item {
@@ -243,7 +243,7 @@ impl<'a> Builder<'a> {
         to_t: &Matrix4,
         tsize: (u32, u32),
     ) -> Result<u64, PlanError> {
-        let mut key = Fnv::new();
+        let mut key = WordHash::new();
         key.matrix4(to_t);
         key.u64(u64::from(tsize.0));
         key.u64(u64::from(tsize.1));
@@ -255,7 +255,7 @@ impl<'a> Builder<'a> {
         }
         let layer = self.layer(index)?;
         let geo = self.geometry(layer, to_t, tsize);
-        let mut h = Fnv::new();
+        let mut h = WordHash::new();
         hash::layer_key(&mut h, layer.key);
         h.rect(layer.bounds);
         h.tag(layer.plane as u8);
@@ -319,7 +319,7 @@ impl<'a> Builder<'a> {
         index: u32,
         dest: Dest,
         to_win: Matrix4,
-        clips: &'a [Shape],
+        clips: &'a [Outline],
     ) -> Result<(), PlanError> {
         let Dest {
             target: t,
@@ -379,7 +379,8 @@ impl<'a> Builder<'a> {
                 layer: layer.key,
                 role: ChunkRole::Content(0),
             };
-            self.chunk(key, Cow::Borrowed(scene), geo.grid(), to_win, true)?;
+            let version = Some(layer.content_version);
+            self.chunk(key, Cow::Borrowed(scene), geo.grid(), to_win, true, version)?;
             return Ok(Source::Chunk(key));
         }
         let cache = self.cache;
@@ -501,7 +502,7 @@ impl<'a> Builder<'a> {
             role: ChunkRole::Backdrop,
         };
         let scene = coverage_scene(std::slice::from_ref(&backdrop.shape), geo.grid().rect());
-        self.chunk(key, Cow::Owned(scene), geo.grid(), to_win, true)?;
+        self.chunk(key, Cow::Owned(scene), geo.grid(), to_win, true, None)?;
         self.ops.push(Op::Draw(DrawOp {
             target: content,
             source: Source::Target(cur),
@@ -555,7 +556,7 @@ impl<'a> Builder<'a> {
                 role: ChunkRole::LayerClip,
             };
             let scene = coverage_scene(std::slice::from_ref(clip), grid.rect());
-            self.chunk(key, Cow::Owned(scene), grid, to_win, true)?;
+            self.chunk(key, Cow::Owned(scene), grid, to_win, true, None)?;
             self.ops.push(Op::Clip {
                 target: surface,
                 coverage: key,
@@ -568,7 +569,7 @@ impl<'a> Builder<'a> {
                     layer: layer.key,
                     role: ChunkRole::Mask(n as u32),
                 };
-                self.chunk(key, Cow::Borrowed(&mask.scene), grid, to_win, true)?;
+                self.chunk(key, Cow::Borrowed(&mask.scene), grid, to_win, true, None)?;
                 masks.push((key, mask.mode, mask.composite));
             }
             self.ops.push(Op::Mask {
@@ -639,7 +640,7 @@ impl<'a> Builder<'a> {
         win: Option<Rect>,
         sig: u64,
         to_win: &Matrix4,
-        clips: &[Shape],
+        clips: &[Outline],
         whole_on_change: bool,
     ) {
         if !self.cacheable() {

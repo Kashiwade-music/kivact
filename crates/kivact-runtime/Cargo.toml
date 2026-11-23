@@ -16,6 +16,7 @@ tokio = { version = "1.54.1", optional = true, features = ["rt-multi-thread", "n
 
 [features]
 tokio = ["dep:tokio"]
+devtools = []
 
 [dev-dependencies]
 # Doctests demonstrate the public facade.

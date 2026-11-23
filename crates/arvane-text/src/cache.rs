@@ -3,8 +3,8 @@
 
 use crate::layouts;
 use crate::output;
+use arvane_protocol::{ResolvedSpan, RichText};
 use hashbrown::{Equivalent, HashMap as LookupMap};
-use kivact_types::render::{RichText, TextSpan};
 use kivact_types::{ComputedTextStyle, FontFeature, FontVariation, TextDecoration, TextWrap};
 use kivact_types::{
     DecorationLines, FontKerning, LineHeight, Rgba, TextAlign, TextOverflow, TextTransform,
@@ -112,33 +112,19 @@ fn decoration_bits(d: TextDecoration) -> DecorationBits {
 struct SpanBits {
     start: usize,
     end: usize,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     font_size: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     weight: Option<u16>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     color: Option<[u64; 4]>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     stroke: Option<(u64, [u64; 4])>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     family: Option<String>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     italic: Option<bool>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     letter_spacing: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     word_spacing: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     kerning: Option<FontKerning>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     features: Option<Vec<FontFeature>>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     variations: Option<Vec<layouts::VariationBits>>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     font_width: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     decoration: Option<DecorationBits>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     highlight: bool,
 }
 
@@ -148,33 +134,19 @@ struct SpanBits {
 struct SpanBitsRef<'a> {
     start: usize,
     end: usize,
-    // xtask-allow(state-fields): cache: one component of a cache key
     font_size: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     weight: Option<u16>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     color: Option<[u64; 4]>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     stroke: Option<(u64, [u64; 4])>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     family: Option<&'a str>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     italic: Option<bool>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     letter_spacing: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     word_spacing: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     kerning: Option<FontKerning>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     features: Option<&'a [FontFeature]>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     variations: Option<VariationsRef<'a>>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     font_width: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     decoration: Option<DecorationBits>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     highlight: bool,
 }
 
@@ -226,13 +198,9 @@ struct RichKey {
     word_spacing: u64,
     kerning: FontKerning,
     features: Vec<FontFeature>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     decoration: Option<DecorationBits>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     overflow: bool,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     max_lines: Option<u32>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     capsize: bool,
     transform: TextTransform,
     spans: Vec<SpanBits>,
@@ -245,28 +213,20 @@ pub(crate) struct TextKey {
     text: String,
     font_size: u64,
     weight: u16,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     /// Absent for measurement, which color cannot change.
     color: Option<[u64; 4]>,
     line_height: (u8, u64),
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     wrap: bool,
     align: u8,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     family: Option<String>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     italic: bool,
     /// The paragraph's axis settings, as bits.
     variations: Vec<layouts::VariationBits>,
     font_width: u64,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     optical_sizing: bool,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     max_width: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     /// Whether the shaped text has its carets.
     carets: bool,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     rich: Option<Box<RichKey>>,
 }
 
@@ -277,25 +237,17 @@ pub(crate) struct TextKeyRef<'a> {
     text: &'a str,
     font_size: u64,
     weight: u16,
-    // xtask-allow(state-fields): cache: one component of a cache key
     color: Option<[u64; 4]>,
     line_height: (u8, u64),
-    // xtask-allow(state-fields): cache: one component of a cache key
     wrap: bool,
     align: u8,
-    // xtask-allow(state-fields): cache: one component of a cache key
     family: Option<&'a str>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     italic: bool,
     variations: VariationsRef<'a>,
     font_width: u64,
-    // xtask-allow(state-fields): cache: one component of a cache key
     optical_sizing: bool,
-    // xtask-allow(state-fields): cache: one component of a cache key
     max_width: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     carets: bool,
-    // xtask-allow(state-fields): cache: one component of a cache key
     rich: Option<RichKeyRef<'a>>,
 }
 
@@ -410,13 +362,9 @@ struct RichKeyRef<'a> {
     word_spacing: u64,
     kerning: FontKerning,
     features: FeaturesRef<'a>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     decoration: Option<DecorationBits>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     overflow: bool,
-    // xtask-allow(state-fields): cache: one component of a cache key
     max_lines: Option<u32>,
-    // xtask-allow(state-fields): cache: one component of a cache key
     capsize: bool,
     transform: TextTransform,
     spans: SpansRef<'a>,
@@ -518,7 +466,7 @@ impl FeaturesRef<'_> {
 /// as the `Vec<SpanBits>` that [`RichKey`] keeps.
 #[derive(Clone, Copy)]
 struct SpansRef<'a> {
-    spans: &'a [TextSpan],
+    spans: &'a [ResolvedSpan],
     drawn: bool,
 }
 
@@ -553,7 +501,7 @@ impl SpansRef<'_> {
 
 /// One span's bits, borrowing the span's text; it hashes and compares as
 /// the [`SpanBits`] the cache keeps.
-fn span_bits_ref(span: &TextSpan, drawn: bool) -> SpanBitsRef<'_> {
+fn span_bits_ref(span: &ResolvedSpan, drawn: bool) -> SpanBitsRef<'_> {
     let s = &span.style;
     SpanBitsRef {
         start: span.range.start,
@@ -584,7 +532,7 @@ fn span_bits_ref(span: &TextSpan, drawn: bool) -> SpanBitsRef<'_> {
 }
 
 /// One span's bits; drawing-only fields are left out unless `drawn`.
-fn span_bits(span: &TextSpan, drawn: bool) -> SpanBits {
+fn span_bits(span: &ResolvedSpan, drawn: bool) -> SpanBits {
     let s = &span.style;
     SpanBits {
         start: span.range.start,
@@ -641,8 +589,9 @@ const MEASURED_ENTRIES: usize = 4096;
 /// survives.
 pub(crate) struct Cache {
     pub(crate) shaped:
-        Generations<TextKey, Result<kivact_types::ShapedTextSnapshot, crate::TextError>>,
-    pub(crate) measured: Generations<TextKey, Result<kivact_types::TextMetrics, crate::TextError>>,
+        Generations<TextKey, Result<kivact_types::ShapedTextSnapshot, crate::error::TextError>>,
+    pub(crate) measured:
+        Generations<TextKey, Result<kivact_types::TextMetrics, crate::error::TextError>>,
     pub(crate) families: HashMap<String, bool>,
     pub(crate) font_names: Option<Vec<String>>,
     /// Shaped paragraphs, broken into lines again for each width.
@@ -664,9 +613,9 @@ impl Default for Cache {
     }
 }
 
-fn text_len_bits(value: kivact_types::TextLen) -> (u8, u64) {
+fn text_len_bits(value: kivact_types::TextLength) -> (u8, u64) {
     match value {
-        kivact_types::TextLen::Px(v) => (0, v.to_bits()),
-        kivact_types::TextLen::Em(v) => (1, v.to_bits()),
+        kivact_types::TextLength::Px(v) => (0, v.to_bits()),
+        kivact_types::TextLength::Em(v) => (1, v.to_bits()),
     }
 }

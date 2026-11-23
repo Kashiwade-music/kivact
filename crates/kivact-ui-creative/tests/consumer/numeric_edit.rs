@@ -2,8 +2,8 @@
 
 use kivact::prelude::*;
 use kivact::test::Screen;
+use kivact::view::EditPhase;
 use kivact::view::EditPhase::{Begin, Commit};
-use kivact::view::MouseButton;
 use kivact_ui_creative as ui;
 use std::cell::RefCell;
 use std::rc::Rc;

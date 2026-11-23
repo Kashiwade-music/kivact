@@ -2,6 +2,7 @@
 
 use super::boxes::{Axes, ancestors, clips, padding_box, reach, visual_parent};
 use super::shaped_lines::shape;
+#[cfg(any(feature = "testing", feature = "devtools"))]
 use crate::contract::NodeType;
 use crate::model::Model;
 use crate::model::interact::visual;
@@ -17,14 +18,13 @@ use kivact_types::{
 const PIXEL_ROUNDING: f64 = 0.5;
 
 /// The findings of the texts in the subtree of `scope` (the whole tree
-/// without one), in tree order; `ink`: the vertical extent of a line is
-/// that of its glyphs' outlines, else of its metrics.
+/// without one), in tree order.
+#[cfg(any(feature = "testing", feature = "devtools"))]
 pub(crate) fn layout_findings(
     host: &Model,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     check: &LayoutCheck,
     scope: Option<NodeId>,
-    ink: bool,
 ) -> Vec<LayoutFinding> {
     let mut out = Vec::new();
     let Some(start) = scope.or(host.tree().root()) else {
@@ -39,8 +39,8 @@ pub(crate) fn layout_findings(
         if n.hidden() || ignores(n, check) {
             continue;
         }
-        if n.kind() == NodeType::Text || host.editors[n.index.0].is_some() {
-            text_findings(host, engine, check, id, ink, &mut out);
+        if n.kind() == NodeType::Text || host.slots.editors[n.index.0].is_some() {
+            text_findings(host, engine, check, id, &mut out);
         }
         stack.extend(
             host.tree()
@@ -52,6 +52,7 @@ pub(crate) fn layout_findings(
 }
 
 /// Whether `id` or an ancestor has a test id the check ignores.
+#[cfg(any(feature = "testing", feature = "devtools"))]
 fn ignored_above(host: &Model, id: NodeId, check: &LayoutCheck) -> bool {
     !check.ignore_test_ids.is_empty()
         && host
@@ -61,6 +62,7 @@ fn ignored_above(host: &Model, id: NodeId, check: &LayoutCheck) -> bool {
             .any(|a| host.node(a).is_some_and(|n| ignores(n, check)))
 }
 
+#[cfg(any(feature = "testing", feature = "devtools"))]
 fn ignores(n: &HostNode, check: &LayoutCheck) -> bool {
     n.semantics()
         .and_then(|s| s.test_id.as_ref())
@@ -70,20 +72,19 @@ fn ignores(n: &HostNode, check: &LayoutCheck) -> bool {
 /// The findings of the text or text input `id`, appended to `out`.
 pub(crate) fn text_findings(
     host: &Model,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     check: &LayoutCheck,
     id: NodeId,
-    ink: bool,
     out: &mut Vec<LayoutFinding>,
 ) {
     let Some(n) = host.node(id) else { return };
-    let Some(shaped) = shape(host, engine, id, ink) else {
+    let Some(shaped) = shape(host, engine, id) else {
         return;
     };
     if shaped.lines.is_empty() {
         return;
     }
-    let input = host.editors[n.index.0].is_some();
+    let input = host.slots.editors[n.index.0].is_some();
     let tolerance = check.overflow_tolerance;
     let text = shaped.rect();
     let up = ancestors(host, id);
@@ -105,7 +106,7 @@ pub(crate) fn text_findings(
             .lines
             .iter()
             .filter(|l| !l.cut)
-            .map(|l| (reach(l.ink, clip.rect, clip.axes), l.ink))
+            .map(|l| (reach(l.bounds, clip.rect, clip.axes), l.bounds))
             .filter(|(by, _)| *by > tolerance)
             .collect();
         if let Some(most) = cut.iter().map(|(by, _)| *by).reduce(f64::max) {
@@ -155,7 +156,7 @@ pub(crate) fn text_findings(
 /// Whether the role of `id` expects its text on one line.
 fn single_line(host: &Model, id: NodeId, check: &LayoutCheck) -> bool {
     host.node(id)
-        .and_then(|node| semantic_role(node, host.editors[node.index.0].is_some()))
+        .and_then(|node| semantic_role(node, host.slots.editors[node.index.0].is_some()))
         .is_some_and(|r| check.single_line_roles.contains(&r))
 }
 

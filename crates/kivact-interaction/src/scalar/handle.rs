@@ -1,7 +1,7 @@
 //! Role: Scalar binding writes, key steps, assistive actions and parts.
 
 use super::data::ScalarState;
-use super::edit_state::{Edit, Shared, register_focus, register_host_disabled};
+use super::edit_state::{Edit, Shared, register_focus};
 use super::ops::ScalarOps;
 use super::range::follow_range;
 use super::track::{Grip, Target};
@@ -52,20 +52,10 @@ pub struct ScalarApi {
 /// becomes a memo. Setup only.
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// # pub use kivact_core::{view, state, style};
-/// # pub mod prelude {
-/// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-/// # }
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::{ScalarRange, use_scalar};
 /// use kivact::prelude::*;
 /// use kivact::style::Position;
+/// use kivact::view::{EditPhase, Orientation};
 /// let volume = signal(0.5);
 /// let range = ScalarRange::new(0.0, 1.0).unwrap();
 /// let slider = use_scalar(volume, range)
@@ -84,10 +74,10 @@ pub struct ScalarApi {
 /// ```
 #[track_caller]
 pub fn use_scalar(
-    value: impl kivact_core::state::IntoBinding<f64>,
+    value: kivact_core::state::Signal<f64>,
     range: impl IntoValue<ScalarRange>,
 ) -> ScalarApi {
-    let binding = value.into_binding();
+    let binding = value;
     let range = range.into_value();
     let snapshot = memo(move || [binding.get(), 0.0]);
     let shared = Shared::new(snapshot, move |[start, _]| binding.set(start));
@@ -101,24 +91,6 @@ pub fn use_scalar(
 }
 
 impl ScalarApi {
-    /// Drawing state of the actual mounted input or thumb.
-    pub fn control_state(self) -> Value<ScalarState> {
-        memo(move || {
-            self.edit
-                .observed
-                .get()
-                .map(|state| state.get())
-                .unwrap_or_else(|| {
-                    let value = self.value().get();
-                    ScalarState {
-                        input: PartState::default(),
-                        value,
-                        fraction: self.ops.mapping.get().position(value, self.range().get()),
-                    }
-                })
-        })
-    }
-
     /// Map the value to a position along the control with `mapping` (default
     /// linear): a track drag, a touch, a position step and
     /// [`ScalarState::fraction`] follow it, while the binding, Home/End, value
@@ -157,20 +129,6 @@ impl ScalarApi {
             .settings
             .update(|settings| settings.key_step = Some((step, Owner::current())));
         Ok(self)
-    }
-
-    /// Ignore input and assistive technology while true.
-    ///
-    /// Also marks the thumb disabled and makes it unfocusable; the track
-    /// ignores the pointer, and a drag in progress ends where it is. Setup only.
-    #[track_caller]
-    pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
-        let disabled = disabled.into_value();
-        self.edit
-            .shared
-            .settings
-            .update(|settings| settings.disabled = Some(disabled));
-        self
     }
 
     /// Report the start and end of each edit as an [`EditPhase`], so the app
@@ -357,9 +315,11 @@ impl ScalarApi {
         let part_state = input.state();
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |mut host| {
-            register_host_disabled(shared, host.accessible_disabled());
+            let disabled = host
+                .accessible_disabled()
+                .unwrap_or_else(|| false.into_value());
             let surface = host.part(input).node_ref(target).focus_on_press(edit.thumb);
-            let surface = shared.touch_source(surface, Grip::Track);
+            let surface = shared.touch_source(surface, Grip::Track, disabled);
             shared.pointer.attach_track(target.rect(), axis);
             surface.part(shared.drag.source(Grip::Track))
         })
@@ -418,9 +378,10 @@ impl ScalarApi {
             }
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.edit.observed, part_state);
         Part::new(part_state, move |mut host| {
-            register_host_disabled(shared, host.accessible_disabled());
+            let disabled = host
+                .accessible_disabled()
+                .unwrap_or_else(|| false.into_value());
             let mut control = host
                 .part(input)
                 .role(role)
@@ -460,13 +421,11 @@ impl ScalarApi {
             let state = part_state;
             let focused = memo(move || state.get().input.is_focused());
             register_focus(shared, focused);
-            control = control
-                .disabled(move || shared.is_disabled())
-                .node_ref(self.edit.thumb);
+            control = control.node_ref(self.edit.thumb);
             if role == Role::Slider {
                 let grip = Grip::Thumb(self.edit.index);
                 control = shared
-                    .touch_source(control, grip)
+                    .touch_source(control, grip, disabled)
                     .part(shared.drag.source(grip));
             }
             control

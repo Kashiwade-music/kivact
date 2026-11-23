@@ -5,15 +5,17 @@ use std::panic::Location;
 
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
-use kivact_runtime::{Owner, Runtime, pure, untrack};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Owner, pure, untrack};
 use kivact_style::Style;
-use kivact_style::internal::{ForcedStates, describe_state_styles, describe_style};
-use kivact_types::{NodeId, WindowId};
+use kivact_style::internal::{describe_state_styles, describe_style, style_property};
+use kivact_types::{NodeId, StateSet, StyleState, WindowId};
 
 use super::convert;
+use crate::devtools::apply;
+use crate::devtools::state::{DevtoolsState, Inspector};
 use crate::view::RecipeName;
-use crate::view::devtools_apply;
-use crate::view::devtools_state::DevtoolsState;
+use crate::view::devtools_hooks::NodeOverrides;
 use crate::view::element_data::{LayerOrigin, StyleLayer};
 use crate::view::state::ViewState;
 
@@ -25,10 +27,8 @@ pub(super) fn base_value(rt: &Runtime, id: NodeId, property: &str) -> Option<Str
     for layer in &layers {
         merged = merged.merge(&evaluate(owner, layer));
     }
-    describe_style(&merged)
-        .into_iter()
-        .find(|(name, _)| *name == property)
-        .map(|(name, value)| editable(name, value))
+    let definition = style_property(property)?;
+    (definition.describe)(&merged)
 }
 
 /// The style layers of `id`, highest priority first.
@@ -37,10 +37,10 @@ pub(super) fn layers(rt: &Runtime, id: NodeId) -> Vec<p::StyleLayerInfo> {
         return Vec::new();
     };
     let i = DevtoolsState::inspector(rt);
-    let applied = devtools_apply::node_overrides(
+    let applied = apply::node_overrides(
         &i.hooks.overrides.get_untracked(),
         id,
-        &devtools_apply::call_sites(rt, owner, at),
+        &apply::call_sites(rt, owner, at),
     );
     let forced = i
         .hooks
@@ -77,7 +77,36 @@ pub(super) fn layers(rt: &Runtime, id: NodeId) -> Vec<p::StyleLayerInfo> {
 pub(super) fn clear_all(rt: &Runtime) {
     let i = DevtoolsState::inspector(rt);
     i.hooks.overrides.set(Vec::new());
+    rebuild_node_overrides(i);
     i.hooks.forced.set(BTreeMap::new());
+}
+
+/// Parse the override list once into the table the style hooks read.
+fn rebuild_node_overrides(i: &Inspector) {
+    let mut table = NodeOverrides::default();
+    for entry in i.hooks.overrides.get_untracked() {
+        let Ok(style) = apply::override_style(&entry.property, &entry.value) else {
+            continue;
+        };
+        match entry.scope {
+            p::OverrideScope::CallSite { location } => {
+                table
+                    .by_site
+                    .push((location.file, location.line, location.column, style));
+            }
+            p::OverrideScope::Node { node } => {
+                let id = NodeId(node);
+                let merged = match table.by_node.remove(&id) {
+                    Some(before) => before.merge(&style),
+                    None => style,
+                };
+                table.by_node.insert(id, merged);
+            }
+            _ => {}
+        }
+    }
+    *i.hooks.node_overrides.borrow_mut() = table;
+    i.hooks.node_overrides_changed.notify();
 }
 
 pub(super) fn set_style_override(
@@ -86,8 +115,7 @@ pub(super) fn set_style_override(
 ) -> Result<p::StyleOverride, p::RpcError> {
     match &params.scope {
         p::OverrideScope::Node { .. } | p::OverrideScope::CallSite { .. } => {
-            devtools_apply::override_style(&params.property, &params.value)
-                .map_err(invalid_params)?;
+            apply::override_style(&params.property, &params.value).map_err(invalid_params)?;
         }
         p::OverrideScope::Token { token } => {
             validate_token(rt, token, &params.property, &params.value)?;
@@ -107,6 +135,7 @@ pub(super) fn set_style_override(
         },
     );
     i.hooks.overrides.set(all);
+    rebuild_node_overrides(i);
     Ok(entry)
 }
 
@@ -149,6 +178,7 @@ pub(super) fn clear_style_overrides(
             .update(|all| all.retain(|entry| entry.id != id)),
         None => i.hooks.overrides.set(Vec::new()),
     }
+    rebuild_node_overrides(i);
     Ok(p::Empty {})
 }
 
@@ -173,7 +203,7 @@ pub(super) fn force_state(
             format!("node {} does not exist", params.node),
         ));
     }
-    let mut states = ForcedStates::default();
+    let mut states = StateSet::EMPTY;
     for state in params.states {
         states.insert(convert::forced_state(state));
     }
@@ -193,7 +223,7 @@ pub(super) fn list_theme_tokens(
     _: p::Empty,
 ) -> Result<p::ThemeTokenList, p::RpcError> {
     let tokens = main_theme(rt)
-        .map(|theme| devtools_apply::token_list(&theme))
+        .map(|theme| apply::token_list(&theme))
         .unwrap_or_default();
     Ok(p::ThemeTokenList { tokens })
 }
@@ -230,9 +260,10 @@ fn style_source(
     Some((node.style_layers(), node.owner, node.at))
 }
 
-/// Evaluate one style layer under its node's owner.
+/// Evaluate one style layer under its node's owner. The stored layers are
+/// plain (`set_style_layers` fixed the recipe layers to their variants).
 fn evaluate(owner: Owner, layer: &StyleLayer) -> Style {
-    owner.run_handler(|| untrack(|| pure(|| (layer.f)())))
+    owner.run_handler(|| untrack(|| pure(|| layer.f.style(&crate::view::Variants::default()))))
 }
 
 /// The recipe name of a layer, called under the node's owner.
@@ -258,7 +289,7 @@ fn source_layer(owner: Owner, style: &Style, layer: &StyleLayer) -> p::StyleLaye
 }
 
 /// One layer per state delta, above the layers that declare them.
-fn state_layers(style: &Style, forced: ForcedStates) -> Vec<p::StyleLayerInfo> {
+fn state_layers(style: &Style, forced: StateSet) -> Vec<p::StyleLayerInfo> {
     let mut deltas = describe_state_styles(style);
     let mut out = Vec::new();
     for (name, origin) in [
@@ -269,7 +300,9 @@ fn state_layers(style: &Style, forced: ForcedStates) -> Vec<p::StyleLayerInfo> {
         ("disabled", p::StyleOrigin::Disabled),
         ("selected", p::StyleOrigin::Selected),
     ] {
-        let Some(index) = deltas.iter().position(|(state, _)| *state == name) else {
+        // The style method is `active` (`StyleState::name`); DevTools calls it `pressed`.
+        let state_name = if name == "pressed" { "active" } else { name };
+        let Some(index) = deltas.iter().position(|(state, _)| *state == state_name) else {
             continue;
         };
         let (_, items) = deltas.remove(index);
@@ -285,21 +318,23 @@ fn state_layers(style: &Style, forced: ForcedStates) -> Vec<p::StyleLayerInfo> {
             properties: properties(
                 items
                     .into_iter()
-                    .map(|(property, value)| (property.to_owned(), editable(property, value))),
+                    .filter(|(property, _)| style_property(property).is_some())
+                    .map(|(property, value)| (property.to_owned(), value)),
             ),
         });
     }
     out
 }
 
-fn forced_bit(name: &str) -> Option<ForcedStates> {
+/// The state a DevTools layer name stands for (`pressed` is `active`).
+fn forced_bit(name: &str) -> Option<StyleState> {
     Some(match name {
-        "hover" => ForcedStates::HOVER,
-        "pressed" => ForcedStates::PRESSED,
-        "focus" => ForcedStates::FOCUS,
-        "focus_visible" => ForcedStates::FOCUS_VISIBLE,
-        "disabled" => ForcedStates::DISABLED,
-        "selected" => ForcedStates::SELECTED,
+        "hover" => StyleState::Hover,
+        "pressed" => StyleState::Active,
+        "focus" => StyleState::Focus,
+        "focus_visible" => StyleState::FocusVisible,
+        "disabled" => StyleState::Disabled,
+        "selected" => StyleState::Selected,
         _ => return None,
     })
 }
@@ -315,17 +350,12 @@ fn properties(items: impl IntoIterator<Item = (String, String)>) -> Vec<p::Style
         .collect()
 }
 
+/// The properties of `style` that the table names, each in its DevTools form.
 fn described(style: &Style) -> Vec<p::StyleProperty> {
-    properties(
-        describe_style(style)
-            .into_iter()
-            .map(|(name, value)| (name.to_owned(), editable(name, value))),
-    )
-}
-
-/// `described` in the form an override takes, when the property has one.
-fn editable(name: &str, described: String) -> String {
-    devtools_apply::editable_value(name, &described).unwrap_or(described)
+    properties(describe_style(style).into_iter().filter_map(|(name, _)| {
+        let definition = style_property(name)?;
+        Some((name.to_owned(), (definition.describe)(style)?))
+    }))
 }
 
 /// Mark a property a higher layer also sets.
@@ -368,7 +398,7 @@ fn validate_token(
             "theme token \"{token}\" does not exist"
         )));
     };
-    let tokens = devtools_apply::token_list(&theme);
+    let tokens = apply::token_list(&theme);
     let Some(entry) = tokens.iter().find(|entry| entry.name == token) else {
         return Err(invalid_params(format!(
             "theme token \"{token}\" does not exist"

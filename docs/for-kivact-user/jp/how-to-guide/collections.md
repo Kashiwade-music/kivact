@@ -7,8 +7,10 @@
 ```no_run
 use kivact::prelude::*;
 use kivact::style::TextAlign;
+use kivact::ui::{table, table_body, table_cell, table_footer, table_head, table_header, table_row};
 
-fn invoices() -> impl IntoView {
+#[component]
+fn invoices() -> impl Element {
     table((
         table_header((table_row((table_head("Invoice"), table_head("Amount"))),)),
         table_body((table_row((
@@ -26,8 +28,10 @@ fn invoices() -> impl IntoView {
 
 ```no_run
 use kivact::prelude::*;
+use kivact::ui::{item_list, item_row};
 
-fn documents() -> impl IntoView {
+#[component]
+fn documents() -> impl Element {
     item_list((
         item_row("Quarterly report")
             .description("Updated today")
@@ -42,4 +46,4 @@ fn documents() -> impl IntoView {
 
 階層には `ui::tree(label, items, selected).expanded(expanded)` を使います。共有のツリー移動を使い、展開状態は枝にだけ公開します。`.item(..)` は行の中身、`.header(..)` は行の前のコンテンツを指定します。`.reveal(gap, transition)` は presence による枝の表示と退場を使います。選択されたキーとフォーカスを持つ行は別の状態です。展開と選択の binding はアプリケーションが所有します。
 
-`UiTokens` の `table`・`item_list`・`tree` で寸法を調整できます。`UiRecipes::table`・`item_list`・`tree` で各 part のスタイルを変更でき、各 builder は `.variant(..)` で kit の variant を受け取ります。密度・区切り線・縞・メディアの枠・文字の見た目は recipe と style で表します。呼び出し側のスタイルは既定の recipe より優先されます。
+`table`・`item_list`・`tree` 部品のテーマ変数（`kivact::ui::theme`）で寸法を調整でき、`TableTheme`・`ItemListTheme`・`TreeTheme` で各 part のスタイルを包めます。各部品は `.variant(..)` で kit の variant を受け取ります。密度・区切り線・縞・メディアの枠・文字の見た目は recipe と style で表します。呼び出し側のスタイルは既定の recipe より優先されます。

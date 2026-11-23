@@ -2,17 +2,16 @@
 
 use crate::clock::Clock;
 use crate::script::{Item, Script, VirtualInput, VirtualWindowInput, WindowItem};
-use crate::surface::TestSurface;
 use crate::window::{Display, VirtualPlatform, VirtualWindow};
 pub use crate::window::{GpuMode, MirrorMode, VirtualOptions};
+use arvane_protocol::SemanticsTree;
 use arvane_shell::{
     Accessibility, InjectedInput, ShellControl, ShellError, ShellEvent, ShellHandler, ShellImeText,
     ShellLoop, ShellWaker, ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop,
     WakeReasons,
 };
-use kivact_types::render::SemanticsTree;
 use kivact_types::{
-    Capabilities, Cursor, Environment, Modifiers, Point, Rect, RequestId, Size, ThemeHint,
+    Capabilities, Cursor, Environment, Modifiers, Point, Rect, RequestId, Size, ThemeMode,
     WindowId, WindowRequest,
 };
 use std::cell::{Cell, RefCell};
@@ -21,6 +20,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+// xtask-allow(state): record: windows is the open-window table and input the scripted input queue and clock; two tables shared by Rc with Running, Probe and WindowProbe
 /// Backend whose input and clock are advanced explicitly.
 pub struct VirtualBackend {
     options: VirtualOptions,
@@ -181,6 +181,7 @@ enum State {
     Exited,
     Failed(ShellError),
 }
+// xtask-allow(state): record: windows and input are the backend's open-window table and scripted input queue, shared by Rc; the loop's own phase is the State enum
 /// The running loop: the handler, the shared window table and the input queue.
 struct Running {
     options: VirtualOptions,
@@ -511,31 +512,18 @@ fn apply_window(window: &mut VirtualWindow, item: WindowItem) -> Option<ShellEve
     event
 }
 /// Map the scripted preference into the canonical theme vocabulary.
-fn theme_hint(dark: bool) -> ThemeHint {
+fn theme_hint(dark: bool) -> ThemeMode {
     if dark {
-        ThemeHint::Dark
+        ThemeMode::Dark
     } else {
-        ThemeHint::Light
+        ThemeMode::Light
     }
 }
 /// Change the scripted surface lifecycle and return its boundary event.
 fn surface_event(window: &mut VirtualWindow, live: bool) -> Option<ShellEvent> {
-    match (live, window.surface) {
-        (true, TestSurface::Destroyed { last }) => {
-            window.surface = TestSurface::Live {
-                generation: last
-                    .checked_add(1)
-                    .expect("invariant: surface generations fit u64"),
-            };
-            Some(ShellEvent::SurfaceCreated)
-        }
-        (false, TestSurface::Live { generation }) => {
-            window.surface = TestSurface::Destroyed { last: generation };
-            Some(ShellEvent::SurfaceDestroyed)
-        }
-        _ => None,
-    }
+    window.surface.apply(live)
 }
+// xtask-allow(state): record: windows and input are read aliases of the backend's two tables; the probe writes only the logs the test reads
 /// Cloneable read-only observations. Values never borrow backend state.
 #[derive(Clone)]
 pub struct Probe {
@@ -587,6 +575,7 @@ impl Probe {
         self.platform.revealed.borrow().clone()
     }
 }
+// xtask-allow(state): record: windows and input are read aliases of the backend's two tables, narrowed to one window id
 /// Cloneable read-only observations of one virtual window.
 #[derive(Clone)]
 pub struct WindowProbe {
@@ -668,8 +657,9 @@ impl WindowProbe {
     pub fn ime_text(&self) -> Option<ShellImeText> {
         self.with(|window| window.ime_text.borrow().clone())
     }
-    pub fn surface_generation(&self) -> Option<u64> {
-        self.with(|window| window.surface.generation())
+    /// Whether this window can show a frame now.
+    pub fn drawable(&self) -> arvane_shell::Drawable {
+        self.with(|window| window.drawable())
     }
     /// The key presses nobody handled since the last call.
     pub fn unhandled_keys(&self) -> Vec<kivact_types::KeyCode> {

@@ -5,7 +5,7 @@ use std::cell::{Cell, RefCell};
 use std::panic::Location;
 
 use crate::reactive::arena::Arena;
-use crate::reactive::data::{Diag, LiveCounts, Runtime, Sched};
+use crate::reactive::data::{Diag, Extensions, Graveyard, LiveCounts, Runtime, Sched};
 use crate::reactive::host_types::{ExitState, Host, Stage, TurnState};
 use crate::reactive::identity::{OwnerId, key_raw};
 use std::rc::Rc;
@@ -15,7 +15,6 @@ pub struct OwnerInfo {
     /// The parent owner.
     pub parent: Option<OwnerId>,
     /// Where the owner was created.
-    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub created_at: &'static Location<'static>,
 }
 
@@ -26,7 +25,6 @@ pub struct LiveOwner {
     /// The parent owner.
     pub parent: Option<OwnerId>,
     /// Where the owner was created.
-    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub created_at: &'static Location<'static>,
 }
 
@@ -39,7 +37,6 @@ pub struct LiveObject {
     /// The name it was stored under.
     pub name: &'static str,
     /// Where it was created.
-    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub created_at: &'static Location<'static>,
 }
 
@@ -54,7 +51,12 @@ pub struct LiveSnapshot {
 impl Runtime {
     /// A runtime for App `id` with its extensions (registered by
     /// [`Runtime::register`]).
-    pub(crate) fn with_id(id: AppId, host: Rc<dyn Host>, start_ns: u64) -> Runtime {
+    pub(crate) fn with_id(
+        id: AppId,
+        host: Rc<dyn Host>,
+        start_ns: u64,
+        extensions: Extensions,
+    ) -> Runtime {
         Runtime {
             id,
             graph: RefCell::new(Arena::new()),
@@ -65,6 +67,8 @@ impl Runtime {
             collectors: RefCell::new(Vec::new()),
             sched: RefCell::new(Sched::default()),
             scratch: RefCell::new(Vec::new()),
+            dep_pool: RefCell::new(Vec::new()),
+            pass_touched: RefCell::new(Vec::new()),
             seq: Cell::new(0),
             write_epoch: Cell::new(kivact_types::cell::Generation::new()),
             // Registration precedes root creation, which always takes the first fresh slot.
@@ -72,12 +76,8 @@ impl Runtime {
                 slot: 0,
                 generation: 0,
             },
-            #[expect(
-                clippy::disallowed_types,
-                reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
-            )]
-            ext: std::cell::OnceCell::new(),
-            mount_revision: Cell::new(kivact_types::Revision(0)),
+            extensions,
+            app: kivact_types::cell::Deferred::new(),
             unstamped: RefCell::new(Vec::new()),
             awaiting: RefCell::new(std::collections::VecDeque::new()),
             host,
@@ -86,6 +86,9 @@ impl Runtime {
             clock: Cell::new(start_ns),
             diag: RefCell::new(Diag::default()),
             later: RefCell::new(Vec::new()),
+            deferred: RefCell::new(std::collections::VecDeque::new()),
+            graveyard: RefCell::new(Graveyard::default()),
+            unsubscribed: RefCell::new(std::collections::HashMap::new()),
         }
     }
 

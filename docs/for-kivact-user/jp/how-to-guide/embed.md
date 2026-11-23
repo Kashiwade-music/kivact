@@ -40,10 +40,11 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["embed
 ```rust,test_harness
 use std::sync::Arc;
 
-use kivact::motion::FrameRate;
+use kivact::motion::{FrameRate, frame_loop};
+use kivact::view::EditPhase;
 use kivact::prelude::*;
 
-/// エディターがプラグインに求めるもの。wrapper が実装します。
+/// What the editor needs from the plugin. The wrapper implements it.
 pub trait Params: Send + Sync + 'static {
     fn gain(&self) -> f64;
     fn begin_gesture(&self);
@@ -51,14 +52,15 @@ pub trait Params: Send + Sync + 'static {
     fn end_gesture(&self);
 }
 
-pub fn editor(params: Arc<dyn Params>) -> impl IntoView {
+#[component]
+pub fn editor(params: Arc<dyn Params>) -> impl Element {
     let value = signal(params.gain());
 
-    // ホストによる変更 (オートメーション、プリセット) を、表示フレームごとに追いかけます。
+    // Follow what the host changes (automation, presets) once per display frame.
     let source = params.clone();
     frame_loop(move |_| value.set(source.gain())).start(FrameRate::Display);
 
-    // 書き込みはまずプラグインへ、次に画面が読むシグナルへ行きます。
+    // Writes go to the plugin first, then to the signal that the screen reads.
     let sink = params.clone();
     let gain = binding(
         move || value.get(),
@@ -68,10 +70,10 @@ pub fn editor(params: Arc<dyn Params>) -> impl IntoView {
         },
     );
 
-    // ドラッグ 1 回、キー操作 1 回が、ホストの undo やオートメーションにとって 1 つのジェスチャーです。
+    // A drag or a key press is one gesture for the host's undo and automation.
     let gestures = params;
     column((
-        slider("Gain", gain)
+        slider(gain).label("Gain")
             .range(0.0..=1.0)
             .step(0.1)
             .on_edit(move |phase| match phase {
@@ -92,7 +94,7 @@ mod tests {
 
     use super::*;
 
-    /// プラグインの代役。エディターが行ったことを記録します。
+    /// A stand-in for the plugin: it records what the editor does to it.
     #[derive(Default)]
     struct Fake {
         gain: Mutex<f64>,
@@ -118,14 +120,14 @@ mod tests {
     #[test]
     fn the_editor_writes_gestures_and_follows_the_host() {
         let fake = Arc::new(Fake::default());
-        let params = fake.clone();
+        let params: Arc<dyn Params> = fake.clone();
         let screen = kivact::test::render(move || editor(params));
 
         screen.get_by_role(Role::Slider, "Gain").press_key(Key::ArrowRight);
         screen.get_by_text("Gain: 0.10");
         assert_eq!(*fake.log.lock().unwrap(), ["begin", "set 0.1", "end"]);
 
-        // ホストがパラメーターをオートメーションで動かすと、エディターは次のフレームで追いつきます。
+        // The host automates the parameter; the editor catches up on a frame.
         *fake.gain.lock().unwrap() = 0.5;
         screen.advance(Duration::from_millis(100));
         screen.get_by_text("Gain: 0.50");
@@ -142,7 +144,8 @@ mod tests {
 ```rust,no_run
 use kivact::prelude::*;
 
-fn gain_label(incoming: async_channel::Receiver<f64>) -> impl IntoView {
+#[component]
+fn gain_label(incoming: async_channel::Receiver<f64>) -> impl Element {
     let value = signal(0.0);
     spawn(async move {
         while let Ok(next) = incoming.recv().await {
@@ -236,12 +239,12 @@ setter は UI スレッドへ変更を積んですぐ戻り、getter は最後�
 | `adjust_size` / `checkSizeConstraint` | wrapper 自身の制限で丸める。ホストの `set_size` は `min_window_size` では制限されません。 |
 | `destroy` / `removed` | ハンドルを drop する。 |
 | OS が表示スケールを変えた (Windows) | `Parent::on_notice` が `EmbedNotice::ScaleChanged(scale)` を渡す。`scale()` を読み、`round(論理サイズ * スケール)` をホストに求めて論理サイズを保つ。 |
-| エディターが止まった (親の破棄、失敗、パニック) | `Parent::on_notice` が `EmbedNotice::Stopped` を渡す。`status()` を読む。 |
+| エディターが止まった (親の破棄、失敗、パニック) | `Parent::on_notice` が `EmbedNotice::Stopped(status)` を一度だけ、`EmbedStatus`（`Closed`、`Failed`、`Panicked`）とともに渡す。 |
 
 ```rust,no_run
 use kivact::embed::Embedded;
 
-/// wrapper のうち、開いているエディターを保持する部分。
+/// The part of a wrapper that holds an open editor.
 pub struct OpenEditor {
     embedded: Option<Embedded>,
 }
@@ -263,14 +266,14 @@ impl OpenEditor {
         }
     }
 
-    /// エディターが開いている場合の停止理由。`Running`、`Closed`（ホストが親を破棄）、
-    /// `Failed(error)`、`Panicked(error)`。
+    /// Why the editor stopped, if it is open: `Running`, `Closed` (the host
+    /// destroyed the parent), `Failed(error)` or `Panicked(error)`.
     pub fn status(&self) -> Option<kivact::embed::EmbedStatus> {
         self.embedded.as_ref().map(Embedded::status)
     }
 
     pub fn close(&mut self) {
-        // drop するとエディターが閉じ、後始末の完了を待ちます。
+        // Dropping closes the editor and waits for its cleanup.
         self.embedded = None;
     }
 }
@@ -288,28 +291,28 @@ use std::sync::Arc;
 use kivact::embed::{EmbedNotice, Parent};
 use kivact::embed::EmbedStatus;
 
-/// エディターに反応する wrapper の部分。
+/// The part of a wrapper that reacts to the editor.
 #[derive(Clone)]
 pub struct Wake {
-    /// ホストのメインスレッドへメッセージを送る (どのチャンネルでもよい)。
+    /// Post a message to the host's main thread (any channel works).
     post: Arc<dyn Fn() + Send + Sync>,
 }
 
 fn notices(parent: Parent, wake: Wake) -> Parent {
     parent.on_notice(move |notice| {
-        // ここでは待たず、あとでホストに実行させるだけにします。
+        // Do not block here: only ask the host to run later.
         keep_logical_size(notice);
         let post: &(dyn Fn() + Send + Sync) = &*wake.post;
         post();
     })
 }
 
-/// ホストが新しい物理サイズを求めて論理サイズを保つべきか。
+/// Whether the host must keep the logical size by asking for a new physical size.
 fn keep_logical_size(notice: EmbedNotice) -> bool {
     matches!(notice, EmbedNotice::ScaleChanged(_))
 }
 
-/// ホストのメインスレッドで、起きたあとに: エディターが動いているか。
+/// On the host's main thread, after the wake arrives: whether the editor runs.
 fn alive(status: EmbedStatus) -> bool {
     status == EmbedStatus::Running
 }
@@ -385,15 +388,15 @@ use kivact::embed::{Parent, ResizeAnswer};
 
 fn resizable(parent: Parent) -> Parent {
     parent.on_resize_request(|width, height| {
-        // ホストに width x height の物理ピクセルを求めます。これは UI スレッドで
-        // 動くので、要求はホスト自身の run loop へ送り、GUI スレッドの返事は
-        // 待たずに答えてください。
+        // Ask the host for width x height physical pixels. This runs on the UI
+        // thread: post the request to the host's own run loop and answer without
+        // waiting for its GUI thread.
         let _ = (width, height);
         ResizeAnswer::Pending
     })
 }
 
-// UI 側では、タスクや effect の中で:
+// In the UI, in a task or an effect:
 async fn fit_content() -> kivact::Result<()> {
     kivact::platform::request_window_size(800, 600).await
 }
@@ -418,7 +421,6 @@ wrapper が自分のサイズを答えるときの順序は 1 つです。**新�
 `test` feature を有効にすると、`kivact::test::TestParent` が本物の親ウィンドウを開きます。埋め込み、メッセージループの実行、エディターが表示した内容のキャプチャを試せます。Windows と Linux で使えます。
 
 ```rust,no_run
-# #[cfg(any(windows, target_os = "linux"))]
 # fn example() -> kivact::Result<()> {
 use std::time::Duration;
 

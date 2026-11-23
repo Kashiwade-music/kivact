@@ -1,5 +1,6 @@
 //! Role: Shared event outcomes and erased effectful handlers.
 
+use crate::reactive::arena::Key;
 use crate::reactive::error::UiError;
 use std::rc::Rc;
 
@@ -48,7 +49,7 @@ impl Handled {
     }
 }
 
-/// A shared effectful event handler.
+/// An erased event handler: what every `on_*` method and `Callback` holds.
 pub struct Handler<E>(Rc<dyn Fn(E) -> Result<Handled, UiError>>);
 impl<E> Clone for Handler<E> {
     fn clone(&self) -> Self {
@@ -57,6 +58,7 @@ impl<E> Clone for Handler<E> {
 }
 impl<E: 'static> Handler<E> {
     /// Erase a handler, preserving errors and letting successful events continue.
+    #[doc(hidden)]
     pub fn from_fn<R: HandlerResult>(f: impl Fn(E) -> R + 'static) -> Self {
         Self(Rc::new(move |event| f(event).into_outcome()))
     }
@@ -64,6 +66,56 @@ impl<E: 'static> Handler<E> {
     pub fn call(&self, event: E) -> Result<Handled, UiError> {
         (self.0)(event)
     }
+}
+
+/// What an `on_*` method without a payload takes (DEC-16): a closure
+/// `move || ..` returning `()`, `Handled` or a `Result` of them, or a
+/// shared [`Callback<()>`](crate::Callback). `M` only tells the two apart;
+/// it is inferred. Handlers with a payload take `impl Fn(E) -> R`.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot handle a `{E}` event",
+    note = "pass `move || ..` (returning `()`, `Handled` or a `Result`), or a `Callback<()>`"
+)]
+pub trait IntoHandler<E, M>: crate::reactive::sealed::IntoHandlerSeal<E, M> {
+    /// This handler, erased.
+    fn into_handler(self) -> Handler<E>;
+}
+
+/// `IntoHandler` marker: a closure without the event.
+#[doc(hidden)]
+pub struct Nullary;
+/// `IntoHandler` marker: a `Callback`.
+#[doc(hidden)]
+pub struct Handle;
+
+impl<F, R> crate::reactive::sealed::IntoHandlerSeal<(), Nullary> for F
+where
+    F: Fn() -> R + 'static,
+    R: HandlerResult,
+{
+}
+impl<F, R> IntoHandler<(), Nullary> for F
+where
+    F: Fn() -> R + 'static,
+    R: HandlerResult,
+{
+    fn into_handler(self) -> Handler<()> {
+        Handler(Rc::new(move |()| self().into_outcome()))
+    }
+}
+
+impl crate::reactive::sealed::IntoHandlerSeal<(), Handle> for crate::Callback<()> {}
+impl IntoHandler<(), Handle> for crate::Callback<()> {
+    fn into_handler(self) -> Handler<()> {
+        // The handler's own result goes through.
+        Handler(Rc::new(move |()| self.invoke(())))
+    }
+}
+
+/// The callback object a `Callback` handle names: its owner and its handler.
+pub(crate) struct CallbackFn<E> {
+    pub(crate) owner: Key,
+    pub(crate) f: Handler<E>,
 }
 
 /// Return values accepted by effectful handlers.
@@ -99,3 +151,46 @@ impl crate::reactive::sealed::HandlerResultSeal for () {}
 impl crate::reactive::sealed::HandlerResultSeal for Handled {}
 impl crate::reactive::sealed::HandlerResultSeal for Result<(), UiError> {}
 impl crate::reactive::sealed::HandlerResultSeal for Result<Handled, UiError> {}
+
+#[cfg(test)]
+mod tests {
+    //! Role: A shared Callback answers with its handler's own result.
+
+    use std::panic::Location;
+    use std::rc::Rc;
+
+    use super::{Handled, IntoHandler};
+    use crate::reactive::host_types::Host;
+
+    struct Quiet;
+    impl Host for Quiet {
+        fn wake(&self) {}
+    }
+
+    #[test]
+    fn a_callback_keeps_the_handler_result() {
+        let rt = crate::reactive::data::Runtime::register(
+            Rc::new(Quiet),
+            0,
+            crate::reactive::extensions::test_extensions(),
+        );
+        let at = Location::caller();
+        // The first owner takes the arena's first slot, which `rt.root`
+        // names (the invariant `Runtime::new` checks).
+        assert_eq!(rt.create_owner(None, at), rt.root);
+        rt.root().with_setup(|| {
+            let inline = (|| Handled::Yes).into_handler();
+            let shared = crate::callback(move |()| Handled::Yes);
+            let via_handler =
+                crate::Callback::from_handler((|| Handled::PreventDefault).into_handler());
+            assert_eq!(inline.call(()), Ok(Handled::Yes));
+            assert_eq!(shared.into_handler().call(()), Ok(Handled::Yes));
+            assert_eq!(shared.invoke(()), Ok(Handled::Yes));
+            assert_eq!(
+                via_handler.into_handler().call(()),
+                Ok(Handled::PreventDefault)
+            );
+        });
+        rt.shutdown();
+    }
+}

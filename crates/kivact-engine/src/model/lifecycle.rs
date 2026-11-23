@@ -10,13 +10,10 @@ impl Model {
         debug_assert!(!self.tree.contains(id), "node ids are unique");
         let (index, fresh) = self.tree.nodes.reserve();
         if fresh {
-            self.layout.push();
-            self.measure.push(&kind);
-            self.paint.push_slot();
-            self.editors.push(None);
+            self.slots.push(&kind);
         } else {
             // A reused slot measures the new node's kind, never the old one's.
-            self.measure.set_measure(index.0, &kind, false);
+            self.slots.measure.set_measure(index.0, &kind, false);
         }
         self.tree.install(id, HostNode::new(kind, index), index);
         if self.tree.root() == Some(id) {
@@ -25,28 +22,30 @@ impl Model {
         }
     }
     pub(crate) fn remove_slots(&mut self, id: NodeId) -> Vec<NodeId> {
-        let Self {
-            tree,
-            layout,
-            measure,
-            paint,
-            editors,
-            ..
-        } = self;
-        tree.remove_with(id, |index, node| {
-            let editor = editors[index.0].take();
-            let extents = measure.take_slot(index.0);
-            // Own user-bearing fields before a reset can fail, as the old
-            // removed HostNode did. Slot publication still follows all resets.
-            let payload = RemovedPayload {
-                node,
-                editor,
-                extents,
-            };
-            layout.reset(index.0);
-            paint.reset_slot(index.0);
-            payload
-        })
+        let gone = {
+            let Self {
+                tree,
+                layout,
+                slots,
+                ..
+            } = self;
+            tree.remove_with(id, |index, node| {
+                let (editor, extents) = slots.reset(index.0);
+                // Own user-bearing fields before a reset can fail, as the old
+                // removed HostNode did. Slot publication still follows all resets.
+                let payload = RemovedPayload {
+                    node,
+                    editor,
+                    extents,
+                };
+                layout.forget(index.0);
+                payload
+            })
+        };
+        for removed in &gone {
+            self.log.tree_removed(self.window, *removed);
+        }
+        gone
     }
 }
 
@@ -58,22 +57,15 @@ impl Model {
 )]
 struct RemovedPayload {
     node: HostNode,
-    // xtask-allow(state-fields): option: absent means the node had no editor
     editor: Option<Box<crate::measure::editor::EditorNode>>,
-    // xtask-allow(state-fields): option: absent means the node had no text extents
     extents: Option<Box<crate::measure::state::TextExtents>>,
 }
 impl Drop for Model {
     fn drop(&mut self) {
-        let Self {
-            tree,
-            measure,
-            editors,
-            ..
-        } = self;
+        let Self { tree, slots, .. } = self;
         tree.nodes.drain_payloads(|index, node| {
-            let extents = measure.take_slot(index.0);
-            let editor = editors[index.0].take();
+            let extents = slots.measure.take_slot(index.0);
+            let editor = slots.editors[index.0].take();
             drop(RemovedPayload {
                 node,
                 editor,

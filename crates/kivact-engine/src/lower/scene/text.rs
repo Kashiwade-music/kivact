@@ -3,7 +3,7 @@ use super::state::State;
 use crate::lower::context::Context;
 use crate::lower::effects::Tint;
 use crate::lower::fill::gradient;
-use kivact_types::render::{GlyphStroke, Paint};
+use arvane_protocol::{GlyphStroke, RasterPaint};
 use kivact_types::{DrawCmd, Fill, FillImage, FillLayer, Point, Rect};
 impl Context<'_> {
     pub(super) fn paint_text(&self, cmd: &DrawCmd, state: &mut State<'_>) -> bool {
@@ -50,7 +50,7 @@ impl Context<'_> {
                 let outline = match &run.stroke {
                     Some((stroke, Fill::Solid(color))) => Some(GlyphStroke {
                         stroke: stroke.clone(),
-                        paint: Paint::Solid(tint.color(*color)),
+                        paint: RasterPaint::Solid(tint.color(*color)),
                     }),
                     Some(_) => {
                         // A non-solid outline is not drawn; it is counted.
@@ -61,7 +61,7 @@ impl Context<'_> {
                 };
                 let glyphs = match &run.fill {
                     None => None,
-                    Some(Fill::Solid(color)) => Some(Paint::Solid(tint.color(*color))),
+                    Some(Fill::Solid(color)) => Some(RasterPaint::Solid(tint.color(*color))),
                     Some(Fill::Layers(layers)) => {
                         let bounds = Rect {
                             x: origin.x,
@@ -119,7 +119,7 @@ impl Context<'_> {
         let (glyphs, decorations) = match fill {
             Fill::Solid(color) => {
                 let color = tint.color(*color);
-                (Some(Paint::Solid(color)), Some(color))
+                (Some(RasterPaint::Solid(color)), Some(color))
             }
             Fill::Layers(layers) => (self.text_fill(layers, bounds, tint), None),
         };
@@ -142,7 +142,7 @@ impl Context<'_> {
     /// The paint of glyphs filled with `layers`: one gradient layer over
     /// `bounds`, the text's box. Any other fill is not drawn and is
     /// counted as dropped.
-    fn text_fill(&self, layers: &[FillLayer], bounds: Rect, tint: &Tint) -> Option<Paint> {
+    fn text_fill(&self, layers: &[FillLayer], bounds: Rect, tint: &Tint) -> Option<RasterPaint> {
         let [
             FillLayer {
                 image: FillImage::Gradient(g),

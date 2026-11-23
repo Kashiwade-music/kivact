@@ -1,18 +1,18 @@
 //! Role: Text styles and runs of the painter, and the `Draw` text commands.
 
 use super::recorder::Draw;
-use crate::color::Color;
+use crate::color_value::Color;
 use crate::geometry::Point;
+use crate::length::Resolve;
 use crate::paint::{Paint, fill_layer};
 use crate::path::Path;
 use crate::text::{
-    FontFeature, FontKerning, FontVariation, LineHeight, TextDecorationLine, TextLength,
-    wire_variations,
+    FontFeature, FontKerning, FontVariation, LineHeight, TextDecorationLine, wire_variations,
 };
 use crate::theme::value::Theme;
 use crate::transform::Transform;
 use kivact_types as p;
-use kivact_types::{DrawCmd, Fill, Stroke, TextMetrics};
+use kivact_types::{DrawCmd, Fill, Length, Stroke, TextMetrics};
 
 /// Text style for `Draw::text` and `Draw::measure_text`: the text
 /// vocabulary of element styles, so canvas text matches element text.
@@ -41,16 +41,13 @@ pub struct TextFormat {
     pub size: f64,
     pub weight: u16,
     pub color: Color,
-    // xtask-allow(state-fields): option: an authored format property; absent means the inherited or default value
     /// A family name or a generic family (`"system-ui"`, `"sans-serif"`,
     /// `"serif"`, `"monospace"`), or an ordered comma-separated CSS list;
     /// `None` (the default) uses the family the
     /// node inherits (`style().font_family(..)`, else the theme's).
     pub family: Option<String>,
-    // xtask-allow(state-fields): option: set by the caller's format literal; false (the default) draws the upright face, true the family's italic face
     /// Use the italic face of the family when it has one (default `false`).
     pub italic: bool,
-    // xtask-allow(state-fields): option: an authored format property; absent means the inherited or default value
     /// The distance between lines (CSS `line-height`; a number is a
     /// multiple of `size`, `LineHeight::px(20)` is px). `None` (the
     /// default) uses the line height the node inherits
@@ -59,27 +56,23 @@ pub struct TextFormat {
     pub line_height: Option<LineHeight>,
     /// Extra space after every character (CSS `letter-spacing`; px or
     /// `em(..)` of `size`).
-    pub letter_spacing: TextLength,
+    pub letter_spacing: Length,
     /// Extra space after every space (CSS `word-spacing`; px or `em(..)`
     /// of `size`).
-    pub word_spacing: TextLength,
+    pub word_spacing: Length,
     /// Pair kerning (CSS `font-kerning`).
     pub font_kerning: FontKerning,
     /// OpenType features (CSS `font-feature-settings`):
     /// `vec![("ss01", 1).into()]`.
     pub features: Vec<FontFeature>,
-    // xtask-allow(state-fields): option: set by the caller's format literal; false (the default) keeps the font's digit widths, true adds the tnum feature
     /// Digits of one width (CSS `font-variant-numeric: tabular-nums`).
     pub tabular_nums: bool,
     /// Lines drawn with the text (CSS `text-decoration-line`).
     pub decoration: TextDecorationLine,
-    // xtask-allow(state-fields): option: an authored format property; absent means the inherited or default value
     /// Their color (default: `color`).
     pub decoration_color: Option<Color>,
-    // xtask-allow(state-fields): option: an authored format property; absent means the inherited or default value
     /// The glyph fill: any paint (a gradient too); None fills with `color`.
     pub fill: Option<Paint>,
-    // xtask-allow(state-fields): option: an authored format property; absent means the inherited or default value
     /// The glyph outline, its stroke and paint (drawn with the fill; the
     /// order is the `paint-order` of the text: fill first by default).
     pub stroke: Option<(Stroke, Paint)>,
@@ -96,12 +89,12 @@ impl Default for TextFormat {
             baseline: TextBaseline::Top,
             size: 14.0,
             weight: 400,
-            color: Color::token(crate::ColorToken::Text),
+            color: crate::color::TEXT,
             family: None,
             italic: false,
             line_height: None,
-            letter_spacing: TextLength::default(),
-            word_spacing: TextLength::default(),
+            letter_spacing: Length::Px(0.0),
+            word_spacing: Length::Px(0.0),
             font_kerning: FontKerning::Auto,
             features: Vec::new(),
             tabular_nums: false,
@@ -115,21 +108,35 @@ impl Default for TextFormat {
     }
 }
 
-/// The engine's fill of `paint` in `theme`.
-pub(crate) fn fill_for(paint: &Paint, theme: &Theme) -> Fill {
+/// The engine's fill of `paint` in `theme`; a length the paint holds that
+/// the theme cannot take is counted in `dropped`.
+pub(crate) fn fill_for(paint: &Paint, theme: &Theme, dropped: &mut u32) -> Fill {
     match paint.solid() {
         Some(c) => Fill::Solid(c.resolve(theme)),
-        None => Fill::Layers(vec![fill_layer(paint, theme)]),
+        None => {
+            let mut cx = Resolve::of_theme(theme, dropped);
+            Fill::Layers(vec![fill_layer(paint, &mut cx)])
+        }
     }
 }
 
+/// The px of a spacing `length` at `size`, its theme variables read in
+/// `theme`; an invalid one is counted in `unsupported`.
+fn spacing_px(length: Length, size: f64, theme: &Theme, unsupported: &mut u32) -> f64 {
+    crate::text::text_length(length, theme, unsupported).map_or(0.0, |l| l.px(size))
+}
+
+/// The text run of `text`, its lengths resolved in `theme` (the theme the
+/// text is drawn or measured in, so both agree). An invalid length counts
+/// in `unsupported`.
 pub fn text_run(
     text: &str,
     origin: p::Point,
     style: &TextFormat,
     scale: f64,
     color: p::Rgba,
-    theme: Option<&Theme>,
+    theme: &Theme,
+    unsupported: &mut u32,
 ) -> p::TextRun {
     let size = style.size * scale;
     let (features, _) = crate::text::features(Some(&style.features), style.tabular_nums);
@@ -140,27 +147,23 @@ pub fn text_run(
         font_size: size,
         weight: style.weight,
         color,
-        fill: style
-            .fill
-            .as_ref()
-            .and_then(|f| theme.map(|t| fill_for(f, t))),
+        fill: style.fill.as_ref().map(|f| fill_for(f, theme, unsupported)),
         stroke: style
             .stroke
             .as_ref()
-            .and_then(|(stroke, paint)| theme.map(|t| (stroke.clone(), fill_for(paint, t)))),
+            .map(|(stroke, paint)| (stroke.clone(), fill_for(paint, theme, unsupported))),
         variations,
         font_width: style.font_width,
         family: style.family.clone(),
         italic: style.italic,
         line_height: style.line_height,
-        letter_spacing: style.letter_spacing.to_wire().px(style.size) * scale,
-        word_spacing: style.word_spacing.to_wire().px(style.size) * scale,
+        letter_spacing: spacing_px(style.letter_spacing, style.size, theme, unsupported) * scale,
+        word_spacing: spacing_px(style.word_spacing, style.size, theme, unsupported) * scale,
         kerning: style.font_kerning,
         features,
         decoration: p::TextDecoration {
             lines: style.decoration,
-            // Measuring needs no color (and no theme).
-            color: theme.and_then(|t| style.decoration_color.map(|c| c.resolve(t))),
+            color: style.decoration_color.map(|c| c.resolve(theme)),
             ..p::TextDecoration::default()
         },
     }
@@ -199,7 +202,8 @@ impl Draw {
             &style,
             1.0,
             self.color(style.color),
-            Some(&self.theme),
+            &self.theme,
+            &mut self.unsupported,
         );
         self.cmds.push(DrawCmd::Text(run));
     }
@@ -227,10 +231,7 @@ impl Draw {
 
     /// The outline of `text` drawn at `pos` with `style` as a path (Canvas
     /// has none; SVG does), placed as `text` places it.
-    pub fn text_path(&self, text: &str, pos: Point, style: &TextFormat) -> Path {
-        let Some(m) = &self.measurer else {
-            return Path::new();
-        };
+    pub fn text_path(&mut self, text: &str, pos: Point, style: &TextFormat) -> Path {
         let origin = self.anchored(text, pos, style);
         let run = text_run(
             text,
@@ -238,8 +239,10 @@ impl Draw {
             style,
             1.0,
             p::Rgba::TRANSPARENT,
-            None,
+            &self.theme,
+            &mut self.unsupported,
         );
+        let m = &self.measurer;
         let cmds = match m.shape(&run, None) {
             Some(shaped) => outline_runs(m.as_ref(), &shaped),
             None => Vec::new(),
@@ -255,6 +258,7 @@ impl Draw {
     ///
     /// ```
     /// use kivact::prelude::*;
+    /// use kivact::style::Color;
     /// use kivact::draw::{Draw};
     /// use kivact::geometry::{Point, Rect};
     /// use kivact::draw::TextFormat;
@@ -262,17 +266,22 @@ impl Draw {
     /// fn pill(d: &mut Draw, label: &str, at: Point) {
     ///     let style = TextFormat { size: 11.0, ..TextFormat::default() };
     ///     let m = d.measure_text(label, &style);
-    ///     d.rounded_rect(Rect::new(at.x, at.y, m.size.width + 12.0, m.size.height + 4.0), 4.0, ColorToken::Accent);
+    ///     d.rounded_rect(Rect::new(at.x, at.y, m.size.width + 12.0, m.size.height + 4.0), 4.0, kivact::style::color::ACCENT);
     ///     d.text(label, Point::new(at.x + 6.0, at.y + 2.0), style);
     /// }
     /// # let _ = pill;
     /// ```
     pub fn measure_text(&self, text: &str, style: &TextFormat) -> TextMetrics {
-        let Some(m) = &self.measurer else {
-            return TextMetrics::default();
-        };
         let origin = p::Point { x: 0.0, y: 0.0 };
-        let run = text_run(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
-        m.measure(&run)
+        let run = text_run(
+            text,
+            origin,
+            style,
+            1.0,
+            p::Rgba::TRANSPARENT,
+            &self.theme,
+            &mut 0,
+        );
+        self.measurer.measure(&run)
     }
 }

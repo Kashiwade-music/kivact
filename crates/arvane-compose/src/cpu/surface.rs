@@ -1,7 +1,7 @@
 //! Role: Premultiplied RGBA8 pixel buffers of the CPU compositor and sampling.
 
+use arvane_protocol::PixelRect;
 use kivact_types::geometry::Point;
-use kivact_types::render::PixelRect;
 
 /// A premultiplied color with components in 0..=1 (red, green, blue, alpha).
 pub(crate) type Premul = [f32; 4];

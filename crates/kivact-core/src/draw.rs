@@ -1,37 +1,12 @@
 //! Role: Drawing tools paint canvases and local element layers.
-//! Coordinates are node-local logical px after layout. The paints
-//! (`Paint`, the gradients), shapes, strokes, filters, blending and
-//! transforms are the painter's vocabulary and live here; element styles
-//! take the same values (`style().shadow(..)`, `.transform(..)`). Pushed
-//! transforms also map text, images and clips.
-
-#[doc(inline)]
-pub use kivact_style::effect::{BlendMode, CornerRadius, Filter, Shadow, Shape};
-#[doc(inline)]
-pub use kivact_style::paint::{
-    CanvasGradient, Gradient, GradientExtend, Paint, RadialExtent, conic_gradient, linear_gradient,
-    radial_gradient,
-};
-#[doc(inline)]
-pub use kivact_style::transform::Transform;
+//! Coordinates are node-local logical px after layout. CSS values (paints,
+//! gradients, shadows, filters, transforms, shapes and masks) are in
+//! `kivact::style`; drawing takes them from there. Pushed transforms also map
+//! text, images and clips.
 
 #[doc(inline)]
 pub use kivact_style::draw::{
-    Draw, FillRule, ImageOptions, InlineBox, InlineBoxPlacement, InlineParagraph, IntrinsicSize,
-    Layer, LineCap, LineJoin, Path, PathContour, Pixels, RegionId, Stroke, TextBaseline,
-    TextFormat, TextMetrics, TextParagraph, TextRun, text_run,
+    Composite, Draw, FillRule, ImageOptions, InlineBox, InlineBoxPlacement, InlineParagraph, Layer,
+    LineCap, LineJoin, Mix, Path, PathContour, Pixels, RegionId, Stroke, TextBaseline, TextFormat,
+    TextMetrics, TextParagraph,
 };
-
-/// The filter graph's value types, as SVG names them.
-#[doc(inline)]
-pub use kivact_style::draw::filter;
-#[doc(inline)]
-pub use kivact_style::draw::{
-    BackgroundClip, BackgroundOrigin, BorderImage, BorderImageRepeat, Composite, FilterGraph,
-    FilterInput, FilterShader, Mask, MaskComposite, MaskLayer, MaskMode, PaintShader, ShaderFilter,
-    ShaderPaint, ShaderValue,
-};
-
-mod offscreen;
-#[doc(inline)]
-pub use offscreen::Offscreen;

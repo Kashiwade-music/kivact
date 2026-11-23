@@ -1,10 +1,11 @@
 //! Role: Store running state style transitions, their tracks and color channels.
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
 
-use kivact_types::motion::{SpringRun, Transition, TransitionProp};
-use kivact_types::{NodeId, PaintProps, PropBasis, PropInterp, Rgba, apply_components};
+use super::interp::{PropBasis, PropInterp, apply_components};
+use crate::model::motion_run::MotionRun;
+use kivact_types::motion::{SpringRun, TransitionProp};
+use kivact_types::{NodeId, PaintProps, Rgba};
 
 /// The state motion group: the transitions of the nodes whose state
 /// styles are moving (allocated only while one moves).
@@ -15,11 +16,6 @@ impl StateMotion {
     /// The transition of `id`, while it moves.
     pub(crate) fn get(&self, id: NodeId) -> Option<&StateAnimation> {
         self.0.get(&id)
-    }
-
-    /// Whether a transition moves.
-    pub(crate) fn is_active(&self) -> bool {
-        !self.0.is_empty()
     }
 
     /// Drop the transition of `id`.
@@ -44,12 +40,7 @@ impl StateMotion {
     /// either is running): such a node is a compositor layer. Captured and
     /// held tracks do not move it.
     pub(crate) fn moves_layer(&self, id: NodeId) -> bool {
-        self.0.get(&id).is_some_and(|a| {
-            a.tracks.iter().any(|t| {
-                matches!(t.phase, TrackPhase::Running { .. })
-                    && matches!(t.prop, TransitionProp::Opacity | TransitionProp::Transform)
-            })
-        })
+        self.0.get(&id).is_some_and(StateAnimation::moves_layer)
     }
 }
 
@@ -93,8 +84,6 @@ pub(crate) struct StateAnimation {
 pub(crate) struct PropTrack {
     /// The property it moves.
     pub(super) prop: TransitionProp,
-    /// How it moves.
-    pub(super) transition: Arc<Transition>,
     /// Where it is in its life.
     pub(super) phase: TrackPhase,
 }
@@ -113,16 +102,12 @@ pub(crate) enum TrackPhase {
         /// The interrupted spring state.
         spring: SpringRun,
     },
-    /// Moving from `interp.from` to `interp.to` since `start` (host ns).
+    /// Moving: `run` interpolates the numbers of `basis`.
     Running {
-        /// The interpolation.
-        interp: PropInterp,
-        /// The numbers drawn now.
-        current: Vec<f64>,
-        /// When it started (host ns).
-        start: u64,
-        /// A spring's velocity, step time and iteration.
-        spring: SpringRun,
+        /// The shape the numbers are written into.
+        basis: PropBasis,
+        /// The run.
+        run: MotionRun,
     },
     /// The run ended away from the target (alternate with an even count):
     /// `value` is drawn until the next capture.
@@ -141,9 +126,7 @@ impl TrackPhase {
     fn drawn(&self) -> Option<(&PropBasis, &[f64])> {
         match self {
             TrackPhase::Captured { interp, shown, .. } => Some((&interp.basis, shown)),
-            TrackPhase::Running {
-                interp, current, ..
-            } => Some((&interp.basis, current)),
+            TrackPhase::Running { basis, run } => Some((basis, &run.current)),
             TrackPhase::Held { interp, value } => Some((&interp.basis, value)),
             TrackPhase::Settled => None,
         }
@@ -192,6 +175,15 @@ impl StateAnimation {
         self.tracks
             .iter()
             .all(|t| matches!(t.phase, TrackPhase::Settled))
+    }
+
+    /// Whether it moves its node's opacity or transform now (a running
+    /// track of either): the node is a compositor layer while it does.
+    pub(crate) fn moves_layer(&self) -> bool {
+        self.tracks.iter().any(|t| {
+            matches!(t.phase, TrackPhase::Running { .. })
+                && matches!(t.prop, TransitionProp::Opacity | TransitionProp::Transform)
+        })
     }
 
     /// Whether any track waits for a retarget.

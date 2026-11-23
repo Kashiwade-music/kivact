@@ -5,14 +5,14 @@ use super::data::{ColorControls, ColorOwner, Snapshot, SwatchSelection};
 use super::{controls_machine, machine};
 use kivact::interaction::DragApi;
 use kivact::state::IntoValue;
-use kivact::state::{Binding, Callback, MachineHandle, Value, machine, memo};
-use kivact::style::Color;
+use kivact::state::{Callback, MachineHandle, Signal, Value, machine, memo};
+use kivact::style::{Color, Theme, use_theme};
 use kivact::view::EditPhase;
 
 #[derive(Clone, Copy)]
 pub(in crate::color_wheel) struct ColorOptions {
-    pub(in crate::color_wheel) color: Binding<Color>,
-    pub(in crate::color_wheel) palette: Option<Binding<Vec<Color>>>,
+    pub(in crate::color_wheel) color: Signal<Color>,
+    pub(in crate::color_wheel) palette: Option<Signal<Vec<Color>>>,
     pub(in crate::color_wheel) blocked: Value<bool>,
 }
 #[derive(Clone, Copy)]
@@ -30,13 +30,13 @@ impl std::ops::Deref for Model {
 }
 impl Model {
     pub(in crate::color_wheel) fn new(
-        color: Binding<Color>,
-        palette: Option<Binding<Vec<Color>>>,
+        color: Signal<Color>,
+        palette: Option<Signal<Vec<Color>>>,
         observer: Option<Callback<EditPhase>>,
         blocked: Value<bool>,
         drag: DragApi<Channel>,
     ) -> Self {
-        let initial_hue = color_to_hsv(color.into_value().get_untracked()).0;
+        let initial_hue = color_to_hsv(color.into_value().get_untracked(), &use_theme().get()).0;
         let controls = machine(
             ColorControls {
                 channel: Channel::Hue,
@@ -46,7 +46,9 @@ impl Model {
             || controls_machine::Machine,
             |_, ()| {},
         );
-        controls.feed(color.into_value(), controls_machine::Event::ColorChanged);
+        controls.feed(color.into_value(), |color: Color| {
+            controls_machine::Event::ColorChanged(color_to_hsv(color, &use_theme().get()))
+        });
         if let Some(palette) = palette {
             controls.feed(
                 memo(move || palette.into_value().get().len()),
@@ -94,21 +96,21 @@ impl Model {
         }
         self.edit.once(owner, || self.snapshot(), write);
     }
-    pub(in crate::color_wheel) fn hsv(self) -> (f64, f64, f64, f64) {
+    pub(in crate::color_wheel) fn hsv(self, theme: &Theme) -> (f64, f64, f64, f64) {
         let color = self.color.into_value().get_untracked();
-        let (_, s, v) = color_to_hsv(color);
-        (self.hue.get_untracked(), s, v, color.components()[3])
+        let (_, s, v) = color_to_hsv(color, theme);
+        (self.hue.get_untracked(), s, v, color.components(theme)[3])
     }
-    pub(in crate::color_wheel) fn channel(self, c: Channel) -> (f64, f64) {
-        let (h, s, v, a) = self.hsv();
+    pub(in crate::color_wheel) fn channel(self, c: Channel, theme: &Theme) -> (f64, f64) {
+        let (h, s, v, a) = self.hsv(theme);
         match c {
             Channel::Hue => (h, h),
             Channel::Sv => (s, v),
             Channel::Alpha => (a, a),
         }
     }
-    pub(in crate::color_wheel) fn set(self, c: Channel, x: f64, y: f64) {
-        let (mut h, mut s, mut v, mut a) = self.hsv();
+    pub(in crate::color_wheel) fn set(self, c: Channel, x: f64, y: f64, theme: &Theme) {
+        let (mut h, mut s, mut v, mut a) = self.hsv(theme);
         match c {
             Channel::Hue => h = x.rem_euclid(360.0),
             Channel::Sv => {

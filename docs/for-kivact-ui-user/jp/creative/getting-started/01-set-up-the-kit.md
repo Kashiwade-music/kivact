@@ -28,10 +28,11 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_creative as ui;
 
-fn inspector() -> impl IntoView {
+#[component]
+fn inspector() -> impl Element {
     let x = signal(120.0);
     ui::panel(
-        "インスペクター",
+        "Inspector",
         column((ui::property_row(
             "X",
             ui::number("X", x)
@@ -47,7 +48,7 @@ fn inspector() -> impl IntoView {
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("レイヤーインスペクター")
+    App::new("Layer inspector")
         .theme(ui::theme(ThemeMode::Dark))
         .run(inspector)
 }

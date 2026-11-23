@@ -11,5 +11,9 @@ description = "Borrowed-tree layout computation and neutral derived geometry"
 kivact-types = { path = "../kivact-types", version = "0.1.0" }
 taffy = { workspace = true }
 
+[features]
+# The comparison of retained layout with a fresh one (the engine's test driver).
+reference = []
+
 [lints]
 workspace = true

@@ -40,17 +40,6 @@ use kivact_core::view::{EditPhase, HandlerResult};
 /// on release, and cancel on Escape or pointer cancellation:
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// # pub use kivact_core::{view, state, style};
-/// # pub mod prelude {
-/// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-/// # }
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::prelude::*;
 /// use kivact::interaction::EditSession;
 /// use kivact::view::{ButtonPress, Handled, Key, MouseButton, PointerPhase};
@@ -82,7 +71,6 @@ use kivact_core::view::{EditPhase, HandlerResult};
 pub struct EditSession<T: 'static> {
     session: MachineHandle<machine::Machine<T>>,
     restore: Callback<T>,
-    // xtask-allow(state-fields): option: the observer callback a setter supplied, absent until set
     observer: Var<Option<Callback<EditPhase>>>,
     /// Passes an error of the observer on, as the session's owner reports it.
     failed: Callback<UiError>,
@@ -185,8 +173,8 @@ impl<T: Clone + 'static> EditSession<T> {
     /// is ignored and no further phase is reported.
     ///
     /// ```no_run
-    /// use kivact_core::state::{signal, Signal};
-    /// use kivact_interaction::EditSession;
+    /// use kivact::state::{signal, Signal};
+    /// use kivact::interaction::EditSession;
     /// // The session must be created during component setup.
     /// let value = signal(10.0);
     /// let edit = EditSession::new(move |initial| value.set(initial));

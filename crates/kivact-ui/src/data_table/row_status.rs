@@ -7,29 +7,27 @@ use kivact_core::view::{IntoView, Role, View, dynamic};
 use kivact_core::view::{Node, icon, node};
 use kivact_interaction::Tone;
 
-use crate::table_values::RowStatus;
+use crate::data_table::types::RowStatus;
 
 fn lane() -> Node {
     node().style(
         style()
             .width(28)
             .min_width(28)
-            .shrink(0)
+            .flex_shrink(0)
             .align_items(Align::Center)
             .justify_content(Justify::Center),
     )
 }
 
 pub(super) fn header() -> Node {
-    let paint = use_theme()
+    let header_key = *use_theme()
         .get()
-        .ext::<crate::UiTokens>()
-        .data_table
-        .row_status
-        .clone();
+        .ext::<crate::data_table::look::DataTableTheme>()
+        .row_status_header_key_value();
     lane()
         .role(Role::ColumnHeader)
-        .name(message(paint.header_key, "Row status"))
+        .name(message(header_key, "Row status"))
 }
 
 pub(super) fn cell(status: Value<Option<RowStatus>>, role: Role) -> (Node, View) {
@@ -64,25 +62,20 @@ fn marker(status: RowStatus) -> View {
         .focusable(true)
         .child(glyph.map(icon))
         .style(move || {
-            let paint = use_theme()
-                .get()
-                .ext::<crate::UiTokens>()
-                .data_table
-                .row_status
-                .clone();
+            let theme = use_theme().get();
             let color = color.unwrap_or(match tone {
-                Tone::Neutral => paint.neutral,
-                Tone::Info => paint.info,
-                Tone::Success => paint.success,
-                Tone::Warning => paint.warning,
-                Tone::Danger => paint.danger,
-                Tone::Accent => paint.accent,
+                Tone::Neutral => theme.get(&crate::data_table::look::ROW_STATUS_NEUTRAL_VAR),
+                Tone::Info => theme.get(&crate::data_table::look::ROW_STATUS_INFO_VAR),
+                Tone::Success => theme.get(&crate::data_table::look::ROW_STATUS_SUCCESS_VAR),
+                Tone::Warning => theme.get(&crate::data_table::look::ROW_STATUS_WARNING_VAR),
+                Tone::Danger => theme.get(&crate::data_table::look::ROW_STATUS_DANGER_VAR),
+                Tone::Accent => theme.get(&crate::data_table::look::ROW_STATUS_ACCENT_VAR),
             });
             if has_icon {
                 style().size(12, 12).color(color)
             } else {
-                style().size(8, 8).radius(4).background(color)
+                style().size(8, 8).border_radius(4).background(color)
             }
         });
-    tooltip(label).attach(mark)
+    tooltip(label, mark).into_view()
 }

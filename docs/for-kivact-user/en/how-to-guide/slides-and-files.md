@@ -7,15 +7,16 @@
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::ui::{carousel, CarouselMode, dropzone};
-fn content() -> impl IntoView {
+#[component]
+fn content() -> impl Element {
     let index = signal(0usize);
     column((
         carousel(index, (text("One"), text("Two")))
             .mode(CarouselMode::Scroll)
             .style(style().width(240).height(160)),
         dropzone("Choose or drop text files")
-            .multiple()
-            .pick_on_press()
+            .multiple(true)
+            .pick_on_press(true)
             .validate(|file| {
                 (file.path.extension().and_then(|x| x.to_str()) != Some("txt"))
                     .then(|| "Choose a text file.".into())
@@ -29,8 +30,8 @@ fn content() -> impl IntoView {
 
 Selection storage, clearing and selected-name display belong to the caller: store the accepted files in `.on_files`, render their names, and clear that storage with a regular button. `.hint(..)` supplies guidance and `.filters(..)` configures the native picker. Filters alone do not validate dropped files.
 
-Carousel recipes expose root, viewport, track, slide, previous and next. Dropzone recipes expose root, label, hint and status. `UiTokens` groups optional theme overrides under `carousel` and `dropzone`; default visual values remain in the standard recipes.
+Carousel recipes expose root, viewport, track, slide, previous and next. Dropzone recipes expose root, label, hint and status. Each component's theme variables in `kivact::ui::theme::{carousel, dropzone}` hold the optional overrides; default visual values remain in the standard recipes.
 
 The [APG carousel pattern](https://www.w3.org/WAI/ARIA/apg/patterns/carousel/) informs the native semantics. Native groups use names containing Carousel/Slide because role descriptions are unavailable. A focusable carousel group additionally supports arrow navigation. There is no automatic rotation; the regular buttons retain keyboard focus when activated. Headless custom views can use `interaction::use_carousel` and `interaction::use_dropzone`.
 
-`.accept_drop(enabled)` gates drag/drop input independently of `.pick_on_press()`. A reactive change to false ends any current drag-over visit through the shared leave event, while native picking remains available. Use this for a compact picker-only field.
+`.accept_drop(enabled)` gates drag/drop input independently of `.pick_on_press(true)`. A reactive change to false ends any current drag-over visit through the shared leave event, while native picking remains available. Use this for a compact picker-only field.

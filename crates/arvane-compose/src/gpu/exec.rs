@@ -8,15 +8,15 @@ use super::external::{self, ExternalPass};
 use super::filters::FilterGeometry;
 use super::pass::{CLEAR, Drawn, FrameTextures, view, with_pass};
 use super::state::GpuContext;
-use super::targets;
-use crate::ComposeError;
+use super::targets::{self, Pool};
+use crate::RenderError;
 use crate::cache::{CacheIndex, ChunkKey, ChunkRecord, LayerRecord};
 use crate::plan::{self, ChunkTask, Op, Plan, PlannedExport, Redraw, TargetKind, TargetSpec};
-use arvane_render::Canvas;
+use arvane_protocol::{Composition, FrameReport, LayerKey, PixelRect};
+use arvane_render::{Canvas, GpuFrameRaster, GpuRaster};
+use kivact_types::export::{ExportedFrame, FrameStats};
 use kivact_types::geometry::Point;
-use kivact_types::render::{
-    Composition, ExportedFrame, FrameReport, FrameStats, LayerKey, RenderScene,
-};
+use std::collections::HashMap;
 
 /// What drawing a frame's operations and sending its exports produced: the exported frames, the external frames missed, and the sinks whose GPU frame waits for a slot.
 type DrawOutcome = (
@@ -41,8 +41,8 @@ impl GpuContext {
         composition: &Composition,
         size: (u32, u32),
         scale: f64,
-    ) -> Result<Drawn, ComposeError> {
-        self.check()?;
+    ) -> Result<Drawn, RenderError> {
+        self.gpu.check()?;
         let cache = std::mem::take(&mut self.cache);
         match self.draw_planned(composition, size, scale, &cache) {
             Ok((drawn, records)) => {
@@ -78,22 +78,22 @@ impl GpuContext {
         size: (u32, u32),
         scale: f64,
         cache: &CacheIndex,
-    ) -> Result<(Drawn, Records), ComposeError> {
+    ) -> Result<(Drawn, Records), RenderError> {
         let plan = plan::build(composition, size, scale, cache, true)
-            .map_err(|error| ComposeError::InvalidComposition(error.message))?;
+            .map_err(|error| RenderError::InvalidComposition(error.message))?;
         if plan.targets.len() > plan::INLINE_TARGET_LIMIT {
-            return Err(ComposeError::GpuLimit(format!(
+            return Err(RenderError::GpuLimit(format!(
                 "{} targets in one frame",
                 plan.targets.len()
             )));
         }
-        let limit = self.device.limits().max_texture_dimension_2d;
+        let limit = self.gpu.device.limits().max_texture_dimension_2d;
         if plan
             .targets
             .iter()
             .any(|t| t.size.0 > limit || t.size.1 > limit)
         {
-            return Err(ComposeError::GpuLimit(format!(
+            return Err(RenderError::GpuLimit(format!(
                 "a target is larger than {limit} px"
             )));
         }
@@ -110,11 +110,18 @@ impl GpuContext {
             ..
         } = plan;
         let mut textures = self.allocate(&targets)?;
-        for task in &chunks {
-            self.raster_chunk(task, &mut stats)?;
-        }
+        raster_chunks(
+            &mut self.gpu.raster.borrow_mut(),
+            &self.gpu.device,
+            &self.gpu.queue,
+            &mut self.chunks,
+            &mut self.pool,
+            &chunks,
+            &mut stats,
+        )?;
+        self.gpu.check()?;
         let frames = external_frames(&ops);
-        let mut external = std::mem::take(&mut self.external);
+        let mut external = std::mem::take(&mut *self.gpu.external.borrow_mut());
         let result = self.draw_ops(
             &mut external,
             &frames,
@@ -123,7 +130,7 @@ impl GpuContext {
             &exports,
             composition,
         );
-        self.external = external;
+        *self.gpu.external.borrow_mut() = external;
         let (exported, missed, pending) = result?;
         let output = self.finish_targets(&targets, textures);
         let report = FrameReport {
@@ -153,9 +160,10 @@ impl GpuContext {
         textures: &mut Vec<wgpu::Texture>,
         exports: &[PlannedExport],
         composition: &Composition,
-    ) -> Result<DrawOutcome, ComposeError> {
+    ) -> Result<DrawOutcome, RenderError> {
         let pass = ExternalPass::begin(external, frames)?;
         let mut encoder = self
+            .gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Arvane compositor frame"),
@@ -168,11 +176,11 @@ impl GpuContext {
         let FrameTextures { targets, .. } = frame;
         *textures = targets;
         let submitted = pass.submit();
-        self.queue.submit([encoder.finish()]);
+        self.gpu.queue.submit([encoder.finish()]);
         submitted.finish()?;
         recorded?;
         let (exported, pending) = self.send_exports(exports, composition, textures)?;
-        self.check()?;
+        self.gpu.check()?;
         Ok((exported, external.take_missed(), pending))
     }
 
@@ -182,7 +190,7 @@ impl GpuContext {
         encoder: &mut wgpu::CommandEncoder,
         ops: &[Op<'_>],
         frame: &FrameTextures<'_>,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         // The output starts transparent; the plan clears only the targets it draws into.
         with_pass(encoder, &view(frame.target(0)?), CLEAR, |_| {});
         for op in ops {
@@ -223,14 +231,14 @@ impl GpuContext {
         &self,
         encoder: &mut wgpu::CommandEncoder,
         target: u32,
-        rect: Option<kivact_types::render::PixelRect>,
+        rect: Option<arvane_protocol::PixelRect>,
         frame: &FrameTextures<'_>,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let view = view(frame.target(target)?);
         match rect {
             None => with_pass(encoder, &view, CLEAR, |_| {}),
             Some(r) => with_pass(encoder, &view, wgpu::LoadOp::Load, |pass| {
-                pass.set_pipeline(&self.pipelines.clear);
+                pass.set_pipeline(&self.gpu.pipelines.clear);
                 pass.set_scissor_rect(r.x, r.y, r.width, r.height);
                 pass.draw(0..3, 0..1);
             }),
@@ -239,26 +247,26 @@ impl GpuContext {
     }
 
     /// Make the textures of the plan's targets: pooled, or kept from earlier frames.
-    fn allocate(&mut self, specs: &[TargetSpec]) -> Result<Vec<wgpu::Texture>, ComposeError> {
+    fn allocate(&mut self, specs: &[TargetSpec]) -> Result<Vec<wgpu::Texture>, RenderError> {
         let mut out = Vec::with_capacity(specs.len());
         for spec in specs {
             let texture = match spec.kind {
-                TargetKind::Temp => self.pool.take(&self.device, spec.size),
+                TargetKind::Temp => self.pool.take(&self.gpu.device, spec.size),
                 TargetKind::Kept { key, reuse, .. } => match self.kept.remove(&key) {
                     Some(texture) if (texture.width(), texture.height()) == spec.size => texture,
                     Some(texture) => {
                         if reuse {
-                            return Err(ComposeError::Backend(
+                            return Err(RenderError::Backend(
                                 "a reused surface changed size".into(),
                             ));
                         }
                         self.pool.give(texture);
-                        targets::target(&self.device, spec.size)
+                        targets::target(&self.gpu.device, spec.size)
                     }
                     None if reuse => {
-                        return Err(ComposeError::Backend("a reused surface is missing".into()));
+                        return Err(RenderError::Backend("a reused surface is missing".into()));
                     }
-                    None => targets::target(&self.device, spec.size),
+                    None => targets::target(&self.gpu.device, spec.size),
                 },
             };
             out.push(texture);
@@ -285,99 +293,7 @@ impl GpuContext {
                 TargetKind::Temp => self.pool.give(texture),
             }
         }
-        output.unwrap_or_else(|| targets::target(&self.device, (0, 0)))
-    }
-
-    /// Raster one chunk into its texture (all of it, or the damaged rectangles).
-    fn raster_chunk(
-        &mut self,
-        task: &ChunkTask<'_>,
-        stats: &mut FrameStats,
-    ) -> Result<(), ComposeError> {
-        let (w, h) = task.size;
-        let existing = self.chunks.remove(&task.key);
-        let (texture, redraw) = match existing {
-            Some(texture) if (texture.width(), texture.height()) == (w, h) => {
-                (texture, task.redraw.clone())
-            }
-            _ => (targets::target(&self.device, (w, h)), Redraw::All),
-        };
-        match redraw {
-            Redraw::All => {
-                self.raster_into(&task.scene, task.origin, task.scale, (w, h), &texture)?;
-                stats.pixels_rastered += u64::from(w) * u64::from(h);
-            }
-            Redraw::Rects(rects) => {
-                for r in rects {
-                    let origin = Point::new(
-                        task.origin.x + f64::from(r.x) / task.scale,
-                        task.origin.y + f64::from(r.y) / task.scale,
-                    );
-                    let part = targets::target(&self.device, (r.width, r.height));
-                    self.raster_into(&task.scene, origin, task.scale, (r.width, r.height), &part)?;
-                    let mut encoder =
-                        self.device
-                            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                                label: Some("Arvane chunk patch"),
-                            });
-                    encoder.copy_texture_to_texture(
-                        part.as_image_copy(),
-                        wgpu::TexelCopyTextureInfo {
-                            texture: &texture,
-                            mip_level: 0,
-                            origin: wgpu::Origin3d {
-                                x: r.x,
-                                y: r.y,
-                                z: 0,
-                            },
-                            aspect: wgpu::TextureAspect::All,
-                        },
-                        part.size(),
-                    );
-                    self.queue.submit([encoder.finish()]);
-                    stats.pixels_rastered += u64::from(r.width) * u64::from(r.height);
-                }
-            }
-        }
-        stats.chunks_rastered += 1;
-        self.chunks.insert(task.key, texture);
-        self.check()
-    }
-
-    /// Raster `scene` into `texture` through its own submission.
-    fn raster_into(
-        &mut self,
-        scene: &RenderScene,
-        origin: Point,
-        scale: f64,
-        size: (u32, u32),
-        texture: &wgpu::Texture,
-    ) -> Result<(), ComposeError> {
-        let (w, h) = (
-            u16::try_from(size.0).map_err(|_| ComposeError::InvalidSize)?,
-            u16::try_from(size.1).map_err(|_| ComposeError::InvalidSize)?,
-        );
-        let canvas = Canvas {
-            origin,
-            scale,
-            size: (w, h),
-        };
-        let view = view(texture);
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Arvane chunk raster"),
-            });
-        self.raster.raster(
-            &self.device,
-            &self.queue,
-            &mut encoder,
-            scene,
-            canvas,
-            &view,
-        )?;
-        self.queue.submit([encoder.finish()]);
-        Ok(())
+        output.unwrap_or_else(|| targets::target(&self.gpu.device, (0, 0)))
     }
 }
 
@@ -392,4 +308,135 @@ fn external_frames(ops: &[Op<'_>]) -> Vec<kivact_types::ExternalFrame> {
             _ => None,
         })
         .collect()
+}
+
+/// Raster every chunk task of one frame inside one GPU raster frame.
+fn raster_chunks(
+    raster: &mut GpuRaster,
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    chunks: &mut HashMap<ChunkKey, wgpu::Texture>,
+    pool: &mut Pool,
+    tasks: &[ChunkTask<'_>],
+    stats: &mut FrameStats,
+) -> Result<(), RenderError> {
+    raster.frame(device, queue, |frame| -> Result<(), RenderError> {
+        for task in tasks {
+            raster_chunk(frame, device, queue, chunks, pool, task, stats)?;
+        }
+        Ok(())
+    })
+}
+
+/// Raster one chunk with one submission (vello_hybrid writes its buffers
+/// through the queue for every render, so renders are not batched into one
+/// encoder). Damaged rects are drawn once, as their bounding box into a
+/// pooled texture, and only the rects are copied.
+fn raster_chunk(
+    frame: &mut GpuFrameRaster<'_>,
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    chunks: &mut HashMap<ChunkKey, wgpu::Texture>,
+    pool: &mut Pool,
+    task: &ChunkTask<'_>,
+    stats: &mut FrameStats,
+) -> Result<(), RenderError> {
+    let (w, h) = task.size;
+    let (texture, redraw) = match chunks.remove(&task.key) {
+        Some(texture) if (texture.width(), texture.height()) == (w, h) => {
+            (texture, task.redraw.clone())
+        }
+        _ => (targets::target(device, (w, h)), Redraw::All),
+    };
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("Arvane chunk raster"),
+    });
+    let mut part = None;
+    match redraw {
+        Redraw::All => {
+            let canvas = canvas(task.origin, task.scale, (w, h))?;
+            frame.raster(&mut encoder, &task.scene, canvas, &view(&texture))?;
+            stats.pixels_rastered += u64::from(w) * u64::from(h);
+        }
+        Redraw::Rects(rects) => {
+            if let Some(b) = bounding(&rects) {
+                let origin = Point::new(
+                    task.origin.x + f64::from(b.x) / task.scale,
+                    task.origin.y + f64::from(b.y) / task.scale,
+                );
+                let patch = pool.take(device, (b.width, b.height));
+                let canvas = canvas(origin, task.scale, (b.width, b.height))?;
+                frame.raster(&mut encoder, &task.scene, canvas, &view(&patch))?;
+                for r in &rects {
+                    encoder.copy_texture_to_texture(
+                        wgpu::TexelCopyTextureInfo {
+                            texture: &patch,
+                            mip_level: 0,
+                            origin: wgpu::Origin3d {
+                                x: r.x - b.x,
+                                y: r.y - b.y,
+                                z: 0,
+                            },
+                            aspect: wgpu::TextureAspect::All,
+                        },
+                        wgpu::TexelCopyTextureInfo {
+                            texture: &texture,
+                            mip_level: 0,
+                            origin: wgpu::Origin3d {
+                                x: r.x,
+                                y: r.y,
+                                z: 0,
+                            },
+                            aspect: wgpu::TextureAspect::All,
+                        },
+                        wgpu::Extent3d {
+                            width: r.width,
+                            height: r.height,
+                            depth_or_array_layers: 1,
+                        },
+                    );
+                    stats.pixels_rastered += u64::from(r.width) * u64::from(r.height);
+                }
+                part = Some(patch);
+            }
+        }
+    }
+    queue.submit([encoder.finish()]);
+    if let Some(patch) = part {
+        pool.give(patch);
+    }
+    stats.chunks_rastered += 1;
+    chunks.insert(task.key, texture);
+    Ok(())
+}
+
+/// The raster canvas of `size` device px at `origin`.
+fn canvas(origin: Point, scale: f64, size: (u32, u32)) -> Result<Canvas, RenderError> {
+    let w = u16::try_from(size.0).map_err(|_| RenderError::InvalidSize)?;
+    let h = u16::try_from(size.1).map_err(|_| RenderError::InvalidSize)?;
+    Ok(Canvas {
+        origin,
+        scale,
+        size: (w, h),
+    })
+}
+
+/// The smallest rect holding every rect of `rects`; `None` when empty.
+fn bounding(rects: &[PixelRect]) -> Option<PixelRect> {
+    let mut iter = rects.iter();
+    let first = *iter.next()?;
+    let (mut x0, mut y0) = (first.x, first.y);
+    let (mut x1, mut y1) = (first.x + first.width, first.y + first.height);
+    for r in iter {
+        x0 = x0.min(r.x);
+        y0 = y0.min(r.y);
+        x1 = x1.max(r.x + r.width);
+        y1 = y1.max(r.y + r.height);
+    }
+    Some(PixelRect {
+        x: x0,
+        y: y0,
+        width: x1 - x0,
+        height: y1 - y0,
+    })
 }

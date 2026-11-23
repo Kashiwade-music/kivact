@@ -1,11 +1,12 @@
 //! Role: Import an external image: its handle, status, frames and frame publisher.
 
-use super::registry::{ImportPhase, ImportStatus, State};
+use super::registry::{ImportPhase, ImportStatus, state};
 use crate::sync::Inbox;
 use crate::view::state::{ViewState, current_window};
 use kivact_runtime::Signal;
-use kivact_runtime::spawn_in;
-use kivact_runtime::{Owner, Runtime, require_effectful};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::driver::spawn_in;
+use kivact_runtime::{Owner, require_effectful};
 use kivact_style::draw::GpuFrame;
 use kivact_types::{ExternalFrame, ExternalImageId, SharedTextures};
 use std::fmt;
@@ -28,7 +29,6 @@ pub struct ExternalImage {
     status: Signal<ImportPhase>,
     /// The size in pixels of the imported textures.
     size: (u32, u32),
-    // xtask-allow(state-fields): independent: set only by the import's task when the engine calls FramePublisher::publish; the window sets the status from the import result, and a frame kept after Lost or published before Ready simply draws nothing, so every pair is valid
     /// The newest frame a [`FramePublisher`] published.
     latest: Signal<Option<GpuFrame>>,
     published: Arc<Inbox<Published>>,
@@ -172,7 +172,7 @@ impl fmt::Debug for ExternalImage {
 )]
 pub unsafe fn import(textures: SharedTextures) -> ExternalImage {
     let at = Location::caller();
-    let owner = kivact_runtime::Owner::ambient("import", at);
+    let owner = kivact_runtime::Owner::running("import", at);
     let rt = owner.runtime();
     require_effectful("import");
     import_in(&rt, owner, textures, at)
@@ -189,7 +189,7 @@ pub(crate) fn import_in(
     let size = (textures.width, textures.height);
     let window = current_window(owner);
     let status: Signal<ImportPhase> = owner.signal(ImportPhase::Pending, at);
-    let id = State::of(rt).register(window, status, at);
+    let id = state(rt).register(window, status, at);
     ViewState::tree(rt)
         .engine()
         .import_external(id, window, textures);
@@ -225,7 +225,7 @@ pub(crate) fn import_in(
     owner.on_cleanup(move || {
         closing.update(|p| *p = Published::Closed);
         let Some(rt) = weak.upgrade() else { return };
-        State::of(&rt).forget(id);
+        state(&rt).forget(id);
         ViewState::tree(&rt).engine().drop_external(id);
     });
     ExternalImage {

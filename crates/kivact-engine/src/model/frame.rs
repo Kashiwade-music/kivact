@@ -10,12 +10,11 @@
 //!   earlier one at the period's end ([`Model::frame_deadline`]). The
 //!   period is the window's display period; a change of it reaches the
 //!   core's frame planning as an environment change.
-//! - Without a surface no tick is delivered, and state transitions keep
-//!   their place in time: the pause is skipped on resume. The same stop is
-//!   the client's: every tick carries the engine's one `MotionClock` (the
-//!   time stood still so far, when the last stop ended), a snapshot taken
-//!   when the tick is queued. The stop is `Clock::Stopped`, written only by
-//!   [`Model::start_env`] and [`Model::update_env`].
+//! - Without a surface no tick is delivered. Motion time is the App's one
+//!   clock (kivact_types::clock::Clock): it stands still while no window can
+//!   draw, and every tick carries its snapshot (MotionClock). Frame requests
+//!   and deadlines are host time; every motion record is motion time
+//!   (frame::state::Now).
 //! - A wake less than a quarter period late stamps the tick with its due
 //!   time, so a display-rate loop does not add the shell's wake latency to
 //!   every period. Missed ticks are never made up: a later wake (after a

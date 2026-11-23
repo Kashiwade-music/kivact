@@ -1,7 +1,7 @@
 //! Role: Consumer-owned clip and keyframe edits for the timeline and dope sheet.
 
 use kivact::prelude::*;
-use kivact::state::callback;
+use kivact::view::EditPhase;
 use kivact_ui_creative as ui;
 
 pub(crate) fn apply_clips(items: &mut Vec<ui::Clip>, request: &ui::TimeRequest) {
@@ -57,57 +57,51 @@ impl TestTime for ui::Keyframe {
 }
 
 pub(crate) fn time_edits<T: TestTime, R: kivact::view::HandlerResult>(
-    items: impl kivact::state::IntoBinding<Vec<T>>,
+    items: kivact::state::Signal<Vec<T>>,
     apply: fn(&mut Vec<T>, &ui::TimeRequest),
     observer: impl Fn(kivact::view::EditPhase) -> R + 'static,
 ) -> impl Fn(ui::EditorEvent<ui::TimeRequest>) + 'static {
-    let items = items.into_binding();
     let initial = signal(None::<Vec<T>>);
     let observer = callback(observer);
-    move |event| {
-        use kivact::view::EditPhase;
-        match event {
-            ui::EditorEvent::Begin => {
-                initial.set(Some(items.get_untracked()));
-                observer.call(EditPhase::Begin);
-            }
-            ui::EditorEvent::Request(request) => {
+    move |event| match event {
+        ui::EditorEvent::Begin => {
+            initial.set(Some(items.get_untracked()));
+            observer.call(EditPhase::Begin);
+        }
+        ui::EditorEvent::Request(request) => {
+            let mut next = items.get_untracked();
+            apply(&mut next, &request);
+            items.set(next);
+        }
+        ui::EditorEvent::Commit => {
+            initial.set(None);
+            observer.call(EditPhase::Commit);
+        }
+        ui::EditorEvent::Cancel => {
+            if let Some(value) = initial.get_untracked() {
                 let mut next = items.get_untracked();
-                apply(&mut next, &request);
+                apply(
+                    &mut next,
+                    &ui::TimeRequest::Retime(value.iter().map(TestTime::timing).collect()),
+                );
                 items.set(next);
             }
-            ui::EditorEvent::Commit => {
-                initial.set(None);
-                observer.call(EditPhase::Commit);
-            }
-            ui::EditorEvent::Cancel => {
-                if let Some(value) = initial.get_untracked() {
-                    let mut next = items.get_untracked();
-                    apply(
-                        &mut next,
-                        &ui::TimeRequest::Retime(value.iter().map(TestTime::timing).collect()),
-                    );
-                    items.set(next);
-                }
-                initial.set(None);
-                observer.call(EditPhase::Cancel);
-            }
+            initial.set(None);
+            observer.call(EditPhase::Cancel);
         }
     }
 }
 
 pub(crate) fn app_timeline(
-    items: impl kivact::state::IntoBinding<Vec<ui::Clip>>,
+    items: kivact::state::Signal<Vec<ui::Clip>>,
     state: ui::TimeState,
-) -> ui::Timeline {
-    let items = items.into_binding();
+) -> ui::TimelineEditor {
     ui::timeline_editor(items, state).on_edit(time_edits(items, apply_clips, |_| {}))
 }
 
 pub(crate) fn app_dope_sheet(
-    items: impl kivact::state::IntoBinding<Vec<ui::Keyframe>>,
+    items: kivact::state::Signal<Vec<ui::Keyframe>>,
     state: ui::TimeState,
 ) -> ui::DopeSheet {
-    let items = items.into_binding();
     ui::dope_sheet(items, state).on_edit(time_edits(items, apply_keys, |_| {}))
 }

@@ -7,15 +7,16 @@
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::ui::{carousel, CarouselMode, dropzone};
-fn content() -> impl IntoView {
+#[component]
+fn content() -> impl Element {
     let index = signal(0usize);
     column((
         carousel(index, (text("One"), text("Two")))
             .mode(CarouselMode::Scroll)
             .style(style().width(240).height(160)),
         dropzone("Choose or drop text files")
-            .multiple()
-            .pick_on_press()
+            .multiple(true)
+            .pick_on_press(true)
             .validate(|file| {
                 (file.path.extension().and_then(|x| x.to_str()) != Some("txt"))
                     .then(|| "Choose a text file.".into())
@@ -29,8 +30,8 @@ fn content() -> impl IntoView {
 
 選択の保存、クリア、選択名の表示は呼び出し側が持ちます。`.on_files` で保存し、その名前を表示し、通常のボタンで保存値を消します。`.hint(..)` は案内文、`.filters(..)` はネイティブ picker のフィルターです。フィルターだけではドロップしたファイルを検証しません。
 
-Carousel の recipe は root、viewport、track、slide、previous、next を公開します。Dropzone は root、label、hint、status です。`UiTokens` は `carousel` と `dropzone` にテーマ用の任意の上書き値をまとめます。標準の見た目の既定値は標準 recipe にあります。
+Carousel の recipe は root、viewport、track、slide、previous、next を公開します。Dropzone は root、label、hint、status です。各部品のテーマ変数（`kivact::ui::theme::{carousel, dropzone}`）が任意の上書き値を持ちます。標準の見た目の既定値は標準 recipe にあります。
 
 ネイティブの意味付けは [APG carousel pattern](https://www.w3.org/WAI/ARIA/apg/patterns/carousel/) に基づきます。role description がないため group の名前に Carousel/Slide を含めます。フォーカス可能な carousel group は矢印での移動も提供します。自動回転はなく、通常のボタンは起動時にキーボードフォーカスを維持します。独自のビューは `interaction::use_carousel` と `interaction::use_dropzone` を利用できます。
 
-`.accept_drop(enabled)` は `.pick_on_press()` とは独立してドラッグ・ドロップの入力を制御します。リアクティブに false になった場合、共有する leave event で現在の drag-over を終えます。ネイティブ picker は引き続き使え、picker のみの小さい field を作れます。
+`.accept_drop(enabled)` は `.pick_on_press(true)` とは独立してドラッグ・ドロップの入力を制御します。リアクティブに false になった場合、共有する leave event で現在の drag-over を終えます。ネイティブ picker は引き続き使え、picker のみの小さい field を作れます。

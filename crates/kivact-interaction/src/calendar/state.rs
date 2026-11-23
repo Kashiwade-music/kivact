@@ -6,32 +6,29 @@ use crate::policy::grid::GridMove;
 use crate::roving::{Observation, Roving};
 use kivact_core::custom::{Owned, Owner};
 use kivact_core::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday};
-use kivact_core::state::{Binding, MachineHandle, Signal, Value, effect, machine, memo, signal};
+use kivact_core::state::{MachineHandle, Signal, Value, effect, machine, memo, signal};
 use kivact_core::view::{Handled, Key, KeyEvent};
 use std::rc::Rc;
 
 /// The caller's selection with what a range choice needs besides it.
 #[derive(Clone, Copy)]
 pub(super) enum Choice {
-    Single(Binding<Option<CalendarDate>>),
+    Single(Signal<Option<CalendarDate>>),
     Range {
-        value: Binding<Option<DateRange>>,
+        value: Signal<Option<DateRange>>,
         pick: MachineHandle<machine::Machine>,
     },
 }
 
+// xtask-allow(state): independent: selection_status is the announced selection text, written by State::pick and the effects of selection_choice; month is the shown month, a Signal from the caller's binding (state::create), written by the caller's binding and by the calendar's moves (State::go_to, State::pick and the month buttons of the calendar handle); the day grid's state is read from the Part that grid() returns;
 pub(super) struct State {
     pub(super) chosen_message: Value<String>,
     pub(super) selection_status: Signal<String>,
-    // xtask-allow(state-fields): independent: the day grid part's state, set by calendar/handle.rs when the kit attaches the grid and absent before; the calendar's other state is made at setup and is valid both before and after the grid attaches
-    pub(super) grid_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
-    pub(super) cell_states:
-        Signal<std::collections::HashMap<CalendarDate, Value<super::data::CalendarDayState>>>,
     pub(super) owner: Owner,
     /// The App's root when the grid was created: a day of another App has
     /// another root.
     pub(super) root: Owner,
-    pub(super) month: Binding<CalendarMonth>,
+    pub(super) month: Signal<CalendarMonth>,
     pub(super) choice: Choice,
     pub(super) policy: CalendarOptions,
     pub(super) first_day: Value<Weekday>,
@@ -43,7 +40,7 @@ pub(super) struct State {
 }
 
 pub(super) fn create(
-    month: Binding<CalendarMonth>,
+    month: Signal<CalendarMonth>,
     selection: CalendarSelection,
     policy: CalendarOptions,
 ) -> Owned<Rc<State>> {
@@ -93,8 +90,6 @@ pub(super) fn create(
     let state = Rc::new(State {
         chosen_message: chosen,
         selection_status,
-        grid_state: signal(None),
-        cell_states: signal(std::collections::HashMap::new()),
         owner,
         root,
         month,

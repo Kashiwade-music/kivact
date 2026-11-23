@@ -110,12 +110,12 @@
 //!   not rebuilt. Debug builds check that only a Box carries `Measure`, and
 //!   that a node with it has no children.
 //!
-//! The E2E test is `dev/tests/kivact-public-api/tests/e2e/primitive.rs`.
+//! The E2E test is `dev/tests/kivact-public-api/tests/e2e_core/primitive.rs`.
 //!
 //! ```no_run
 //! # use kivact_core as kivact;
 //! use kivact::state::{Signal};
-//! use kivact::style::{ColorToken};
+//! use kivact::style::{Color};
 //! use kivact::view::{IntoView, Element, Role, row};
 //! use kivact::geometry::{Rect, Size};
 //! use kivact::custom::{Constraints, primitive};
@@ -127,7 +127,7 @@
 //!         .draw(move |d, size| {
 //!             for i in 0..n.get() {
 //!                 let x = i as f64 * 12.0;
-//!                 d.rounded_rect(Rect::new(x + 2.0, 2.0, 8.0, size.height - 4.0), 4.0, ColorToken::Accent);
+//!                 d.rounded_rect(Rect::new(x + 2.0, 2.0, 8.0, size.height - 4.0), 4.0, kivact::style::color::ACCENT);
 //!             }
 //!         })
 //!         .with_node(|node| node.role(Role::Status))
@@ -146,19 +146,22 @@ pub use kivact_types::{
     EditLineLayout, SemanticsText, SemanticsTextRun, SemanticsTextRuns, TextCaret, TextRunId,
 };
 
-mod measured_leaf;
-mod measurement;
 mod node;
 mod text_shaping;
+pub use crate::view::Authored as Caller;
+pub use crate::view::boundary::scope;
 pub use crate::view::owner::Owner;
-pub use crate::view::part::{Part, PartState, part};
+pub use crate::view::part::{Part, PartFacts, PartState, part};
 pub use crate::view::part_data::PartMount;
 /// The `!Send + !Sync` marker of Kivact's handles, for a component's own
 /// Copy handle type (`PhantomData<UiThreadOnly>`).
 pub use kivact_runtime::UiThreadOnly;
 pub use kivact_runtime::{Owned, clock_now, require_effectful, require_setup};
-pub use measured_leaf::{Primitive, primitive};
-pub use measurement::{AvailableSpace, Constraints, Measurement};
+// xtask-allow(internal-contract): #[component] expansion stores handler props as Handler<E>
+pub use crate::view::measured_leaf::{Primitive, primitive};
+pub use crate::view::measurement::{AvailableSpace, Constraints, Measurement};
+#[doc(hidden)]
+pub use kivact_runtime::Handler;
 pub use node::{NodeRefExt, NodeToken, focused_node};
 pub use text_shaping::{shape_inline_paragraph, shape_paragraph};
 
@@ -173,8 +176,9 @@ pub use kivact_editing::{
 mod inline_view;
 pub use inline_view::inline_view;
 
-#[doc(inline)]
-pub use kivact_runtime::Reactive;
+// xtask-allow(internal-contract): #[component] props and #[derive(Prop)] store inputs as Prop<T>
+#[doc(hidden)]
+pub use kivact_runtime::Prop;
 
 mod misuse;
 pub use misuse::raise;

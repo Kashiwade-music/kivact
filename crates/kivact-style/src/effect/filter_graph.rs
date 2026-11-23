@@ -1,46 +1,30 @@
 //! Role: The filter graph builder (SVG filter primitives written as values).
 //!
 //! A [`FilterGraph`] is built by method calls, each of which adds a
-//! primitive and returns a [`FilterInput`] handle to its result. The handles
-//! name their graph, so a handle of another graph is refused. `Filter::graph`
+//! primitive and returns a [`FilterInput`] handle to its result. `Filter::graph`
 //! consumes the builder into an [`AuthoredGraph`] (a `Clone` value with its
 //! colors still theme-dependent); style resolution turns that into the
-//! engine's `kivact_types::FilterGraph<Asset>`.
-
-use std::sync::atomic::{AtomicU64, Ordering};
+//! engine's `kivact_types::FilterGraphSpec<Asset>`.
 
 use kivact_types as p;
 use kivact_types::{
-    BlendMode, Channel, CompositeOp, EdgeMode, FilterColorSpace, Insets, Light, MorphologyOp,
+    BlendMode, Channel, CompositeOp, EdgeMode, Edges, FilterColorSpace, Light, MorphologyOp,
     PrimitiveOp, Rgba, TransferFn, TurbulenceKind,
 };
 
 use crate::asset::Asset;
-use crate::color::Color;
+use crate::color_value::Color;
 use crate::geometry::Rect;
-use crate::theme::value::ThemeColor;
 
-/// The graph ids: a process-wide counter from 1 (0 is "no graph").
-static NEXT_GRAPH: AtomicU64 = AtomicU64::new(1);
-
-/// A handle to a primitive's result, or to the element itself. Copy.
+/// A handle to a primitive's result, or to the element itself. Copy. A handle of a primitive the graph does not have yet is replaced by the element and reported.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct FilterInput {
-    pub(crate) graph: u64,
-    pub(crate) input: p::FilterInput,
-}
+pub struct FilterInput(pub(crate) p::FilterInput);
 
 impl FilterInput {
-    /// The element's own pixels (belongs to no graph: valid in every graph).
-    pub const SOURCE: FilterInput = FilterInput {
-        graph: 0,
-        input: p::FilterInput::Source,
-    };
-    /// The element's alpha (belongs to no graph: valid in every graph).
-    pub const SOURCE_ALPHA: FilterInput = FilterInput {
-        graph: 0,
-        input: p::FilterInput::SourceAlpha,
-    };
+    /// The element's own pixels (valid in every graph).
+    pub const SOURCE: FilterInput = FilterInput(p::FilterInput::Source);
+    /// The element's alpha (valid in every graph).
+    pub const SOURCE_ALPHA: FilterInput = FilterInput(p::FilterInput::SourceAlpha);
 }
 
 /// One primitive as authored: its operation (a color placeholder where the
@@ -51,14 +35,14 @@ pub(crate) struct AuthoredPrimitive {
     color: Option<Color>,
 }
 
-/// A filter graph being built. Not Clone: a handle names one graph, so a
-/// copy would let handles of one graph slip into another unnoticed.
+// xtask-allow(state): builder of one graph: margin is an authored option and error keeps the first build problem; each is written by its own method and both combinations occur
+/// A filter graph being built. Not Clone: it is consumed by `Filter::graph`.
 /// `Filter::graph` consumes it and keeps the built graph (which is Clone).
 ///
 /// ```
 /// use kivact::prelude::*;
-/// use kivact::draw::{Filter, FilterGraph, FilterInput};
-/// use kivact::draw::filter::Channel;
+/// use kivact::style::{Filter, FilterGraph, FilterInput};
+/// use kivact::style::filter::Channel;
 /// // A glitch: displace the element by noise.
 /// let mut g = FilterGraph::new();
 /// let noise = g.turbulence(0.02, 2, 3.0);
@@ -68,11 +52,11 @@ pub(crate) struct AuthoredPrimitive {
 /// ```
 #[derive(Debug)]
 pub struct FilterGraph {
-    id: u64,
     prims: Vec<AuthoredPrimitive>,
-    margin: Option<Insets>,
+    margin: Option<Edges<f64>>,
     color_space: FilterColorSpace,
-    errors: Vec<String>,
+    /// The first problem found while building; the later ones are not kept.
+    error: Option<String>,
 }
 
 impl Default for FilterGraph {
@@ -85,16 +69,15 @@ impl FilterGraph {
     /// An empty graph (add primitives with the methods).
     pub fn new() -> FilterGraph {
         FilterGraph {
-            id: NEXT_GRAPH.fetch_add(1, Ordering::Relaxed),
             prims: Vec::new(),
             margin: None,
             color_space: FilterColorSpace::LinearRgb,
-            errors: Vec::new(),
+            error: None,
         }
     }
 
     /// Extend the filter region beyond the element (default: 10% of its size).
-    pub fn margin(&mut self, margin: impl Into<Insets>) -> &mut FilterGraph {
+    pub fn margin(&mut self, margin: impl Into<Edges<f64>>) -> &mut FilterGraph {
         self.margin = Some(margin.into());
         self
     }
@@ -109,35 +92,29 @@ impl FilterGraph {
     fn push(&mut self, op: PrimitiveOp<Asset>, color: Option<Color>) -> FilterInput {
         let index = self.prims.len() as u32;
         self.prims.push(AuthoredPrimitive { op, color });
-        FilterInput {
-            graph: self.id,
-            input: p::FilterInput::Result(index),
-        }
+        FilterInput(p::FilterInput::Result(index))
     }
 
-    /// An input of the primitive being added: a handle of this graph, or the
-    /// element. A handle of another graph becomes the element and is reported.
+    /// An input of the primitive being added: a result of this graph, or the
+    /// element. A result the graph does not have yet is replaced by the element and reported.
     fn input(&mut self, h: FilterInput) -> p::FilterInput {
-        if h.graph == 0 {
-            return h.input;
-        }
-        if h.graph != self.id {
-            self.errors.push(format!(
-                "primitive {}: an input of another filter graph was replaced by the element",
-                self.prims.len() + 1
-            ));
-            return p::FilterInput::Source;
-        }
-        if let p::FilterInput::Result(n) = h.input
+        if let p::FilterInput::Result(n) = h.0
             && n as usize >= self.prims.len()
         {
-            self.errors.push(format!(
-                "primitive {}: an input names a later result",
+            self.report(format!(
+                "primitive {}: an input names a result the graph does not have yet; the element is used",
                 self.prims.len() + 1
             ));
             return p::FilterInput::Source;
         }
-        h.input
+        h.0
+    }
+
+    /// Keep the first problem found; the later ones are dropped.
+    fn report(&mut self, message: String) {
+        if self.error.is_none() {
+            self.error = Some(message);
+        }
     }
 
     /// Add a primitive whose inputs are checked.
@@ -320,7 +297,7 @@ impl FilterGraph {
         &mut self,
         input: FilterInput,
         light: Light,
-        color: impl ThemeColor,
+        color: impl Into<Color>,
     ) -> FilterInput {
         let input = self.input(input);
         self.push(
@@ -331,7 +308,7 @@ impl FilterGraph {
                 color: Rgba::TRANSPARENT,
                 light,
             },
-            Some(Color::of(color)),
+            Some(color.into()),
         )
     }
 
@@ -340,7 +317,7 @@ impl FilterGraph {
         &mut self,
         input: FilterInput,
         light: Light,
-        color: impl ThemeColor,
+        color: impl Into<Color>,
         exponent: impl Into<f64>,
     ) -> FilterInput {
         let input = self.input(input);
@@ -354,7 +331,7 @@ impl FilterGraph {
                 color: Rgba::TRANSPARENT,
                 light,
             },
-            Some(Color::of(color)),
+            Some(color.into()),
         )
     }
 
@@ -384,7 +361,7 @@ impl FilterGraph {
         x: impl Into<f64>,
         y: impl Into<f64>,
         std_dev: impl Into<f64>,
-        color: impl ThemeColor,
+        color: impl Into<Color>,
     ) -> FilterInput {
         let (x, y, s) = (x.into(), y.into(), std_dev.into());
         let input = self.input(input);
@@ -395,23 +372,23 @@ impl FilterGraph {
                 std_dev: (s, s),
                 color: Rgba::TRANSPARENT,
             },
-            Some(Color::of(color)),
+            Some(color.into()),
         )
     }
 
     /// The color, everywhere the filter region is.
-    pub fn flood(&mut self, color: impl ThemeColor) -> FilterInput {
+    pub fn flood(&mut self, color: impl Into<Color>) -> FilterInput {
         self.push(
             PrimitiveOp::Flood {
                 color: Rgba::TRANSPARENT,
             },
-            Some(Color::of(color)),
+            Some(color.into()),
         )
     }
 
     /// `color` where `input` has alpha (feFlood and feComposite `in`): the
     /// result is the composite, the flood is the one before it.
-    pub fn flood_in(&mut self, input: FilterInput, color: impl ThemeColor) -> FilterInput {
+    pub fn flood_in(&mut self, input: FilterInput, color: impl Into<Color>) -> FilterInput {
         let flood = self.flood(color);
         let bottom = self.input(input);
         let top = self.input(flood);
@@ -520,19 +497,19 @@ impl FilterGraph {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct AuthoredGraph {
     prims: Vec<AuthoredPrimitive>,
-    margin: Option<Insets>,
+    margin: Option<Edges<f64>>,
     color_space: FilterColorSpace,
-    errors: Vec<String>,
+    error: Option<String>,
 }
 
 impl FilterGraph {
-    /// The graph as a value, with the problems the builder found.
+    /// The graph as a value, with the problem the builder found.
     pub(crate) fn built(self) -> AuthoredGraph {
         AuthoredGraph {
             prims: self.prims,
             margin: self.margin,
             color_space: self.color_space,
-            errors: self.errors,
+            error: self.error,
         }
     }
 }
@@ -543,8 +520,8 @@ impl AuthoredGraph {
     pub(crate) fn resolve(
         &self,
         theme: &crate::theme::value::Theme,
-    ) -> Result<p::FilterGraph<Asset>, String> {
-        if let Some(e) = self.errors.first() {
+    ) -> Result<p::FilterGraphSpec<Asset>, String> {
+        if let Some(e) = &self.error {
             return Err(e.clone());
         }
         let primitives = self
@@ -568,7 +545,7 @@ impl AuthoredGraph {
                 }
             })
             .collect();
-        let graph = p::FilterGraph {
+        let graph = p::FilterGraphSpec {
             primitives,
             margin: self.margin,
             color_space: self.color_space,

@@ -30,10 +30,9 @@ pub(super) fn apply_graph(curves: &mut Vec<ui::Curve>, request: &ui::GraphReques
     }
 }
 pub(super) fn graph_edits<R: kivact::view::HandlerResult>(
-    curves: impl kivact::state::IntoBinding<Vec<ui::Curve>>,
+    curves: kivact::state::Signal<Vec<ui::Curve>>,
     observer: impl Fn(EditPhase) -> R + 'static,
 ) -> impl Fn(ui::EditorEvent<ui::GraphRequest>) + 'static {
-    let curves = curves.into_binding();
     let observer = callback(observer);
     let initial = signal(None::<Vec<ui::Curve>>);
     let moved = signal(Vec::<u64>::new());
@@ -82,9 +81,8 @@ pub(super) fn graph_edits<R: kivact::view::HandlerResult>(
     }
 }
 pub(super) fn app_graph(
-    curves: impl kivact::state::IntoBinding<Vec<ui::Curve>>,
+    curves: kivact::state::Signal<Vec<ui::Curve>>,
     state: ui::GraphState,
 ) -> ui::GraphEditor {
-    let curves = curves.into_binding();
     ui::graph_editor(curves, state).on_edit(graph_edits(curves, |_| {}))
 }

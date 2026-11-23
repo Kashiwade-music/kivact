@@ -1,5 +1,4 @@
-//! Role: Keep a keyed todo list with checkboxes, removal and a remaining count.
-#![warn(redundant_imports)]
+//! Keep a keyed todo list with checkboxes, removal and a remaining count.
 
 use kivact::prelude::*;
 
@@ -34,7 +33,9 @@ fn app() -> impl IntoView {
 
     column((
         row((
-            text_input("New todo", draft).style(style().width(240)),
+            text_input(draft)
+                .label("New todo")
+                .style(style().width(240)),
             button("Add").on_press(add),
         ))
         .style(style().gap(8)),
@@ -43,7 +44,7 @@ fn app() -> impl IntoView {
             |todo| todo.id,
             move |todo| {
                 let id = todo.get().id;
-                let done = todo.project(|t| &t.done, |t| &mut t.done);
+                let done = bind!(todo.done);
                 row((
                     checkbox(move || todo.get().title, done),
                     button("Remove")
@@ -64,7 +65,7 @@ fn main() -> kivact::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    //! Role: Drive the todo list example in a test window.
+    //! Drive the todo list example in a test window.
 
     use super::*;
 

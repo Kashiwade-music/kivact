@@ -1,10 +1,8 @@
 //! Role: Finds a GpuAdapter's Vulkan physical device and checks it can export.
 
-use super::raw::FORMAT;
+use super::contract::{API_VERSION, FORMAT, MEMORY_HANDLE, usage};
 use crate::common::{Error, api};
 use crate::pool::PoolConfig;
-use crate::vulkan_contract::API_VERSION;
-use crate::vulkan_contract::{MEMORY_HANDLE, usage};
 use ash::vk;
 use kivact_types::{AdapterIds, GpuAdapter};
 
@@ -70,7 +68,7 @@ pub(crate) unsafe fn identity(
     physical: vk::PhysicalDevice,
 ) -> ([u8; 16], [u8; 16], u32) {
     // SAFETY: the caller provides a physical device of the live instance.
-    let ids = unsafe { crate::vulkan_raw::identity(instance, physical) };
+    let ids = unsafe { super::raw::identity(instance, physical) };
     (ids.device_uuid, ids.driver_uuid, ids.version)
 }
 

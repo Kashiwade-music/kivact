@@ -1,7 +1,10 @@
-//! Role: Interactive styled component catalog for kivact-ui-creative.
-#![warn(redundant_imports)]
-mod creative;
-mod fonts;
+//! Role: The Creative kit catalog: its pages, its theme and the page shown first.
 
-pub use creative::catalog;
-pub use fonts::fonts;
+mod consts;
+mod fonts;
+mod pages;
+mod theme;
+
+pub use consts::START;
+pub use pages::pages;
+pub use theme::{THEME, theme};

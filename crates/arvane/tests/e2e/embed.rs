@@ -1,8 +1,9 @@
 //! Role: Arvane's embedded host contract, without Kivact or a virtual window.
 #![cfg(any(windows, target_os = "linux"))]
-use arvane::embed::{self, EmbedOptions, Embedder};
-use arvane::{EventTarget, Handler, ShellControl, ShellError, ShellEvent, ShellWaker, Windows};
+use arvane::{Handler, Windows};
 use arvane_native::embed::TestParent;
+use arvane_shell::{EventTarget, ShellControl, ShellError, ShellEvent, ShellWaker};
+use kivact_types::EmbedOptions;
 use kivact_types::{Size, WindowId};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -26,7 +27,10 @@ impl Handler for Host {
         let mut window = windows
             .get(WindowId::MAIN)
             .expect("invariant: the main window is open");
-        assert_eq!(window.surface_generation(), Some(1));
+        assert!(matches!(
+            window.drawable(),
+            arvane_shell::Drawable::Yes { generation } if generation.get() == 1
+        ));
         assert!(!window.fullscreen());
         assert_eq!(
             window.perform(kivact_types::PlatformRequest::Fullscreen(true)),
@@ -100,7 +104,7 @@ fn wait(parent: &TestParent, mut ready: impl FnMut() -> bool) {
 #[test]
 fn host_drives_redraw_worker_wake_deadline_and_geometry() {
     fn send_sync<T: Send + Sync>() {}
-    send_sync::<embed::Embedded>();
+    send_sync::<Box<dyn arvane_shell::ShellChild>>();
     let _serial = SERIAL.lock().unwrap();
     let parent = TestParent::open(640, 480).unwrap();
     let seen = Arc::new(Mutex::new(Seen::default()));
@@ -111,14 +115,20 @@ fn host_drives_redraw_worker_wake_deadline_and_geometry() {
             height: 100.,
         },
         scale: Some(1.),
-        prefer_gpu: false,
+        gpu_preference: kivact_types::GpuPreference {
+            start: kivact_types::gpu::GpuStart::Never,
+            ..Default::default()
+        },
         ..Default::default()
     };
-    let make = embed::driver(&options, move || Embedder::new(Host(output)));
-    let child =
-        arvane_native::embed::open(parent.parent(), options, embed::ChildHooks::default(), make)
-            .map(embed::Embedded::new)
-            .unwrap();
+    let make = arvane::embed_driver(options.gpu_preference, move || (Host(output), None));
+    let child = arvane_native::embed::open(
+        parent.parent(),
+        options,
+        arvane_shell::ChildHooks::default(),
+        make,
+    )
+    .unwrap();
     wait(&parent, || {
         seen.lock().unwrap().timer && parent.capture().is_ok()
     });
@@ -126,7 +136,7 @@ fn host_drives_redraw_worker_wake_deadline_and_geometry() {
     assert_eq!(child.scale(), 1.);
     let waker = seen.lock().unwrap().waker.clone().unwrap();
     let before = seen.lock().unwrap().events.len();
-    std::thread::spawn(move || waker.wake(arvane::WakeReasons::CLIENT))
+    std::thread::spawn(move || waker.wake(arvane_shell::WakeReasons::CLIENT))
         .join()
         .unwrap();
     wait(&parent, || {
@@ -174,14 +184,20 @@ fn native_wheel_scrolls_right_and_down_by_system_settings() {
             height: 100.,
         },
         scale: Some(1.),
-        prefer_gpu: false,
+        gpu_preference: kivact_types::GpuPreference {
+            start: kivact_types::gpu::GpuStart::Never,
+            ..Default::default()
+        },
         ..Default::default()
     };
-    let make = embed::driver(&options, move || Embedder::new(Host(output)));
-    let child =
-        arvane_native::embed::open(parent.parent(), options, embed::ChildHooks::default(), make)
-            .map(embed::Embedded::new)
-            .unwrap();
+    let make = arvane::embed_driver(options.gpu_preference, move || (Host(output), None));
+    let child = arvane_native::embed::open(
+        parent.parent(),
+        options,
+        arvane_shell::ChildHooks::default(),
+        make,
+    )
+    .unwrap();
     wait(&parent, || seen.lock().unwrap().wheel_settings.is_some());
     parent.move_to(23., 31.).unwrap();
     wait(&parent, || {
@@ -263,18 +279,21 @@ fn a_panic_while_the_handler_starts_is_returned_and_kept() {
 
     let _serial = SERIAL.lock().unwrap();
     let parent = TestParent::open(320, 240).unwrap();
-    let panic = embed::PanicSlot::default();
+    let panic = arvane_shell::PanicSlot::default();
     let options = EmbedOptions {
         size: Size {
             width: 160.,
             height: 100.,
         },
         scale: Some(1.),
-        prefer_gpu: false,
+        gpu_preference: kivact_types::GpuPreference {
+            start: kivact_types::gpu::GpuStart::Never,
+            ..Default::default()
+        },
         ..Default::default()
     };
-    let make = embed::driver(&options, || Embedder::new(Panicking));
-    let hooks = embed::ChildHooks {
+    let make = arvane::embed_driver(options.gpu_preference, || (Panicking, None));
+    let hooks = arvane_shell::ChildHooks {
         panic: panic.clone(),
         ..Default::default()
     };

@@ -1,27 +1,82 @@
-//! Role: Resolve Astryx Neutral elevation and inset shadows.
-use kivact::draw::Shadow;
+//! Role: The elevation and inset shadows of Astryx Neutral, in front-to-back drawing
+//! order (crate-private).
+use crate::tokens::{
+    input_focus_color, input_hover_color, shadow_black, shadow_error, shadow_white,
+};
+use crate::variants::Elevation;
+use kivact::style::Color;
+use kivact::style::Shadow;
+use kivact::style::Style;
 
-/// Elevation shadows in front-to-back drawing order.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Shadows {
-    /// Layered shadows for subtly raised controls and surfaces.
-    pub low: Vec<Shadow>,
-    /// Layered shadows for floating surfaces with medium elevation.
-    pub med: Vec<Shadow>,
-    /// Layered shadows for the most prominent floating surfaces.
-    pub high: Vec<Shadow>,
-    /// Inset edge shadow used while a surface is hovered.
-    pub inset_hover: Shadow,
-    /// Inset edge shadow marking a selected surface.
-    pub inset_selected: Shadow,
-    /// Inset edge shadow for a successful or valid state.
-    pub inset_success: Shadow,
-    /// Inset edge shadow for a warning state.
-    pub inset_warning: Shadow,
-    /// Inset edge shadow for an error or invalid state.
-    pub inset_error: Shadow,
-    /// Additional input outline drawn on hover.
-    pub input_hover_ring: Shadow,
-    /// Additional input outline drawn while focused.
-    pub input_focus_ring: Shadow,
+fn outside(y: i32, blur: i32, alpha: f64) -> Shadow {
+    Shadow::new(0, y, blur, shadow_black(alpha))
+}
+
+fn inset(spread: i32, color: Color) -> Shadow {
+    Shadow::new(0, 0, 0, color).spread(spread).inset()
+}
+
+/// Layered shadows for subtly raised controls and surfaces.
+pub(crate) fn low(dark: bool) -> Vec<Shadow> {
+    if dark {
+        vec![
+            outside(2, 4, 64.0 / 255.0),
+            outside(4, 8, 102.0 / 255.0),
+            inset(1, shadow_white(20.0 / 255.0)),
+        ]
+    } else {
+        vec![outside(2, 4, 13.0 / 255.0), outside(4, 8, 26.0 / 255.0)]
+    }
+}
+
+/// Layered shadows for floating surfaces with medium elevation.
+pub(crate) fn med(dark: bool) -> Vec<Shadow> {
+    if dark {
+        vec![
+            outside(2, 4, 89.0 / 255.0),
+            outside(4, 12, 128.0 / 255.0),
+            inset(1, shadow_white(31.0 / 255.0)),
+        ]
+    } else {
+        vec![outside(2, 4, 13.0 / 255.0), outside(4, 12, 26.0 / 255.0)]
+    }
+}
+
+/// Layered shadows for the most prominent floating surfaces.
+pub(crate) fn high(dark: bool) -> Vec<Shadow> {
+    if dark {
+        vec![
+            outside(4, 6, 128.0 / 255.0),
+            outside(12, 24, 179.0 / 255.0),
+            inset(1, shadow_white(38.0 / 255.0)),
+        ]
+    } else {
+        vec![outside(4, 6, 26.0 / 255.0), outside(12, 24, 38.0 / 255.0)]
+    }
+}
+
+/// Inset edge shadow for an error or invalid state.
+pub(crate) fn inset_error() -> Shadow {
+    inset(2, shadow_error(77.0 / 255.0))
+}
+
+/// Additional input outline drawn on hover.
+pub(crate) fn input_hover_ring(dark: bool) -> Shadow {
+    inset(2, input_hover_color(dark))
+}
+
+/// Additional input outline drawn while focused.
+pub(crate) fn input_focus_ring(dark: bool) -> Shadow {
+    inset(2, input_focus_color(dark))
+}
+
+/// Apply a surface elevation's outer shadow layers to a style; `None` returns the style unchanged.
+pub(crate) fn elevate(base: Style, elevation: Elevation, dark: bool) -> Style {
+    let shadows = match elevation {
+        Elevation::None => return base,
+        Elevation::Low => low(dark),
+        Elevation::Med => med(dark),
+        Elevation::High => high(dark),
+    };
+    shadows.into_iter().fold(base, Style::shadow)
 }

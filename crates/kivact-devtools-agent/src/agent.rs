@@ -39,6 +39,12 @@ pub struct Agent {
     session: String,
 }
 
+// The App starts the agent on a background thread and moves it to the UI thread.
+const _: fn() = || {
+    fn send<T: Send>() {}
+    send::<Agent>();
+};
+
 /// The listener thread of the agent: running with its stop request, or
 /// stopped (joined and gone).
 enum Listener {

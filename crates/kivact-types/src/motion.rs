@@ -77,7 +77,6 @@ pub enum Easing {
         position: StepPosition,
     },
     /// CSS linear(): (input, output) points with increasing input.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     LinearPoints(Arc<[(f64, f64)]>),
     /// Pulls back before moving forward.
     BackIn,
@@ -585,7 +584,7 @@ pub enum PlayDirection {
 
 /// Interpolation model and parameters of a transition.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Kind {
+pub enum TransitionKind {
     /// A timed interpolation along one easing.
     Tween {
         /// Duration of one iteration, in milliseconds.
@@ -651,7 +650,7 @@ pub enum Retarget {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Transition {
     /// Interpolation model for each iteration.
-    pub kind: Kind,
+    pub kind: TransitionKind,
     /// Delay before the first iteration, in milliseconds.
     pub delay_ms: f64,
     /// How many iterations to run.
@@ -705,7 +704,7 @@ impl SpringRun {
         self.iteration = 0;
         self.velocity.resize(to.len(), 0.0);
         self.amplitude.clear();
-        let Kind::Spring(spring) = &transition.kind else {
+        let TransitionKind::Spring(spring) = &transition.kind else {
             return;
         };
         let w0 = (spring.stiffness / spring.mass.max(1e-3)).sqrt();
@@ -726,7 +725,6 @@ impl Transition {
     }
 
     /// Derive timing for an interrupted component animation.
-    // xtask-allow(internal-contract): Shared component timing bridges runtime and host animation drivers.
     #[doc(hidden)]
     pub fn retargeted(&self, from: &[f64], to: &[f64], current: &[f64], target: &[f64]) -> Self {
         let mut timing = self.clone();
@@ -742,8 +740,10 @@ impl Transition {
             if original > f64::EPSILON {
                 let ratio = distance(current, target) / original;
                 match &mut timing.kind {
-                    Kind::Tween { ms, .. } | Kind::Keyframes { ms, .. } => *ms *= ratio,
-                    Kind::Spring(_) => {}
+                    TransitionKind::Tween { ms, .. } | TransitionKind::Keyframes { ms, .. } => {
+                        *ms *= ratio
+                    }
+                    TransitionKind::Spring(_) => {}
                 }
                 timing.delay_ms = 0.0;
             }
@@ -766,13 +766,13 @@ impl Transition {
             })
             .collect();
         frames.sort_by(|a, b| a.0.total_cmp(&b.0));
-        Self::new(Kind::Keyframes {
+        Self::new(TransitionKind::Keyframes {
             frames,
             ms: ms.into().max(0.0),
         })
     }
 
-    fn new(kind: Kind) -> Self {
+    fn new(kind: TransitionKind) -> Self {
         Self {
             kind,
             delay_ms: 0.0,
@@ -785,7 +785,7 @@ impl Transition {
 
     /// A tween over `ms` milliseconds along `easing`.
     pub fn tween(ms: impl Into<f64>, easing: Easing) -> Self {
-        Self::new(Kind::Tween {
+        Self::new(TransitionKind::Tween {
             ms: (ms.into()).max(0.0),
             easing,
         })
@@ -793,15 +793,17 @@ impl Transition {
 
     /// A spring with the given stiffness, damping and mass.
     pub fn spring(spring: Spring) -> Self {
-        Self::new(Kind::Spring(spring))
+        Self::new(TransitionKind::Spring(spring))
     }
 
     /// How long the first iteration takes to end, its delay included, in
     /// milliseconds: `None` for a spring, which settles by its physics.
     pub fn duration_ms(&self) -> Option<f64> {
         match &self.kind {
-            Kind::Tween { ms, .. } | Kind::Keyframes { ms, .. } => Some(self.delay_ms + ms),
-            Kind::Spring(_) => None,
+            TransitionKind::Tween { ms, .. } | TransitionKind::Keyframes { ms, .. } => {
+                Some(self.delay_ms + ms)
+            }
+            TransitionKind::Spring(_) => None,
         }
     }
 
@@ -864,7 +866,7 @@ impl Transition {
             current.extend_from_slice(to);
         }
         let elapsed_ms = now_ns.saturating_sub(start_ns) as f64 / 1e6;
-        let Kind::Spring(spring) = &self.kind else {
+        let TransitionKind::Spring(spring) = &self.kind else {
             return self.sample_timed(from, to, elapsed_ms, current);
         };
         if elapsed_ms < self.delay_ms {
@@ -912,8 +914,8 @@ impl Transition {
             return false;
         }
         let dur = match &self.kind {
-            Kind::Tween { ms, .. } | Kind::Keyframes { ms, .. } => *ms,
-            Kind::Spring(_) => 0.0,
+            TransitionKind::Tween { ms, .. } | TransitionKind::Keyframes { ms, .. } => *ms,
+            TransitionKind::Spring(_) => 0.0,
         };
         let iter = (t_ms / dur).floor();
         let total = match self.repeat {
@@ -929,9 +931,9 @@ impl Transition {
             p = 1.0 - p;
         }
         match &self.kind {
-            Kind::Tween { easing, .. } => lerp(from, to, easing.apply(p), out),
-            Kind::Keyframes { frames, .. } => keyframe_at(frames, p, to, out),
-            Kind::Spring(_) => put(out, to),
+            TransitionKind::Tween { easing, .. } => lerp(from, to, easing.apply(p), out),
+            TransitionKind::Keyframes { frames, .. } => keyframe_at(frames, p, to, out),
+            TransitionKind::Spring(_) => put(out, to),
         }
         false
     }

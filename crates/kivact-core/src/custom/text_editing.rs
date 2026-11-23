@@ -54,8 +54,8 @@ use crate::view::state::ViewState;
 use crate::view::sync_hook::{Current, HookSlot, SyncHook};
 use kivact_editing::{EditContext, EditOutcome, EditRequest, EditState, LineColors, LineState};
 use kivact_engine::api::PropValue;
-use kivact_runtime::EffectKind;
 use kivact_runtime::HandlerResult;
+use kivact_runtime::driver::EffectKind;
 use kivact_runtime::{IntoText, IntoValue, Prop as InputProp};
 use kivact_style::{StyledRange, Theme};
 use std::cell::RefCell;
@@ -105,7 +105,7 @@ impl TextEditing {
     /// policy. A later call replaces an earlier one.
     pub fn behavior<F>(mut self, f: F) -> Self
     where
-        F: Fn(&mut EditState, EditRequest<'_>, &EditContext<'_>) -> EditOutcome + 'static,
+        F: Fn(&mut EditState, EditRequest, &EditContext) -> EditOutcome + 'static,
     {
         self.props.behavior = Some(Rc::new(f));
         self
@@ -166,7 +166,7 @@ impl TextEditing {
                         .into_iter()
                         .map(|r| kivact_editing::RangeDecoration {
                             range: r.range,
-                            color: r.color.resolve(&theme),
+                            color: kivact_style::internal::resolve_color(r.color, &theme),
                             kind: match r.kind {
                                 DecorationKind::Underline(style) => {
                                     kivact_editing::RangeDecorationKind::Underline(style)
@@ -309,6 +309,18 @@ impl crate::view::Node {
     }
 }
 
+/// The color of a background as an editing range paints it: a single color,
+/// or the first layer's when that is one (`None` for a gradient).
+fn solid_color(fill: kivact_types::Fill) -> Option<kivact_types::Rgba> {
+    match fill {
+        kivact_types::Fill::Solid(color) => Some(color),
+        kivact_types::Fill::Layers(layers) => match layers.first()?.image {
+            kivact_types::FillImage::Solid(color) => Some(color),
+            _ => None,
+        },
+    }
+}
+
 /// Write the editor's line colors for every new content of `src` or new
 /// theme, from one render effect that skips a content and theme equal to
 /// the last (like a primitive's measure function).
@@ -348,13 +360,15 @@ where
                 (
                     ranges
                         .into_iter()
-                        .map(|r| kivact_editing::LineStyle {
-                            range: r.range,
-                            color: r.color.map(|c| c.resolve(theme)),
-                            background: r.background.map(|c| c.resolve(theme)),
-                            decoration: r
-                                .decoration
-                                .map(|d| kivact_style::internal::compile_text_decoration(d, theme)),
+                        .map(|r| {
+                            let (text, background, _) =
+                                kivact_style::internal::compile_span(&r.style, theme);
+                            kivact_editing::LineStyle {
+                                range: r.range,
+                                color: text.color,
+                                background: background.and_then(solid_color),
+                                decoration: text.span_decoration(),
+                            }
                         })
                         .collect(),
                     LineState::new(output),

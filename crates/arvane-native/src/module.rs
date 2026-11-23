@@ -13,21 +13,17 @@
 #[cfg(any(windows, target_os = "linux"))]
 use std::sync::atomic::{AtomicBool, Ordering};
 
+// xtask-allow(state): independent: mapping is the loader's answer, fixed when RETAINED is initialized; reported is the report-once flag swapped only by retain_module
 /// What retaining the module gave, and whether it was reported.
 #[cfg(any(windows, target_os = "linux"))]
 struct Retained {
-    // xtask-allow(state-fields): cache: the loader's answer for keeping this module mapped (`retain`); asking again gives the same answer, so it is asked once per process and never invalidated
     mapping: Option<&'static str>,
-    // xtask-allow(state-fields): independent: set by the first `retain_module` call before it logs, whatever the loader answered; a reentrant call from the log subscriber sees it set and returns, so both answers occur with it unset and set
     reported: AtomicBool,
 }
 
 #[cfg(any(windows, target_os = "linux"))]
-#[expect(
-    clippy::disallowed_types,
-    reason = "process-wide module mapping initialized once"
-)]
-static RETAINED: std::sync::OnceLock<Retained> = std::sync::OnceLock::new();
+static RETAINED: kivact_types::cell::SharedDeferred<Retained> =
+    kivact_types::cell::SharedDeferred::new();
 
 /// Keep this code module mapped until process exit for detached threads or
 /// native providers. Repeated calls do nothing. Other platforms do nothing.

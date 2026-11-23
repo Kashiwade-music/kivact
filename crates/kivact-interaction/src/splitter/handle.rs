@@ -10,7 +10,7 @@ use crate::press::is_double_press;
 use crate::scalar::{ScalarOps, follow_range};
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{MachineHandle, Signal, Value, machine, memo, signal};
+use kivact_core::state::{MachineHandle, Value, machine};
 use kivact_core::view::EditPhase;
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
@@ -66,9 +66,9 @@ pub struct SplitterState {
 /// from the value at the start of the drag. Escape during a drag restores that
 /// starting value and ends the drag, which needs the handle to be focused (a
 /// press on a focusable handle focuses it). A double click moves to the
-/// `reset_to` value. A disabled splitter accepts no input or assistive
-/// technology action; a drag in progress ends where it is and commits its
-/// edit.
+/// `reset_to` value. A handle whose node is disabled (`.disabled(..)` before
+/// `.part(..)`) accepts no input or assistive technology action; a drag in
+/// progress ends where it is and commits its edit.
 ///
 /// The range may follow the layout: pass a constant [`ScalarRange`](crate::ScalarRange), or a
 /// closure, a `Signal` or a `Value` of one. The published
@@ -79,20 +79,11 @@ pub struct SplitterState {
 /// writes nothing.
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// # pub use kivact_core::{view, state, style};
-/// # pub mod prelude {
-/// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-/// # }
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::{ScalarRange, use_splitter};
 /// use kivact::prelude::*;
 /// use kivact::style::Cursor;
+/// use kivact::style::Color;
+/// use kivact::view::Orientation;
 /// let sidebar = signal(240.0);
 /// let range = ScalarRange::new(120.0, 480.0).unwrap();
 /// let handle = use_splitter(sidebar, range, Orientation::Horizontal)
@@ -106,15 +97,13 @@ pub struct SplitterState {
 ///         style()
 ///             .width(5)
 ///             .cursor(Cursor::EwResize)
-///             .background(ColorToken::Border),
+///             .background(kivact::style::color::BORDER),
 ///     ),
-///     node().style(style().grow(1)),
+///     node().style(style().flex_grow(1)),
 /// ));
 /// ```
 #[derive(Clone, Copy)]
 pub struct SplitterApi {
-    // xtask-allow(state-fields): independent: the observation of the attached handle part, absent until it attaches
-    observed: Signal<Option<Value<SplitterState>>>,
     ops: ScalarOps,
     axis: Axis,
     settings: OptionsCell<SplitterOptions>,
@@ -132,11 +121,11 @@ pub struct SplitterApi {
 /// Setup only.
 #[track_caller]
 pub fn use_splitter(
-    value: impl kivact_core::state::IntoBinding<f64>,
+    value: kivact_core::state::Signal<f64>,
     range: impl IntoValue<ScalarRange>,
     axis: Orientation,
 ) -> SplitterApi {
-    let binding = value.into_binding();
+    let binding = value;
     let range = range.into_value();
     let settings = OptionsCell::new(SplitterOptions::default());
     let ops = ScalarOps::new(binding, range);
@@ -158,7 +147,6 @@ pub fn use_splitter(
     );
     state.feed(binding.into_value(), machine::Event::Observe);
     SplitterApi {
-        observed: signal(None),
         ops,
         axis: Axis::of(axis, "use_splitter"),
         settings,
@@ -168,20 +156,6 @@ pub fn use_splitter(
 }
 
 impl SplitterApi {
-    /// Drawing state of the actual mounted handle.
-    pub fn control_state(self) -> Value<SplitterState> {
-        memo(move || {
-            self.observed
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(SplitterState {
-                    input: PartState::default(),
-                    value: self.ops.binding.get(),
-                    dragging: false,
-                })
-        })
-    }
-
     /// Override the positive keyboard and accessibility increment.
     ///
     /// The default is the current range's step, or one percent of the range
@@ -237,18 +211,6 @@ impl SplitterApi {
         self
     }
 
-    /// Ignore input and assistive technology while true, and cancel a drag in
-    /// progress.
-    ///
-    /// Also marks the handle disabled and makes it unfocusable. Setup only.
-    #[track_caller]
-    pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
-        let disabled = disabled.into_value();
-        self.settings
-            .update(|settings| settings.disabled = Some(disabled));
-        self
-    }
-
     /// Collapse on release below this fraction of the current range (0 through 1).
     /// Setup only.
     #[track_caller]
@@ -289,13 +251,6 @@ impl SplitterApi {
     pub fn on_edit<R: HandlerResult>(self, f: impl Fn(EditPhase) -> R + 'static) -> Self {
         self.edit.on_edit(f);
         self
-    }
-
-    fn is_disabled(self) -> bool {
-        self.settings
-            .get()
-            .disabled
-            .is_some_and(|d| d.get_untracked())
     }
 
     /// Whether the panes are side by side.
@@ -358,10 +313,16 @@ impl SplitterApi {
         accepted
     }
 
-    fn handle_key(self, event: &KeyEvent, shrink_key: Key, grow_key: Key) -> Handled {
+    fn handle_key(
+        self,
+        event: &KeyEvent,
+        shrink_key: Key,
+        grow_key: Key,
+        disabled: Value<bool>,
+    ) -> Handled {
         let range = self.ops.range;
         let machine = self.machine;
-        if self.is_disabled() {
+        if disabled.get_untracked() {
             return Handled::No;
         }
         let factor = if event.modifiers().shift {
@@ -399,19 +360,8 @@ impl SplitterApi {
         let value = self.ops.binding.into_value();
         let (range, side_by_side) = (self.ops.range, self.side_by_side());
         let rtl = side_by_side
-            && kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl;
+            && kivact_core::view::use_direction() == kivact_core::view::ReadingDirection::Rtl;
         follow_range(self.ops.binding, range);
-        // Only an action that will write is an edit: a value that is not a
-        // number reports nothing.
-        let act = move |event: A11yEvent| {
-            let writes = match &event.request {
-                A11yRequest::SetValue(v) => v.parse::<f64>().ok().is_some_and(f64::is_finite),
-                _ => true,
-            };
-            if writes && !self.is_disabled() {
-                self.handle_once(&|ops, step| ops.a11y(&event, step));
-            }
-        };
         let reset = move || -> bool {
             self.settings
                 .get()
@@ -419,7 +369,6 @@ impl SplitterApi {
                 .and_then(|reset| reset.get_untracked())
                 .is_some_and(|reset| self.handle_once(&|ops, _| ops.set(reset)))
         };
-        let settings = self.settings;
         let machine = self.machine;
         let (shrink_key, grow_key) = match (side_by_side, rtl) {
             (true, false) => (Key::ArrowLeft, Key::ArrowRight),
@@ -432,14 +381,21 @@ impl SplitterApi {
             dragging: matches!(machine.get().drag, machine::Drag::Dragging { .. }),
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.observed, part_state);
         Part::new(part_state, move |mut host| {
-            let caller_disabled = host.accessible_disabled();
-            let options = settings.value();
-            let disabled = memo(move || {
-                caller_disabled.is_some_and(|value| value.get())
-                    || options.get().disabled.is_some_and(|value| value.get())
-            });
+            let disabled = host
+                .accessible_disabled()
+                .unwrap_or_else(|| false.into_value());
+            // Only an action that will write is an edit: a value that is
+            // not a number reports nothing.
+            let act = move |event: A11yEvent| {
+                let writes = match &event.request {
+                    A11yRequest::SetValue(v) => v.parse::<f64>().ok().is_some_and(f64::is_finite),
+                    _ => true,
+                };
+                if writes && !disabled.get_untracked() {
+                    self.handle_once(&|ops, step| ops.a11y(&event, step));
+                }
+            };
             machine.feed(disabled, machine::Event::Disabled);
             let session = self.handle_drag(disabled, side_by_side, rtl);
             let source = session.source(());
@@ -455,11 +411,13 @@ impl SplitterApi {
                 .value_min(move || range.get().min())
                 .value_max(move || range.get().max())
                 .value_now(value)
-                .on_key(move |event: KeyEvent| self.handle_key(&event, shrink_key, grow_key))
+                .on_key(move |event: KeyEvent| {
+                    self.handle_key(&event, shrink_key, grow_key, disabled)
+                })
                 // A double click resets before the drag source sees the press.
                 .on_pointer(move |event: PointerEvent| {
                     if is_double_press(&event)
-                        && !self.is_disabled()
+                        && !disabled.get_untracked()
                         && !session.is_active()
                         && reset()
                     {

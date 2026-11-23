@@ -26,8 +26,6 @@ mod input;
 mod performance;
 #[path = "app/panels/review.rs"]
 mod review;
-#[path = "app/panels/scripts.rs"]
-mod scripts;
 #[path = "app/panels/tasks.rs"]
 mod tasks;
 #[path = "app/panels/theme.rs"]
@@ -53,7 +51,6 @@ fn shell_shows_the_toolbar_and_every_tab() {
         "Console",
         "Emulation",
         "Review",
-        "Scripts",
     ] {
         screen.get_by_role(Role::Tab, title);
     }

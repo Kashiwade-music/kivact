@@ -18,7 +18,7 @@ at setup with its line and column, not on the first frame. Pass the source to
 `PaintShader::wgsl` as a string.
 
 ```rust,no_run
-use kivact::draw::{PaintShader};
+use kivact::style::PaintShader;
 use kivact::geometry::Rect;
 use kivact::motion::FrameRate;
 use kivact::prelude::*;
@@ -33,7 +33,8 @@ fn paint(position: vec2<f32>, context: Context, params: Params) -> vec4<f32> {
 }
 "#;
 
-fn scanline_background() -> impl IntoView {
+#[component]
+fn scanline_background() -> impl Element {
     // Built once, at setup: a shader that does not validate is an error here.
     let scanlines = PaintShader::wgsl(SCANLINES).expect("the scanline shader is valid");
 
@@ -68,7 +69,7 @@ written with an `effect` function, and it reads the element's pixels with
 `content(position)`.
 
 ```rust,no_run
-use kivact::draw::{Filter, FilterShader};
+use kivact::style::{Filter, FilterShader};
 use kivact::prelude::*;
 
 const SCAN_FILTER: &str = r#"
@@ -79,15 +80,16 @@ fn effect(position: vec2<f32>, context: Context) -> vec4<f32> {
 }
 "#;
 
-fn status_panel() -> impl IntoView {
+#[component]
+fn status_panel() -> impl Element {
     let scan = FilterShader::wgsl(SCAN_FILTER).expect("the scan filter is valid");
 
     column(text("Status: online"))
         .style(
             style()
                 .padding(16)
-                .radius(8)
-                .background(ColorToken::Surface)
+                .border_radius(8)
+                .background(color::SURFACE)
                 .filter(Filter::new().shader(scan.filter())),
         )
 }
@@ -124,7 +126,7 @@ sample it in WGSL with `image(slot, uv)`. The sample is straight alpha, bilinear
 and clamped at the edge.
 
 ```rust,no_run
-use kivact::draw::{PaintShader};
+use kivact::style::PaintShader;
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 
@@ -138,7 +140,8 @@ fn paint(position: vec2<f32>, context: Context) -> vec4<f32> {
 }
 "#;
 
-fn tinted_photo() -> impl IntoView {
+#[component]
+fn tinted_photo() -> impl Element {
     let shader = PaintShader::wgsl(TINT_PHOTO).expect("the photo shader is valid");
 
     canvas(move |draw, size| {
@@ -181,7 +184,7 @@ instead:
 - A GPU that fails to build a shader's pipeline is treated the same way as the
   CPU, and the failure is reported once.
 
-By default a window draws on the CPU until it first needs the GPU (`GpuStart::OnDemand`): the first frames of a shader show its fallback, and the shader appears once the device is ready. When the first frame must already run the shader, choose `GpuStart::AtLaunch` with `App::gpu_preference` (`kivact::launch`).
+By default a window draws on the CPU until it first needs the GPU (`GpuStart::OnDemand`): the first frames of a shader show its fallback, and the shader appears once the device is ready. When the first frame must already run the shader, choose `GpuStart::AtLaunch` with `App::gpu_preference` (`kivact::platform::GpuStart`).
 
 Shaders affect only drawing. Hit testing, focus and screen readers see the same
 element as before.

@@ -1,5 +1,4 @@
-//! Role: Compose a reusable card with props, children and a close callback.
-#![warn(redundant_imports)]
+//! Compose a reusable card with props, children and a close callback.
 
 use kivact::prelude::*;
 
@@ -11,9 +10,9 @@ use kivact::prelude::*;
 #[component]
 fn card(
     title: Value<String>,
-    #[prop(optional)] on_close: Option<Callback<()>>,
-    content: ViewFn,
-) -> impl IntoView {
+    on_close: Option<Callback<()>>,
+    content: kivact::view::ViewFn,
+) -> impl Element {
     let open = signal(true);
     let close = on_close.map(|on_close| button("Close").on_press(on_close));
     column((
@@ -29,24 +28,24 @@ fn card(
     .style(style().padding(12).gap(8))
 }
 
+/// A card that goes away when its close button is pressed: it keeps whether
+/// it is shown itself, so every card closes on its own.
+#[component]
+fn closable_card(title: Value<String>, content: kivact::view::ViewFn) -> impl IntoView {
+    let shown = signal(true);
+    show(shown, move || {
+        card(title, content.clone()).on_close(move || shown.set(false))
+    })
+}
+
 fn app() -> impl IntoView {
-    // xtask-allow(state-fields): independent: whether the First card is shown, cleared only by its own close button and never set back; the Second card has its own signal, so either card or both can be closed
-    let first = signal(true);
-    // xtask-allow(state-fields): independent: whether the Second card is shown, cleared only by its own close button and never set back; the First card has its own signal, so either card or both can be closed
-    let second = signal(true);
     column((
-        show(first, move || {
-            card("First", || text("The first card holds one line."))
-                .on_close(move || first.set(false))
-        }),
-        show(second, move || {
-            card("Second", || {
-                column((
-                    text("The second card holds two lines."),
-                    text("Its children differ from the first."),
-                ))
-            })
-            .on_close(move || second.set(false))
+        closable_card("First", || text("The first card holds one line.")),
+        closable_card("Second", || {
+            column((
+                text("The second card holds two lines."),
+                text("Its children differ from the first."),
+            ))
         }),
     ))
     .style(style().padding(24).gap(12))
@@ -58,7 +57,7 @@ fn main() -> kivact::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    //! Role: Drive the card component example in a test window.
+    //! Drive the card component example in a test window.
 
     use super::*;
 

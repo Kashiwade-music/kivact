@@ -1,37 +1,30 @@
-//! Role: Catalog page of Spinner: default, in a button and with text.
+//! Catalog page of Spinner: default, in a button and with text.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "spinner",
-        name: "Spinner",
-        description: "処理の待ち状態を示す、回転する Lucide の loader-circle です。Role::Status で「Loading」と名付けられ、動きを減らす設定では止まります。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("spinner.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "kivact::ui::spinner() をそのまま置きます。色は文字色に従います。",
-                default,
-            ),
-            Example::new(
-                "in-button",
-                "In a button",
-                "ボタンの loading はスピナーを自動で表示します。",
-                in_button,
-            ),
-            Example::new(
-                "with-text",
-                "With text",
-                "スピナーと説明の文字を横に並べた例です。",
-                with_text,
-            ),
-        ],
-    }
+    Page::new("spinner", "Spinner", "Components", include_str!("spinner.rs"))
+        .description("A rotating Lucide loader-circle that shows a pending state. It is named 'Loading' with Role::Status, and it stops when reduced motion is on.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "Put kivact::ui::spinner() as it is. Its color follows the text color.",
+            default,
+        ))
+        .example(Example::new(
+            "in-button",
+            "In a button",
+            "The loading state of a button shows a spinner automatically.",
+            in_button,
+        ))
+        .example(Example::new(
+            "with-text",
+            "With text",
+            "An example of a spinner set beside a line of description text.",
+            with_text,
+        ))
 }
 
 // example: default

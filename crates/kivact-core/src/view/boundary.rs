@@ -20,7 +20,8 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_i18n::{Locale, Messages, interpolate};
-use kivact_runtime::{IntoValue, Owner, Prop, Runtime, Value, memo};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{IntoValue, Owner, Prop, Value, memo};
 use kivact_style::Theme;
 use kivact_types::NodeId;
 
@@ -40,29 +41,39 @@ pub(crate) fn mount_in(
     Mcx { rt, owner, window }.mount_child(view)
 }
 
+/// The one owner boundary: a child owner of the mounting owner, `install`
+/// run in it, then `build` set up in it and mounted in its place. Its view is
+/// mounted once and never replaced, so the boundary adds no node of its own:
+/// the owner, not a node, holds what belongs to it (architecture.md MEM-7).
+fn boundary<V: IntoView>(
+    at: &'static Location<'static>,
+    install: impl FnOnce(Owner) + 'static,
+    build: impl FnOnce() -> V + 'static,
+) -> View {
+    view_fn(move |cx| {
+        let owner = cx.owner.child(at);
+        install(owner);
+        mount_in(cx.rt, owner, cx.window, move || build().into_view())
+    })
+}
+
 /// Run `build` once at mount in a new owner (a scope): its hooks and cleanups belong to it.
 ///
 /// The initializer inherits context from the mounting parent. Its signals, effects,
 /// and cleanup callbacks belong to this component and are disposed with it.
-/// The boundary adds a transparent fragment without a visible layout box.
+/// The boundary adds no node: the view it builds is mounted in its place.
 /// Use a factory for content that must be constructed again on later mounts.
 #[track_caller]
 pub fn scope<V: IntoView>(build: impl FnOnce() -> V + 'static) -> View {
-    let at = Location::caller();
-    view_fn(move |cx| {
-        let owner = cx.owner.child(at);
-        let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, cx.window, move || build().into_view());
-        cx.append(fragment, child);
-        fragment
-    })
+    boundary(Location::caller(), |_| {}, build)
 }
 
 /// Provide `value` to the subtree built by `child` (Solid's
 /// `<Context.Provider>`): `child` is set up in a new owner that holds the
 /// context, so `use_context::<T>()` finds it inside `child` (in setup and in
 /// handlers) but not in siblings. The value is kept once (in an `Rc`) and
-/// each `use_context::<T>()` returns a `Value<T>`; read it with `get` or `with`.
+/// each `use_context::<T>()` returns a clone of it; provide a `Signal` or a
+/// `Value` for readers that must see changes.
 ///
 /// ```ignore
 /// provide(BoardCx { tasks, selected }, || column((toolbar(), lanes())))
@@ -73,15 +84,13 @@ pub fn provide<T: Clone + 'static, V: IntoView>(
     child: impl FnOnce() -> V + 'static,
 ) -> View {
     let at = Location::caller();
-    view_fn(move |cx| {
-        let owner = cx.owner.child(at);
-        let value = owner.constant(value, at);
-        owner.provide(value);
-        let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, cx.window, move || child().into_view());
-        cx.append(fragment, child);
-        fragment
-    })
+    boundary(
+        at,
+        move |owner| {
+            owner.provide(value);
+        },
+        child,
+    )
 }
 
 /// Use `theme` for the subtree built by `child`. Pass a `Signal<Theme>` (or
@@ -91,7 +100,7 @@ pub fn provide<T: Clone + 'static, V: IntoView>(
 /// Its transparent box colors nothing by itself: text inherits its
 /// color from its ancestors (as CSS's `color`), and text under no colored
 /// node takes the App theme's. Give the subtree's top node the theme's
-/// colors (`.background(ColorToken::Surface).color(ColorToken::Text)`, or
+/// colors (`.background(kivact::style::color::SURFACE).color(kivact::style::color::TEXT)`, or
 /// a kit's tokens), as a page sets them on its body.
 ///
 /// ```ignore
@@ -105,16 +114,11 @@ pub fn provide_theme<V: IntoView>(
 ) -> View {
     let at = Location::caller();
     let theme = theme.into_prop();
-    view_fn(move |cx| {
-        let owner = cx.owner.child(at);
-        let value = theme.into_value(owner, at);
-        let value = crate::view::devtools_hooks::wrap_theme(owner, value);
-        kivact_style::internal::install_theme(owner, value);
-        let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, cx.window, move || child().into_view());
-        cx.append(fragment, child);
-        fragment
-    })
+    boundary(
+        at,
+        move |owner| install_theme(owner, theme.into_value(owner, at), at),
+        child,
+    )
 }
 
 /// Use `locale` for the subtree built by `child` (like
@@ -145,15 +149,11 @@ pub fn provide_locale<V: IntoView>(
 ) -> View {
     let at = Location::caller();
     let locale = locale.into_prop();
-    view_fn(move |cx| {
-        let owner = cx.owner.child(at);
-        let value = locale.into_value(owner, at);
-        install_locale(owner, value);
-        let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, cx.window, move || child().into_view());
-        cx.append(fragment, child);
-        fragment
-    })
+    boundary(
+        at,
+        move |owner| install_locale(owner, locale.into_value(owner, at)),
+        child,
+    )
 }
 
 /// Use `messages` for the subtree built by `child`, on top of the messages
@@ -182,20 +182,16 @@ pub fn provide_messages<V: IntoView>(
 ) -> View {
     let at = Location::caller();
     let messages = messages.into_prop();
-    view_fn(move |cx| {
-        let owner = cx.owner.child(at);
-        let own = messages.into_value(owner, at);
-        // Layered over the messages `owner` inherits from `cx.owner`.
-        install_layered_messages(owner, own, at);
-        let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, cx.window, move || child().into_view());
-        cx.append(fragment, child);
-        fragment
-    })
+    // Layered over the messages `owner` inherits from the mounting owner.
+    boundary(
+        at,
+        move |owner| install_layered_messages(owner, messages.into_value(owner, at), at),
+        child,
+    )
 }
 
 /// The reading direction of a subtree (the HTML `dir` attribute, base-ui's
-/// `DirectionProvider`). Named apart from [`Direction`](crate::style::Direction),
+/// `DirectionProvider`). Named apart from [`FlexDirection`](crate::style::FlexDirection),
 /// the flex direction of a box.
 ///
 /// Direction-aware behavior reads it once at setup with
@@ -224,14 +220,14 @@ pub fn provide_direction<V: IntoView>(
     provide(dir, child)
 }
 
-/// The reading direction provided above the current owner;
-/// [`ReadingDirection::Ltr`] without one. Setup, handlers and effects.
+/// The reading direction provided above the current owner (the App's root
+/// provides [`ReadingDirection::Ltr`]). Setup, handlers and effects.
 #[track_caller]
-pub fn use_direction() -> Value<ReadingDirection> {
-    let owner = Owner::ambient("use_direction", Location::caller());
+pub fn use_direction() -> ReadingDirection {
+    let owner = Owner::running("use_direction", Location::caller());
     owner
-        .context::<Value<ReadingDirection>>()
-        .unwrap_or_else(|| owner.constant(ReadingDirection::Ltr, Location::caller()))
+        .context::<ReadingDirection>()
+        .expect("invariant: the App's root provides the reading direction")
 }
 
 /// Context entry for the locale of a subtree.
@@ -264,7 +260,26 @@ pub(crate) fn messages_value(owner: Owner) -> Value<Messages> {
 /// The App's root and `kivact::i18n::provide_locale` use it; [`locale`]
 /// reads the nearest one above the caller.
 pub(crate) fn install_locale(owner: Owner, locale: Value<Locale>) {
+    let rt = owner.runtime();
+    let locale = crate::view::devtools_hooks::wrap_locale(&rt, owner, locale);
     owner.provide(LocaleCtx(locale));
+}
+
+/// Provide `theme` to `owner`'s subtree, as DevTools shapes it. Its fonts
+/// are registered now and whenever the theme changes, located at `at`.
+pub(crate) fn install_theme(owner: Owner, theme: Value<Theme>, at: &'static Location<'static>) {
+    let rt = owner.runtime();
+    let weak = Rc::downgrade(&rt);
+    owner.effect(
+        kivact_runtime::driver::EffectKind::Render,
+        move || {
+            let Some(rt) = weak.upgrade() else { return };
+            theme.with(|t| crate::view::requests::register_theme_fonts(&rt, t, at));
+        },
+        at,
+    );
+    let theme = crate::view::devtools_hooks::wrap_theme(&rt, owner, theme);
+    kivact_style::internal::install_theme(owner, theme);
 }
 
 /// Provide `messages` to `owner`'s subtree, replacing the inherited ones
@@ -312,7 +327,7 @@ pub(crate) fn install_layered_messages(
 /// ```
 #[track_caller]
 pub fn use_locale() -> Value<Locale> {
-    let owner = Owner::ambient("locale", Location::caller());
+    let owner = Owner::running("locale", Location::caller());
     locale_value(owner)
 }
 
@@ -337,7 +352,7 @@ pub fn use_locale() -> Value<Locale> {
 /// ```
 #[track_caller]
 pub fn message(key: &'static str, default: &'static str) -> Value<String> {
-    let owner = Owner::current("message", Location::caller());
+    let owner = Owner::setup("message", Location::caller());
     let messages = messages_value(owner);
     memo(move || {
         crate::view::devtools_hooks::pseudo(
@@ -377,7 +392,7 @@ pub fn message_with<A: IntoIterator<Item = (&'static str, String)>>(
     default: &'static str,
     args: impl Fn() -> A + 'static,
 ) -> Value<String> {
-    let owner = Owner::current("message_with", Location::caller());
+    let owner = Owner::setup("message_with", Location::caller());
     let messages = messages_value(owner);
     let locale = locale_value(owner);
     memo(move || {

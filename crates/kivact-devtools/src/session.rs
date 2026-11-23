@@ -1,23 +1,20 @@
 //! Role: The actions of one connected DevTools session.
 
-use std::rc::Rc;
-
 use kivact::prelude::*;
 use kivact_devtools_protocol as p;
 
-use crate::editor;
 use crate::source::Source;
 use crate::state::{
-    Connection, Inspected, MAIN_WINDOW, MAX_ERRORS, MAX_FRAMES, MAX_TABLES, MAX_TURNS, Panel,
-    Session, Target, overlays_off, push_capped,
+    Connection, Inspected, MAIN_WINDOW, MAX_ERRORS, MAX_FRAMES, MAX_TURNS, Panel, Session, Target,
+    overlays_off, push_capped,
 };
 
 impl Session {
+    // xtask-allow(state): record: target and status are handles made here and moved into Session; target is never written after this, status only by Session::report
     /// Make the handles of a connected session; call inside setup only.
     pub(crate) fn new(target: Target, connection: Signal<Connection>) -> Session {
         let source = target.source.clone();
         let windows = signal(target.windows.clone());
-        // xtask-allow(state-fields): identity: the session's target, written once before any reader exists
         let target = var(target);
         let inspected = signal(Inspected::Loading {
             window: MAIN_WINDOW,
@@ -26,10 +23,8 @@ impl Session {
         let turns = signal(Vec::new());
         let frames = signal(Vec::new());
         let errors = signal(Vec::new());
-        let tables = signal(Vec::new());
         let panel = signal(Panel::Elements);
         let popped = signal(Vec::new());
-        // xtask-allow(state-fields): independent: becomes Session.status, empty at setup; the target var beside it is fixed for the session whether or not a failure is shown
         let status = signal(None);
         let detail = {
             let source = source.clone();
@@ -62,7 +57,6 @@ impl Session {
             turns,
             frames,
             errors,
-            tables,
             panel,
             popped,
             status,
@@ -92,7 +86,6 @@ impl Session {
                     p::Topic::Pick,
                     p::Topic::Errors,
                     p::Topic::Devtools,
-                    p::Topic::Scripts,
                     p::Topic::Windows,
                 ],
             },
@@ -143,10 +136,6 @@ impl Session {
                     let _ = kivact::platform::focus_window().await;
                 });
             }
-            p::Notification::ScriptTable(table) => {
-                self.tables
-                    .update(|tables| push_capped(tables, table, MAX_TABLES));
-            }
             p::Notification::WindowsChanged(windows) => self.on_windows(windows.windows),
         }
     }
@@ -161,7 +150,10 @@ impl Session {
                 let Some(node) = event.node else {
                     return;
                 };
-                if self.inspected.update(|i| i.select_in(event.window, node)) {
+                let mut loading = false;
+                self.inspected
+                    .update(|i| loading = i.select_in(event.window, node));
+                if loading {
                     self.load_window(event.window, Some(node));
                 }
             }
@@ -170,7 +162,11 @@ impl Session {
 
     /// Follow a window list; fall back to the main window when the inspected one closed.
     fn on_windows(self, windows: Vec<p::WindowInfo>) {
-        let main = self.inspected.update(|i| i.keep_window(&windows));
+        let mut main = None;
+        self.inspected
+            .update(|i| main = Some(i.keep_window(&windows)));
+        let main =
+            main.expect("invariant: the session's inspected signal lives as long as the session");
         self.windows.set(windows);
         if main {
             self.load_window(MAIN_WINDOW, None);
@@ -202,9 +198,7 @@ impl Session {
         spawn(async move {
             match source.call::<M>(params).await {
                 Ok(result) => done(result),
-                Err(error) => self
-                    .status
-                    .set(Some(format!("{}: {}", M::NAME, error.message()))),
+                Err(error) => self.report(format!("{}: {}", M::NAME, error.message())),
             }
         });
     }
@@ -235,10 +229,9 @@ impl Session {
     pub(crate) fn open_source(self, location: p::SourceLocation) {
         let config = self.target.with(|t| (*t.config).clone());
         let root = self.workspace_root();
+        let source = self.source();
         spawn(async move {
-            if let Err(text) =
-                blocking(move || editor::open_in_editor(&config, &root, &location)).await
-            {
+            if let Err(text) = source.open_in_editor(config, root, location).await {
                 self.report(text);
             }
         });
@@ -247,11 +240,6 @@ impl Session {
     /// Where the session gets its data.
     pub(crate) fn source(self) -> Source {
         self.target.with(|t| t.source.clone())
-    }
-
-    /// The configuration read at connect time.
-    pub(crate) fn config(self) -> Rc<p::DevtoolsConfig> {
-        self.target.with(|t| t.config.clone())
     }
 
     /// A resource for a method that takes no parameters (setup only).

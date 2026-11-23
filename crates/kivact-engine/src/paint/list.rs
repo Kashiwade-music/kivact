@@ -6,14 +6,17 @@
 //! are drawn at, culled against the window and their clipping ancestors.
 //!
 //! Invariants:
-//! - The list is rebuilt only when something may move, show, hide,
-//!   restack or reclip nodes (typed setter invalidation for writes, `Model::sync`
-//!   for layout passes, scrolls and state styles), so a frame after a
+//! - The list is rebuilt only when stacking facts change: a write's stacking,
+//!   the children of a box, a layout pass, a state style or transition whose
+//!   look's stacking facts differ from the listed look, or a layer that
+//!   starts or stops moving. A scroll walks the scrolled container's subtree
+//!   again (`Model::rewalk_scrolled`); a moving layer's matrix is set every
+//!   frame (`Model::refresh_moving_layers`) and it is never culled, so a frame after a
 //!   content change (text, values, colors, images) draws the same nodes
 //!   again with their current content: O(visible nodes), not O(nodes). A
 //!   write of a paint, a text style or state styles asks for a rebuild
 //!   only when what the steps are made of changed: the node's `Place`
-//!   (transform, z-index, sticky, fixed), its paint's [`Look::stacking`]
+//!   (transform, z-index, sticky, fixed), its paint's [`LayerTraits::stacking`]
 //!   facts (opacity, group, items, rounding, overflow,
 //!   border, filter reach, clip) or, for a text, how far it paints out of
 //!   its box.
@@ -22,7 +25,7 @@
 //!   pixel the clip lets through partially is never lost): its box, the
 //!   extent of its content (taffy's, text overflowing a short box
 //!   included), its shadows (an outer one reaches its offset plus its
-//!   spread plus `kivact_types::render::SHADOW_REACH` × blur / 2) and focus ring, a
+//!   spread plus `arvane_protocol::SHADOW_REACH` × blur / 2) and focus ring, a
 //!   text's glyph overhang (one font size) and text shadows, and its
 //!   canvas scenes' commands (a scene text run counted at two font sizes
 //!   and its letter spacing per character, a stroke at its width × its
@@ -84,7 +87,8 @@
 //!   look at that child again; a change of the container's children drops
 //!   it (`PaintList::invalidate`). Scrolling keeps it.
 
-mod hit_reach;
+mod facts;
+mod hit;
 mod index;
 mod ink;
 mod invalidation;

@@ -11,13 +11,14 @@ reqwest = { version = "0.13.5", default-features = false, features = ["rustls", 
 serde_json = "1"
 ```
 
-`resource` は Solid の `createResource` に相当します。`id` が変わると前の要求をキャンセルします。`async_view` は読み込み中、結果、または Retry ボタン付きのエラーを表示します。`?` は HTTP と JSON のエラーを `UiError` に変換します。
+`resource` は Solid の `createResource` に相当します。`id` が変わると前の要求をキャンセルします。`async_view` は読み込み中、結果、または再試行ボタン付きのエラーを表示します。`?` は HTTP と JSON のエラーを `UiError` に変換します。
 
 ```no_run
 use kivact::prelude::*;
 use kivact::task::on_tokio;
 
-fn user_page() -> impl IntoView {
+#[component]
+fn user_page() -> impl Element {
     let id = signal(1_u32);
     let user = resource(id, |id| async move {
         on_tokio(async move {
@@ -40,4 +41,4 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-`on_tokio` は App が持つ一つの runtime で Send future を動かし、完了時に UI を起こします。signal は呼び出し前に読み、普通のデータを渡してください。待機する future が drop されると task を abort します。source の変更、owner の破棄でも同じです。App の終了時には runtime も停止します。`.loading(|| text("Loading"))` と `.fallback(|error, retry| button(error.to_string()).on_press(move || retry.run()))` で表示を変更できます。action も同じ `async_view` に渡せます。実行前は空で、Retry は最後の入力で再実行します。
+`on_tokio` は App が持つ一つの runtime で Send future を動かし、完了時に UI を起こします。signal は呼び出し前に読み、普通のデータを渡してください。待機する future が drop されると task を abort します。source の変更、owner の破棄でも同じです。App の終了時には runtime も停止します。`.loading(|| text("Loading"))` と `.fallback(|error, retry| button(error.to_string()).on_press(retry))` で表示を変更できます。`retry` は、もう一度取得する `Callback<()>` です。action も同じ `async_view` に渡せます。実行前は空で、`retry` は最後の入力で再実行します。

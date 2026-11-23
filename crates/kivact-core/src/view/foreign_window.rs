@@ -1,25 +1,26 @@
 //! Role: The `foreign_window` view: a window whose whole content area is a
 //! native child window for UI another library draws.
 
-use std::cell::{Cell, RefCell};
-use std::future::Future;
+use std::cell::Cell;
 use std::marker::PhantomData;
 use std::panic::Location;
 use std::rc::Rc;
 
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{
-    Binding, Completion, ErrorKind, Handler, HandlerResult, IntoBinding, IntoText, IntoValue,
-    Owner, Runtime, UiError, Value, require_effectful,
+    Completion, ErrorKind, Handler, HandlerResult, IntoText, IntoValue, Owner, Signal, UiError,
+    Value, require_effectful,
 };
 use kivact_types::{
-    DismissReason, NativeWindow, PlatformRequest, RequestId, Size, SurfaceSize, WindowId,
-    WindowMode, WindowPlacement,
+    DismissReason, NativeWindow, RequestId, Size, SurfaceSize, WindowId, WindowMode,
+    WindowPlacement,
 };
 
 use crate::geometry;
 use crate::view::descriptor::{IntoView, View, view_fn};
 use crate::view::foreign::{ForeignChild, ForeignHooks, ForeignPhase};
-use crate::view::state::{ForeignSizeRequest, ViewState};
+use crate::view::state::{ViewState, Waiter, WindowDecl};
+use crate::view::window_view::{SlotContent, Window};
 
 /// An OS window of this App whose whole content area is a native child window
 /// for UI another library draws, such as a plugin editor (CLAP, VST3).
@@ -37,10 +38,10 @@ use crate::view::state::{ForeignSizeRequest, ViewState};
 /// test host without `RenderOptions::foreign_windows`) it reports
 /// `ErrorKind::Unsupported` once and stays closed; `open` is not changed.
 #[track_caller]
-pub fn foreign_window(title: impl IntoText, open: impl IntoBinding<bool>) -> ForeignWindow {
+pub fn foreign_window(title: impl IntoText, open: Signal<bool>) -> ForeignWindow {
     ForeignWindow {
         title: title.into_text_value(),
-        open: open.into_binding(),
+        open,
         size: Size::new(640.0, 480.0),
         min_size: None,
         mode: WindowMode::Normal,
@@ -57,9 +58,8 @@ pub fn foreign_window(title: impl IntoText, open: impl IntoBinding<bool>) -> For
 /// The declaration of one foreign window, built by [`foreign_window`].
 pub struct ForeignWindow {
     title: Value<String>,
-    open: Binding<bool>,
+    open: Signal<bool>,
     size: Size,
-    // xtask-allow(state-fields): option: read once when the window opens; absent means the engine's minimum
     min_size: Option<Size>,
     mode: WindowMode,
     placement: WindowPlacement,
@@ -152,20 +152,28 @@ impl IntoView for ForeignWindow {
             });
         }
         let hooks = Rc::new(ForeignHooks {
+            resizable: self.resizable,
+            ready: self.ready,
+            resize: self.resize,
+            destroy: self.destroy,
+            phase: Cell::new(ForeignPhase::Waiting),
+        });
+        let decl = WindowDecl {
             title: self.title,
             open: self.open,
             size: self.size,
             min_size: self.min_size,
             mode: self.mode,
             placement: self.placement,
-            resizable: self.resizable,
             dismiss: self.dismiss,
-            ready: RefCell::new(self.ready),
-            resize: RefCell::new(self.resize),
-            destroy: RefCell::new(self.destroy),
-            phase: Cell::new(ForeignPhase::Waiting),
-        });
-        crate::view::window_view::foreign_window_view(hooks, self.at)
+            foreign: Some(hooks),
+        };
+        Window {
+            decl,
+            content: SlotContent::Foreign,
+            at: self.at,
+        }
+        .into_view()
     }
 }
 
@@ -211,7 +219,7 @@ impl ForeignChild {
         height: u32,
         at: &'static Location<'static>,
     ) -> Result<Completion<Result<(), UiError>>, UiError> {
-        let owner = Owner::ambient("ForeignChild::request_size", at);
+        let owner = Owner::running("ForeignChild::request_size", at);
         let rt = owner.runtime();
         let Some(state) = ViewState::of(&rt).window_record(self.window) else {
             return Err(UiError::new(
@@ -240,7 +248,7 @@ impl ForeignChild {
             width: f64::from(width) / scale,
             height: f64::from(height) / scale,
         };
-        if let Some(min) = state.min_size {
+        if let Some(min) = state.decl.min_size {
             size.width = size.width.max(min.width);
             size.height = size.height.max(min.height);
         }
@@ -255,9 +263,9 @@ impl ForeignChild {
         let id = {
             let mut requests = ViewState::of(&rt).requests.borrow_mut();
             let id = requests.request_id();
-            requests.foreign_sizes.insert(
+            requests.waiters.insert(
                 id,
-                ForeignSizeRequest {
+                Waiter::ForeignSize {
                     window: self.window,
                     at,
                     slot: slot.clone(),
@@ -267,9 +275,9 @@ impl ForeignChild {
         };
         ViewState::tree(&rt).engine().effect(
             RequestId(id),
-            kivact_engine::contract::HostRequest::Platform {
+            kivact_engine::contract::HostRequest::RequestWindowSize {
                 window: self.window,
-                request: PlatformRequest::RequestWindowSize(size),
+                size,
             },
         );
         rt.request_turn();
@@ -286,7 +294,7 @@ pub(crate) fn changed(
     let Some(record) = ViewState::of(rt).window_record(window) else {
         return;
     };
-    let Some(hooks) = record.foreign.clone() else {
+    let Some(hooks) = record.decl.foreign.clone() else {
         return;
     };
     match change {

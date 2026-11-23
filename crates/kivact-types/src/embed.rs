@@ -5,7 +5,7 @@ use crate::{GpuPreference, Size};
 
 /// Whether an embedded window is shown.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum Visibility {
+pub enum EmbedVisibility {
     /// The window can draw; the default, and what `App::embed` opens.
     #[default]
     Shown,
@@ -48,11 +48,9 @@ pub struct EmbedOptions {
     /// Physical pixels per logical pixel, or the operating system's scale.
     pub scale: Option<f64>,
     /// Whether the window opens shown.
-    pub visibility: Visibility,
+    pub visibility: EmbedVisibility,
     /// What happens to key presses the editor does not handle.
     pub unhandled_keys: UnhandledKeys,
-    /// Prefer GPU rendering when the platform supports it.
-    pub prefer_gpu: bool,
     pub gpu_preference: GpuPreference,
 }
 
@@ -61,9 +59,8 @@ impl Default for EmbedOptions {
         Self {
             size: DEFAULT_WINDOW_SIZE,
             scale: None,
-            visibility: Visibility::default(),
+            visibility: EmbedVisibility::default(),
             unhandled_keys: UnhandledKeys::default(),
-            prefer_gpu: true,
             gpu_preference: GpuPreference::default(),
         }
     }

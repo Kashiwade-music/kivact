@@ -27,8 +27,8 @@ use crate::reactive::arena::Key;
 use crate::reactive::data::{EffectKind, Runtime, Signal, UiThreadOnly, Value};
 use crate::reactive::error::UiError;
 use crate::reactive::execution::handle_usable_here;
-use crate::reactive::registry::{check_not_foreign, runtime, try_runtime};
-use crate::reactive::{AppId, NodeId, Notifier, OwnerId};
+use crate::reactive::registry::{check_not_foreign, current_runtime, runtime, try_runtime};
+use crate::reactive::{AppId, NodeId, OwnerId, Trigger};
 
 /// One owner of one App: the unit that disposes everything registered under
 /// it (nodes, objects, cleanups, contexts, child owners). Copy; it does not
@@ -59,22 +59,30 @@ impl Owner {
         }
     }
 
-    /// The owner of the component setup that is running. A located
+    /// The owner of the component setup that is running (setup only). A located
     /// `SetupOnly` naming `api` outside setup (also outside every App). It
     /// never falls back to the App's root.
-    pub fn current(api: &'static str, at: &'static Location<'static>) -> Self {
+    pub fn setup(api: &'static str, at: &'static Location<'static>) -> Self {
         let (rt, key) = crate::reactive::scope::setup_scope(api, at);
         Self::from_key(rt.id, key)
     }
 
-    /// The nearest owner of the code that is running: the setup owner, the
-    /// owner a handler, task, frame callback or cleanup runs for, the owner
-    /// of a running `Callback` or effect. A located `Disposed` when that
-    /// owner is already disposed, a located `SetupOnly` naming `api` when
-    /// no owner applies.
-    pub fn ambient(api: &'static str, at: &'static Location<'static>) -> Self {
+    /// The owner of the code that is running: setup, handler, task, frame
+    /// callback, cleanup, a running `Callback` or effect. A located `Disposed`
+    /// when that owner is already disposed, a located `SetupOnly` naming `api`
+    /// when no owner applies.
+    pub fn running(api: &'static str, at: &'static Location<'static>) -> Self {
         let (rt, key) = crate::reactive::scope::owner_scope(api, at);
         Self::from_key(rt.id, key)
+    }
+
+    /// The owner of the code that is running, or `None` outside every owner
+    /// and for an owner that is already disposed. Records no misuse: the
+    /// caller has a fallback for the missing owner.
+    pub fn try_ambient() -> Option<Self> {
+        let rt = current_runtime()?;
+        let key = rt.current_owner()?;
+        rt.owner_alive(key).then(|| Self::from_key(rt.id, key))
     }
 
     /// The App of this owner.
@@ -149,10 +157,10 @@ impl Owner {
         Value::constant(self.app, key)
     }
 
-    /// A [`Notifier`] of this owner, created at `at`.
-    pub fn notifier(self, at: &'static Location<'static>) -> Notifier {
+    /// A [`Trigger`] of this owner, created at `at`.
+    pub fn trigger(self, at: &'static Location<'static>) -> Trigger {
         let key = self.rt(at).create_source(self.key, (), at);
-        Notifier::from_key(self.app, key)
+        Trigger::from_key(self.app, key)
     }
 
     /// An effect of this owner that re-runs `f` when what it read changes.

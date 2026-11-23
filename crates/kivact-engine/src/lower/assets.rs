@@ -1,19 +1,19 @@
 //! Role: UI-local image and font resources with located failure histories.
 //!
 //! Images and fonts through Arvane's asset layer
-//! (`arvane::asset`): the asset store and its worker thread, the pixels handed to Arvane, font
+//! (`arvane_asset`): the asset store and its worker thread, the pixels handed to Arvane, font
 //! registration and family resolution, and the failure reports.
 //!
 //! Invariants:
 //! - Arvane reads no encoded image: the store decodes and
-//!   rasterizes, and the host hands Arvane the store's straight-alpha RGBA8
+//!   rasterizes, and the host hands Arvane the store's premultiplied RGBA8
 //!   as `ImageData` sharing the store's allocation (no copy; Arvane's
-//!   `ImageData` is straight-alpha RGBA8 too).
+//!   `ImageData` is premultiplied RGBA8 too).
 //! - What is drawn for an image always comes from the store for the
 //!   node's current asset ([`ArvaneAssets::pixels`]), so a new asset never
 //!   shows the old asset's pixels.
 //! - Arvane resolves every family ([`family`]) against its platform table
-//!   and font database (`Engine::resolve_font_family`). This module only
+//!   and font database (`TextEngine::resolve_family`). This module only
 //!   converts the choice to a text style and reports missing names.
 //! - An image failure is reported once per node and asset (the last
 //!   reported asset per node, forgotten when the node goes, so a removed
@@ -39,18 +39,15 @@
 //!   applies its work.
 
 use crate::lower::AssetEvent;
-use arvane::asset::{
-    AnimationInfo, AssetStore, FamilyChoice, ImageState, PixelSize, Region, load_font,
-};
+use arvane_asset::{AnimationInfo, AssetStore, ImageState, PixelSize, Region, load_font};
+use arvane_text::FamilyChoice;
 use kivact_types::{Asset, ComputedTextStyle, NodeId, PlatformResult, Rgba, Size};
 
 /// UI-thread resource owner with image and font diagnostic deduplication.
 /// Owner keys are supplied by the caller; this manager never traverses a tree.
 pub(crate) struct ArvaneAssets {
-    // xtask-allow(state-fields): identity: the generation that versions the registered fonts; readers compare it with their own
     fonts: kivact_types::cell::Generation,
     store: AssetStore,
-    // xtask-allow(state-fields): identity: the generation that versions the store's contents; readers compare it with their own
     revision: kivact_types::cell::Generation,
     /// Families of the registered font files, in registration order (for
     /// the missing-family diagnostic).
@@ -60,7 +57,6 @@ pub(crate) struct ArvaneAssets {
     reported_images: kivact_types::cell::ReportOnceSet<(NodeId, Asset)>,
     /// Missing families already reported (lowercase).
     reported_families: kivact_types::cell::ReportOnceSet<String>,
-    // xtask-allow(state-fields): independent: missing-family reports check_family queues during a layout pass and sync takes each commit; the font and store generations version other data and never gate the queue
     /// Reports found during a layout pass (missing families).
     pending: Vec<AssetEvent>,
 }
@@ -240,7 +236,7 @@ impl ArvaneAssets {
     /// (`HostRequest::RegisterFont`): its families, or why it failed.
     pub(crate) fn register_font(
         &mut self,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         asset: &Asset,
     ) -> PlatformResult {
         let file = match load_font(asset) {
@@ -277,7 +273,7 @@ impl ArvaneAssets {
     /// is reported once per family (queued for after the layout pass).
     pub(crate) fn check_family(
         &mut self,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         id: NodeId,
         family: Option<&str>,
     ) {
@@ -308,8 +304,8 @@ impl ArvaneAssets {
 
 /// The family Arvane shapes with for `name` (`None`: the system UI font)
 /// and whether `name` is a missing family.
-fn resolve(engine: &mut arvane::Engine, name: &str) -> (Option<String>, bool) {
-    let resolution = engine.resolve_font_family(name);
+fn resolve(engine: &mut arvane_text::TextEngine, name: &str) -> (Option<String>, bool) {
+    let resolution = engine.resolve_family(name);
     let family = match resolution.choice {
         FamilyChoice::Family(f) => Some(f),
         FamilyChoice::SystemUi => None,
@@ -319,13 +315,13 @@ fn resolve(engine: &mut arvane::Engine, name: &str) -> (Option<String>, bool) {
 
 /// The family Arvane shapes with for a requested family name or generic
 /// family (`None`: the system UI font, Parley's `system-ui`).
-pub(crate) fn family(engine: &mut arvane::Engine, name: Option<&str>) -> Option<String> {
+pub(crate) fn family(engine: &mut arvane_text::TextEngine, name: Option<&str>) -> Option<String> {
     name.and_then(|name| resolve(engine, name).0)
 }
 
 /// The Arvane text style for `props`, its family resolved.
 pub(crate) fn text_style(
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     props: &ComputedTextStyle,
 ) -> kivact_types::ComputedTextStyle {
     let mut style = props.clone();

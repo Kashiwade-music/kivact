@@ -11,7 +11,7 @@ The core viewport displays and navigates the image your application renders. You
 ```rust,no_run
 use kivact::draw::{Pixels};
 use kivact::geometry::{Point, Rect, Size};
-use kivact::interaction::{ViewTransform, use_zoom_pan};
+use kivact::interaction::{ZoomPan, use_zoom_pan};
 use kivact::view::{SurfaceSize, viewport};
 use kivact::prelude::*;
 use kivact::style::{ThemeMode, rgb};
@@ -34,9 +34,10 @@ fn render(tint: f64) -> Pixels {
     Pixels::new(WIDTH, HEIGHT, rgba)
 }
 
-fn viewer() -> impl IntoView {
+#[component]
+fn viewer() -> impl Element {
     let tint = signal(0.5);
-    let transform = signal(ViewTransform::default());
+    let transform = signal(ZoomPan::default());
     let zoom = use_zoom_pan(transform);
     let surface = signal(Size::new(0.0, 0.0));
     let pointer = signal(Point::new(0.0, 0.0));
@@ -48,9 +49,9 @@ fn viewer() -> impl IntoView {
         row((
             ui::value_slider("Tint", tint).range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range")).step(0.01).precision(2),
             button("Fit").on_press(move || {
-                transform.set(ViewTransform::fit(
+                transform.set(ZoomPan::fit(
                     Size::new(WIDTH as f64, HEIGHT as f64),
-                    surface.get_untracked(),
+                    surface.get(),
                 ));
             }),
             text(move || {
@@ -148,7 +149,8 @@ fn start_renderer() -> Signal<Pixels> {
     image
 }
 
-fn live_view() -> impl IntoView {
+#[component]
+fn live_view() -> impl Element {
     let image = start_renderer();
     kivact::view::viewport(image)
         .pixelated(true)

@@ -8,14 +8,17 @@ Use a tooltip for a short hint, a hover card for a preview that opens on hover o
 use kivact::prelude::*;
 use kivact_ui_soft as soft;
 
-fn delete_confirmation(delete_file: impl Fn() + 'static) -> impl IntoView {
+#[component]
+fn delete_confirmation(delete_file: Callback<()>) -> impl IntoView {
     let open = signal(false);
 
     (
         button("Delete file").on_press(move || open.set(true)),
-        soft::alert_dialog("Delete file?", "This action is permanent.", open)
-            .action("Delete", move || {
-                delete_file();
+        soft::alert_dialog("Delete file?", open)
+            .description("This action is permanent.")
+            .action_label("Delete")
+            .on_press(move || {
+                delete_file.call(());
                 open.set(false);
             }),
     )

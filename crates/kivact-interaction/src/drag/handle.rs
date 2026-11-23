@@ -35,11 +35,11 @@ use super::machine;
 use crate::edit::EditSession;
 use crate::options_cell::OptionsCell;
 use kivact_core::custom::clock_now;
-use kivact_core::custom::{Part, PartState, part};
+use kivact_core::custom::{Part, part};
 use kivact_core::geometry::Point;
-use kivact_core::state::{Callback, MachineHandle, machine};
 use kivact_core::state::{IntoValue, callback};
-use kivact_core::state::{Signal, Value, Var, memo, signal, var};
+use kivact_core::state::{MachineHandle, machine};
+use kivact_core::state::{Value, Var, memo, var};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
     Handled, Key, KeyCode, KeyEvent, Modifiers, MouseButton, PointerEvent, PointerPhase,
@@ -108,9 +108,7 @@ enum Step<T> {
     /// invalid coordinates).
     Stop {
         stop: Stop,
-        // xtask-allow(state-fields): independent: copied from the ended drag's EditOwnership (Owned when the drag began the edit); a drag with or without an edit can end with or without an update
         owns_edit: bool,
-        // xtask-allow(state-fields): independent: what on_end receives, absent when the delta from the drag's start is not finite; that depends on the positions alone, so it comes with either edit ownership
         update: Option<DragUpdate<T>>,
     },
 }
@@ -143,17 +141,12 @@ enum Step<T> {
 /// without calling a callback. The setters work in any order, before or
 /// after the sources are made.
 pub struct DragApi<T: 'static> {
-    // xtask-allow(state-fields): independent: the observation of the attached source part, absent until it attaches
-    observed: Signal<Option<Value<DragState>>>,
     session: MachineHandle<machine::Machine<T>>,
     /// The source of the active drag, derived from `session`.
     active_source: Value<Option<Generation>>,
     sources: Var<Generation>,
     coordinates: DragCoordinates,
     settings: OptionsCell<DragOptions<T>>,
-    modifiers: OptionsCell<Option<Callback<DragUpdate<T>>>>,
-    // xtask-allow(state-fields): option: the disabled value a setter supplied, absent until set
-    disabled: Signal<Option<Value<bool>>>,
 }
 
 impl<T: 'static> Clone for DragApi<T> {
@@ -168,17 +161,6 @@ impl<T: 'static> Copy for DragApi<T> {}
 /// `coordinates`. Setup only.
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// # pub use kivact_core::{view, state, style};
-/// # pub mod prelude {
-/// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-/// # }
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::{DragCoordinates, DragUpdate, use_drag};
 /// use kivact::prelude::*;
 /// let offset = signal(0.0_f64);
@@ -211,19 +193,17 @@ pub fn use_drag<T: Clone + 'static>(coordinates: DragCoordinates) -> DragApi<T> 
         })
     });
     let drag = DragApi {
-        observed: signal(None),
         session,
         active_source,
         sources: var(Generation::new()),
         coordinates,
         settings,
-        modifiers: OptionsCell::new(None),
-        disabled: signal(None),
     };
     session.feed(
         move || {
-            drag.disabled
-                .with(|disabled| disabled.is_some_and(|value| value.get()))
+            settings
+                .value()
+                .with(|settings| settings.disabled.is_some_and(|value| value.get()))
         },
         machine::Event::Disabled,
     );
@@ -272,19 +252,6 @@ impl<T: Clone + 'static> DragApi<T> {
         self
     }
 
-    /// Drawing state of the actual attached input target.
-    pub fn source_state(self) -> Value<DragState> {
-        kivact_core::state::memo(move || {
-            self.observed
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(DragState {
-                    input: PartState::default(),
-                    active: self.is_active(),
-                })
-        })
-    }
-
     /// Cancel when this source becomes disabled, and refuse new starts while disabled.
     ///
     /// The source's element stays enabled. Setup only. This is an
@@ -292,7 +259,8 @@ impl<T: Clone + 'static> DragApi<T> {
     #[track_caller]
     pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
         let disabled = disabled.into_value();
-        self.disabled.update(|current| *current = Some(disabled));
+        self.settings
+            .update(|settings| settings.disabled = Some(disabled));
         self
     }
 
@@ -311,19 +279,9 @@ impl<T: Clone + 'static> DragApi<T> {
     /// neither commits nor cancels it. Setup only.
     ///
     /// ```no_run
-    /// # mod kivact {
-    /// #     //! Role: Supply facade paths for this documentation example.
-    /// # pub use kivact_core::{view, state, style};
-    /// # pub mod prelude {
-    /// # //! Role: Supply the canonical imports used by this documentation example.
-    /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-    /// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-    /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-    /// # }
-    /// #     pub extern crate kivact_interaction as interaction;
-    /// # }
     /// use kivact::interaction::{DragCoordinates, DragUpdate, EditSession, use_drag};
     /// use kivact::prelude::*;
+    /// use kivact::view::EditPhase;
     /// let x = signal(0.0_f64);
     /// let origin = signal(0.0_f64);
     /// let edit = EditSession::new(move |start| x.set(start))
@@ -357,17 +315,6 @@ impl<T: Clone + 'static> DragApi<T> {
     /// it and neither commits nor cancels it. Setup only.
     ///
     /// ```no_run
-    /// # mod kivact {
-    /// #     //! Role: Supply facade paths for this documentation example.
-    /// # pub use kivact_core::{view, state, style};
-    /// # pub mod prelude {
-    /// # //! Role: Supply the canonical imports used by this documentation example.
-    /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-    /// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-    /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-    /// # }
-    /// #     pub extern crate kivact_interaction as interaction;
-    /// # }
     /// use kivact::interaction::{DragCoordinates, DragUpdate, EditSession, use_drag};
     /// use kivact::prelude::*;
     /// let x = signal(0.0_f64);
@@ -432,8 +379,10 @@ impl<T: Clone + 'static> DragApi<T> {
     }
 
     fn is_disabled(self) -> bool {
-        self.disabled
-            .with_untracked(|disabled| disabled.is_some_and(|value| value.get_untracked()))
+        self.settings
+            .get()
+            .disabled
+            .is_some_and(|value| value.get_untracked())
     }
 
     /// The edit of the drag, if the drag was given one that begins `at`.
@@ -521,7 +470,8 @@ impl<T: Clone + 'static> DragApi<T> {
         f: impl Fn(DragUpdate<T>) -> R + 'static,
     ) -> Self {
         let f = callback(f);
-        self.modifiers.update(|current| *current = Some(f));
+        self.settings
+            .update(|settings| settings.modifiers = Some(f));
         self
     }
 
@@ -654,14 +604,16 @@ impl<T: Clone + 'static> DragApi<T> {
     /// cancellation and disabled behavior is the same. Setup only.
     #[track_caller]
     pub fn source_with(self, payload: impl Fn() -> T + 'static) -> Part<DragState> {
-        let id = self.sources.update(Generation::next);
+        self.sources.update(|g| {
+            g.next();
+        });
+        let id = self.sources.get();
         let active_source = self.active_source;
         let input = part(move |input| DragState {
             input,
             active: active_source.get() == Some(id),
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.observed, part_state);
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
             host.part(input)
@@ -718,7 +670,7 @@ impl<T: Clone + 'static> DragApi<T> {
         if !is_modifier_key(code) {
             return Ok(());
         }
-        let Some(callback) = self.modifiers.get() else {
+        let Some(callback) = self.settings.get().modifiers else {
             return Ok(());
         };
         let update = self

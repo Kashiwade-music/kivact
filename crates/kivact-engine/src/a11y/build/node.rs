@@ -3,7 +3,6 @@
 use crate::a11y::state::Clipping;
 use crate::model::Model;
 use crate::{is_list_role, semantic_role};
-use arvane as a;
 use kivact_types as types;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -40,7 +39,7 @@ impl Model {
         let mut out = types::Point::default();
         // From the root down, summed in the order a whole build sums them.
         for x in self.tree().chain(Some(id)).into_iter().skip(1).rev() {
-            let s = self.node(x).map(|n| n.scroll()).unwrap_or_default();
+            let s = self.tree().scroll_of(x);
             out.x += s.x;
             out.y += s.y;
         }
@@ -63,9 +62,9 @@ impl Model {
         id: types::NodeId,
         offset: types::Point,
         clipped: &BTreeSet<types::NodeId>,
-        out: &mut Vec<kivact_types::render::SemanticsNode>,
+        out: &mut Vec<arvane_protocol::SemanticsNode>,
         regions: &mut BTreeSet<u64>,
-        engine: &mut a::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) {
         let Some(n) = self.node(id) else {
             return;
@@ -75,12 +74,11 @@ impl Model {
         // with nothing shown) has empty bounds at the origin: like every
         // other content-space bounds they follow no scroll above its layer.
         let bounds = self.content_bounds(id).unwrap_or_default();
-        let scroll = n.scroll();
+        let scroll = self.tree().scroll_of(id);
 
         let (bounds, transform) = self.a11y_placement(id, n.is_layer(), bounds, offset);
         let children: Vec<kivact_types::SemanticsId> = self
-            .tree()
-            .logical_children(id)
+            .semantic_children(id)
             .into_iter()
             .map(|id| kivact_types::SemanticsId(id.0))
             .collect();
@@ -99,7 +97,7 @@ impl Model {
         let scene_regions = scene_regions(n);
         let extras = self.node_properties(id, n);
         let authored_text = n.semantics().and_then(|props| props.text.clone());
-        let mut output = kivact_types::render::SemanticsNode {
+        let mut output = arvane_protocol::SemanticsNode {
             id: kivact_types::SemanticsId(id.0),
             children,
             bounds,
@@ -113,7 +111,7 @@ impl Model {
                         .and_then(|s| s.description.clone())
                         .unwrap_or_default(),
                 ),
-                value_text: if self.editors[n.index.0].is_some() {
+                value_text: if self.slots.editors[n.index.0].is_some() {
                     None
                 } else {
                     n.semantics().and_then(|s| s.value_text.clone())
@@ -131,7 +129,7 @@ impl Model {
         };
         if self
             .node(id)
-            .is_some_and(|n| self.editors[n.index.0].is_some() && !n.password())
+            .is_some_and(|n| self.slots.editors[n.index.0].is_some() && !n.password())
         {
             let text = self.editing_semantics(id, self.layer_offset(id), engine);
             output.semantics.text = Some(text);
@@ -177,8 +175,8 @@ impl Model {
         id: types::NodeId,
         scene_regions: BTreeMap<types::RegionId, types::scene::Region>,
         regions: &mut BTreeSet<u64>,
-        output: &mut kivact_types::render::SemanticsNode,
-    ) -> Vec<kivact_types::render::SemanticsNode> {
+        output: &mut arvane_protocol::SemanticsNode,
+    ) -> Vec<arvane_protocol::SemanticsNode> {
         let hidden = output.semantics.hidden;
         let disabled = output.semantics.disabled;
         // A region's space starts at the padding box, where its scene is drawn.
@@ -214,7 +212,7 @@ impl Model {
                 },
                 &mut props,
             );
-            leaves.push(kivact_types::render::SemanticsNode {
+            leaves.push(arvane_protocol::SemanticsNode {
                 id: kivact_types::SemanticsId(native_id),
                 children: Vec::new(),
                 bounds: canvas.and_then(|canvas| {
@@ -228,7 +226,7 @@ impl Model {
                         })
                 }),
                 scroll: kivact_types::Point::default(),
-                transform: kivact_types::Transform::IDENTITY,
+                transform: kivact_types::Affine::IDENTITY,
                 semantics: kivact_types::Semantics {
                     role: region.semantics.role,
                     name: region.semantics.name,
@@ -270,9 +268,9 @@ impl Model {
         layer: bool,
         bounds: types::Rect,
         offset: types::Point,
-    ) -> (Option<types::Rect>, kivact_types::Transform) {
+    ) -> (Option<types::Rect>, kivact_types::Affine) {
         let Some(n) = self.node(id) else {
-            return (Some(bounds), kivact_types::Transform::IDENTITY);
+            return (Some(bounds), kivact_types::Affine::IDENTITY);
         };
         if layer {
             return (Some(bounds), self.a11y_transform(id, true, bounds, offset));
@@ -288,17 +286,14 @@ impl Model {
             let own = if n.place.transformed {
                 self.a11y_transform(id, false, bounds, offset)
             } else {
-                kivact_types::Transform::IDENTITY
+                kivact_types::Affine::IDENTITY
             };
             return (Some(bounds), own);
         }
         if n.is_transparent() {
-            return (Some(bounds), kivact_types::Transform::IDENTITY);
+            return (Some(bounds), kivact_types::Affine::IDENTITY);
         }
-        (
-            self.affine_frame_bounds(id),
-            kivact_types::Transform::IDENTITY,
-        )
+        (self.affine_frame_bounds(id), kivact_types::Affine::IDENTITY)
     }
 
     /// The transform of a drawable's root: its drawn map to
@@ -309,7 +304,7 @@ impl Model {
         &self,
         id: types::NodeId,
         bounds: types::Rect,
-    ) -> Option<kivact_types::Transform> {
+    ) -> Option<kivact_types::Affine> {
         self.node(id)?.properties.drawable.as_ref()?;
         let map = self.to_parent(id)?.flatten().as_affine()?;
         let at = types::Point {
@@ -317,9 +312,9 @@ impl Model {
             y: bounds.y,
         };
         Some(
-            kivact_types::Transform::translate(-at.x, -at.y)
+            kivact_types::Affine::translate(-at.x, -at.y)
                 .then(map)
-                .then(kivact_types::Transform::translate(at.x, at.y)),
+                .then(kivact_types::Affine::translate(at.x, at.y)),
         )
     }
 
@@ -368,23 +363,23 @@ impl Model {
         layer: bool,
         bounds: types::Rect,
         offset: types::Point,
-    ) -> kivact_types::Transform {
+    ) -> kivact_types::Affine {
         let host = &self;
         let own = host.transform_at(id, bounds);
         if !layer {
-            return own.unwrap_or(kivact_types::Transform::IDENTITY);
+            return own.unwrap_or(kivact_types::Affine::IDENTITY);
         }
         let ancestors: Vec<types::NodeId> =
             host.tree().chain(Some(id)).into_iter().skip(1).collect();
         let transformed = |x: &types::NodeId| host.node(*x).is_some_and(|n| n.place.transformed);
         if !ancestors.iter().any(transformed) {
-            return own.unwrap_or(kivact_types::Transform::IDENTITY);
+            return own.unwrap_or(kivact_types::Affine::IDENTITY);
         }
         // What the platform maps it by: each ancestor's scroll, then
         // transform, nearest first.
-        let mut around = kivact_types::Transform::IDENTITY;
+        let mut around = kivact_types::Affine::IDENTITY;
         for x in &ancestors {
-            let s = host.node(*x).map(|n| n.scroll()).unwrap_or_default();
+            let s = host.tree().scroll_of(*x);
             let above = self.scroll_above(*x);
             let r = host.rect(*x).unwrap_or_default();
             let content = types::Rect {
@@ -392,14 +387,14 @@ impl Model {
                 y: r.y + above.y,
                 ..r
             };
-            around = around.then(kivact_types::Transform::translate(-s.x, -s.y));
+            around = around.then(kivact_types::Affine::translate(-s.x, -s.y));
             if let Some(t) = host.transform_at(*x, content) {
                 around = around.then(t);
             }
         }
         // Where it is shown: its content box moved back by the scrolls
         // above it, then its own transform at its placed origin.
-        let mut shown = kivact_types::Transform::translate(-offset.x, -offset.y);
+        let mut shown = kivact_types::Affine::translate(-offset.x, -offset.y);
         if let Some(r) = host.rect(id)
             && let Some(t) = host.transform_at(id, r)
         {
@@ -407,14 +402,15 @@ impl Model {
         }
         match around.invert() {
             Some(back) => shown.then(back),
-            None => kivact_types::Transform::IDENTITY,
+            None => kivact_types::Affine::IDENTITY,
         }
     }
 
-    /// The clipping of every shown clipping list-like container (a complete enumeration).
-    pub(super) fn clipping_of_all(&self) -> Clipping {
+    /// The clipping of every shown clipping list-like container among
+    /// `order` (the attached nodes in semantic order).
+    pub(super) fn clipping_of(&self, order: &[types::NodeId]) -> Clipping {
         let mut clipping = Clipping::default();
-        for (list, _) in self.tree().iter() {
+        for &list in order {
             if let Some((_, clipped)) = self.list_rows(list) {
                 clipping.set_list(list, clipped);
             }
@@ -426,7 +422,7 @@ impl Model {
     pub(super) fn is_clipping_list_node(&self, id: types::NodeId) -> bool {
         self.tree()
             .get(id)
-            .is_some_and(|n| is_clipping_list(n, self.editors[n.index.0].is_some()))
+            .is_some_and(|n| is_clipping_list(n, self.slots.editors[n.index.0].is_some()))
     }
 
     /// The rows of `list` when it is a shown clipping list-like container,
@@ -440,7 +436,7 @@ impl Model {
     ) -> Option<(Vec<types::NodeId>, BTreeSet<types::NodeId>)> {
         let tree = self.tree();
         let n = tree.get(list)?;
-        if !is_clipping_list(n, self.editors[n.index.0].is_some()) || !tree.shown(list) {
+        if !is_clipping_list(n, self.slots.editors[n.index.0].is_some()) || !tree.shown(list) {
             return None;
         }
         let focus = tree.chain(self.focused().map(|f| f.node));
@@ -454,7 +450,7 @@ impl Model {
             if child.hidden() || child.visibility_hidden() {
                 continue;
             }
-            if semantic_role(child, self.editors[child.index.0].is_some()).is_none()
+            if semantic_role(child, self.slots.editors[child.index.0].is_some()).is_none()
                 && self.focused().map(|f| f.node) != Some(id)
             {
                 stack.extend(tree.logical_children(id).into_iter().rev());
@@ -518,10 +514,10 @@ pub(super) fn structural(
     children: Vec<kivact_types::SemanticsId>,
     bounds: Option<kivact_types::Rect>,
     scroll: kivact_types::Point,
-    transform: kivact_types::Transform,
+    transform: kivact_types::Affine,
     hidden: bool,
-) -> kivact_types::render::SemanticsNode {
-    kivact_types::render::SemanticsNode {
+) -> arvane_protocol::SemanticsNode {
+    arvane_protocol::SemanticsNode {
         id: kivact_types::SemanticsId(id.0),
         children,
         bounds,

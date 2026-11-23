@@ -30,29 +30,29 @@ struct Todo {
 
 fn app() -> impl IntoView {
     let todos = signal(vec![
-        Todo { id: 1, title: "牛乳を買う".into(), done: false },
-        Todo { id: 2, title: "コードを書く".into(), done: false },
-        Todo { id: 3, title: "散歩に行く".into(), done: false },
+        Todo { id: 1, title: "Buy milk".into(), done: false },
+        Todo { id: 2, title: "Write code".into(), done: false },
+        Todo { id: 3, title: "Go for a walk".into(), done: false },
     ]);
 
     column(for_each(
         todos,
         |todo| todo.id,
         move |todo| {
-            let id = todo.get_untracked().id;
-            // チェックボックスを、一覧のこの行へ書き戻す。
+            let id = todo.get().id;
+            // Write the checkbox back to this row of the list.
             let done = bind!(todo.done);
-            // 行が持つ状態。key `id` が残っている間は生き続ける。
+            // State owned by the row: it lives as long as the key `id` does.
             let open = signal(false);
             column((
                 row((
                     checkbox(move || todo.get().title, done),
-                    button("詳細").on_press(move || open.update(|o| *o = !*o)),
-                    button("削除")
+                    button("Details").on_press(move || open.update(|o| *o = !*o)),
+                    button("Remove")
                         .on_press(move || todos.update(|list| list.retain(|t| t.id != id))),
                 ))
                 .style(style().gap(8)),
-                show(open, move || text(format!("Todo 番号 {id}"))),
+                show(open, move || text(format!("Todo number {id}"))),
             ))
         },
     ))
@@ -70,17 +70,17 @@ mod tests {
     #[test]
     fn row_state_follows_the_key_not_the_position() {
         let screen = kivact::test::render(app);
-        screen.all_by_role(Role::Button, "詳細")[0].click();
-        screen.get_by_text("Todo 番号 1");
+        screen.all_by_role(Role::Button, "Details")[0].click();
+        screen.get_by_text("Todo number 1");
 
-        // 2 行目を削除しても、1 行目の状態は変わらない。
-        screen.all_by_role(Role::Button, "削除")[1].click();
-        screen.get_by_text("Todo 番号 1");
-        assert!(screen.query_by_role(Role::CheckBox, "コードを書く").is_none());
+        // Removing the second row leaves the first row's state alone.
+        screen.all_by_role(Role::Button, "Remove")[1].click();
+        screen.get_by_text("Todo number 1");
+        assert!(screen.query_by_role(Role::CheckBox, "Write code").is_none());
 
-        screen.get_by_role(Role::CheckBox, "牛乳を買う").click();
+        screen.get_by_role(Role::CheckBox, "Buy milk").click();
         assert_eq!(
-            screen.get_by_role(Role::CheckBox, "牛乳を買う").checked(),
+            screen.get_by_role(Role::CheckBox, "Buy milk").checked(),
             Some(CheckedState::Checked)
         );
     }
@@ -90,7 +90,7 @@ mod tests {
 仕組みです。
 
 - `for_each(items, key, row)` は、各行の同一性を得るために `key(&item)` を呼びます。行は、その key が一覧にある限り、自分の owner と、行のクロージャの中で作った `signal` をすべて保ちます。並べ替えると既存の行が移動し、項目を削除するとその行だけが破棄されます。
-- 行のクロージャは**行ごとに 1 回**だけ実行され、行の現在の項目を読み書きする `Binding<Todo>` を 1 つ受け取ります。文字が編集に追従するよう、クロージャの中で読みます(`move || todo.get().title`)。一度読んだ結果を保存しないでください。
+- 行のクロージャは**行ごとに 1 回**だけ実行され、行の現在の項目を読み書きする `Signal<Todo>` を 1 つ受け取ります。文字が編集に追従するよう、クロージャの中で読みます(`move || todo.get().title`)。一度読んだ結果を保存しないでください。
 - key の型には `Clone + Eq + Hash` が必要です。位置ではなく、安定した id を使ってください。位置を使うと、順序が変わったとき行同士で状態が入れ替わってしまいます。
 - 同じ key の項目が 2 つあると誤りとして報告されます。id は重複させないでください。
 
@@ -98,7 +98,7 @@ mod tests {
 
 行が持つのは項目のコピーなので、どの項目を変えるのかを示す必要があります。便利な順に 3 通りあります。
 
-1. **フィールドへのバインディング。** 行の `todo` はすでに `Binding<Todo>` です。`bind!(todo.done)` または `todo.project(get, get_mut)` でフィールドに絞ります。行の setup で作ります。項目が消えると最後の値を保ち、書き込みは何もしません。`Value<Vec<T>>`、`Vec<T>`、クロージャーの source では読み取り専用の `Value<T>` を受け取ります。
+1. **フィールドへのシグナル。** 行の `todo` は `Signal<Todo>` です。`bind!(todo.done)` は、その `done` フィールドへの `Signal<bool>` を作ります。行の setup で作ります。`Value<Vec<T>>`、`Vec<T>`、クロージャーの source では読み取り専用の `Value<T>` を受け取ります。
 2. **ハンドラーの中で key による更新。** `todos.update(|list| list.retain(|t| t.id != id))` や `list.iter_mut().find(|t| t.id == id)` です。削除、移動、一覧そのものを変える操作に使います。
 3. **行が持つ状態。** 行のクロージャの中で `signal(..)` を作ります。展開済みのパネルのように、一覧が知る必要のないものに使います。
 
@@ -116,12 +116,12 @@ fn scores() -> impl IntoView {
     column((
         column(for_index(scores, |i, score| {
             row((
-                text(format!("{}位", i + 1)),
+                text(format!("#{}", i + 1)),
                 text(move || score.get().to_string()),
             ))
             .style(style().gap(8))
         })),
-        button("並べ替え").on_press(move || scores.update(|s| s.sort())),
+        button("Sort").on_press(move || scores.update(|s| s.sort())),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -137,10 +137,11 @@ fn main() -> kivact::Result<()> {
 
 `virtual_list` はビューポート付近の行だけをマウントするので、1 万件でも 1 画面分のコストで済みます。高さに上限があることと、行の高さが分かっていることが必要です。
 
-行のクロージャは、`for_each` と同じく行のハンドルを 1 つ受け取ります。ふつうの元データなら `Value<T>`、元データが `Signal` または `Binding` なら書き込める `Binding<T>` です(下の例は `Signal` です)。
+行のクロージャは、`for_each` と同じく行のハンドルを 1 つ受け取ります。ふつうの元データなら `Value<T>`、元データが `Signal` なら書き込める `Signal<T>` です(下の例がこの形です)。
 
 ```rust,test_harness
 use kivact::prelude::*;
+use kivact::view::RowHeight;
 
 #[derive(Clone, PartialEq)]
 struct Entry {
@@ -151,17 +152,17 @@ struct Entry {
 fn app() -> impl IntoView {
     let entries = signal(
         (0..10_000)
-            .map(|id| Entry { id, message: format!("エントリー {id}") })
+            .map(|id| Entry { id, message: format!("Entry {id}") })
             .collect::<Vec<_>>(),
     );
     let target = signal(None::<u32>);
 
     column((
-        button("5000 へ移動").on_press(move || target.set(Some(5_000))),
+        button("Jump to 5000").on_press(move || target.set(Some(5_000))),
         virtual_list(entries, |e| e.id, |entry| text(move || entry.get().message))
             .row_height(RowHeight::Fixed(24.0))
             .scroll_to(target)
-            .style(style().height(300).border(1, ColorToken::Border)),
+            .style(style().height(300).border(1, color::BORDER)),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -177,12 +178,12 @@ mod tests {
     #[test]
     fn only_the_rows_near_the_viewport_exist() {
         let screen = kivact::test::render(app);
-        screen.get_by_text("エントリー 0");
-        assert!(screen.query_by_text("エントリー 9999").is_none());
+        screen.get_by_text("Entry 0");
+        assert!(screen.query_by_text("Entry 9999").is_none());
 
-        screen.get_by_role(Role::Button, "5000 へ移動").click();
-        screen.find_by_text("エントリー 5000");
-        assert!(screen.query_by_text("エントリー 0").is_none());
+        screen.get_by_role(Role::Button, "Jump to 5000").click();
+        screen.find_by_text("Entry 5000");
+        assert!(screen.query_by_text("Entry 0").is_none());
     }
 }
 ```
@@ -206,23 +207,23 @@ fn app() -> impl IntoView {
 
     column((
         list(
-            "色",
+            "Colors",
             vec![
-                ListItem::new(1_u32, "赤"),
-                ListItem::new(2, "青").with_description("落ち着いた色"),
-                ListItem::new(3, "緑").disabled(true),
+                ListItem::new(1_u32, "Red"),
+                ListItem::new(2, "Blue").with_description("A calm color"),
+                ListItem::new(3, "Green").disabled(true),
             ],
             selected,
         ),
-        text(move || format!("選択中: {:?}", selected.get())),
-        list("ファイル", vec![ListItem::new(1_u32, "notes.txt"), ListItem::new(2, "plan.md")], picked_many)
+        text(move || format!("selected: {:?}", selected.get())),
+        list("Files", vec![ListItem::new(1_u32, "notes.txt"), ListItem::new(2, "plan.md")], picked_many)
         .item(|item, state| {
             text(move || {
                 let mark = if state.get().selected { "[x] " } else { "[ ] " };
                 format!("{mark}{}", item.get().label())
             })
         }),
-        text(move || format!("{} 件のファイルを選択", picked_many.with(Vec::len))),
+        text(move || format!("{} files picked", picked_many.with(Vec::len))),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -238,16 +239,16 @@ mod tests {
     #[test]
     fn a_press_selects_an_item_and_a_disabled_one_is_skipped() {
         let screen = kivact::test::render(app);
-        screen.get_by_text("選択中: Some(2)");
-        screen.get_by_role(Role::Option, "赤").click();
-        screen.get_by_text("選択中: Some(1)");
-        screen.get_by_text("0 件のファイルを選択");
+        screen.get_by_text("selected: Some(2)");
+        screen.get_by_role(Role::Option, "Red").click();
+        screen.get_by_text("selected: Some(1)");
+        screen.get_by_text("0 files picked");
     }
 }
 ```
 
 - 矢印キーで選択が移り、Tab は選択中の項目に入り、名前の先頭を打つとその項目へ移り、disabled の項目は飛ばされます。
-- `.multiple(keys)` にすると `Signal<Vec<K>>` を使う複数選択になります。押すと 1 つを選び、Ctrl で個別に切り替え、Shift で範囲を選びます。`list` に渡した単一の `selected` バインディングは使われなくなります。
+- `.multiple(keys)` にすると `Signal<Vec<K>>` を使う複数選択になります。押すと 1 つを選び、Ctrl で個別に切り替え、Shift で範囲を選びます。`list` に渡した単一の `selected` の Signal は使われなくなります。
 - `.item(|item, state| view)` は行の表示を置き換えます。`item` は `Value<ListItem<K>>`、`state` は `selected`、`active`、行の hover と focus の状態を持つ `Value<ListItemState>` です。振る舞いとキーボード操作は部品のままです。
 - key の `K` は位置ではなく、あなたの id(`u32`、enum、`String`)です。そのため、並べ替えても選択は保たれます。
 - 行の中のチェックボックス(`done` のような業務上のフラグ)は、行の選択とは別のものです。別々の場所に持たせてください。
@@ -258,6 +259,7 @@ mod tests {
 
 ```rust,test_harness
 use kivact::prelude::*;
+use kivact::ui::{DataColumn, data_table};
 
 #[derive(Clone, PartialEq)]
 struct Payment {
@@ -280,10 +282,10 @@ fn app() -> impl IntoView {
         payments,
         |p: &Payment| p.id,
         vec![
-            DataColumn::new("メール", |p: &Payment| p.email.clone())
+            DataColumn::new("Email", |p: &Payment| p.email.clone())
                 .sortable()
                 .filter(|p, query| p.email.contains(query)),
-            DataColumn::new("金額", |p: &Payment| format!("{:.2}", p.amount))
+            DataColumn::new("Amount", |p: &Payment| format!("{:.2}", p.amount))
                 .compare(|a, b| a.amount.total_cmp(&b.amount))
                 .numeric(true)
                 .width(120.0),
@@ -319,7 +321,7 @@ mod tests {
 | 呼び出し | 得られるもの |
 | --- | --- |
 | `.selection(Signal<Vec<K>>)` | 各行とヘッダーのチェックボックス、選択数の表示 |
-| `.sort(Binding<Option<(usize, SortOrder)>>)` | 並べ替え中の列(位置)と向きの読み書き。渡さなくても、ヘッダーは自分で並べ替える |
+| `.sort(Signal<Option<(usize, SortOrder)>>)` | 並べ替え中の列(位置)と向きの読み書き。渡さなくても、ヘッダーは自分で並べ替える |
 | `.filter(Signal<String>)` | 絞り込みの欄。`DataColumn::filter` が一致する行だけを残す |
 | `.page(Signal<usize>, size)` | `size` 行ごとの頁と、前へ・次へ |
 | `.resizable(Signal<Vec<f64>>)` | ヘッダーの幅変更ハンドル。幅はあなたの値になる |
@@ -334,7 +336,7 @@ mod tests {
 ## 大きなデータ
 
 - 項目の型は、比較が軽くなるようにします。`for_each` と `data_table` は変更のたびに項目を `PartialEq` で比較します。大きなデータは `Rc` や id の向こうに置いてください。
-- `Vec` 全体を置き換えるのではなく、`update` か `行の binding の `project(..)`` で 1 つの項目を更新します。変わった行だけが更新されます。
+- `Vec` 全体を置き換えるのではなく、`update` か、行のフィールドを `bind!(row.field)` の Signal で書き換えて 1 つの項目を更新します。変わった行だけが更新されます。
 - 長いログやフィードには `virtual_list`、表形式のデータには `.page(..)` 付きの `data_table` を使います。
 - 重い絞り込みや並べ替えは `memo` の中で行い、その memo を一覧へ渡します。
 

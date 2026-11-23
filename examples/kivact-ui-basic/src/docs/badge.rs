@@ -1,38 +1,31 @@
-//! Role: Catalog page of Badge: variants, with icon and as a pressable badge.
+//! Catalog page of Badge: variants, with icon and as a pressable badge.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "badge",
-        name: "Badge",
-        description: "状態やラベルを小さく表示する部品です。on_press を渡すとリンクのように押せるバッジになります。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("badge.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "variants",
-                "Variants",
-                "BadgeVariant で見た目を選びます。",
-                variants,
-            ),
-            Example::new(
-                "with-icon",
-                "With icon",
-                "icon と trailing_icon で 12 px のアイコンを添えます。",
-                with_icon,
-            ),
-            Example::new(
-                "pressable",
-                "Pressable",
-                "on_press を渡すとフォーカスでき、Enter や Space でも押せます。",
-                pressable,
-            ),
-        ],
-    }
+    Page::new("badge", "Badge", "Components", include_str!("badge.rs"))
+        .description("A small badge that shows a status or a label. Pass on_press to make it a badge that is pressed like a link.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "variants",
+            "Variants",
+            "Choose the look with BadgeVariant.",
+            variants,
+        ))
+        .example(Example::new(
+            "with-icon",
+            "With icon",
+            "icon and trailing_icon add a 12 px icon.",
+            with_icon,
+        ))
+        .example(Example::new(
+            "pressable",
+            "Pressable",
+            "With on_press the badge takes focus, and Enter or Space presses it too.",
+            pressable,
+        ))
 }
 
 // example: variants

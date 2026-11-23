@@ -14,13 +14,18 @@ mod output;
 mod plan;
 mod tables;
 
-pub use arvane_render::RenderError as ComposeError;
+pub use arvane_protocol::{FrameReport, PixelRect};
+pub(crate) use arvane_render::RenderError;
 pub use build::{GPU_BUILT, GPU_INTEROP_BUILT};
 pub use cpu::{CpuCompositor, CpuOutput, Rendered};
 #[cfg(feature = "gpu")]
-pub use gpu::{GpuContext, GpuEnv, GpuSurface, Presentation};
+pub use gpu::{
+    GpuContext, GpuDevice, GpuEnv, GpuSurface, Presentation, SurfaceConfigurer, probe_adapter,
+};
 #[cfg(not(feature = "gpu"))]
-pub use gpu_unbuilt::{GpuContext, GpuEnv, GpuSurface, Presentation};
-pub use kivact_types::render::{ExportFrame, ExportedFrame, FrameReport, PixelRect};
+pub use gpu_unbuilt::{
+    GpuContext, GpuDevice, GpuEnv, GpuSurface, Presentation, SurfaceConfigurer, probe_adapter,
+};
+pub use kivact_types::export::{ExportFrame, ExportedFrame};
 pub use output::GpuReport;
 pub use plan::Damage;

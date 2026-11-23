@@ -32,17 +32,6 @@
 //! complete: each choice of a single day, the second choice of a range.
 //!
 //! ```no_run
-//! # mod kivact {
-//! #     //! Role: Supply facade paths for this documentation example.
-//! # pub use kivact_core::{i18n, view, state, style};
-//! # pub mod prelude {
-//! # //! Role: Supply the canonical imports used by this documentation example.
-//! # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-//! # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-//! # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-//! # }
-//! #     pub extern crate kivact_interaction as interaction;
-//! # }
 //! use kivact::view::{column, node, row, text};
 //! use kivact::i18n::{CalendarDate, CalendarMonth};
 //! use kivact::interaction::{CalendarOptions, CalendarSelection, use_calendar_grid};
@@ -50,7 +39,7 @@
 //!
 //! let day = signal(None::<CalendarDate>);
 //! let month = signal(CalendarMonth::new(2026, 10));
-//! let calendar = use_calendar_grid(month, CalendarSelection::Single(day.into_binding()), CalendarOptions::new());
+//! let calendar = use_calendar_grid(month, CalendarSelection::Single(day), CalendarOptions::new());
 //! let shown = CalendarMonth::new(2026, 10);
 //! let weeks = shown.weeks(calendar.week_start().get_untracked(), 0);
 //! let view = column((

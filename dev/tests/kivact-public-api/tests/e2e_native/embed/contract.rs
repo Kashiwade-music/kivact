@@ -1,0 +1,663 @@
+//! Role: OS-independent real-window embedding contracts.
+
+use super::support::{painted, panel, serial, wait};
+use kivact::embed::EmbedNotice;
+use kivact::embed::EmbedStatus;
+use kivact::embed::Embedded;
+use kivact::embed::ResizeAnswer;
+use kivact::platform;
+use kivact::prelude::*;
+use kivact::test::TestParent;
+use kivact::view::KeyCode;
+use kivact::view::Node;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+fn native_click_key_and_text_reach_the_editor() {
+    let parent = TestParent::open(320, 240).expect("parent opens");
+    let clicks = Arc::new(AtomicUsize::new(0));
+    let observed = Arc::new(Mutex::new(String::new()));
+    let (count, output) = (clicks.clone(), observed.clone());
+    let roots = Arc::new(AtomicUsize::new(0));
+    let root_calls = roots.clone();
+    let app = App::new("Native input")
+        .window_size(320, 240)
+        .embed(parent.parent().scale(1.0), move || {
+            root_calls.fetch_add(1, Ordering::SeqCst);
+            let value = signal(String::new());
+            effect(move || *output.lock().expect("test state lock") = value.get());
+            column((
+                panel().focusable(true).on_press(move || {
+                    count.fetch_add(1, Ordering::SeqCst);
+                }),
+                node()
+                    .style(style().size(160, 60))
+                    .part(kivact::interaction::use_text_edit(value).control()),
+            ))
+        })
+        .expect("editor opens");
+    painted(&parent);
+    parent.click(20.0, 20.0).expect("click delivered");
+    let click_deadline = Instant::now() + Duration::from_secs(15);
+    wait(&parent, || {
+        let value = clicks.load(Ordering::SeqCst);
+        assert!(
+            value == 1 || Instant::now() < click_deadline,
+            "click did not arrive once: count={value}, scale={}, status={:?}",
+            app.scale(),
+            app.status()
+        );
+        value == 1
+    });
+    parent.click(20.0, 120.0).expect("click delivered");
+    parent.text("hello").expect("text delivered");
+    let typing_deadline = Instant::now() + Duration::from_secs(15);
+    wait(&parent, || {
+        let value = observed.lock().expect("test state lock").clone();
+        assert!(
+            value == "hello" || Instant::now() < typing_deadline,
+            "typed text did not arrive: value={value:?}, scale={}, status={:?}",
+            app.scale(),
+            app.status()
+        );
+        value == "hello"
+    });
+    parent.key(KeyCode::Backspace).expect("key delivered");
+    wait(&parent, || {
+        *observed.lock().expect("test state lock") == "hell"
+    });
+    assert_eq!(roots.load(Ordering::SeqCst), 1);
+    assert_eq!(app.status(), EmbedStatus::Running);
+}
+
+fn accepted_startup_resize_rounds_and_changes_capture_then_host_size_wins() {
+    let parent = TestParent::open(640, 480).expect("parent opens");
+    let opening = Arc::new(AtomicBool::new(false));
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let result = Arc::new(Mutex::new(None));
+    let (inside, calls, output) = (opening.clone(), requests.clone(), result.clone());
+    let built = opening.clone();
+    let app = App::new("Resize")
+        .window_size(120, 80)
+        .embed(
+            parent.parent().scale(2.0).on_resize_request(move |w, h| {
+                assert!(
+                    inside.load(Ordering::SeqCst),
+                    "callback ran before root finished"
+                );
+                calls.lock().expect("test state lock").push((w, h));
+                ResizeAnswer::Accepted
+            }),
+            move || {
+                let future = platform::request_window_size(150.25, 90.25);
+                spawn(async move {
+                    *output.lock().expect("test state lock") =
+                        Some(future.await.map_err(|e| e.to_string()));
+                    Ok::<(), kivact::UiError>(())
+                });
+                let root = node().style(style().size(500, 500).background(Color::WHITE));
+                built.store(true, Ordering::SeqCst);
+                root
+            },
+        )
+        .expect("editor opens");
+    wait(&parent, || {
+        result.lock().expect("test state lock").is_some()
+    });
+    assert_eq!(*result.lock().expect("test state lock"), Some(Ok(())));
+    assert_eq!(*requests.lock().expect("test state lock"), vec![(301, 181)]);
+    wait(&parent, || {
+        parent
+            .capture()
+            .is_ok_and(|s| (s.width, s.height) == (301, 181))
+    });
+    app.set_size(220, 140);
+    wait(&parent, || app.size() == (220, 140));
+    wait(&parent, || {
+        parent
+            .capture()
+            .is_ok_and(|s| (s.width, s.height) == (220, 140))
+    });
+    assert_eq!(app.status(), EmbedStatus::Running);
+}
+
+fn pending_resize_waits_for_the_hosts_size() {
+    let parent = TestParent::open(640, 480).expect("parent opens");
+    let slot = Arc::new(Mutex::new(None::<Embedded>));
+    let result = Arc::new(Mutex::new(None));
+    let output = result.clone();
+    let requested = Arc::new(AtomicBool::new(false));
+    let asked = requested.clone();
+    let app = App::new("Pending resize")
+        .window_size(160, 100)
+        .embed(
+            parent
+                .parent()
+                .scale(1.0)
+                .on_resize_request(|_, _| ResizeAnswer::Pending),
+            move || {
+                node()
+                    .style(style().size(500, 500).background(Color::WHITE))
+                    .on_press(move || {
+                        asked.store(true, Ordering::SeqCst);
+                        let future = platform::request_window_size(300, 200);
+                        let output = output.clone();
+                        spawn(async move {
+                            *output.lock().expect("test state lock") =
+                                Some(future.await.map_err(|e| e.to_string()));
+                            Ok::<(), kivact::UiError>(())
+                        });
+                    })
+            },
+        )
+        .expect("editor opens");
+    *slot.lock().expect("test state lock") = Some(app);
+    painted(&parent);
+    parent.click(20.0, 20.0).expect("click delivered");
+    wait(&parent, || requested.load(Ordering::SeqCst));
+    parent.pump(Duration::from_millis(100));
+    let editor_guard = slot.lock().expect("test state lock");
+    let editor = editor_guard.as_ref().expect("editor stored");
+    assert_eq!(editor.size(), (160, 100), "the child waits for the host");
+    editor.set_size(300, 200);
+    drop(editor_guard);
+    wait(&parent, || {
+        result.lock().expect("test state lock").is_some()
+    });
+    assert_eq!(*result.lock().expect("test state lock"), Some(Ok(())));
+    wait(&parent, || {
+        slot.lock()
+            .expect("test state lock")
+            .as_ref()
+            .expect("editor stored")
+            .size()
+            == (300, 200)
+    });
+    drop(slot.lock().expect("test state lock").take());
+}
+
+fn refusal_and_missing_callback_complete_with_their_errors() {
+    for callback in [false, true] {
+        let parent = TestParent::open(640, 480).expect("parent opens");
+        let result = Arc::new(Mutex::new(None));
+        let output = result.clone();
+        let mut options = parent.parent().scale(1.0);
+        if callback {
+            options = options.on_resize_request(|_, _| ResizeAnswer::Refused);
+        }
+        let app = App::new("Refused resize")
+            .window_size(120, 80)
+            .embed(options, move || {
+                let future = platform::request_window_size(200, 160);
+                spawn(async move {
+                    *output.lock().expect("test state lock") = Some(
+                        future
+                            .await
+                            .map_err(|e| (format!("{:?}", e.kind()), e.to_string())),
+                    );
+                    Ok::<(), kivact::UiError>(())
+                });
+                text("Resize")
+            })
+            .expect("editor opens");
+        wait(&parent, || {
+            result.lock().expect("test state lock").is_some()
+        });
+        let error = result
+            .lock()
+            .expect("test state lock")
+            .clone()
+            .expect("resize result")
+            .expect_err("resize rejected");
+        assert_eq!(error.0, if callback { "Platform" } else { "Unsupported" });
+        if callback {
+            assert!(error.1.contains("the host refused the size"));
+        }
+        assert_eq!(app.size(), (120, 80));
+        assert_eq!(app.status(), EmbedStatus::Running);
+    }
+}
+
+fn correction_inside_accepting_resize_callback_remains_authoritative() {
+    let parent = TestParent::open(640, 480).expect("parent opens");
+    let held = Arc::new(Mutex::new(None::<kivact::embed::Embedded>));
+    let host = held.clone();
+    let result = Arc::new(Mutex::new(None));
+    let output = result.clone();
+    let app = App::new("Host correction")
+        .window_size(120, 80)
+        .embed(
+            parent.parent().scale(1.0).on_resize_request(move |w, h| {
+                assert_eq!((w, h), (300, 200));
+                host.lock()
+                    .expect("test state lock")
+                    .as_ref()
+                    .expect("editor stored")
+                    .set_size(220, 140);
+                ResizeAnswer::Accepted
+            }),
+            move || {
+                node()
+                    .style(style().size(500, 500).background(Color::WHITE))
+                    .on_press(move || {
+                        let future = platform::request_window_size(300, 200);
+                        let output = output.clone();
+                        spawn(async move {
+                            *output.lock().expect("test state lock") =
+                                Some(future.await.map_err(|e| e.to_string()));
+                            Ok::<(), kivact::UiError>(())
+                        });
+                    })
+            },
+        )
+        .expect("editor opens");
+    *held.lock().expect("test state lock") = Some(app);
+    wait(&parent, || {
+        parent
+            .capture()
+            .is_ok_and(|s| s.pixel(20, 20) == Some(0xffffff))
+    });
+    parent.click(20.0, 20.0).expect("click delivered");
+    wait(&parent, || {
+        result.lock().expect("test state lock").is_some()
+    });
+    assert_eq!(*result.lock().expect("test state lock"), Some(Ok(())));
+    wait(&parent, || {
+        held.lock()
+            .expect("test state lock")
+            .as_ref()
+            .expect("editor stored")
+            .size()
+            == (220, 140)
+    });
+    wait(&parent, || {
+        parent
+            .capture()
+            .is_ok_and(|s| (s.width, s.height) == (220, 140))
+    });
+    assert!(
+        matches!(
+            held.lock()
+                .expect("test state lock")
+                .as_ref()
+                .expect("editor stored")
+                .status(),
+            EmbedStatus::Running
+        ),
+        "the host correction must not stop the App"
+    );
+    // Break the host callback's shared handle slot before the next editor.
+    drop(held.lock().expect("test state lock").take());
+    wait(&parent, || parent.capture().is_err());
+
+    close_during_resize_callback(&parent);
+}
+
+fn clipboard_requests_complete_through_the_host_pump() {
+    let parent = TestParent::open(320, 240).expect("parent opens");
+    let result = Arc::new(Mutex::new(None));
+    let output = result.clone();
+    let app = App::new("Embedded clipboard")
+        .window_size(200, 120)
+        .embed(parent.parent().scale(1.0), move || {
+            spawn(async move {
+                let result = async {
+                    platform::copy_text("embedded 日本語 🦀").await?;
+                    platform::read_text().await
+                }
+                .await;
+                *output.lock().expect("test state lock") = Some(result);
+            });
+            text("Clipboard")
+        })
+        .expect("editor opens");
+    wait(&parent, || {
+        result.lock().expect("test state lock").is_some()
+    });
+    let result = result
+        .lock()
+        .expect("test state lock")
+        .take()
+        .expect("clipboard result");
+    assert_eq!(
+        result.expect("clipboard read succeeds"),
+        "embedded 日本語 🦀"
+    );
+    assert_eq!(app.status(), EmbedStatus::Running);
+}
+
+#[test]
+fn opening_runs_root_once_and_delivers_click_key_and_text() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = serial();
+    native_click_key_and_text_reach_the_editor();
+}
+
+#[test]
+fn resize_negotiation_handles_acceptance_refusal_missing_callback_and_host_correction() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = serial();
+    accepted_startup_resize_rounds_and_changes_capture_then_host_size_wins();
+    refusal_and_missing_callback_complete_with_their_errors();
+    correction_inside_accepting_resize_callback_remains_authoritative();
+    pending_resize_waits_for_the_hosts_size();
+}
+
+#[test]
+fn parent_destruction_stops_the_app_without_an_error() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = serial();
+    external_drop_joins_cleanup_after_parent_destruction();
+}
+
+#[test]
+fn stopped_notice_carries_the_status_once() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = serial();
+    let parent = TestParent::open(320, 240).expect("parent opens");
+    let notices = Arc::new(Mutex::new(Vec::new()));
+    let seen = notices.clone();
+    let app = App::new("Stopped notice")
+        .window_size(160, 100)
+        .embed(
+            parent.parent().scale(1.0).on_notice(move |notice| {
+                seen.lock().expect("test state lock").push(notice);
+            }),
+            || node().style(style().size(160, 100)),
+        )
+        .expect("editor opens");
+    wait(&parent, || parent.capture().is_ok());
+    parent.close();
+    wait(&parent, || app.status() == EmbedStatus::Closed);
+    wait(&parent, || {
+        !notices.lock().expect("test state lock").is_empty()
+    });
+    parent.pump(Duration::from_millis(50));
+    drop(app);
+    assert_eq!(
+        *notices.lock().expect("test state lock"),
+        [EmbedNotice::Stopped(EmbedStatus::Closed)],
+        "the host is told once, with the status"
+    );
+    assert!(parent.capture().is_err());
+}
+
+#[test]
+fn clipboard_text_round_trips_through_the_host_pump() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = serial();
+    clipboard_requests_complete_through_the_host_pump();
+}
+
+/// A DevTools client finds the embedded App's agent, clicks its button by
+/// `inject_input`, and the press reaches the App through the embed loop.
+#[cfg(feature = "devtools")]
+fn devtools_click_reaches_the_embedded_button() {
+    use kivact_devtools_protocol as p;
+    use kivact_devtools_protocol::client::{Connection, list_targets};
+    const TITLE: &str = "Injected input";
+    let parent = TestParent::open(320, 240).expect("parent opens");
+    let presses = Arc::new(AtomicUsize::new(0));
+    let count = presses.clone();
+    let _app = App::new(TITLE)
+        .window_size(320, 240)
+        .embed(parent.parent().scale(1.0), move || {
+            button("Press").on_press(move || {
+                count.fetch_add(1, Ordering::SeqCst);
+            })
+        })
+        .expect("the embedded App opens");
+    let pid = u64::from(std::process::id());
+    let mut target = None;
+    wait(&parent, || {
+        target = list_targets()
+            .into_iter()
+            .map(|(_, discovery)| discovery)
+            .find(|discovery| discovery.pid == pid && discovery.app_name == TITLE);
+        target.is_some()
+    });
+    let discovery = target.expect("the embedded App's agent wrote its discovery file");
+    let (sender, receiver) = std::sync::mpsc::channel();
+    // The client waits on the App's turns, so it runs beside the pump.
+    let client = std::thread::spawn(move || {
+        let click = || -> Result<(), String> {
+            let (connection, _) = Connection::open(
+                &discovery,
+                p::ClientInfo {
+                    name: "kivact-public-api-tests".to_owned(),
+                    version: env!("CARGO_PKG_VERSION").to_owned(),
+                    kind: p::ClientKind::Other,
+                },
+            )
+            .map_err(|error| format!("initialize: {error}"))?;
+            let windows = connection
+                .call::<p::ListWindows>(p::Empty {})
+                .map_err(|error| format!("list_windows: {error}"))?;
+            let window = windows.windows.first().ok_or("list_windows: no window")?.id;
+            let found = connection
+                .call::<p::GetByRole>(p::RoleQuery {
+                    window,
+                    within: None,
+                    role: p::Role::Button,
+                    name: Some("Press".to_owned()),
+                    timeout_ms: None,
+                })
+                .map_err(|error| format!("get_by_role: {error}"))?;
+            connection
+                .call::<p::InjectInput>(p::InjectInputParams {
+                    window,
+                    steps: vec![p::InputStep::Click {
+                        node: found.node.id,
+                    }],
+                })
+                .map_err(|error| format!("inject_input: {error}"))?;
+            Ok(())
+        };
+        let _ = sender.send(click());
+    });
+    let mut outcome = None;
+    wait(&parent, || {
+        if outcome.is_none() {
+            outcome = receiver.try_recv().ok();
+        }
+        if let Some(Err(error)) = &outcome {
+            panic!("the DevTools client failed: {error}");
+        }
+        outcome.is_some() && presses.load(Ordering::SeqCst) == 1
+    });
+    client.join().expect("the client thread ends");
+    assert_eq!(presses.load(Ordering::SeqCst), 1, "one click, one press");
+}
+
+#[test]
+#[cfg(feature = "devtools")]
+fn injected_input_reaches_an_embedded_app() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = serial();
+    devtools_click_reaches_the_embedded_button();
+}
+
+fn explode() {
+    panic!("editor exploded");
+}
+
+/// A panic in the editor stops it without running more App code; it is
+/// reported as a value and never unwinds into the wrapper.
+#[test]
+fn a_panic_in_the_editor_is_reported_and_never_unwinds() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = serial();
+    let parent = TestParent::open(320, 240).expect("parent opens");
+    let presses = Arc::new(AtomicUsize::new(0));
+    let counter = presses.clone();
+    let app = App::new("Panicking editor")
+        .window_size(320, 240)
+        .embed(parent.parent().scale(1.0), move || {
+            panel().focusable(true).on_press(move || {
+                counter.fetch_add(1, Ordering::SeqCst);
+                explode();
+            })
+        })
+        .expect("editor opens");
+    painted(&parent);
+    parent.click(20.0, 20.0).expect("click delivered");
+    wait(
+        &parent,
+        || matches!(app.status(), EmbedStatus::Panicked(error) if error.kind() == &kivact::ErrorKind::Panicked),
+    );
+    let EmbedStatus::Panicked(error) = app.status() else {
+        panic!("status reported a panic");
+    };
+    assert_eq!(error.to_string(), "editor exploded");
+    wait(&parent, || parent.capture().is_err());
+    // No later input runs App code; a click after the window closed is
+    // refused by the test parent.
+    let _ = parent.click(20.0, 20.0);
+    parent.pump(Duration::from_millis(50));
+    assert_eq!(
+        presses.load(Ordering::SeqCst),
+        1,
+        "no user code runs after the panic"
+    );
+    app.set_size(160, 100);
+    let _ = app.size();
+    let _ = app.scale();
+    drop(app);
+}
+
+/// A panic in the root makes `embed` return `ErrorKind::Panicked` and leaves
+/// no window.
+#[test]
+fn a_panic_in_root_returns_err() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = serial();
+    let parent = TestParent::open(320, 240).expect("parent opens");
+    let result = App::new("Panicking root").window_size(320, 240).embed(
+        parent.parent().scale(1.0),
+        || -> Node {
+            panic!("root exploded");
+        },
+    );
+    let error = result.err().expect("the root panic is an error");
+    assert_eq!(error.kind(), &kivact::ErrorKind::Panicked);
+    assert_eq!(error.to_string(), "root exploded");
+    assert!(parent.capture().is_err(), "a failed open leaves no window");
+}
+
+fn external_drop_joins_cleanup_after_parent_destruction() {
+    let parent = TestParent::open(320, 240).expect("parent opens");
+    let cleaned = Arc::new(AtomicUsize::new(0));
+    let cleanup = cleaned.clone();
+    let app = App::new("Parent closes first")
+        .window_size(160, 100)
+        .embed(parent.parent().scale(1.0), move || {
+            on_cleanup(move || {
+                cleanup.fetch_add(1, Ordering::SeqCst);
+            });
+            node().style(style().size(160, 100))
+        })
+        .expect("editor opens");
+    wait(&parent, || parent.capture().is_ok());
+    parent.close();
+    wait(&parent, || cleaned.load(Ordering::SeqCst) == 1);
+    assert_eq!(app.status(), EmbedStatus::Closed);
+    drop(app);
+    assert_eq!(cleaned.load(Ordering::SeqCst), 1);
+    assert!(parent.capture().is_err());
+}
+
+fn close_during_resize_callback(parent: &TestParent) {
+    // A resize callback may close its editor. Its platform result must not
+    // start another reactive turn and resume the task that requested it.
+    let slot = Arc::new(Mutex::new(None::<Embedded>));
+    let callback_slot = slot.clone();
+    let returned = Arc::new(AtomicBool::new(false));
+    let callback_returned = returned.clone();
+    let resumed = Arc::new(AtomicBool::new(false));
+    let continuation = resumed.clone();
+    let cleaned = Arc::new(AtomicBool::new(false));
+    let cleanup = cleaned.clone();
+    let app = App::new("Resize callback close")
+        .window_size(160, 100)
+        .embed(
+            parent.parent().scale(1.0).on_resize_request(move |_, _| {
+                let app = callback_slot
+                    .lock()
+                    .expect("test state lock")
+                    .take()
+                    .expect("editor stored");
+                assert_eq!(app.status(), EmbedStatus::Running);
+                drop(app);
+                callback_returned.store(true, Ordering::SeqCst);
+                ResizeAnswer::Accepted
+            }),
+            move || {
+                on_cleanup(move || {
+                    cleanup.store(true, Ordering::SeqCst);
+                });
+                node()
+                    .style(style().size(160, 100).background(Color::WHITE))
+                    .on_press(move || {
+                        let future = platform::request_window_size(200, 120);
+                        let continuation = continuation.clone();
+                        spawn(async move {
+                            let _ = future.await;
+                            continuation.store(true, Ordering::SeqCst);
+                        });
+                    })
+            },
+        )
+        .expect("editor opens");
+    // Start the request only after the public handle has been stored.
+    *slot.lock().expect("test state lock") = Some(app);
+    wait(parent, || {
+        parent
+            .capture()
+            .is_ok_and(|shot| shot.pixel(20, 20) == Some(0xffffff))
+    });
+    parent.click(20.0, 20.0).expect("click delivered");
+    wait(parent, || {
+        returned.load(Ordering::SeqCst)
+            && cleaned.load(Ordering::SeqCst)
+            && parent.capture().is_err()
+    });
+    parent.pump(Duration::from_millis(50));
+    assert!(
+        !resumed.load(Ordering::SeqCst),
+        "a new task turn ran after the resize callback closed its editor"
+    );
+    assert!(slot.lock().expect("test state lock").is_none());
+}

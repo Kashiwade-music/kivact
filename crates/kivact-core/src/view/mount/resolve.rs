@@ -21,6 +21,7 @@ use super::facts::{LocalPaint, LocalPaintSource, NodeFacts};
 use super::parts::ConstraintSources;
 use super::semantics::SemanticProps;
 use super::{diagnostics, part_input, parts, regions};
+use crate::view::Variants;
 use crate::view::descriptor::Mcx;
 use crate::view::editing_data::TextEditing;
 use crate::view::element_data::{Common, StyleLayer};
@@ -31,19 +32,15 @@ use crate::view::node_ref::NodeRef;
 pub(super) struct Resolved {
     pub(super) first: FirstWrite,
     pub(super) semantics: SemanticProps,
-    // xtask-allow(state-fields): option: a builder input carried to mount; absent means enabled
     pub(super) disabled: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): option: a builder input carried to mount; absent means unselected
     pub(super) selected: Option<InputProp<bool>>,
     pub(super) style: Vec<StyleLayer>,
+    pub(super) variants: Variants,
     pub(super) facts: NodeFacts,
-    // xtask-allow(state-fields): option: made once by prepare_draw when the node has a draw layer or a local paint channel; None means no draw effect is bound
     pub(super) draw: Option<DrawInput>,
     pub(super) late_semantics: Vec<crate::view::semantics_data::SemanticsPatch>,
-    // xtask-allow(state-fields): option: a builder input carried to mount; absent means no IME session
     pub(super) ime: Option<ImeSession>,
     pub(super) refs: Vec<NodeRef>,
-    // xtask-allow(state-fields): option: made once by attach_parts when the node has part bindings, regions or part constraints; None means no part router, constraints or region registry
     pub(super) attached: Option<Attached>,
 }
 
@@ -94,7 +91,6 @@ pub(super) fn resolve(
     let draw = prepare_draw(&mut common, cx, attached.as_ref(), draw_paint, at);
     finish_resolve(
         common,
-        kind,
         editing,
         attached,
         draw,
@@ -212,11 +208,6 @@ fn prepare_draw(
     local_paint: Option<LocalPaintSource>,
     at: &'static Location<'static>,
 ) -> Option<DrawInput> {
-    if common.draw_with_layout.is_some() && common.handlers.selection.is_none() {
-        common.handlers.selection = Some(kivact_runtime::Handler::from_fn(
-            |_: kivact_editing::TextSession| {},
-        ));
-    }
     let observe_layout =
         common.draw.is_some() || common.draw_over.is_some() || common.draw_with_layout.is_some();
     (observe_layout || local_paint.is_some()).then(|| {
@@ -235,7 +226,6 @@ fn prepare_draw(
 
 fn finish_resolve(
     common: Common,
-    _kind: NodeType,
     editing: Option<crate::view::editing_data::EditorProps>,
     attached: Option<Attached>,
     draw: Option<DrawInput>,
@@ -272,6 +262,7 @@ fn finish_resolve(
         image_playing,
         layout_id,
         at: _,
+        variants,
     } = common;
     let (early, late) = if semantics
         .iter()
@@ -284,6 +275,8 @@ fn finish_resolve(
     let observe_layout = draw.as_ref().is_some_and(|draw| {
         draw.below.is_some() || draw.over.is_some() || draw.with_layout.is_some()
     });
+    let report_session = handlers.selection.is_some()
+        || draw.as_ref().is_some_and(|draw| draw.with_layout.is_some());
     Resolved {
         first: FirstWrite {
             exit_layout: exit_layout.unwrap_or_default(),
@@ -294,6 +287,7 @@ fn finish_resolve(
             handlers,
             intrinsic,
             observe_layout,
+            report_session,
             editing,
         },
         semantics: SemanticProps {
@@ -307,6 +301,7 @@ fn finish_resolve(
         disabled,
         selected,
         style,
+        variants: variants.map(|v| *v).unwrap_or_default(),
         facts,
         draw,
         late_semantics: late,

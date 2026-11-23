@@ -10,17 +10,17 @@ use kivact::i18n::message;
 use kivact::interaction::ListItem;
 use kivact::state::IntoValue;
 use kivact::state::callback;
-use kivact::state::{Binding, Value, binding, machine, memo};
-use kivact::style::{Color, pct, style};
+use kivact::state::{Signal, Value, binding, machine, memo};
+use kivact::style::{Color, Theme, pct, style, use_theme};
 use kivact::view::EditPhase;
 use kivact::view::Element;
 use kivact::view::IntoView;
+use kivact::view::{Node, column, row};
 use kivact::view::{View, dynamic, for_each, show};
-use kivact::view::{column, row};
 
 pub(in crate::color_wheel) fn fields(
     state: State,
-    model: Binding<ColorModel>,
+    model: Signal<ColorModel>,
     alpha: Value<bool>,
 ) -> View {
     let current = model.into_value();
@@ -31,12 +31,9 @@ pub(in crate::color_wheel) fn fields(
     ];
     let selected = model.optional();
     column((
-        kivact::ui::select(
-            message("creative.color.model", "Color model"),
-            choices,
-            selected,
-        )
-        .with_node(move |node| node.disabled(state.blocked)),
+        kivact::ui::select(choices, selected)
+            .label(message("creative.color.model", "Color model"))
+            .with_node(move |node| node.disabled(state.blocked)),
         dynamic(current, move |model| match model {
             ColorModel::Hex => hex(state, alpha),
             ColorModel::Rgb | ColorModel::Hsv => {
@@ -51,13 +48,13 @@ pub(in crate::color_wheel) fn fields(
             }
         }),
         show(alpha, move || {
-            numeric(state, false, 3).style(style().grow(0).width(pct(100)))
+            numeric(state, false, 3).style(style().flex_grow(0.0).width(pct(100)))
         }),
     ))
     .style(style().gap(4).min_width(0).width(pct(100)))
     .into_view()
 }
-fn numeric(state: State, hsv: bool, index: usize) -> crate::Numeric {
+fn numeric(state: State, hsv: bool, index: usize) -> crate::Number {
     let owner = ColorOwner::Field { hsv, index };
     kivact::state::on_cleanup(move || {
         state.edit.cancel_owned(owner);
@@ -75,30 +72,32 @@ fn numeric(state: State, hsv: bool, index: usize) -> crate::Numeric {
     };
     let read = move || {
         let color = value.get();
+        let theme = use_theme().get();
         if hsv {
-            let (_, s, v) = color_to_hsv(color);
+            let (_, s, v) = color_to_hsv(color, &theme);
             match index {
                 0 => hue.get(),
                 1 => s,
                 _ => v,
             }
         } else {
-            color.components()[index]
+            color.components(&theme)[index]
         }
     };
     let write = callback(move |next| {
         if state.edit.owner() != Some(owner) {
             return;
         }
+        let theme = use_theme().get();
         if hsv {
-            let (_, s, v, _) = state.hsv();
+            let (_, s, v, _) = state.hsv(&theme);
             match index {
-                0 => state.set(Channel::Hue, next, v),
-                1 => state.set(Channel::Sv, next, v),
-                _ => state.set(Channel::Sv, s, next),
+                0 => state.set(Channel::Hue, next, v, &theme),
+                1 => state.set(Channel::Sv, next, v, &theme),
+                _ => state.set(Channel::Sv, s, next, &theme),
             };
         } else {
-            let mut c = value.get().components();
+            let mut c = value.get().components(&theme);
             c[index] = next;
             state
                 .color
@@ -117,11 +116,11 @@ fn numeric(state: State, hsv: bool, index: usize) -> crate::Numeric {
     .step(if hsv && index == 0 { 1.0 } else { 0.001 })
     .precision(3)
     .on_edit(move |phase| state.phase(owner, phase))
-    .with_node(move |node| node.style(style().grow(1).min_width(0).width(60)))
+    .with_node(move |node| node.style(style().flex_grow(1.0).min_width(0).width(60)))
 }
-fn encode(color: Color, alpha: bool) -> String {
+fn encode(color: Color, alpha: bool, theme: &Theme) -> String {
     let c = color
-        .components()
+        .components(theme)
         .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8);
     if alpha {
         format!("#{:02X}{:02X}{:02X}{:02X}", c[0], c[1], c[2], c[3])
@@ -129,17 +128,17 @@ fn encode(color: Color, alpha: bool) -> String {
         format!("#{:02X}{:02X}{:02X}", c[0], c[1], c[2])
     }
 }
-fn parse(text: &str, current: Color, alpha: bool) -> Option<Color> {
+fn parse(text: &str, current: Color, alpha: bool, theme: &Theme) -> Option<Color> {
     let text = text.strip_prefix('#')?;
     if !matches!(text.len(), 6 | 8) || !text.is_ascii() {
         return None;
     }
-    let mut c = current.components();
+    let mut c = current.components(theme);
     for (i, channel) in c.iter_mut().enumerate().take(text.len() / 2) {
         *channel = f64::from(u8::from_str_radix(&text[i * 2..i * 2 + 2], 16).ok()?) / 255.0;
     }
     if !alpha {
-        c[3] = current.components()[3];
+        c[3] = current.components(theme)[3];
     }
     Some(Color::from_rgba_f64(c[0], c[1], c[2], c[3]))
 }
@@ -147,13 +146,14 @@ fn hex(state: State, alpha: Value<bool>) -> View {
     let value = state.color.into_value();
     let field = machine(HexField::Following, || machine::Machine, |_, ()| {});
     let text = memo(move || match field.get() {
-        HexField::Following => encode(value.get(), alpha.get()),
+        HexField::Following => encode(value.get(), alpha.get(), &use_theme().get()),
         HexField::Typed(text) => text,
     });
     let input = binding(text, move |typed: String| {
         field.send(machine::Event::Typed(typed))
     });
-    let invalid = memo(move || parse(&text.get(), value.get(), alpha.get()).is_none());
+    let invalid =
+        memo(move || parse(&text.get(), value.get(), alpha.get(), &use_theme().get()).is_none());
     // Enter, or leaving the field with a changed text, writes a valid draft;
     // either way the field follows the color again.
     let commit = move |typed: String| {
@@ -161,12 +161,18 @@ fn hex(state: State, alpha: Value<bool>) -> View {
         if state.blocked.get_untracked() {
             return;
         }
-        if let Some(color) = parse(&typed, value.get_untracked(), alpha.get_untracked()) {
+        if let Some(color) = parse(
+            &typed,
+            value.get_untracked(),
+            alpha.get_untracked(),
+            &use_theme().get(),
+        ) {
             state.once(ColorOwner::Hex, || state.color.set(color));
         }
     };
-    kivact::ui::text_input(message("creative.color.hex", "Color HEX"), input)
-        .on_draft_commit(commit)
+    kivact::ui::text_input(input)
+        .label(message("creative.color.hex", "Color HEX"))
+        .on_commit(commit)
         // Escape discards the draft: the field follows the color again.
         .on_edit(move |phase| {
             if phase == EditPhase::Cancel {
@@ -201,7 +207,13 @@ pub(in crate::color_wheel) fn swatches(state: State, alpha: Value<bool>) -> Opti
                         state.color.set(if alpha.get() {
                             color
                         } else {
-                            color.with_alpha(state.color.into_value().get().components()[3])
+                            color.with_alpha(
+                                state
+                                    .color
+                                    .into_value()
+                                    .get()
+                                    .components(&use_theme().get())[3],
+                            )
                         });
                     });
                 })
@@ -218,40 +230,50 @@ pub(in crate::color_wheel) fn swatches(state: State, alpha: Value<bool>) -> Opti
     Some(
         column((
             row(buttons).style(style().gap(4)),
-            row((
-                kivact::ui::button(message("creative.color.add_swatch", "Add swatch"))
-                    .with_node(move |node| node.disabled(state.blocked))
-                    .on_press(move || {
-                        state.once(ColorOwner::Swatch, || {
-                            let mut colors = colors.get();
-                            colors.push(state.color.into_value().get());
-                            state.controls.send(
-                                super::super::state::controls_machine::Event::Swatch(
-                                    SwatchSelection::Selected(colors.len() - 1),
-                                ),
-                            );
-                            palette.set(colors);
-                        })
-                    }),
-                kivact::ui::button(message("creative.color.remove_swatch", "Remove swatch"))
-                    .with_node(move |node| {
-                        node.disabled(move || state.blocked.get() || selected.get().is_none())
-                    })
-                    .on_press(move || {
-                        if let Some(index) = selected.get() {
-                            state.once(ColorOwner::Swatch, || {
-                                let mut colors = colors.get();
-                                if index < colors.len() {
-                                    colors.remove(index);
-                                    palette.set(colors);
-                                }
-                            });
-                        }
-                    }),
-            ))
-            .style(style().gap(4)),
+            palette_editing(state, palette, colors, selected),
         ))
         .style(style().gap(4))
         .into_view(),
     )
+}
+
+/// The add and remove buttons of the palette, which edit the swatches.
+fn palette_editing(
+    state: State,
+    palette: Signal<Vec<Color>>,
+    colors: Value<Vec<Color>>,
+    selected: Value<Option<usize>>,
+) -> Node {
+    row((
+        kivact::ui::button(message("creative.color.add_swatch", "Add swatch"))
+            .with_node(move |node| node.disabled(state.blocked))
+            .on_press(move || {
+                state.once(ColorOwner::Swatch, || {
+                    let mut colors = colors.get();
+                    colors.push(state.color.into_value().get());
+                    state
+                        .controls
+                        .send(super::super::state::controls_machine::Event::Swatch(
+                            SwatchSelection::Selected(colors.len() - 1),
+                        ));
+                    palette.set(colors);
+                })
+            }),
+        kivact::ui::button(message("creative.color.remove_swatch", "Remove swatch"))
+            .with_node(move |node| {
+                node.disabled(move || state.blocked.get() || selected.get().is_none())
+            })
+            .on_press(move || {
+                if let Some(index) = selected.get() {
+                    state.once(ColorOwner::Swatch, || {
+                        let mut colors = colors.get();
+                        if index < colors.len() {
+                            colors.remove(index);
+                            palette.set(colors);
+                        }
+                    });
+                }
+            }),
+    ))
+    .style(style().gap(4))
 }

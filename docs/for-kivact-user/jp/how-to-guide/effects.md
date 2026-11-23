@@ -9,17 +9,18 @@
 `filter` は、要素とその子が描いたものすべてに、描いた後で変更を加えます。関数は CSS と同じです: `brightness`、`contrast`、`saturate`、`grayscale`、`sepia`、`hue_rotate`、`invert`、`opacity`、`blur`、`drop_shadow`。量も CSS と同じで、brightness、contrast、saturate、opacity は `1` で元の絵のまま、grayscale、sepia、invert は `0` で元の絵のままです。角度は度、長さは論理ピクセルです。
 
 ```rust,no_run
-use kivact::draw::Filter;
+use kivact::style::Filter;
 use kivact::prelude::*;
 use kivact::style::rgba;
 
-fn lit_badge() -> impl IntoView {
-    column(text("オンライン"))
+#[component]
+fn lit_badge() -> impl Element {
+    column(text("Online"))
         .style(
             style()
                 .padding(12)
-                .radius(8)
-                .background(ColorToken::Accent)
+                .border_radius(8)
+                .background(color::ACCENT)
                 .filter(
                     Filter::new()
                         .brightness(1.12)
@@ -27,7 +28,7 @@ fn lit_badge() -> impl IntoView {
                 ),
         )
 }
-# fn main() -> kivact::Result<()> { App::new("バッジ").run(lit_badge) }
+# fn main() -> kivact::Result<()> { App::new("Badge").run(lit_badge) }
 ```
 
 - フィルターの `drop_shadow` は、描かれた形に沿って影を付けます。文字や画像の透明な部分にも従います。箱の `shadow` は箱に沿います。
@@ -38,24 +39,25 @@ fn lit_badge() -> impl IntoView {
 SVG のフィルタープリミティブを使うには `FilterGraph` を組み立てます。メソッドを一つ呼ぶとプリミティブが一つ追加され、その結果を指す `FilterInput`（ハンドル）が返ります。前のプリミティブのハンドルを、後のプリミティブの入力として渡します。`FilterInput::SOURCE` は要素自身のピクセルです。`Filter::graph` はグラフを消費します。
 
 ```rust,no_run
-use kivact::draw::filter::Channel;
-use kivact::draw::{Filter, FilterGraph, FilterInput};
+use kivact::style::filter::Channel;
+use kivact::style::{Filter, FilterGraph, FilterInput};
 use kivact::prelude::*;
 
-fn glitch_title() -> impl IntoView {
-    // ノイズで要素のピクセルをずらします。グリッチの効果です。
+#[component]
+fn glitch_title() -> impl Element {
+    // Displace the element's pixels by noise: a glitch.
     let mut graph = FilterGraph::new();
     let noise = graph.turbulence(0.02, 2, 3.0);
     graph.displacement_map(FilterInput::SOURCE, noise, 12.0, Channel::R, Channel::G);
 
     text("GLITCH")
-        .style(style().font_size(32).weight(700).filter(Filter::new().graph(graph)))
+        .style(style().font_size(32).font_weight(700).filter(Filter::new().graph(graph)))
 }
-# fn main() -> kivact::Result<()> { App::new("グリッチ").run(glitch_title) }
+# fn main() -> kivact::Result<()> { App::new("Glitch").run(glitch_title) }
 ```
 
 - グラフのプリミティブには、`blur`、`offset`、`blend`、`composite`、`color_matrix`、`saturate`、`hue_rotate`、`component_transfer`、`merge`、`erode`、`dilate`、`convolve`、`drop_shadow`、`flood`、`image`、`tile`、`turbulence`、`fractal_noise`、`displacement_map`、そして照明の `diffuse_lighting` と `specular_lighting` があります。
-- 色はテーマに依存します。`flood` と `drop_shadow` は `ThemeColor` を受け取るので、グラフは有効なテーマに従います。
+- 色はテーマ変数にできます。`flood` と `drop_shadow` は `Color` を受け取るので、`color::ACCENT` を渡すとグラフは有効なテーマに従います。
 - フィルターの領域は、既定では要素の大きさの 10% だけ箱の外へ広がります。`graph.margin(..)` で別の広がりを指定できます。グローを作るときに必要です。
 - グラフは SVG と同じく、既定では線形 RGB で計算します。sRGB で計算するには `graph.srgb()` を呼びます。
 - 別のグラフのハンドルは誤りです。スタイルを組み立てるときに報告され、その入力は要素自身に置き換えられます。
@@ -65,19 +67,20 @@ fn glitch_title() -> impl IntoView {
 `mask` は、その層のアルファを保ちます。マスクが透明な部分では、要素とその子は見えなくなります。グラデーションは、よく使われるマスクです。
 
 ```rust,no_run
-use kivact::draw::{MaskComposite, MaskLayer};
+use kivact::style::{MaskComposite, MaskLayer};
 use kivact::prelude::*;
-use kivact::draw::linear_gradient;
+use kivact::style::linear_gradient;
 
-fn fading_list() -> impl IntoView {
+#[component]
+fn fading_list() -> impl Element {
     let fade = linear_gradient(180).colors([Color::BLACK, Color::TRANSPARENT]);
-    column((text("一つ目"), text("二つ目"), text("三つ目")))
+    column((text("First"), text("Second"), text("Third")))
         .style(style().gap(8).height(160).mask(fade))
 }
-# fn main() -> kivact::Result<()> { App::new("フェード").run(fading_list) }
+# fn main() -> kivact::Result<()> { App::new("Fade").run(fading_list) }
 ```
 
-- より細かく制御するには `kivact::draw::MaskLayer` を使います。`MaskLayer::new(paint)` で作り、`.mode(MaskMode::Luminance)` でアルファではなく明るさで掛け、`.composite(MaskComposite::Intersect)` で下の層と組み合わせます。複数の層はタプルで渡します: `style().mask((first, second))`。先頭の層が一番上になります。
+- より細かく制御するには `kivact::style::MaskLayer` を使います。`MaskLayer::new(paint)` で作り、`.mode(MaskMode::Luminance)` でアルファではなく明るさで掛け、`.composite(MaskComposite::Intersect)` で下の層と組み合わせます。複数の層はタプルで渡します: `style().mask((first, second))`。先頭の層が一番上になります。
 - マスクの paint は、既定では要素の border box を基準に配置されます。背景と同じく、`Paint::origin(..)` と `Paint::clip(..)` で変えられます。
 - ソースがシェーダーのマスクは描かれず、サポートされていないものとして報告されます。
 
@@ -86,15 +89,16 @@ fn fading_list() -> impl IntoView {
 `mix_blend_mode` は、要素を背後のピクセルと混ぜます。CSS の `mix-blend-mode` と同じです。`Multiply` は暗くし、`Screen` は明るくします。`Isolation` は、要素がどのピクセルと混ざるかを決めます。
 
 ```rust,no_run
-use kivact::draw::BlendMode;
+use kivact::style::BlendMode;
 use kivact::prelude::*;
 use kivact::style::Isolation;
 
-fn duotone_card() -> impl IntoView {
+#[component]
+fn duotone_card() -> impl Element {
     stack((
-        column(text("画像"))
-            .style(style().size(200, 120).padding(12).background(ColorToken::Accent)),
-        column(text("色味"))
+        column(text("Image"))
+            .style(style().size(200, 120).padding(12).background(color::ACCENT)),
+        column(text("Tint"))
             .style(
                 style()
                     .size(200, 120)
@@ -103,10 +107,10 @@ fn duotone_card() -> impl IntoView {
                     .mix_blend_mode(BlendMode::Multiply),
             ),
     ))
-    // このカードの中だけで混ぜ、ウィンドウの残りとは混ぜません。
+    // Blend only inside this card, not with the rest of the window.
     .style(style().isolation(Isolation::Isolate))
 }
-# fn main() -> kivact::Result<()> { App::new("二色刷り").run(duotone_card) }
+# fn main() -> kivact::Result<()> { App::new("Duotone").run(duotone_card) }
 ```
 
 - 要素は、自分の分離されたグループの中のピクセルと混ざります。`isolation(Isolation::Isolate)` を付けた要素はその一つです。1 未満の `opacity`、`filter`、`mask`、`clip_path` を持つ要素も、CSS と同じく独自のグループになります。
@@ -120,22 +124,23 @@ fn duotone_card() -> impl IntoView {
 use kivact::prelude::*;
 use kivact::style::rgba;
 
-fn glass_panel() -> impl IntoView {
+#[component]
+fn glass_panel() -> impl Element {
     stack((
-        column(text("ガラスの後ろ"))
+        column(text("Behind the glass"))
             .style(style().size(260, 160).padding(16).background(rgb(0x3e63dd))),
-        column(text("ガラス"))
+        column(text("Glass"))
             .style(
                 style()
                     .size(180, 80)
                     .padding(12)
-                    .radius(12)
+                    .border_radius(12)
                     .background(rgba(0xffffff, 0.2))
                     .backdrop_blur(12.0),
             ),
     ))
 }
-# fn main() -> kivact::Result<()> { App::new("ガラス").run(glass_panel) }
+# fn main() -> kivact::Result<()> { App::new("Glass").run(glass_panel) }
 ```
 
 - 背景として読まれるのは、要素の背後に描かれたものです。範囲は、グループ（1 未満の `opacity`、filter、mask、backdrop filter のいずれかを持つ最も近い祖先）までです。そのような祖先がなければ、ウィンドウ全体になります。
@@ -146,19 +151,20 @@ fn glass_panel() -> impl IntoView {
 `border_image` は、画像（またはグラデーション）を九つの部分に切り分けます。四隅、四辺、中央です。隅は大きさを保ち、辺は枠に沿って伸びるか繰り返されます。歪ませずに拡大縮小したい枠や装飾に使います。
 
 ```rust,no_run
-use kivact::draw::{BorderImage, BorderImageRepeat};
+use kivact::style::{BorderImage, BorderImageRepeat};
 use kivact::prelude::*;
 
-fn framed_panel() -> impl IntoView {
-    // 36 px の画像で、枠は 12 px です。境界線の幅は 12 px です。
+#[component]
+fn framed_panel() -> impl Element {
+    // A 36 px picture with a 12 px frame. The border is 12 px wide.
     let frame = BorderImage::new(br##"<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><rect x="2" y="2" width="32" height="32" rx="6" fill="none" stroke="#3e63dd" stroke-width="4"/></svg>"##)
         .slice(12)
         .repeat(BorderImageRepeat::Round);
 
-    column(text("枠付き"))
-        .style(style().padding(16).border(12, ColorToken::Border).border_image(frame))
+    column(text("Framed"))
+        .style(style().padding(16).border(12, color::BORDER).border_image(frame))
 }
-# fn main() -> kivact::Result<()> { App::new("枠").run(framed_panel) }
+# fn main() -> kivact::Result<()> { App::new("Frame").run(framed_panel) }
 ```
 
 - `slice` は、画像の中で切る四つの線の位置を画素で指定します（`slice_pct` は割合で指定します）。隅は、箱の中でもその大きさになります。
@@ -170,11 +176,12 @@ fn framed_panel() -> impl IntoView {
 キャンバスでは、`Draw::border_image(rect, &frame)` が同じ九つの部分を長方形の中に描きます。キャンバスには境界線がないので、枠の `width` は自分で指定してください。
 
 ```rust,no_run
-use kivact::draw::{BorderImage, BorderImageRepeat};
+use kivact::style::{BorderImage, BorderImageRepeat};
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 
-fn framed_canvas() -> impl IntoView {
+#[component]
+fn framed_canvas() -> impl Element {
     let frame = BorderImage::new(br##"<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><rect x="2" y="2" width="32" height="32" rx="6" fill="none" stroke="#3e63dd" stroke-width="4"/></svg>"##)
         .slice(12)
         .width(12)
@@ -184,9 +191,9 @@ fn framed_canvas() -> impl IntoView {
         draw.border_image(Rect::new(0.0, 0.0, size.width, size.height), &frame);
     })
     .style(style().size(240, 120))
-    .name("枠付きの絵")
+    .name("Framed picture")
 }
-# fn main() -> kivact::Result<()> { App::new("枠付きキャンバス").run(framed_canvas) }
+# fn main() -> kivact::Result<()> { App::new("Framed canvas").run(framed_canvas) }
 ```
 
 ## 背景のクリップと基準の箱を選ぶ
@@ -194,15 +201,16 @@ fn framed_canvas() -> impl IntoView {
 背景には二つの設定があります。`Paint::origin` は、絵やグラデーションを位置と大きさを決める基準の箱を選びます。`Paint::clip` は、それを描く箱を選びます。既定の基準は padding box、既定のクリップは border box で、CSS と同じです。
 
 ```rust,no_run
-use kivact::draw::{BackgroundClip, BackgroundOrigin, Paint};
+use kivact::style::{BackgroundClip, BackgroundOrigin, Paint};
 use kivact::prelude::*;
 use kivact::style::rgba;
-use kivact::draw::linear_gradient;
+use kivact::style::linear_gradient;
 
-fn padded_tint() -> impl IntoView {
+#[component]
+fn padded_tint() -> impl Element {
     let tint = linear_gradient(90).colors([rgb(0x3e63dd), rgb(0x30a46c)]);
 
-    column(text("色を付けた内容の箱"))
+    column(text("Tinted content box"))
         .style(
             style()
                 .padding(24)
@@ -214,7 +222,7 @@ fn padded_tint() -> impl IntoView {
                 ),
         )
 }
-# fn main() -> kivact::Result<()> { App::new("色付き").run(padded_tint) }
+# fn main() -> kivact::Result<()> { App::new("Tint").run(padded_tint) }
 ```
 
 - `BackgroundClip::BorderBox`、`PaddingBox`、`ContentBox` は、それぞれの箱にクリップします。角は境界線の半径に沿って丸められます。
@@ -225,22 +233,23 @@ fn padded_tint() -> impl IntoView {
 背景を `BackgroundClip::Text` でクリップし、テキスト自身の色を透明にすると、グラデーションが文字の中に見えます。テキストを持つ要素に付けてください。`BackgroundClip::Text` のコンテナは、自身のテキストを持たないので、何も描かれません。
 
 ```rust,no_run
-use kivact::draw::{BackgroundClip, Paint};
+use kivact::style::{BackgroundClip, Paint};
 use kivact::prelude::*;
-use kivact::draw::linear_gradient;
+use kivact::style::linear_gradient;
 
-fn gradient_title() -> impl IntoView {
+#[component]
+fn gradient_title() -> impl Element {
     let fill = linear_gradient(90).colors([rgb(0xe5484d), rgb(0xffb020), rgb(0x30a46c)]);
 
-    text("グラデーションの文字").style(
+    text("Gradient text").style(
         style()
             .font_size(40)
-            .weight(800)
+            .font_weight(800)
             .color(Color::TRANSPARENT)
             .background(Paint::from(fill).clip(BackgroundClip::Text)),
     )
 }
-# fn main() -> kivact::Result<()> { App::new("グラデーションの文字").run(gradient_title) }
+# fn main() -> kivact::Result<()> { App::new("Gradient text").run(gradient_title) }
 ```
 
 - グラデーションの `hint(..)` は、二つの色の間で、色がちょうど中間になる位置を指定します（CSS と同じ）。例: `linear_gradient(90).colors([...]).hint(30)`。
@@ -258,5 +267,5 @@ fn gradient_title() -> impl IntoView {
 - [3D の変換と奥行きを使う](3d-and-depth.md): これらのエフェクトが掛かる変換。
 - [シェーダーを書く](shaders.md): WGSL によるフィルターと paint。
 - [キャンバスで描く](canvas.md): `Layer` での同じエフェクト。
-- [テーマとコンポーネントの見た目を変える](theming.md): トークンからの色とグラデーション。
-- API リファレンス: `cargo doc -p kivact --open` を実行し、`kivact::draw::Filter`、`FilterGraph`、`Mask`、`BorderImage`、`BackgroundClip` を見てください。
+- [テーマとコンポーネントの見た目を変える](theming.md): テーマ変数からの色とグラデーション。
+- API リファレンス: `cargo doc -p kivact --open` を実行し、`kivact::style::Filter`、`FilterGraph`、`Mask`、`BorderImage`、`BackgroundClip` を見てください。

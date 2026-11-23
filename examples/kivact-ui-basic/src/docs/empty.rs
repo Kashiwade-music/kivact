@@ -1,33 +1,26 @@
-//! Role: Catalog page of EmptyState: icon media, outline and with actions.
+//! Catalog page of EmptyState: icon media, outline and with actions.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "empty",
-        name: "EmptyState",
-        description: "表示する内容がないときの状態を伝える部品です。メディア、題名、説明、操作を中央に並べます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("empty.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "media_variant に Icon を渡すと、アイコンが 32 px の四角に収まります。",
-                default,
-            ),
-            Example::new(
-                "outline",
-                "Outline",
-                "枠線は style の border で足します。",
-                outline,
-            ),
-            Example::new("actions", "Actions", "content に操作を並べます。", actions),
-        ],
-    }
+    Page::new("empty", "EmptyState", "Components", include_str!("empty.rs"))
+        .description("A component that tells the user there is nothing to show. It centers a media, a title, a description and actions.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "With Icon as media_variant the icon fits in a 32 px square.",
+            default,
+        ))
+        .example(Example::new(
+            "outline",
+            "Outline",
+            "Add a border with the border of style.",
+            outline,
+        ))
+        .example(Example::new("actions", "Actions", "Put the actions in the content.", actions))
 }
 
 // example: default
@@ -46,7 +39,7 @@ fn outline() -> impl IntoView {
         .icon(icon("search"))
         .variant(basic::EmptyMediaVariant::Icon)
         .description("Try adjusting your search terms.")
-        .style(style().border(1, basic::ColorName::Border))
+        .style(style().border(1, basic::BORDER))
         .style(style().width(420))
 }
 // end example

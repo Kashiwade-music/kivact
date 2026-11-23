@@ -1,39 +1,32 @@
-//! Role: Catalog page of Native Select: basic, sizes, disabled and invalid.
+//! Catalog page of Native Select: basic, sizes, disabled and invalid.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "native-select",
-        name: "Native Select",
-        description: "標準の見た目に近い、シンプルな選択欄です。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("native_select.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "basic",
-                "Basic",
-                "選択肢と Option を持つ binding を渡します。矢印キーは開かずに値を選び、押すと一覧を開きます。",
-                basic,
-            ),
-            Example::new("sizes", "Sizes", "size の Sm は高さ 28 px です。", sizes),
-            Example::new(
-                "disabled",
-                "Disabled",
-                "disabled の選択欄は薄く表示され、開けません。",
-                disabled,
-            ),
-            Example::new(
-                "invalid",
-                "Invalid",
-                "invalid を true にすると、枠とリングが destructive の色になります。",
-                invalid,
-            ),
-        ],
-    }
+    Page::new("native-select", "Native Select", "Components", include_str!("native_select.rs"))
+        .description("A simple selection field close to the standard look.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "basic",
+            "Basic",
+            "Pass the options and a binding that holds the option. The arrow keys choose a value without opening; a press opens the list.",
+            basic,
+        ))
+        .example(Example::new("sizes", "Sizes", "Size Sm is 28 px high.", sizes))
+        .example(Example::new(
+            "disabled",
+            "Disabled",
+            "A disabled selection field is drawn faint and cannot be opened.",
+            disabled,
+        ))
+        .example(Example::new(
+            "invalid",
+            "Invalid",
+            "invalid set to true makes the frame and the ring the destructive color.",
+            invalid,
+        ))
 }
 
 // example: basic

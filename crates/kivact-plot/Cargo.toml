@@ -1,0 +1,17 @@
+[package]
+name = "kivact-plot"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Interactive XY plots and heatmaps for Kivact, colored by theme variables and exportable to PNG and SVG"
+
+[dependencies]
+kivact = { path = "../kivact", version = "0.1.0", default-features = false }
+
+[dev-dependencies]
+kivact = { path = "../kivact", default-features = false, features = ["test"] }
+
+[lints]
+workspace = true

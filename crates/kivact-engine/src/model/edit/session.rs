@@ -27,28 +27,30 @@ impl Model {
     /// The focused node that has an IME session (it is not a native editor
     /// and not disabled).
     pub(crate) fn focused_session(&self) -> Option<NodeId> {
-        match self.edits.target {
+        match self.ime_target() {
             super::state::ImeTarget::Session(id) => Some(id),
             super::state::ImeTarget::None | super::state::ImeTarget::Native(_) => None,
         }
     }
 
-    pub(crate) fn update_ime_target(&mut self) {
+    /// What the IME edits now: the focused native editor, the focused node
+    /// with an IME session, or nothing (a region, a disabled node, a plain
+    /// node). Derived from the focus and the node each time (O(1)).
+    pub(crate) fn ime_target(&self) -> super::state::ImeTarget {
         use super::state::{EditorSlot, ImeTarget};
-        self.edits.target = self
-            .focused()
+        self.focused()
             .filter(|f| f.region.is_none())
             .and_then(|f| self.tree.get(f.node).map(|n| (f.node, n)))
             .filter(|(_, n)| !n.disabled())
             .map_or(ImeTarget::None, |(id, n)| {
-                if self.editors[n.index.0].is_some() {
+                if self.slots.editors[n.index.0].is_some() {
                     ImeTarget::Native(EditorSlot(n.index))
                 } else if n.properties.ime.is_some() {
                     ImeTarget::Session(id)
                 } else {
                     ImeTarget::None
                 }
-            });
+            })
     }
 
     /// The session of the focused node, if it has one.
@@ -118,7 +120,7 @@ impl Model {
 
     /// What the focused session node `id` shows the IME, when it changed
     /// since the last time given (`Model::ime_changed` calls it).
-    pub(super) fn session_ime_changed(&mut self, id: NodeId) -> Option<arvane::ShellImeText> {
+    pub(super) fn session_ime_changed(&mut self, id: NodeId) -> Option<arvane_shell::ShellImeText> {
         let session = self.session(id)?.clone();
         let t = self.window_map(id);
         let source = SessionSource {
@@ -135,15 +137,15 @@ impl Model {
         let area = self.rect(id).unwrap_or_default();
         let area = self.drawn_rect(id, area);
         let text = if session.purpose == kivact_types::InputPurpose::Password {
-            arvane::ShellImeText {
+            arvane_shell::ShellImeText {
                 rects: vec![caret],
                 area,
-                ..arvane::ShellImeText::default()
+                ..arvane_shell::ShellImeText::default()
             }
         } else {
             let units = |byte: usize| kivact_types::text_utf::utf16_offset(&session.text, byte);
             let (start, end) = (units(session.selection.start), units(session.selection.end));
-            arvane::ShellImeText {
+            arvane_shell::ShellImeText {
                 text: session.text.clone(),
                 text_start: 0,
                 selection: (start.min(end), start.max(end)),

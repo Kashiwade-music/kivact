@@ -3,11 +3,10 @@
 use super::canvas_gradient::CanvasGradient;
 use super::gradient::Gradient;
 use crate::asset::Asset;
-use crate::color::Color;
-use crate::length::Length;
+use crate::color_value::Color;
 use crate::shader::data::ShaderData;
-use crate::theme::value::ThemeColor;
 use kivact_runtime::UiError;
+use kivact_types::Length;
 use kivact_types::{BackgroundClip, BackgroundOrigin, BlendMode};
 
 /// One fill: a color, a gradient or an image, with the size, position and
@@ -22,7 +21,7 @@ use kivact_types::{BackgroundClip, BackgroundOrigin, BlendMode};
 /// ```
 /// use kivact::prelude::*;
 /// use kivact::style::{pct};
-/// use kivact::draw::{Paint, linear_gradient};
+/// use kivact::style::{Paint, linear_gradient};
 /// // CSS `background: linear-gradient(90deg, #2563eb, #22d3ee) 0 0 / 40% 100% no-repeat`
 /// let fill: Paint = linear_gradient(90)
 ///     .colors([rgb(0x2563eb), rgb(0x22d3ee)])
@@ -35,10 +34,8 @@ pub struct Paint {
     pub(crate) image: PaintImage,
     pub(crate) size: PaintSize,
     pub(crate) position: (Length, Length),
-    // xtask-allow(state-fields): option: set by no_repeat, repeat_x and repeat_y (default (true, true)); false on an axis means one tile along that axis (CSS background-repeat)
     pub(crate) repeat: (bool, bool),
     pub(crate) clip: BackgroundClip,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) origin: Option<BackgroundOrigin>,
     pub(crate) blend: BlendMode,
 }
@@ -188,9 +185,9 @@ impl Paint {
     }
 }
 
-impl<C: ThemeColor> From<C> for Paint {
+impl<C: Into<Color>> From<C> for Paint {
     fn from(c: C) -> Self {
-        Paint::of(PaintImage::Color(Color::of(c)))
+        Paint::of(PaintImage::Color(c.into()))
     }
 }
 

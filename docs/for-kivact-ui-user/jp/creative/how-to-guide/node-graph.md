@@ -23,7 +23,7 @@ fn sockets_of_type(nodes: &[ui::NodeData], link: &ui::NodeLink) -> Option<(Strin
     Some((from.type_name.clone(), to.type_name.clone()))
 }
 
-/// アプリの規則: 同じ型のソケットだけがつながる。
+/// The app's rule: only sockets of the same type connect.
 fn allowed(nodes: &[ui::NodeData], link: &ui::NodeLink) -> bool {
     sockets_of_type(nodes, link).is_some_and(|(from, to)| from == to)
 }
@@ -32,14 +32,14 @@ fn initial_nodes() -> Vec<ui::NodeData> {
     let image = |label: &str| ui::NodeSocket::new(label, IMAGE, rgb(0xffd25a));
     let number = |label: &str| ui::NodeSocket::new(label, NUMBER, rgb(0x9b9ea8));
     vec![
-        ui::NodeData::new(1, "入力", vec![], vec![image("画像")])
+        ui::NodeData::new(1, "Source", vec![], vec![image("Image")])
             .position(Point::new(30.0, 40.0))
             .size(Size::new(160.0, 90.0)),
-        ui::NodeData::new(2, "ぼかし", vec![image("画像"), number("サイズ")], vec![image("画像")])
+        ui::NodeData::new(2, "Blur", vec![image("Image"), number("Size")], vec![image("Image")])
             .position(Point::new(280.0, 40.0))
             .size(Size::new(180.0, 140.0))
-            .controls(vec![ui::NodeControl::number("半径", 100.0, 8.0, 0.0, 64.0, 1.0)]),
-        ui::NodeData::new(3, "出力", vec![image("画像")], vec![])
+            .controls(vec![ui::NodeControl::number("Radius", 100.0, 8.0, 0.0, 64.0, 1.0)]),
+        ui::NodeData::new(3, "Output", vec![image("Image")], vec![])
             .position(Point::new(560.0, 40.0))
             .size(Size::new(160.0, 90.0)),
     ]
@@ -59,9 +59,9 @@ fn apply(
             }
         }
         ui::NodeRequest::Connect(link) => {
-            // キットは何も検査しない。アプリの規則を適用する。
+            // Nothing is checked for you: apply your own rules.
             if allowed(nodes, &link) && !links.contains(&link) {
-                // 入力は 1 本のリンクだけを受ける: 新しいリンクが古いものを置き換える。
+                // An input takes one link: the new one replaces the old one.
                 links.retain(|l| !(l.to == link.to && l.input == link.input));
                 links.push(link);
             }
@@ -88,23 +88,25 @@ fn apply(
     }
 }
 
-fn graph_panel() -> impl IntoView {
+#[component]
+fn graph_panel() -> impl Element {
     let nodes = signal(initial_nodes());
     let links = signal(vec![ui::NodeLink::new(1, 0, 2, 0), ui::NodeLink::new(2, 0, 3, 0)]);
     let state = ui::NodeState::new();
 
-    // ノードとリンクは一緒に変わるので、スナップショットも 1 つで持つ。
+    // Nodes and links change together, so they share one snapshot.
     let snapshot = signal(None::<(Vec<ui::NodeData>, Vec<ui::NodeLink>)>);
     let on_edit = move |event: ui::EditorEvent<ui::NodeRequest>| match event {
         ui::EditorEvent::Begin => {
-            snapshot.set(Some((nodes.get_untracked(), links.get_untracked())));
+            snapshot.set(Some((nodes.get(), links.get())));
         }
         ui::EditorEvent::Request(request) => {
             nodes.update(|n| links.update(|l| apply(n, l, request)));
         }
         ui::EditorEvent::Commit => snapshot.set(None),
         ui::EditorEvent::Cancel => {
-            if let Some((old_nodes, old_links)) = snapshot.update(|saved| saved.take()) {
+            if let Some((old_nodes, old_links)) = snapshot.with(|saved| saved.clone()) {
+                snapshot.set(None);
                 nodes.set(old_nodes);
                 links.set(old_links);
             }
@@ -115,12 +117,12 @@ fn graph_panel() -> impl IntoView {
         .can_connect(move |link| nodes.with_untracked(|all| allowed(all, link)))
         .snap(true)
         .on_edit(on_edit)
-        .name("ノードグラフ")
+        .name("Node graph")
         .style(style().height(420))
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("ノード")
+    App::new("Nodes")
         .theme(ui::theme(ThemeMode::Dark))
         .run(graph_panel)
 }
@@ -135,7 +137,7 @@ fn main() -> kivact::Result<()> {
 | ノード・ソケット・リンクと、引き出し中のリンクを描く | ノードとリンクを保存し、各ノードに一意の `id` を付ける |
 | `can_connect` で接続先を強調し、`true` を返したときだけ `Connect` を報告する | `apply` でも規則をもう一度検査する。`Connect` は重複や入力の置き換えの処理なしで届く |
 | `Move`・`Connect`・`Disconnect`・`Delete`・`ToggleMute`・`Control` の要求を報告する | 要求を適用、制約、または無視する |
-| 選択（`NodeState::selection`、`NodeState::link`）とパン/ズーム（`NodeState::transform`）をバインディングで持つ | それらのバインディングを自分のシグナルに差し替えて、読み取りや保存をする |
+| 選択（`NodeState::selection`、`NodeState::link`）とパン/ズーム（`NodeState::transform`）をシグナルで持つ | それらを自分のシグナルに差し替えて、読み取りや保存をする |
 
 実際に役立つ細かい点です。
 
@@ -154,9 +156,9 @@ fn main() -> kivact::Result<()> {
 use kivact_ui_creative as ui;
 
 let controls = vec![
-    ui::NodeControl::number("半径", 100.0, 8.0, 0.0, 64.0, 1.0),
-    ui::NodeControl::choice("フィルター", 130.0, ["Gaussian", "Box"], 0),
-    ui::NodeControl::toggle("乗算済みアルファ", 160.0, true),
+    ui::NodeControl::number("Radius", 100.0, 8.0, 0.0, 64.0, 1.0),
+    ui::NodeControl::choice("Filter", 130.0, ["Gaussian", "Box"], 0),
+    ui::NodeControl::toggle("Premultiply", 160.0, true),
 ];
 # let _ = controls;
 ```
@@ -171,18 +173,18 @@ let controls = vec![
 
 ## 表示状態を保持する
 
-`NodeState` は、3 つのバインディングを持つ `Copy` の構造体です。`selection`（ノードの ID）、`link`（選択中のリンク）、`transform`（パンのオフセットと拡大率を持つ `ViewTransform`）です。ドキュメントを開いたときに表示を復元するには、自分のシグナルを作り、それを使って構造体を組み立てます。
+`NodeState` は、3 つのシグナルを持つ `Copy` の構造体です。`selection`（ノードの ID）、`link`（選択中のリンク）、`transform`（パンのオフセットと拡大率を持つ `ZoomPan`）です。ドキュメントを開いたときに表示を復元するには、自分のシグナルを作り、それを使って構造体を組み立てます。
 
 ```rust,no_run
-use kivact::interaction::ViewTransform;
+use kivact::interaction::ZoomPan;
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-let transform = signal(ViewTransform::default());
+let transform = signal(ZoomPan::default());
 let selection = signal(Vec::<u64>::new());
 let state = ui::NodeState {
-    transform: transform.into_binding(),
-    selection: selection.into_binding(),
+    transform,
+    selection,
     ..ui::NodeState::new()
 };
 # let _ = state;

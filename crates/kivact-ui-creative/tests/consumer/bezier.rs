@@ -1,7 +1,8 @@
 //! Role: Public Bezier control edits, cancellation and read-only curve previews.
 use kivact::prelude::*;
+use kivact::view::A11yAction;
 use kivact::view::EditPhase::{Begin, Commit};
-use kivact::view::{A11yAction, Modifiers};
+use kivact::view::Modifiers;
 use kivact_ui_creative as ui;
 use std::cell::RefCell;
 use std::rc::Rc;

@@ -38,8 +38,8 @@
 
 use kivact_types::{ElementTransform, Len, Matrix4};
 
-use super::length::Length;
 use crate::geometry::Size;
+use kivact_types::Length;
 
 /// Where a transform's `perspective()` function sits among its functions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -74,7 +74,7 @@ enum PerspectivePlace {
 /// ```
 /// use kivact::prelude::*;
 /// use kivact::style::{pct};
-/// use kivact::draw::Transform;
+/// use kivact::style::Transform;
 /// let tilt = Transform::new().translate(0, -1).rotate(-45);
 /// let card = style().transform(tilt).transform_origin(0, 0);
 /// let centered = style().translate(pct(-50), pct(-50));
@@ -254,7 +254,9 @@ impl Transform {
     }
 
     /// CSS `translate(x, y)`: px, or a percentage of the box
-    /// (`pct(-50)`), or both (`pct(50) - 4`).
+    /// (`pct(-50)`), or both (`pct(50) - 4`). A theme variable or `em` here
+    /// is unsupported (a transform holds no theme): set the style's
+    /// `translate_x`/`translate_y`, which resolve them.
     pub fn translate(self, x: impl Into<Length>, y: impl Into<Length>) -> Self {
         self.translate_3d(x, y, 0.0)
     }
@@ -282,7 +284,14 @@ impl Transform {
         y: impl Into<Length>,
         z: impl Into<f64>,
     ) -> Self {
-        let (x, y) = (x.into().to_len(), y.into().to_len());
+        let (x, y) = (x.into(), y.into());
+        for length in [x, y] {
+            if length.needs_theme() {
+                self.unsupported += 1;
+            }
+        }
+        // The loop above already counts the values that need the theme.
+        let (x, y) = (x.to_len(&mut 0), y.to_len(&mut 0));
         self.begin();
         self.moved(
             [x.px, y.px, z.into()],
@@ -585,5 +594,22 @@ impl kivact_runtime::Animatable for Transform {
     fn from_components(c: &[f64]) -> Self {
         let g = |i: usize| c.get(i).copied().unwrap_or_default();
         Transform::from_components(std::array::from_fn(g))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of transforms.
+    use super::*;
+    use crate::space;
+    use kivact_types::{em, pct};
+
+    #[test]
+    fn a_theme_length_in_a_transform_is_unsupported() {
+        assert_eq!(
+            Transform::new().translate(space::MD, em(1)).unsupported(),
+            2
+        );
+        assert_eq!(Transform::new().translate(pct(-50), 4).unsupported(), 0);
     }
 }

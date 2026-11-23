@@ -4,9 +4,11 @@
 //! place that turns it into the runtime's exit drain (or, for an embedded
 //! App, an error report to the root owner).
 
-use kivact_runtime::{ErrorKind, Runtime, UiError};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{ErrorKind, UiError};
 
 use crate::platform::AppHandleExt;
+use crate::platform::lifecycle::begin_exit;
 
 /// What the root owner is told when code closes an embedded App.
 const EMBEDDED_CLOSE: &str =
@@ -23,8 +25,7 @@ pub(super) fn take_close_request(rt: &Runtime, embedded: bool) {
         return;
     }
     if accept {
-        rt.request_exit();
-        crate::view::foreign::ForeignWindows::close_all_for_exit(rt);
+        begin_exit(rt);
     } else {
         rt.report(
             Some(rt.root()),

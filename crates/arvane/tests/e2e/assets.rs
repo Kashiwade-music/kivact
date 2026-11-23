@@ -8,7 +8,7 @@
 use std::sync::mpsc::{Receiver, channel};
 use std::time::Duration;
 
-use arvane::asset::{Asset, AssetImage, AssetStore, ImageState, PixelSize};
+use arvane_asset::{Asset, AssetImage, AssetStore, ImageState, PixelSize};
 
 use kivact_types::{AssetBytes, Size};
 
@@ -69,7 +69,7 @@ fn size(width: f64, height: f64) -> Size {
     Size { width, height }
 }
 
-/// The straight RGBA of pixel `(x, y)`.
+/// The RGBA of pixel `(x, y)`, as stored (premultiplied).
 fn rgba(pixels: &AssetImage, x: u32, y: u32) -> [u8; 4] {
     let at = ((y * pixels.width() + x) * 4) as usize;
     let bytes = &pixels.rgba()[at..at + 4];
@@ -92,9 +92,9 @@ fn the_worker_decodes_png_jpeg_and_svg_by_their_content() {
     assert_eq!(
         &decoded.rgba()[..],
         [
-            255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 255, 255, 255, 255, 64
+            255, 0, 0, 255, 0, 128, 0, 128, 0, 0, 255, 255, 64, 64, 64, 64
         ],
-        "straight alpha, as stored"
+        "premultiplied alpha, as stored"
     );
     // The JPEG shows rotated: 8 × 16, red on top, blue below.
     let jpeg = Asset::Shared(AssetBytes::copy_from_slice(JPEG));
@@ -123,6 +123,7 @@ fn the_worker_decodes_png_jpeg_and_svg_by_their_content() {
     assert_eq!((raster.width(), raster.height()), (8, 4));
     assert_eq!(rgba(&raster, 1, 1), [255, 0, 0, 255]);
     let [r, g, b, a] = rgba(&raster, 6, 2);
-    assert_eq!((r, g, b), (0, 0, 255), "straight color");
+    assert_eq!((r, g), (0, 0));
+    assert!(b.abs_diff(a) <= 1, "premultiplied blue equals alpha");
     assert!(a.abs_diff(128) <= 1, "half transparent: {a}");
 }

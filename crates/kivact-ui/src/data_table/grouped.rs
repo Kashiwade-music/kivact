@@ -1,15 +1,14 @@
 //! Role: Group already sorted and paged data without adding synthetic data keys.
 use super::rows::{self, Grid};
 use super::types::Grouping;
+use crate::data_table::look::DataTableGroupState;
+use crate::data_table::look::DataTableTheme;
 use crate::layer::with_recipe_style;
-use crate::table_values::DataTableGroupState;
 use crate::{ButtonVariant, button};
 use kivact_core::i18n::message_with;
 use kivact_core::motion::{Easing, Transition};
-use kivact_core::state::{Binding, Value, memo};
-use kivact_core::style::{
-    Align, ColorToken, Cursor, Justify, Position, TransitionProp, auto, pct, style,
-};
+use kivact_core::state::{Signal, Value, memo};
+use kivact_core::style::{Align, Cursor, Justify, Position, TransitionProp, auto, pct, style};
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
 use kivact_core::view::{ReadingDirection, Role, View, for_each, use_direction};
@@ -32,7 +31,7 @@ enum EntryKey<K> {
 
 pub(super) struct Plan<R: 'static> {
     entries: Value<Vec<Entry<R>>>,
-    collapsed: Binding<Vec<String>>,
+    collapsed: Signal<Vec<String>>,
 }
 
 impl<R> Clone for Plan<R> {
@@ -140,7 +139,7 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
     grid: &Grid<R, K>,
     label: String,
     state: Value<DataTableGroupState>,
-    collapsed: Binding<Vec<String>>,
+    collapsed: Signal<Vec<String>>,
 ) -> View {
     let row_name = label.clone();
     let metadata = grid.row_metadata;
@@ -172,10 +171,10 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
                 .padding_y(8)
                 .padding_right(12)
                 .justify_content(Justify::Start)
-                .radius(0)
+                .border_radius(0)
                 .cursor(Cursor::Pointer),
         )
-        .child(content);
+        .children((content,));
     let cell_role = if matches!(grid.focus, TableFocus::None) {
         Role::Cell
     } else {
@@ -184,7 +183,7 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
     let cell = node()
         .role(cell_role)
         .column_index(1)
-        .style(style().grow(1));
+        .style(style().flex_grow(1));
     let cell = if matches!(grid.focus, TableFocus::Cells(_)) {
         let cell = grid.navigation.bind(
             cell.focusable(true).name(navigation_label.clone()),
@@ -205,7 +204,7 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
             .role(Role::Row)
             .row_index(row_index)
             .name(row_name),
-        |recipes| recipes.data_table_recipes().group_header_recipe(),
+        |r: &DataTableTheme| r.group_header_recipe(),
         &grid.variants,
         move || state.get(),
     )
@@ -236,7 +235,7 @@ fn group_disclosure_content(
             }
         })
     };
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     let mark = icon("chevron-right").style(move || {
         let angle = if !state.get().collapsed {
             90
@@ -247,7 +246,7 @@ fn group_disclosure_content(
         };
         style()
             .size(16, 16)
-            .color(ColorToken::TextMuted)
+            .color(kivact_core::style::color::TEXT_MUTED)
             .rotate(angle)
             .transition(
                 TransitionProp::All,
@@ -256,9 +255,12 @@ fn group_disclosure_content(
     });
     let content = row((
         mark,
-        text(label.clone()).style(style().weight(600)),
-        text(move || format!("({})", state.get().count))
-            .style(style().weight(400).color(ColorToken::TextMuted)),
+        text(label.clone()).style(style().font_weight(600)),
+        text(move || format!("({})", state.get().count)).style(
+            style()
+                .font_weight(400)
+                .color(kivact_core::style::color::TEXT_MUTED),
+        ),
     ))
     .style({
         let base = style()

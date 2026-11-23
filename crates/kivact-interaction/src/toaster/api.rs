@@ -51,7 +51,7 @@ impl Toast {
     /// button a kit draws does when it is pressed. Return it from the press
     /// handler, which reports the action's error. Call it from a handler.
     pub fn activate(&self, id: ToastId) -> Result<(), UiError> {
-        toaster().dismiss(id);
+        use_toaster().dismiss(id);
         match &self.action {
             Some((_, on)) => on.try_call(()),
             None => Ok(()),
@@ -78,24 +78,13 @@ impl Toast {
 /// shown without rendering it.
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// # pub use kivact_core::{view, state, style};
-/// # pub mod prelude {
-/// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-/// # }
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
-/// use kivact::interaction::{Toast, Tone, toaster};
+/// use kivact::interaction::{Toast, Tone, use_toaster};
 /// use kivact::prelude::*;
-/// use kivact_core::style::Position;
-/// use kivact_core::view::LiveRegion;
+/// use kivact::style::Position;
+/// use kivact::view::LiveRegion;
 ///
 /// fn app() -> impl IntoView {
-///     let toaster = toaster();
+///     let toaster = use_toaster();
 ///     let group = move |assertive: bool, live: LiveRegion| {
 ///         column(for_each(toaster.visible(assertive), |id| *id, move |item| {
 ///             let id = item.get();
@@ -137,7 +126,7 @@ pub struct ToasterApi {
 /// application's own name for the shared queue: call it from a handler
 /// whenever a toast is due.
 #[track_caller]
-pub fn toaster() -> ToasterApi {
+pub fn use_toaster() -> ToasterApi {
     kivact_core::state::use_app_state(|| {
         let column = machine(
             ColumnState::default(),
@@ -162,13 +151,14 @@ pub fn toaster() -> ToasterApi {
         ToasterApi {
             column,
             visible: memo(move || {
-                let state = column.get();
-                state
-                    .queue
-                    .iter()
-                    .take(state.limit)
-                    .map(|entry| (entry.id, entry.toast.clone()))
-                    .collect()
+                column.state().with(|state| {
+                    state
+                        .queue
+                        .iter()
+                        .take(state.limit)
+                        .map(|entry| (entry.id, entry.toast.clone()))
+                        .collect()
+                })
             }),
             next: signal(Generation::new()),
         }
@@ -197,7 +187,10 @@ impl ToasterApi {
         {
             return id;
         }
-        let id = ToastId(self.next.update(Generation::next));
+        self.next.update(|g| {
+            g.next();
+        });
+        let id = ToastId(self.next.get_untracked());
         self.column.send(ColumnEvent::Push(QueuedToast {
             id,
             toast,
@@ -259,8 +252,14 @@ impl ToasterApi {
     #[track_caller]
     pub fn hold_while(self, held: impl IntoValue<bool>) {
         let held = held.into_value();
-        let id = HoldId(self.next.update(Generation::next));
-        effect(move || self.column.send(ColumnEvent::Hold(id, held.get())));
+        self.next.update(|g| {
+            g.next();
+        });
+        let id = HoldId(self.next.get_untracked());
+        self.column
+            .send(ColumnEvent::Hold(id, held.get_untracked()));
+        self.column
+            .feed(held, move |held| ColumnEvent::Hold(id, held));
         on_cleanup(move || self.column.send(ColumnEvent::Hold(id, false)));
     }
 

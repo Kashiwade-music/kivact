@@ -6,10 +6,10 @@ members = [
     "crates/kivact-test",
     "crates/kivact-devtools-protocol",
     "crates/kivact-devtools-agent",
-    "crates/kivact-devtools-client",
     "crates/kivact-devtools",
     "crates/kivact-devtools-mcp",
     "dev/tests/kivact-public-api",
+    "dev/tests/kivact-kit-tests",
     "crates/kivact-runtime",
     "crates/kivact-i18n",
     "crates/kivact-style",
@@ -20,6 +20,7 @@ members = [
     "crates/kivact-ui-game",
     "crates/kivact-ui-creative",
     "crates/kivact-ui-soft",
+    "crates/kivact-plot",
     "crates/kivact-engine",
     "crates/kivact-editing",
     "crates/kivact-layout",
@@ -35,10 +36,13 @@ members = [
     "examples/kivact-ui-game",
     "examples/kivact-ui-creative",
     "examples/kivact-ui-soft",
+    "examples/catalog-shell",
     "crates/arvane",
     "crates/kivact-types",
+    "crates/arvane-protocol",
     "crates/kivact-shader",
     "crates/kivact-svg",
+    "crates/kivact-offscreen",
     "crates/arvane-native",
     "crates/arvane-shell",
     "crates/arvane-virtual",
@@ -62,8 +66,8 @@ repository = "https://github.com/Kashiwade-music/kivact"
 version = "0.1.0"
 
 [workspace.dependencies]
-accesskit = "=0.24.1"
-accesskit_winit = "=0.33.1"
+accesskit = "=0.25.2"
+accesskit_winit = "=0.34.2"
 ash = "0.38"
 async-channel = "2.5.0"
 fontique = { version = "0.11.1", default-features = false, features = ["fontconfig-dlopen"] }
@@ -71,7 +75,8 @@ kurbo = "=0.13.1"
 naga = { version = "=29.0.4", default-features = false, features = ["wgsl-in"] }
 parley = { version = "0.11.1" }
 png = "0.18.1"
-pollster = "0.4.0"
+pollster = "1.0.2"
+proc-macro-crate = "3.5.0"
 proc-macro2 = "1"
 quote = "1"
 raw-window-handle = "0.6.2"
@@ -79,7 +84,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.151"
 skrifa = { version = "0.44.0", default-features = false }
 syn = { version = "2", features = ["full"] }
-taffy = { version = "0.14.0", default-features = false, features = ["std", "flexbox", "grid", "calc", "content_size"] }
+taffy = { version = "0.15.1", default-features = false, features = ["std", "flexbox", "grid", "calc", "content_size"] }
 tracing = { version = "0.1.44", default-features = false, features = ["std"] }
 unicode-segmentation = "1.13.3"
 vello_common = { version = "0.2.0", default-features = false }
@@ -96,6 +101,7 @@ zbus = { version = "5.19.0", default-features = false, features = ["blocking-api
 unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "deny"
 unreachable_pub = "warn"
+redundant_imports = "warn"
 
 [workspace.lints.clippy]
 disallowed_types = "deny"

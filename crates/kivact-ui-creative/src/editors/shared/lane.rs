@@ -14,7 +14,6 @@ pub(crate) struct LaneExtensions {
     pub(crate) cells: Vec<(Value<f64>, CellRenderer)>,
     pub(crate) lane_activate: Option<Callback<u64>>,
     pub(crate) item_activate: Option<Callback<u64>>,
-    // xtask-allow(state-fields): option: absent means the editor has no context menu
     pub(crate) menu: Option<MenuFactory>,
 }
 pub(crate) const GRAPH_LANE_WIDTH: f64 = crate::editors::shared::metrics::SIDEBAR - 72.0;
@@ -41,47 +40,54 @@ pub(crate) fn menu_factory<K: kivact::state::ItemKey, R: HandlerResult>(
     })
 }
 
-macro_rules! lane_extension_methods {
-    ($($field:ident).+) => {
-        /// Append a fixed-width lane cell; invalid widths hide the cell.
-        /// The current lane value preserves keyed row identity.
-        /// Disabling the editor leaves enabled descendants interactive, as for ordinary nodes.
-        /// Pass the same disabled value to a cell control when it should also be disabled.
-        pub fn lane_cell<V: kivact::view::IntoView>(
-            mut self, width: impl kivact::state::IntoValue<f64>,
-            render: impl Fn(kivact::state::Value<$crate::editors::shared::model::Lane>) -> V + 'static,
-        ) -> Self {
-            let width = kivact::state::IntoValue::into_value(width);
-let width = kivact::state::memo(move || { let width = width.get(); if width.is_finite() && width > 0.0 { width } else { 0.0 } });
-            self.$($field).+.cells.push((width,
-                kivact::view::ViewFn::from(render)));
-            self
-        }
-        /// Run on a lane's Enter, stationary primary double click or accessibility Activate.
-        pub fn on_lane_activate<R: kivact::view::HandlerResult>(mut self, f: impl Fn(u64) -> R + 'static) -> Self {
-            self.$($field).+.lane_activate = Some(kivact::state::callback(f));
-            self
-        }
-        /// Run on an item, trim handle, key or tangent's Enter or stationary double click.
-        /// Accessibility Activate activates the corresponding domain target.
-        pub fn on_activate<R: kivact::view::HandlerResult>(mut self, f: impl Fn(u64) -> R + 'static) -> Self {
-            self.$($field).+.item_activate = Some(kivact::state::callback(f));
-            self
-        }
-        /// Use the standard menu with the request's domain snapshot, even after model updates.
-        /// A failing command keeps the menu open and reports its error once.
-        /// An assistive menu request cancels the current edit before taking its snapshot.
-        pub fn context_menu<K: kivact::state::ItemKey, R: kivact::view::HandlerResult>(
-            mut self,
-            build: impl Fn($crate::editors::shared::model::EditorContext) -> Vec<kivact::interaction::MenuEntry<K>> + 'static,
-            choose: impl Fn(($crate::editors::shared::model::EditorContext, K)) -> R + 'static,
-        ) -> Self {
-            self.$($field).+.menu = Some($crate::editors::shared::lane::menu_factory(build, choose));
-            self
-        }
-    };
+/// A fixed-width cell at the start of each lane, given to a timeline or a
+/// dope sheet as `lane_cells`. The current lane value preserves keyed row
+/// identity. Disabling the editor leaves enabled descendants interactive, as
+/// for ordinary nodes; pass the same disabled value to a cell control when it
+/// should also be disabled. An invalid width hides the cell.
+pub struct LaneCell {
+    pub(crate) width: Value<f64>,
+    pub(crate) render: CellRenderer,
 }
-pub(crate) use lane_extension_methods;
+
+impl LaneCell {
+    /// A cell `width` pixels wide whose content `render` builds for a lane.
+    pub fn new<V: kivact::view::IntoView>(
+        width: impl kivact::state::IntoValue<f64>,
+        render: impl Fn(Value<Lane>) -> V + 'static,
+    ) -> Self {
+        let width = kivact::state::IntoValue::into_value(width);
+        let width = kivact::state::memo(move || {
+            let width = width.get();
+            if width.is_finite() && width > 0.0 {
+                width
+            } else {
+                0.0
+            }
+        });
+        Self {
+            width,
+            render: kivact::view::ViewFn::from(render),
+        }
+    }
+}
+
+/// The right-click menu of a timeline or a dope sheet. It is built from the
+/// request's domain snapshot, even after model updates; a failing command
+/// keeps the menu open and reports its error once, and an assistive menu
+/// request cancels the current edit before taking its snapshot.
+pub struct EditorMenu(pub(crate) MenuFactory);
+
+impl EditorMenu {
+    /// Entries built from an [`EditorContext`] (item, lane, time) and the
+    /// choice of one of them.
+    pub fn new<K: kivact::state::ItemKey, R: HandlerResult>(
+        build: impl Fn(EditorContext) -> Vec<kivact::interaction::MenuEntry<K>> + 'static,
+        choose: impl Fn((EditorContext, K)) -> R + 'static,
+    ) -> Self {
+        Self(menu_factory(build, choose))
+    }
+}
 
 pub(crate) fn lane_cells(
     lanes: Value<Vec<Lane>>,
@@ -138,7 +144,7 @@ pub(crate) fn lane_cells(
                                 .top(0)
                                 .width(width.get())
                                 .height(rect.height)
-                                .shrink(0)
+                                .flex_shrink(0)
                                 .overflow(Overflow::Hidden);
                             if center {
                                 cell.align_items(Align::Center)

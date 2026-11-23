@@ -2,6 +2,8 @@
 
 use kivact::interaction::{TreeNode, TreeRow, use_tree};
 use kivact::prelude::*;
+use kivact::state::ItemKey;
+use kivact::view::RowHeight;
 
 /// The height of one row.
 const ROW_HEIGHT: f64 = 22.0;
@@ -15,10 +17,9 @@ pub(crate) fn virtual_tree<K: ItemKey>(
     label: &str,
     nodes: Value<Vec<TreeNode<K>>>,
     expanded: Signal<Vec<K>>,
-    selected: Binding<Option<K>>,
+    selected: Signal<Option<K>>,
     row: impl Fn(&K) -> View + 'static,
 ) -> impl IntoView {
-    // xtask-allow(state-fields): independent: one pending scroll request
     let scroll_to = signal(None::<(K, bool)>);
     let tree = use_tree(nodes, expanded, selected).page_size(PAGE_ROWS);
     let rows = tree.rows();

@@ -14,7 +14,6 @@
 //! - Every change wakes both sides; a side that finds nothing for it waits
 //!   again. Wakers are woken after the lock is released.
 
-use std::future::Future;
 use std::sync::{Condvar, Mutex, MutexGuard};
 use std::task::{Poll, Waker};
 use std::time::{Duration, Instant};

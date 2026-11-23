@@ -43,13 +43,15 @@ impl Runtime {
         owner: Key,
         pure: bool,
         effect: bool,
+        writes_for_node: bool,
     ) -> FrameGuard<'_> {
+        let deps = self.dep_pool.borrow_mut().pop().unwrap_or_default();
         let slot = {
             let mut collectors = self.collectors.borrow_mut();
             let slot = CollectorSlot(collectors.len());
             collectors.push(Collector {
                 node,
-                deps: Vec::new(),
+                deps,
                 set: None,
             });
             slot
@@ -58,13 +60,7 @@ impl Runtime {
             owner: Some(owner),
             kind: FrameKind::Computation { node, effect },
             pure,
-            writer: if effect
-                && !matches!(
-                    self.graph.borrow().get(node).map(|n| n.kind()),
-                    Some(crate::reactive::Kind::Effect(
-                        crate::reactive::EffectKind::User
-                    ))
-                ) {
+            writer: if writes_for_node {
                 Some(node)
             } else {
                 self.context().writer
@@ -73,6 +69,12 @@ impl Runtime {
         });
         guard.collector = Some(slot);
         guard
+    }
+
+    /// Return an emptied dependency list to the pool.
+    pub(crate) fn recycle_deps(&self, mut deps: Vec<Key>) {
+        deps.clear();
+        self.dep_pool.borrow_mut().push(deps);
     }
 
     pub(crate) fn pure_section(&self) -> FrameGuard<'_> {
@@ -128,6 +130,11 @@ impl Runtime {
         self.context().pure
     }
 
+    /// Whether a computation is collecting dependencies in the current frame.
+    pub(crate) fn is_tracking(&self) -> bool {
+        self.context().tracking.is_some()
+    }
+
     #[inline]
     pub(crate) fn track(&self, node: Key) {
         let Some(slot) = self.context().tracking else {
@@ -158,10 +165,10 @@ impl Runtime {
     /// Only actual computations contribute: copied contexts add no cycle entries.
     pub(crate) fn frame_path(&self) -> Vec<&'static Location<'static>> {
         let collectors = self.collectors.borrow();
-        let graph = self.graph.borrow();
+        let diag = self.diag.borrow();
         collectors
             .iter()
-            .filter_map(|collector| graph.get(collector.node).map(|node| node.at))
+            .filter_map(|collector| diag.node_meta.get(&collector.node).map(|m| m.at))
             .collect()
     }
 

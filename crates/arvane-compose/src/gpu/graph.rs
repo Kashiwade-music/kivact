@@ -6,14 +6,14 @@ use super::pass::{CLEAR, blend_index, blur_sigmas, copy, uniform, view, with_pas
 use super::pipelines::{Words, buffer};
 use super::state::GpuContext;
 use super::targets;
-use crate::ComposeError;
+use crate::RenderError;
 use crate::tables::{
     B_LEN, LINEAR_RGB_TO_SRGB_TABLE, SRGB_TO_LINEAR_RGB_TABLE, init as lattice_init,
 };
 use arvane_render::RASTER_FORMAT;
 use kivact_types::Rgba;
 use kivact_types::effect::{
-    Channel, CompositeOp, EdgeMode, FilterColorSpace, FilterGraph, FilterInput, Light,
+    Channel, CompositeOp, EdgeMode, FilterColorSpace, FilterGraphSpec, FilterInput, Light,
     MorphologyOp, PrimitiveOp, TransferFn, TurbulenceKind,
 };
 use kivact_types::geometry::{Point, Rect};
@@ -257,15 +257,15 @@ impl Run<'_> {
         a: Option<&wgpu::Texture>,
         b: Option<&wgpu::Texture>,
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
-        let out = targets::target(&self.gpu.device, self.size);
+    ) -> Result<Img, RenderError> {
+        let out = targets::target(&self.gpu.gpu.device, self.size);
         let buffers = extra.unwrap_or(&self.tables);
         self.gpu.draw_graph(self.encoder, op, buffers, &out, a, b)?;
         Ok(Img { tex: out, cs })
     }
 
     /// The result of `input` in its own colour space.
-    fn fetch(&mut self, input: FilterInput) -> Result<Img, ComposeError> {
+    fn fetch(&mut self, input: FilterInput) -> Result<Img, RenderError> {
         match input {
             FilterInput::Source => Ok(Img {
                 tex: self.source.clone(),
@@ -282,19 +282,19 @@ impl Run<'_> {
                 )
             }
             FilterInput::Result(i) => self.results.get(i as usize).cloned().ok_or_else(|| {
-                ComposeError::InvalidComposition(format!("filter result {i} is not computed yet"))
+                RenderError::InvalidComposition(format!("filter result {i} is not computed yet"))
             }),
         }
     }
 
     /// The result of `input` in colour space `cs`.
-    fn fetch_in(&mut self, input: FilterInput, cs: FilterColorSpace) -> Result<Img, ComposeError> {
+    fn fetch_in(&mut self, input: FilterInput, cs: FilterColorSpace) -> Result<Img, RenderError> {
         let img = self.fetch(input)?;
         self.space(img, cs)
     }
 
     /// `img` in colour space `cs`, converted when it differs (the CPU's `into_space`).
-    fn space(&mut self, img: Img, cs: FilterColorSpace) -> Result<Img, ComposeError> {
+    fn space(&mut self, img: Img, cs: FilterColorSpace) -> Result<Img, RenderError> {
         if img.cs == cs {
             return Ok(img);
         }
@@ -325,7 +325,7 @@ impl Run<'_> {
         &mut self,
         op: &PrimitiveOp<Pixels>,
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         match op {
             PrimitiveOp::Blend { top, bottom, mode } => self.blend(*top, *bottom, *mode, cs),
             PrimitiveOp::ColorMatrix { input, matrix } => self.color_matrix(*input, matrix, cs),
@@ -351,7 +351,7 @@ impl Run<'_> {
         &mut self,
         op: &PrimitiveOp<Pixels>,
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         match op {
             PrimitiveOp::ConvolveMatrix {
                 input,
@@ -436,7 +436,7 @@ impl Run<'_> {
         bottom: FilterInput,
         mode: BlendMode,
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         let dst = self.fetch_in(bottom, cs)?;
         let src = self.fetch_in(top, cs)?;
         let mut pass = Op::new(M_BLEND);
@@ -450,9 +450,9 @@ impl Run<'_> {
         input: FilterInput,
         matrix: &ColorMatrix,
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         let img = self.fetch_in(input, cs)?;
-        let out = targets::target(&self.gpu.device, self.size);
+        let out = targets::target(&self.gpu.gpu.device, self.size);
         self.gpu
             .color_matrix_into(self.encoder, &out, &img.tex, matrix)?;
         Ok(Img { tex: out, cs })
@@ -464,14 +464,14 @@ impl Run<'_> {
         input: FilterInput,
         [r, g, b, a]: [&TransferFn; 4],
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         let img = self.fetch_in(input, cs)?;
         let mut data = Data::new();
         data.set_transfer(0, r);
         data.set_transfer(1, g);
         data.set_transfer(2, b);
         data.set_transfer(3, a);
-        let buffers = data.buffers(&self.gpu.device, &self.gpu.queue);
+        let buffers = data.buffers(&self.gpu.gpu.device, &self.gpu.gpu.queue);
         self.pass(
             &Op::new(M_TRANSFER),
             Some(&buffers),
@@ -488,7 +488,7 @@ impl Run<'_> {
         bottom: FilterInput,
         composite: CompositeOp,
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         let first = self.fetch_in(top, cs)?;
         let second = self.fetch_in(bottom, cs)?;
         let mut pass = Op::new(M_COMPOSITE);
@@ -502,7 +502,7 @@ impl Run<'_> {
     }
 
     /// feMerge: the inputs composited over each other in order.
-    fn merge(&mut self, inputs: &[FilterInput], cs: FilterColorSpace) -> Result<Img, ComposeError> {
+    fn merge(&mut self, inputs: &[FilterInput], cs: FilterColorSpace) -> Result<Img, RenderError> {
         let mut acc = self.pass(&Op::new(M_CLEAR), None, None, None, cs)?;
         for &input in inputs {
             let src = self.fetch_in(input, cs)?;
@@ -514,7 +514,7 @@ impl Run<'_> {
     }
 
     /// feOffset of `input` by `offset` (layer units).
-    fn offset(&mut self, input: FilterInput, offset: &Point) -> Result<Img, ComposeError> {
+    fn offset(&mut self, input: FilterInput, offset: &Point) -> Result<Img, RenderError> {
         let img = self.fetch(input)?;
         let dx = (offset.x * self.ppu) as i64;
         let dy = (offset.y * self.ppu) as i64;
@@ -532,7 +532,7 @@ impl Run<'_> {
         input: FilterInput,
         tile: &Rect,
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         let img = self.fetch(input)?;
         let (x, y) = self.layer_to_px(tile.x, tile.y);
         let mut pass = Op::new(M_TILE);
@@ -551,7 +551,7 @@ impl Run<'_> {
         input: FilterInput,
         conv: Convolve<'_>,
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         let mut img = self.fetch_in(input, cs)?;
         if *conv.preserve_alpha {
             img = self.pass(&Op::new(M_DEMULTIPLY), None, Some(&img.tex), None, cs)?;
@@ -564,7 +564,7 @@ impl Run<'_> {
         };
         let buffers = Data::new()
             .with_kernel(conv.kernel)
-            .buffers(&self.gpu.device, &self.gpu.queue);
+            .buffers(&self.gpu.gpu.device, &self.gpu.gpu.queue);
         let mut pass = Op::new(M_CONVOLVE);
         pass.p[0] = [divisor as f32, *conv.bias as f32, 0.0, 0.0];
         pass.ints = [
@@ -584,7 +584,7 @@ impl Run<'_> {
         input: FilterInput,
         lighting: Lighting<'_>,
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         let img = self.fetch(input)?;
         self.lighting(&img, lighting, cs)
     }
@@ -597,7 +597,7 @@ impl Run<'_> {
         scale: f64,
         axes: (Channel, Channel),
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         let src = self.fetch_in(input, cs)?;
         let map = self.fetch_in(map, cs)?;
         let s = (scale * self.ppu) as f32;
@@ -616,7 +616,7 @@ impl Run<'_> {
         std_dev: (f64, f64),
         color: Rgba,
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         let img = self.fetch_in(input, cs)?;
         let tint = color_in(color, cs);
         let silhouette = self.gpu.shadow(self.encoder, &img.tex, tint)?;
@@ -626,7 +626,7 @@ impl Run<'_> {
             None => silhouette,
         };
         let shift = ((offset.x * self.ppu) as f32, (offset.y * self.ppu) as f32);
-        let out = targets::target(&self.gpu.device, self.size);
+        let out = targets::target(&self.gpu.gpu.device, self.size);
         self.gpu
             .shadow_over(self.encoder, &out, &img.tex, &blurred, shift)?;
         Ok(Img { tex: out, cs })
@@ -638,7 +638,7 @@ impl Run<'_> {
         input: FilterInput,
         std_dev: (f64, f64),
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         let img = self.fetch_in(input, cs)?;
         match blur_sigmas(std_dev.0 * self.ppu, std_dev.1 * self.ppu) {
             Some((sx, sy)) => {
@@ -656,7 +656,7 @@ impl Run<'_> {
         op: MorphologyOp,
         radius: (f64, f64),
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         let img = self.fetch_in(input, cs)?;
         let (rx, ry) = (radius.0 * self.ppu, radius.1 * self.ppu);
         let pass = if rx > 0.0 && ry > 0.0 {
@@ -682,10 +682,10 @@ impl Run<'_> {
         kind: TurbulenceKind,
         stitch: bool,
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         let mut data = Data::new();
         data.set_turbulence(seed.trunc() as i32);
-        let buffers = data.buffers(&self.gpu.device, &self.gpu.queue);
+        let buffers = data.buffers(&self.gpu.gpu.device, &self.gpu.gpu.queue);
         let mut pass = Op::new(M_TURBULENCE);
         pass.p[0] = [
             (self.origin.x * self.ppu) as f32,
@@ -705,7 +705,7 @@ impl Run<'_> {
     }
 
     /// feImage: the image stretched over its rectangle, in sRGB.
-    fn image(&mut self, image: &Pixels, rect: Rect) -> Result<Img, ComposeError> {
+    fn image(&mut self, image: &Pixels, rect: Rect) -> Result<Img, RenderError> {
         if image.width == 0 || image.height == 0 {
             return self.pass(&Op::new(M_CLEAR), None, None, None, FilterColorSpace::Srgb);
         }
@@ -728,7 +728,7 @@ impl Run<'_> {
         img: &Img,
         lighting: Lighting<'_>,
         cs: FilterColorSpace,
-    ) -> Result<Img, ComposeError> {
+    ) -> Result<Img, RenderError> {
         let mut pass = Op::new(M_LIGHT);
         pass.ints[0] = u32::from(lighting.specular);
         let (kind, vector, cone) = match lighting.light {
@@ -827,12 +827,12 @@ impl GpuContext {
         encoder: &mut wgpu::CommandEncoder,
         source: &wgpu::Texture,
         dest: &wgpu::Texture,
-        graph: &FilterGraph<Pixels>,
+        graph: &FilterGraphSpec<Pixels>,
         ppu: f64,
         origin: Point,
-    ) -> Result<(), ComposeError> {
-        graph.validate().map_err(ComposeError::InvalidComposition)?;
-        let tables = Data::new().buffers(&self.device, &self.queue);
+    ) -> Result<(), RenderError> {
+        graph.validate().map_err(RenderError::InvalidComposition)?;
+        let tables = Data::new().buffers(&self.gpu.device, &self.gpu.queue);
         let mut run = Run {
             gpu: self,
             encoder,
@@ -849,7 +849,7 @@ impl GpuContext {
             run.results.push(image);
         }
         let last = run.results.pop().ok_or_else(|| {
-            ComposeError::InvalidComposition("filter graph has no primitives".into())
+            RenderError::InvalidComposition("filter graph has no primitives".into())
         })?;
         let last = run.space(last, FilterColorSpace::Srgb)?;
         copy(run.encoder, &last.tex, dest);
@@ -865,56 +865,59 @@ impl GpuContext {
         out: &wgpu::Texture,
         a: Option<&wgpu::Texture>,
         b: Option<&wgpu::Texture>,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let size = |t: &wgpu::Texture| (t.width(), t.height());
         let bytes = op.bytes(size(out), a.map_or((0, 0), size), b.map_or((0, 0), size));
-        let params = uniform(&self.device, &self.queue, &bytes);
+        let params = uniform(&self.gpu.device, &self.gpu.queue, &bytes);
         let a_view = a.map(view);
         let b_view = b.map(view);
-        let a_ref = a_view.as_ref().unwrap_or(&self.pipelines.dummy);
-        let b_ref = b_view.as_ref().unwrap_or(&self.pipelines.dummy);
-        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Arvane filter graph"),
-            layout: &self.pipelines.graph_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: params.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(a_ref),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(b_ref),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: buffers[0].as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 4,
-                    resource: buffers[1].as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 5,
-                    resource: buffers[2].as_entire_binding(),
-                },
-            ],
-        });
+        let a_ref = a_view.as_ref().unwrap_or(&self.gpu.pipelines.dummy);
+        let b_ref = b_view.as_ref().unwrap_or(&self.gpu.pipelines.dummy);
+        let group = self
+            .gpu
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Arvane filter graph"),
+                layout: &self.gpu.pipelines.graph_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: params.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(a_ref),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(b_ref),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: buffers[0].as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
+                        resource: buffers[1].as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 5,
+                        resource: buffers[2].as_entire_binding(),
+                    },
+                ],
+            });
         let out_view = view(out);
         with_pass(encoder, &out_view, CLEAR, |pass| {
-            pass.set_pipeline(&self.pipelines.graph);
+            pass.set_pipeline(self.gpu.pipelines.graph(&self.gpu.device));
             pass.set_bind_group(0, &group, &[]);
             pass.draw(0..3, 0..1);
         });
         Ok(())
     }
 
-    /// A texture of `image`'s size holding its pixels premultiplied (the shader reads premultiplied texels).
+    /// A texture of `image`'s size holding its premultiplied pixels, as they are.
     fn upload_premultiplied(&self, image: &Pixels) -> wgpu::Texture {
-        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+        let texture = self.gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Arvane filter image"),
             size: wgpu::Extent3d {
                 width: image.width,
@@ -928,22 +931,14 @@ impl GpuContext {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
-        let mut bytes = Vec::with_capacity(image.rgba.len());
-        for px in image.rgba.as_chunks::<4>().0 {
-            let a = u32::from(px[3]);
-            for c in &px[..3] {
-                bytes.push((f32::from(*c) * a as f32 / 255.0).round() as u8);
-            }
-            bytes.push(px[3]);
-        }
-        self.queue.write_texture(
+        self.gpu.queue.write_texture(
             wgpu::TexelCopyTextureInfo {
                 texture: &texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            &bytes,
+            &image.rgba,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
                 bytes_per_row: Some(4 * image.width),

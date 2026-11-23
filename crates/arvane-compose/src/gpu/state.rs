@@ -1,20 +1,23 @@
 //! Role: The GPU context, its environment and the window surfaces.
 //!
 //! The aggregate of the GPU executor. Its fields are passive state from the
-//! leaf modules (targets, pipelines, shader_cache, export_pool, external).
+//! leaf modules (targets, export_pool, device).
 
 use super::export_pool::Exports;
 use super::external::External;
 use super::pipelines::Pipelines;
 use super::shader_cache::Shaders;
 use super::targets::Pool;
+use crate::RenderError;
 use crate::cache::{CacheIndex, ChunkKey};
+use arvane_protocol::LayerKey;
 use arvane_render::GpuRaster;
-use kivact_types::cell::Mailbox;
-use kivact_types::render::LayerKey;
+use kivact_types::cell::SharedDeferred;
 use kivact_types::{GpuAdapter, GpuBackend, GpuPower, GpuPreference};
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::rc::Rc;
+use std::sync::Arc;
 
 /// How GPU devices are made: as the application wishes
 /// ([`GpuPreference`]), except where the environment says otherwise: the
@@ -25,10 +28,8 @@ use std::sync::{Arc, Mutex};
 /// [`GpuContext::new`].
 #[derive(Clone, Copy, Debug)]
 pub struct GpuEnv {
-    // xtask-allow(state-fields): option: the backends the `WGPU_BACKEND` environment variable names, read once by `from_env`; absent when it is unset, and then the application's `GpuPreference::backend` decides
     /// `WGPU_BACKEND`.
     pub(crate) backends: Option<wgpu::Backends>,
-    // xtask-allow(state-fields): option: the power preference the `WGPU_POWER_PREF` environment variable names, read once by `from_env`; absent when it is unset, and then the application's `GpuPreference::power` decides
     /// `WGPU_POWER_PREF`.
     pub(crate) power: Option<wgpu::PowerPreference>,
     pub(crate) flags: wgpu::InstanceFlags,
@@ -66,22 +67,11 @@ impl GpuEnv {
     }
 }
 
-/// A GPU executor used serially on its owner's thread: one adapter, device,
-/// pipelines and the textures of the frames drawn so far.
+/// One window's GPU frame state on the shared device: the device it draws
+/// with, and the textures and records of the frames drawn so far.
 pub struct GpuContext {
-    /// The images external engines share (first: dropped, and their
-    /// fences signaled, before the device).
-    pub(crate) external: External,
-    /// The adapter, when the device can import shared textures.
-    pub(crate) interop: Option<GpuAdapter>,
-    pub(crate) instance: wgpu::Instance,
-    pub(crate) adapter: wgpu::Adapter,
-    pub(crate) device: wgpu::Device,
-    pub(crate) queue: wgpu::Queue,
-    /// Draws the chunks (Vello's GPU stage).
-    pub(crate) raster: GpuRaster,
-    pub(crate) pipelines: Pipelines,
-    pub(crate) failure: Arc<DeviceLost>,
+    /// The device every window of the driver shares.
+    pub(crate) gpu: Rc<GpuDevice>,
     /// The previous frame's records; the plan reads it.
     pub(crate) cache: CacheIndex,
     /// Free textures of the targets, reused by size.
@@ -90,8 +80,6 @@ pub struct GpuContext {
     pub(crate) kept: HashMap<LayerKey, wgpu::Texture>,
     /// The chunk textures, by chunk.
     pub(crate) chunks: HashMap<ChunkKey, wgpu::Texture>,
-    /// The user shaders' pipelines.
-    pub(crate) shaders: Shaders,
     /// The shader programs that failed since the last frame report: (hash, message).
     pub(crate) shader_failures: Vec<(u64, String)>,
     /// The export pools and what each sink last received.
@@ -100,39 +88,34 @@ pub struct GpuContext {
 
 /// The first failure the device reported (validation error or loss).
 #[derive(Default)]
-pub(crate) struct DeviceLost {
-    message: Mailbox<String>,
-    /// Serialize the mailbox's read-and-restore operations to retain the first failure.
-    access: Mutex<()>,
-}
+pub(crate) struct DeviceLost(SharedDeferred<String>);
 
 impl DeviceLost {
-    /// Keep `message` unless an earlier failure is already recorded.
+    /// Keep `message` unless one was kept before.
     pub(crate) fn record(&self, message: String) {
-        let _access = self
-            .access
-            .lock()
-            .expect("invariant: device loss lock is not poisoned");
-        self.message.put(self.message.take().unwrap_or(message));
+        self.0.get_or_init(|| message);
     }
 
-    /// The first recorded failure, if any.
+    /// The kept message.
     pub(crate) fn message(&self) -> Option<String> {
-        let _access = self
-            .access
-            .lock()
-            .expect("invariant: device loss lock is not poisoned");
-        let message = self.message.take()?;
-        self.message.put(message.clone());
-        Some(message)
+        self.0.get().cloned()
+    }
+
+    /// Fail with the kept message, if one was kept.
+    pub(crate) fn check(&self) -> Result<(), RenderError> {
+        match self.message() {
+            Some(message) => Err(RenderError::Backend(message)),
+            None => Ok(()),
+        }
     }
 }
 
-/// Whether a frame's surface is kept for [`GpuContext::read_back`].
-#[derive(Clone, Copy, PartialEq, Eq)]
+/// Whether a surface keeps its last presented frame for read-back.
 pub(crate) enum Retain {
+    /// Presented frames go back to the pool.
     Drop,
-    Keep,
+    /// The last presented frame is kept (none yet: `None`).
+    Keep(Option<wgpu::Texture>),
 }
 
 /// What [`GpuContext::present`] did.
@@ -149,10 +132,8 @@ pub enum Presentation {
 pub struct GpuSurface {
     pub(crate) surface: wgpu::Surface<'static>,
     pub(crate) swapchain: Swapchain,
-    /// Keep each presented frame for [`GpuContext::read_back`].
-    pub(crate) keep: Retain,
-    /// The last presented frame's output, kept only when `keep` is [`Retain::Keep`].
-    pub(crate) last: Option<wgpu::Texture>,
+    /// Whether each presented frame is kept for [`GpuContext::read_back`].
+    pub(crate) kept: Retain,
 }
 
 /// Whether a surface's swapchain is configured yet.
@@ -166,4 +147,25 @@ pub(crate) enum Swapchain {
 /// A configured swapchain.
 pub(crate) struct Configured {
     pub(crate) config: wgpu::SurfaceConfiguration,
+}
+
+// xtask-allow(state): raster, shaders and external are independent caches of one device, each borrowed alone; any combination of their contents is valid
+/// One GPU device shared by every window of a driver (PERF-8). Made on a
+/// worker thread (`GpuDevice::new` blocks), then used on the UI thread.
+pub struct GpuDevice {
+    /// The images external engines share (first: dropped, and their
+    /// fences signaled, before the device).
+    pub(crate) external: RefCell<External>,
+    /// The adapter, when the device can import shared textures.
+    pub(crate) interop: Option<GpuAdapter>,
+    pub(crate) instance: wgpu::Instance,
+    pub(crate) adapter: wgpu::Adapter,
+    pub(crate) device: wgpu::Device,
+    pub(crate) queue: wgpu::Queue,
+    pub(crate) failure: Arc<DeviceLost>,
+    pub(crate) pipelines: Pipelines,
+    /// Draws the chunks (Vello's GPU stage).
+    pub(crate) raster: RefCell<GpuRaster>,
+    /// The user shaders' pipelines.
+    pub(crate) shaders: RefCell<Shaders>,
 }

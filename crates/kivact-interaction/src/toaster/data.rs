@@ -4,7 +4,7 @@ use crate::Tone;
 use kivact_core::UiError;
 use kivact_core::custom::Generation;
 use kivact_core::state::{MachineHandle, Value};
-use kivact_core::view::{HandlerResult, IntoView};
+use kivact_core::view::HandlerResult;
 use std::rc::Rc;
 use std::time::Duration;
 /// How long a toast stays when [`Toast::duration`] is not set.
@@ -95,10 +95,6 @@ pub struct ToastId(pub(super) Generation);
 /// afterwards. Its fields are what the caller's drawing of a toast reads.
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use std::time::Duration;
 /// use kivact::interaction::{Toast, Tone};
 ///
@@ -112,15 +108,12 @@ pub struct ToastId(pub(super) Generation);
 pub struct Toast {
     /// What the toast says. It names the toast for assistive technology.
     pub title: String,
-    // xtask-allow(state-fields): option: the second line, if there is one
     /// The second line, if there is one.
     pub body: Option<String>,
     /// The tone.
     pub tone: Tone,
-    // xtask-allow(state-fields): option: the caller's display time from Toast::duration (default 5 s); absent keeps the toast until it is dismissed
     /// How long it stays; `None` until it is dismissed.
     pub duration: Option<Duration>,
-    // xtask-allow(state-fields): option: the action's label and function, if there is one
     /// The label and the function of the action, if there is one: owned by
     /// the toast, run when its action button is pressed.
     #[allow(
@@ -128,18 +121,18 @@ pub struct Toast {
         reason = "a plain owned closure, named where it is read"
     )]
     pub action: Option<(String, kivact_core::state::Callback<()>)>,
-    /// A view a kit draws as the toast's icon instead of the icon of its
-    /// tone, if there is one. It is called once, when the toast is shown.
-    pub icon: Option<kivact_core::view::ViewFn<()>>,
+    /// The name in the theme's icon set of the icon a kit draws instead of
+    /// the icon of its tone, if there is one.
+    pub icon_name: Option<&'static str>,
 }
 
-/// Toasts are equal when their text, tone and duration are, and their action
-/// and icon are the same functions (a closure is equal to a clone of itself),
-/// as for a [`ColumnDef`](crate::ColumnDef).
+/// Toasts are equal when their text, tone and duration are, their icon names
+/// are and their action is the same function (a closure is equal to a clone
+/// of itself), as for a [`ColumnDef`](crate::ColumnDef).
 impl PartialEq for Toast {
     fn eq(&self, other: &Self) -> bool {
         let action = self.action == other.action;
-        let icon = self.icon == other.icon;
+        let icon = self.icon_name == other.icon_name;
         self.title == other.title
             && self.body == other.body
             && self.tone == other.tone
@@ -158,7 +151,7 @@ impl Toast {
             tone: Tone::Neutral,
             duration: Some(DEFAULT_DURATION),
             action: None,
-            icon: None,
+            icon_name: None,
         }
     }
 
@@ -191,20 +184,22 @@ impl Toast {
     /// included. `on` may return `()` or `Result<(), UiError>`; an error, or
     /// a panic such as writing a signal whose component is gone, is
     /// reported where the action button's press is.
-    pub fn action(
+    pub fn action<M>(
         mut self,
         label: impl Into<String>,
-        on: impl Into<kivact_core::state::Callback<()>>,
+        on: impl kivact_core::state::IntoHandler<(), M>,
     ) -> Self {
-        self.action = Some((label.into(), on.into()));
+        let on = kivact_core::state::Callback::from_handler(
+            kivact_core::state::IntoHandler::into_handler(on),
+        );
+        self.action = Some((label.into(), on));
         self
     }
 
-    /// An icon for this toast, which a kit draws instead of the icon of its
-    /// tone. `icon` is called once, when the toast is shown, in the toast's
-    /// owner.
-    pub fn icon<V: IntoView>(mut self, icon: impl kivact_core::view::IntoViewFn<V>) -> Self {
-        self.icon = Some(icon.into_view_fn());
+    /// The name in the theme's icon set of an icon drawn instead of the icon
+    /// of its tone.
+    pub fn icon_name(mut self, name: &'static str) -> Self {
+        self.icon_name = Some(name);
         self
     }
 }

@@ -62,3 +62,16 @@ impl fmt::Display for RenderError {
 }
 
 impl std::error::Error for RenderError {}
+
+impl From<RenderError> for kivact_types::Failure {
+    /// A device or surface problem keeps its kind; an invalid scene is invalid content.
+    fn from(error: RenderError) -> Self {
+        let kind = match &error {
+            RenderError::Backend(_) => kivact_types::FailureKind::Backend,
+            RenderError::NoAdapter(_) => kivact_types::FailureKind::Unavailable,
+            RenderError::Surface(_) => kivact_types::FailureKind::Surface,
+            _ => kivact_types::FailureKind::Content,
+        };
+        kivact_types::Failure::new(kind, error.to_string())
+    }
+}

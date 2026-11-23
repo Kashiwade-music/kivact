@@ -2,18 +2,13 @@
 use kivact::prelude::{Element, Role, ThemeMode, column, signal, text};
 use kivact::test::{RenderOptions, render_with, render_with_handle};
 use kivact::ui;
-use kivact_ui_soft::{HeadingDisplay, MetadataColumns, MetadataLook};
+use kivact_ui_soft::MetadataColumns;
 
 #[test]
 fn heading_has_its_level() {
     let screen = render_with(
         RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
-        || {
-            column((
-                ui::heading("Display", 2).variant(HeadingDisplay::D1),
-                ui::heading("Section", 3),
-            ))
-        },
+        || column((ui::heading("Display", 2), ui::heading("Section", 3))),
     );
     assert_eq!(
         screen.get_by_role(Role::Heading, "Display").level(),
@@ -85,18 +80,17 @@ fn description_list_pairs_terms_and_details() {
         RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let columns = signal(MetadataColumns::Single);
-            let look = MetadataLook::default().columns(columns);
             (
                 columns,
                 ui::description_list((
                     ui::description("Owner", text("Ada"))
-                        .variant(look)
+                        .variant(columns)
                         .test_id("owner"),
                     ui::description("Current status", text("Ready"))
-                        .variant(look)
+                        .variant(columns)
                         .test_id("status"),
                 ))
-                .variant(look)
+                .variant(columns)
                 .name("Project"),
             )
         },

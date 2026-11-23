@@ -1,5 +1,6 @@
 //! Role: Tests of the Elements panel.
 
+use kivact::view::Modifiers;
 use std::rc::Rc;
 
 use kivact::prelude::*;
@@ -22,6 +23,22 @@ fn selecting_a_node_inspects_and_highlights_it() {
     screen
         .within(row)
         .get_by_role(Role::Link, "src/main.rs:10:5");
+}
+
+#[test]
+fn a_source_link_asks_the_source_to_open_the_editor() {
+    let fixture = support::fixture_with(Vec::new());
+    let screen = support::open(&fixture, "Elements");
+    screen
+        .get_by_role(Role::TreeItem, "Button \"Save\"")
+        .click();
+    screen.get_by_role(Role::Link, "src/main.rs:10:5").click();
+    // A fixture records the request: no editor program is started.
+    assert!(called(&fixture, "open_in_editor", |params| {
+        params["location"]["file"] == "src/main.rs"
+            && params["location"]["line"] == 10
+            && params["location"]["column"] == 5
+    }));
 }
 
 #[test]

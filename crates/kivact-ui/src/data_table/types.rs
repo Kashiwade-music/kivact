@@ -1,23 +1,21 @@
 //! Role: The state of a data table: its builder fields, slots and live context.
-use crate::column_values::DataColumn;
-use crate::variants::Variants;
 
-use kivact_core::state::{Binding, Callback, Value};
-use kivact_core::style::Color;
-use kivact_core::view::Node;
-use kivact_core::view::View;
-use kivact_interaction::{DataTableModelApi, ScalarRange, SortOrder, TableFocus};
+use crate::data_table::column::DataColumn;
+use kivact_core::state::{Callback, Signal, Value};
+use kivact_core::style::{Color, Icon};
+use kivact_core::view::{Node, View};
+use kivact_interaction::{DataTableModelApi, ScalarRange, SortOrder, TableFocus, Tone};
+use kivact_macros::Prop;
 use std::rc::Rc;
-
 /// The sorted column (an index into the columns) and its direction.
-pub(super) type Sort = Binding<Option<(usize, SortOrder)>>;
-pub(super) type ColumnFilters = Binding<Vec<(usize, String)>>;
+pub(super) type Sort = Signal<Option<(usize, SortOrder)>>;
+pub(super) type ColumnFilters = Signal<Vec<(usize, String)>>;
 pub(super) type TypedFilters =
-    Binding<std::collections::HashMap<usize, kivact_interaction::FilterValue>>;
+    Signal<std::collections::HashMap<usize, kivact_interaction::FilterValue>>;
 /// The page shown and the rows on a page.
-pub(super) type PagePlan = (Binding<usize>, Value<usize>);
+pub(super) type PagePlan = (Signal<usize>, Value<usize>);
 /// The caller's sort keys, in priority order.
-pub(super) type MultiSort = Binding<Vec<(usize, SortOrder)>>;
+pub(super) type MultiSort = Signal<Vec<(usize, SortOrder)>>;
 
 /// Whose sort the headers write. `DataTable::sort` and
 /// `DataTable::multi_sort` each replace it, so the later call wins.
@@ -56,7 +54,7 @@ pub(super) type CellSlot<R> = kivact_core::view::ViewFn<(Value<R>, usize)>;
 pub(super) type Slot<R, K> = Box<dyn FnOnce(DataTableContext<R, K>) -> View>;
 pub(super) type RowContextMenu<R> = kivact_core::view::ViewFn<(Value<R>, Node)>;
 pub(super) type RowSelectable<R> = Rc<dyn Fn(&R) -> bool>;
-pub(super) type RowStatusOf<R> = Rc<dyn Fn(&R) -> Option<crate::table_values::RowStatus>>;
+pub(super) type RowStatusOf<R> = Rc<dyn Fn(&R) -> Option<RowStatus>>;
 pub(super) type RowColor<R> = Rc<dyn Fn(&R) -> Option<Color>>;
 /// Names a row in text.
 pub(super) type RowName<R> = Rc<dyn Fn(&R) -> String>;
@@ -71,16 +69,16 @@ pub enum Paging {
     /// The table pages the rows it holds.
     Local {
         /// The page shown, from 0.
-        page: Binding<usize>,
+        page: Signal<usize>,
         /// The rows per page. Writing it chooses a size (and shows the first page) only when the table has [`page_sizes`](DataTable::page_sizes); otherwise a write is ignored.
-        page_size: Binding<usize>,
+        page_size: Signal<usize>,
     },
     /// The caller supplies one page and says whether another is available.
     Remote {
         /// The page shown, from 0.
-        page: Binding<usize>,
+        page: Signal<usize>,
         /// The rows per page. Writing it chooses a size (and shows the first page) only when the table has [`page_sizes`](DataTable::page_sizes); otherwise a write is ignored.
-        page_size: Binding<usize>,
+        page_size: Signal<usize>,
         /// Whether another page is available.
         has_more: Value<bool>,
     },
@@ -92,22 +90,18 @@ pub enum Paging {
 pub struct DataTableContext<R: 'static, K: 'static> {
     /// The filter, sort and page model: its counts and its filtered keys.
     pub model: DataTableModelApi<R, K, usize>,
-    // xtask-allow(state-fields): option: the caller's binding; None when the caller gave none
     /// The caller's selection, when the table has one.
-    pub selection: Option<Binding<Vec<K>>>,
+    pub selection: Option<Signal<Vec<K>>>,
     /// The sorted column (by position) and direction. It is the caller's
     /// binding, or the table's own when the caller gave none.
-    pub sort: Binding<Option<(usize, SortOrder)>>,
-    // xtask-allow(state-fields): option: the caller's binding; None when the caller gave none
+    pub sort: Signal<Option<(usize, SortOrder)>>,
     /// The caller's filter text, when the table has one.
-    pub filter: Option<Binding<String>>,
-    // xtask-allow(state-fields): option: the caller's binding; None when the caller gave none
+    pub filter: Option<Signal<String>>,
     /// The caller's queries by column index, when supplied.
-    pub column_filters: Option<Binding<Vec<(usize, String)>>>,
-    // xtask-allow(state-fields): option: the caller's binding; None when the caller gave none
+    pub column_filters: Option<Signal<Vec<(usize, String)>>>,
     /// Committed typed values keyed by the column's original position.
     pub typed_column_filters:
-        Option<Binding<std::collections::HashMap<usize, kivact_interaction::FilterValue>>>,
+        Option<Signal<std::collections::HashMap<usize, kivact_interaction::FilterValue>>>,
     /// How the table pages its rows.
     pub paging: Paging,
 }
@@ -121,7 +115,7 @@ impl<R: 'static, K: 'static> Clone for DataTableContext<R, K> {
 }
 
 /// Cell spacing available to data table theme recipes.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum DataTableDensity {
     Compact,
     #[default]
@@ -129,18 +123,18 @@ pub enum DataTableDensity {
     Spacious,
 }
 
-impl crate::variants::Variant for DataTableDensity {}
+impl kivact_core::view::Variant for DataTableDensity {}
 
 pub(super) type StickyEdges = (Vec<usize>, Vec<usize>);
 
 pub(super) struct Grouping<R> {
     pub(super) key: Key<R, String>,
-    pub(super) collapsed: Binding<Vec<String>>,
+    pub(super) collapsed: Signal<Vec<String>>,
 }
 
 pub(super) struct TreeConfig<R, K: 'static> {
     pub(super) parent: Key<R, Option<K>>,
-    pub(super) expanded: Binding<Vec<K>>,
+    pub(super) expanded: Signal<Vec<K>>,
 }
 
 /// Horizontal space for each additional table tree level.
@@ -152,69 +146,77 @@ pub enum DataTableTreeIndent {
     Large,
 }
 
+// xtask-allow(state): independent: each optional feature and the tree_expand_all flag is set only by its own by-value setter and taken once while into_view consumes the table; a feature whose base is absent (page_sizes without paging, expanded_rows without details, expand_all_control without tree) is ignored
 /// A table of the caller's rows, created by [`data_table`].
 pub struct DataTable<R: 'static, K: 'static> {
     pub(super) root: Node,
     pub(super) rows: Value<Vec<R>>,
-    // xtask-allow(state-fields): option: DataTable::group_by key and collapsed binding; absent shows each page's rows without group headers
     pub(super) grouping: Option<Grouping<R>>,
-    // xtask-allow(state-fields): option: DataTable::tree parent key and expanded binding; absent keeps the rows flat
     pub(super) tree: Option<TreeConfig<R, K>>,
     pub(super) tree_column: usize,
     pub(super) tree_indent: DataTableTreeIndent,
-    // xtask-allow(state-fields): option: DataTable::expand_all_control; false leaves the tree column header without the expand/collapse-all control
     pub(super) tree_expand_all: bool,
     pub(super) key: Key<R, K>,
     pub(super) columns: Rc<Vec<DataColumn<R>>>,
-    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) column_order: Option<Value<Vec<usize>>>,
-    // xtask-allow(state-fields): option: the caller's DataTable::selection binding; absent draws no check box column and selects nothing
-    pub(super) selection: Option<Binding<Vec<K>>>,
-    // xtask-allow(state-fields): option: DataTable::row_selectable; absent lets every row be selected
+    pub(super) selection: Option<Signal<Vec<K>>>,
     pub(super) row_selectable: Option<RowSelectable<R>>,
     pub(super) sort: SortSetting,
     pub(super) paging: PageSetting,
-    // xtask-allow(state-fields): option: DataTable::page_sizes; absent offers no size picker, and it is unused without page or remote_page
-    pub(super) page_sizes: Option<(Binding<usize>, Value<Vec<usize>>)>,
-    // xtask-allow(state-fields): option: DataTable::row_index start number; absent draws no row number gutter
+    pub(super) page_sizes: Option<(Signal<usize>, Value<Vec<usize>>)>,
     pub(super) row_index: Option<usize>,
-    // xtask-allow(state-fields): option: the caller's DataTable::filter query; absent shows no filter field and keeps every row
-    pub(super) filter: Option<Binding<String>>,
-    // xtask-allow(state-fields): option: the caller's DataTable::column_filters queries; absent applies no per-column text query
+    pub(super) filter: Option<Signal<String>>,
     pub(super) column_filters: Option<ColumnFilters>,
-    // xtask-allow(state-fields): option: the caller's DataTable::typed_column_filters values; absent shows no typed filter editors
     pub(super) typed_column_filters: Option<TypedFilters>,
     pub(super) filter_ui: crate::FilterUi,
-    // xtask-allow(state-fields): option: DataTable::sticky_columns, None when both edge lists are empty; absent pins no column
     pub(super) sticky: Option<StickyEdges>,
-    // xtask-allow(state-fields): option: the caller's DataTable::resizable widths; absent gives the headers no resize handle
-    pub(super) widths: Option<Binding<Vec<f64>>>,
-    // xtask-allow(state-fields): option: DataTable::resize_range; absent limits resizing to 18..2048 px, and it is unused without resizable
+    pub(super) widths: Option<Signal<Vec<f64>>>,
     pub(super) resize_range: Option<ScalarRange>,
-    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) row_label: Option<RowName<R>>,
-    // xtask-allow(state-fields): option: DataTable::row_actions width and view; absent adds no last actions column
     pub(super) actions: Option<(f64, RowSlot<R>)>,
-    // xtask-allow(state-fields): option: DataTable::row_context_menu; absent leaves a row's secondary click without a menu
     pub(super) row_context_menu: Option<RowContextMenu<R>>,
     pub(super) reorder: Option<Callback<kivact_interaction::Reorder<K>>>,
-    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) toolbar: Option<Slot<R, K>>,
-    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) footer: Option<Slot<R, K>>,
     pub(super) empty: Option<Box<dyn Fn() -> View>>,
-    // xtask-allow(state-fields): option: DataTable::row_details; absent builds no view under each row
     pub(super) details: Option<RowSlot<R>>,
-    // xtask-allow(state-fields): option: the caller's DataTable::expanded_rows keys; absent shows row details always with no disclosure, and it is unused without row_details
-    pub(super) expanded_rows: Option<Binding<Vec<K>>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    pub(super) expanded_rows: Option<Signal<Vec<K>>>,
     pub(super) cells: Option<CellSlot<R>>,
     pub(super) focus: TableFocus,
-    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) row_height: Option<Value<f64>>,
-    // xtask-allow(state-fields): option: DataTable::row_status; absent reserves no leading status lane
     pub(super) row_status: Option<RowStatusOf<R>>,
-    // xtask-allow(state-fields): option: DataTable::row_color; absent draws no row edge color
     pub(super) row_color: Option<RowColor<R>>,
-    pub(super) variants: Variants,
+}
+
+/// A status announced by name and shown in the table's leading lane.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RowStatus {
+    pub(crate) label: String,
+    pub(crate) tone: Tone,
+    pub(crate) icon: Option<Icon>,
+    pub(crate) color: Option<Color>,
+}
+
+impl RowStatus {
+    /// Create a marker in the theme's color for this tone.
+    pub fn new(label: impl Into<String>, tone: Tone) -> Self {
+        Self {
+            label: label.into(),
+            tone,
+            icon: None,
+            color: None,
+        }
+    }
+
+    /// Use an explicit color instead of the theme's tone.
+    pub fn color(mut self, color: impl Into<Color>) -> Self {
+        self.color = Some(color.into());
+        self
+    }
+
+    /// Display a named or custom icon instead of the default mark.
+    pub fn icon(mut self, icon: impl Into<Icon>) -> Self {
+        self.icon = Some(icon.into());
+        self
+    }
 }

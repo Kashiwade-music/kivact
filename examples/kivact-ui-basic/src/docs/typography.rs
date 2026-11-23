@@ -1,50 +1,43 @@
-//! Role: Catalog page of Typography: headings, prose, lists, inline code and small text.
+//! Catalog page of Typography: headings, prose, lists, inline code and small text.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "typography",
-        name: "Typography",
-        description: "見出し、段落、引用、リスト、インラインのコードなど、文章の書式です。Lyra の 12 px の部品とは別に、本文は 16 px で組みます。ブロックの間隔は呼び出し側の gap で決めます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("typography.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "headings",
-                "Headings",
-                "h1 から h4 までの見出しです。それぞれ Role::Heading と見出しの階層を持ちます。",
-                headings,
-            ),
-            Example::new(
-                "prose",
-                "Prose",
-                "段落と引用です。引用は左に 2 px の線を引き、斜体で表示します。",
-                prose,
-            ),
-            Example::new(
-                "list",
-                "List",
-                "bullet_list は文字列の一覧を箇条書きにします。",
-                list,
-            ),
-            Example::new(
-                "inline-code",
-                "Inline code",
-                "inline_code は等幅のフォントで、薄い背景を敷いて表示します。",
-                inline_code,
-            ),
-            Example::new(
-                "text-styles",
-                "Lead, large, small and muted",
-                "リード文、大きな文字、小さな文字、補足の文字です。",
-                text_styles,
-            ),
-        ],
-    }
+    Page::new("typography", "Typography", "Components", include_str!("typography.rs"))
+        .description("Text formatting: headings, paragraphs, quotes, lists and inline code. Unlike the 12 px Lyra components, the body is set at 16 px. The caller sets the spacing between blocks with gap.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "headings",
+            "Headings",
+            "Headings h1 to h4. Each has Role::Heading and its level in the hierarchy.",
+            headings,
+        ))
+        .example(Example::new(
+            "prose",
+            "Prose",
+            "A paragraph and a quote. A quote has a 2 px line on the left and is shown in italics.",
+            prose,
+        ))
+        .example(Example::new(
+            "list",
+            "List",
+            "bullet_list makes a bulleted list of strings.",
+            list,
+        ))
+        .example(Example::new(
+            "inline-code",
+            "Inline code",
+            "inline_code is in a monospace font and is drawn on a faint background.",
+            inline_code,
+        ))
+        .example(Example::new(
+            "text-styles",
+            "Lead, large, small and muted",
+            "A lead paragraph, large text, small text and muted text.",
+            text_styles,
+        ))
 }
 
 // example: headings

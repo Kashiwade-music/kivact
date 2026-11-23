@@ -14,7 +14,8 @@ The kit never owns your data. Collections come in as plain `Vec`s (or a signal o
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn invoices() -> impl IntoView {
+#[component]
+fn invoices() -> impl Element {
     kivact::ui::table((
         kivact::ui::table_header((kivact::ui::table_row((
             kivact::ui::table_head("Invoice").width(110.0),
@@ -41,7 +42,7 @@ fn invoices() -> impl IntoView {
         text("A list of recent invoices.").style(
             style()
                 .margin_top(16)
-                .color(basic::ColorName::MutedForeground)
+                .color(basic::MUTED_FOREGROUND)
                 .text_align(kivact::style::TextAlign::Center),
         ),
     ))
@@ -53,7 +54,7 @@ Give the same `.width(..)` to the head and cell of a column that should have a f
 
 ## Show many rows with sorting, filtering, selection and paging
 
-For real data use the standard `data_table(rows, key, columns)`. The theme draws it in the Lyra look. Each `DataColumn` has a title and a function that makes the cell text; optional modifiers add sorting (`.compare(..)`), filtering (`.filter(..)`) and right alignment (`.numeric(true)`):
+For real data use the standard `kivact::ui::data_table(rows, key, columns)`. The theme draws it in the Lyra look. Each `DataColumn` has a title and a function that makes the cell text; optional modifiers add sorting (`.compare(..)`), filtering (`.filter(..)`) and right alignment (`.numeric(true)`):
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -66,7 +67,8 @@ struct Payment {
     amount: f64,
 }
 
-fn payments() -> impl IntoView {
+#[component]
+fn payments() -> impl Element {
     let data = vec![
         Payment {
             id: 1,
@@ -89,16 +91,16 @@ fn payments() -> impl IntoView {
     let sort = signal(None);
     let page = signal(0_usize);
     let columns = vec![
-        DataColumn::new("Email", |p: &Payment| p.email.to_string())
+        kivact::ui::DataColumn::new("Email", |p: &Payment| p.email.to_string())
             .compare(|a, b| a.email.cmp(b.email))
             .filter(|p: &Payment, q: &str| p.email.contains(q)),
-        DataColumn::new("Amount", |p: &Payment| format!("${:.2}", p.amount))
+        kivact::ui::DataColumn::new("Amount", |p: &Payment| format!("${:.2}", p.amount))
             .compare(|a, b| a.amount.total_cmp(&b.amount))
             .numeric(true),
     ];
     column((
-        text_input("Filter emails", query).placeholder("Filter emails..."),
-        data_table(data, |p: &Payment| p.id, columns)
+        text_input(query).label("Filter emails").placeholder("Filter emails..."),
+        kivact::ui::data_table(data, |p: &Payment| p.id, columns)
             .row_label(|p: &Payment| p.email.to_string())
             .filter(query)
             .selection(selected)
@@ -124,7 +126,8 @@ fn payments() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn visitors() -> impl IntoView {
+#[component]
+fn visitors() -> impl Element {
     let config = basic::ChartConfig::new([
         basic::ChartSeries::new("desktop", "Desktop"),
         basic::ChartSeries::new("mobile", "Mobile"),
@@ -141,14 +144,14 @@ fn visitors() -> impl IntoView {
     )
     .header(
         column((
-            text("Bar chart").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
+            text("Bar chart").style(style().font_size(14).line_height(20.0 / 14.0).font_weight(500)),
             text("January - March").style(
                 style()
                     .line_height(1.625)
-                    .color(basic::ColorName::MutedForeground),
+                    .color(basic::MUTED_FOREGROUND),
             ),
         ))
-        .style(style().gap(4).grow(1).min_width(0)),
+        .style(style().gap(4).flex_grow(1).min_width(0)),
     )
     .style(style().width(560))
 }
@@ -156,7 +159,7 @@ fn visitors() -> impl IntoView {
 
 - `.kind(..)` is one of `Bar` (default), `StackedBar`, `Line`, `Area`, `Pie`, `Donut`, `Radar` and `Radial`. For a pie, donut or radial chart, each series is a slice or ring sized by the sum of its values over all rows. A radar chart has one axis per row.
 - Series use the theme's five chart colors in order, so a theme switch recolors them. Set `ChartSeries::new(..).color(rgb(0x2563eb))` to pin one.
-- `.orientation(Orientation::Horizontal)` lays bars out sideways. `.value_format(|v| format!("{v:.0}k"))` changes how values read in the axis and tooltips. By default a value follows the app's locale, with grouped thousands and at most three decimals (`1,234.5` in en-US, `1.234,5` in de-DE). `.legend(false)`, `.grid(false)`, `.axis(false)` and `.tooltip(false)` remove parts; `.height(..)` sets the height.
+- `.orientation(kivact::view::Orientation::Horizontal)` lays bars out sideways. `.value_format(|v| format!("{v:.0}k"))` changes how values read in the axis and tooltips. By default a value follows the app's locale, with grouped thousands and at most three decimals (`1,234.5` in en-US, `1.234,5` in de-DE). `.legend(false)`, `.grid(false)`, `.axis(false)` and `.tooltip(false)` remove parts; `.height(..)` sets the height.
 - Pass a signal of rows (`signal(Vec<ChartRow>)`) as `data` to update the chart live.
 - Hovering shows a tooltip with the values. The chart also has an accessible summary, from the messages `basic.chart.*`.
 
@@ -168,7 +171,8 @@ A badge is a small label. An avatar shows an image, or the fallback text when it
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn people() -> impl IntoView {
+#[component]
+fn people() -> impl Element {
     column((
         row((
             kivact::ui::badge("Active"),
@@ -197,17 +201,20 @@ fn people() -> impl IntoView {
 
 ## Show code with a copy button
 
-`kivact::ui::code_block(source)` owns selection, scrolling and clipboard feedback. Parse Rust once with `basic::rust_source(source)`, then pass those spans and the current palette to `.highlight(.., basic::rust_lines)`. Plain code needs no highlighter. `.on_copy(..)` observes a copy after Core writes the clipboard:
+`kivact::ui::code_block(source)` owns selection, scrolling and clipboard feedback. Tokenize Rust once with `kivact::ui::rust_tokens(source)`, then pass them to `kivact::ui::highlighter(tokens, ..)` with `basic::rust_lines`. Plain code needs no highlighter. `.on_copy(..)` observes a copy after Core writes the clipboard:
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn snippet() -> impl IntoView {
+#[component]
+fn snippet() -> impl Element {
     let source = "fn main() {\n    println!(\"Hello, Kivact!\");\n}";
-    let parsed=basic::rust_source(source);
+    let tokens = kivact::ui::rust_tokens(source);
     kivact::ui::code_block(source.to_string())
-        .highlight(move || (parsed.clone(), kivact::style::use_tokens::<basic::Tokens>().code.clone()), basic::rust_lines)
+        .highlight(kivact::ui::highlighter(tokens, |tokens, text, index: &usize| {
+            basic::rust_lines(tokens, text, index)
+        }))
         .title("main.rs")
         .line_numbers(true)
         .style(style().width(pct(100)))
@@ -215,23 +222,24 @@ fn snippet() -> impl IntoView {
 ```
 
 - `.max_height(..)` makes a long block scroll, `.variant(basic::CodeBlockSize::Sm)` is the compact size, and `.footer(..)` adds a line below the block.
-- For another language, build the lines by hand: a `CodeLine` is a list of `CodeSpan::new(text, CodeTone::Keyword)` and so on (tones: `Plain`, `Keyword`, `String`, `Number`, `Comment`, `Function`, `Type`, `Macro`, `Lifetime`, `Punctuation`, `Attribute`). The colors are the `code` field of the theme's tokens.
+- For another language, build the lines by hand with `basic::CodeLine` and `basic::CodeSpan`; a span's `kind` is a `kivact::ui::SyntaxKind`, or `None` for plain text. The colors are the theme's syntax variables (`kivact::ui::theme::syntax`).
 - The code font is `Geist Mono`; register it as described in [Theme and tokens](theme-and-tokens.md#choose-the-fonts). Without it a system monospace font is used.
 - After a successful copy the button reads "Copied" for a moment. The words come from `code_block.*` messages.
 
 ## Show a conversation
 
-Use one `kivact::ui::chat_message(author)` for each entry, with `.content(..)`, `.avatar(..)`, `.footer(..)` and `.align(ChatAlign::End)` as needed. `basic::BubbleVariant` selects the seven Basic color treatments. A standalone bubble uses `.variant(basic::ChatLayout::Bubble)` and an empty author; ordinary rows use the default Message layout. Reactions use the canonical `.reactions(..)` and `.reactions_side(..)` slots.
+Use one `kivact::ui::chat_message(author)` for each entry, with `.content(..)`, `.avatar(..)`, `.footer(..)` and `.align(ChatAlign::End)` as needed. `basic::ChatBubbleVariant` selects the Basic color treatments. A standalone bubble uses `.variant(basic::ChatLayout::Bubble)` and an empty author; ordinary rows use the default Message layout. Reactions use the canonical `.reactions(..)` and `.reactions_side(..)` slots.
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn conversation() -> impl IntoView {
+#[component]
+fn conversation() -> impl Element {
     kivact::ui::chat_thread(column((
         kivact::ui::chat_message("Ada")
             .content("Lunch at noon?")
-            .variant(basic::BubbleVariant::Secondary),
+            .variant(basic::ChatBubbleVariant::Secondary),
         kivact::ui::chat_message("You")
             .content("Sounds good.")
             .align(kivact::ui::ChatAlign::End),
@@ -249,11 +257,11 @@ Use ordinary rows for activity lines. For expandable detail, use `kivact::ui::di
 ## See also
 
 - [Forms](forms.md): inputs, pickers and validation.
-- [Theme and tokens](theme-and-tokens.md): chart and code colors follow the theme's tokens.
+- [Theme and tokens](theme-and-tokens.md): chart and code colors follow the theme's variables.
 - Rustdoc: `cargo doc -p kivact-ui-basic --open` for the chart, table and code block types, and `cargo doc -p kivact-ui --open` for `data_table`.
 
-`kivact::ui::item_list(children)` groups standard `item_row(title)` rows. Set `basic::ItemVariant` and `basic::ItemMediaVariant` with `.variant(..)`; `basic::ItemSize::Sm` keeps a 32 px image instead of 40 px. For reactive density use `.variant(basic::ItemLook::default().size(size))`. Media, actions, header and footer remain ordinary view slots.
+`kivact::ui::item_list(children)` groups standard `item_row(title)` rows. Set `basic::ItemVariant` and `basic::ItemMediaVariant` with `.variant(..)`; `basic::ItemSize::Sm` keeps a 32 px image instead of 40 px. Media, actions, header and footer remain ordinary view slots.
 
-Standard cards use `kivact::ui::card(content)` with ordinary views in `.header(..)`, `.media(..)` and `.footer(..)`. `basic::CardSize::Sm` is a visual variant. Use `.variant(basic::CardLook::default().size(size).header_bordered(bordered))` for reactive spacing and a header rule; the header title, description and action are caller-composed text and row/column views.
+Standard cards use `kivact::ui::card(content)` with ordinary views in `.header(..)`, `.media(..)` and `.footer(..)`. `basic::CardSize::Sm` is a visual variant. Use `.variant(basic::CardHeaderBordered(true))` for a header rule; the header title, description and action are caller-composed text and row/column views.
 
 Headings use `kivact::ui::heading(text, level)` and the theme keeps the original Basic typography. Progress supports `ProgressVariant::Bar`, `Ring` and `Gauge` through `.variant(..)`; all three use the Basic primary and muted palette. For a fixed media ratio, put `.aspect_ratio(width / height)` on the caller-owned node style. Statistics and description lists use the standard `stat` and `description_list` components.

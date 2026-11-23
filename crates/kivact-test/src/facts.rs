@@ -1,17 +1,14 @@
 //! Role: Ephemeral test queries over engine facts and core creation locations.
-use kivact_core::launch::Inspect;
+use kivact_core::__test::Inspect;
 use kivact_engine::api::Reader;
-use kivact_engine::contract::{NodeKind, NodeProperties, NodeType, SceneLayer};
+use kivact_engine::contract::{InputFlag, NodeKind, NodeProperties, NodeType, SceneLayer};
 use kivact_types::NodeId;
 use std::collections::HashMap;
 use std::panic::Location;
 pub(super) struct Node {
-    // xtask-allow(state-fields): projection: written only by Facts::new, which copies the engine reader's node type for each id
     node_type: Option<NodeType>,
     pub(super) children: Vec<NodeId>,
-    // xtask-allow(state-fields): projection: written only by Facts::new, which copies the engine reader's parent for each id
     parent: Option<NodeId>,
-    // xtask-allow(state-fields): independent: a per-query creation location; any combination is valid
     pub(super) at: Option<&'static Location<'static>>,
 }
 impl Node {
@@ -139,6 +136,21 @@ impl Facts {
                 .and_then(|semantics| semantics.name.clone())
         })
     }
+    /// The nodes the engine published as labelling this one
+    /// (`labelled_by`), in order. Only the owning node of each target is kept.
+    pub(super) fn labelled_by(&self, id: NodeId) -> Vec<NodeId> {
+        self.with_node(id, |node| {
+            node.and_then(|node| node.semantics.as_deref())
+                .map(|semantics| {
+                    semantics
+                        .labelled_by
+                        .iter()
+                        .map(|target| target.node)
+                        .collect()
+                })
+                .unwrap_or_default()
+        })
+    }
     pub(super) fn role(&self, id: NodeId) -> Option<kivact_types::Role> {
         self.with_node(id, |node| node.and_then(NodeProperties::role))
     }
@@ -167,10 +179,14 @@ impl Facts {
         })
     }
     pub(super) fn hidden(&self, id: NodeId) -> Option<bool> {
-        self.with_node(id, |node| node.and_then(|node| node.input.hidden))
+        self.with_node(id, |node| {
+            node.and_then(|node| node.input.flags.get(InputFlag::Hidden))
+        })
     }
     pub(super) fn disabled(&self, id: NodeId) -> Option<bool> {
-        self.with_node(id, |node| node.and_then(|node| node.input.disabled))
+        self.with_node(id, |node| {
+            node.and_then(|node| node.input.flags.get(InputFlag::Disabled))
+        })
     }
     pub(super) fn test_id(&self, id: NodeId) -> Option<String> {
         self.with_node(id, |node| {

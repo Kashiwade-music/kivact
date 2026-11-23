@@ -117,13 +117,12 @@ pub(crate) struct A11yState {
     pub(super) hashes: BTreeMap<u64, u64>,
     pub(super) publish: A11yPublish,
     pub(super) metadata: Rc<Metadata>,
-    #[cfg(feature = "testing")]
+    /// Cumulative payloads constructed.
     pub(crate) constructed: u64,
-    #[cfg(feature = "testing")]
+    /// Cumulative payloads sent to the window, including rejected attempts.
     pub(crate) published: u64,
     /// Nodes the identity enumeration visited (one per node per Metadata or
     /// Full build).
-    #[cfg(feature = "testing")]
     pub(crate) enumerated: u64,
 }
 impl Default for A11yState {
@@ -139,11 +138,8 @@ impl Default for A11yState {
             hashes: BTreeMap::new(),
             publish: A11yPublish::Inactive,
             metadata: Rc::default(),
-            #[cfg(feature = "testing")]
             constructed: 0,
-            #[cfg(feature = "testing")]
             published: 0,
-            #[cfg(feature = "testing")]
             enumerated: 0,
         }
     }
@@ -330,12 +326,11 @@ impl A11yState {
     }
 }
 
+// xtask-allow(state): identity: next is the countdown allocator of synthetic semantics ids (next, fresh); empty_root keeps the id build_empty_semantics reserved for an empty tree, reused while no node takes it
 /// Monotonic synthetic identities; consumers reject live authored node IDs.
 #[derive(Clone)]
 pub(super) struct SemanticsIdAllocator {
-    // xtask-allow(state-fields): identity: the next synthetic semantics id, counting down
     next: u64,
-    // xtask-allow(state-fields): identity: the id reserved for the empty root, independent of the published tree
     /// Reserved across authored roots, independently of the published tree.
     pub(super) empty_root: Option<SemanticsId>,
 }

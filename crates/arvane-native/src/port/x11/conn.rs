@@ -104,7 +104,7 @@ impl Native {
         logical_width: f64,
         logical_height: f64,
         requested_scale: Option<f64>,
-        visibility: kivact_types::embed::Visibility,
+        visibility: kivact_types::embed::EmbedVisibility,
     ) -> Result<(Arc<Self>, u32, u32, f64), ShellError> {
         let (connection, _) = XCBConnection::connect(None).map_err(super::error::platform)?;
         let connection = Arc::new(connection);
@@ -168,7 +168,7 @@ impl Native {
         width: u16,
         height: u16,
         info: u32,
-        visibility: kivact_types::embed::Visibility,
+        visibility: kivact_types::embed::EmbedVisibility,
     ) -> Result<(), ShellError> {
         let mask = EventMask::EXPOSURE
             | EventMask::STRUCTURE_NOTIFY
@@ -198,7 +198,7 @@ impl Native {
             .map_err(super::error::platform)?
             .check()
             .map_err(super::error::platform)?;
-        let mapped = u32::from(visibility == kivact_types::embed::Visibility::Shown);
+        let mapped = u32::from(visibility == kivact_types::embed::EmbedVisibility::Shown);
         self.connection
             .change_property32(PropMode::REPLACE, self.id.get(), info, info, &[0, mapped])
             .map_err(super::error::platform)?

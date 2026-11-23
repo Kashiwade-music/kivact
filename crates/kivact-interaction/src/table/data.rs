@@ -2,7 +2,7 @@
 
 use crate::{ListOptions, ListRangeOptions};
 use kivact_core::custom::PartState;
-use kivact_core::custom::Reactive;
+use kivact_core::custom::Prop;
 use kivact_core::view::SortDirection;
 
 /// The row-erased projection of a [`ColumnDef`](crate::ColumnDef) that a
@@ -12,13 +12,10 @@ use kivact_core::view::SortDirection;
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Header<C> {
     pub(super) key: C,
-    pub(super) label: Reactive<String>,
-    // xtask-allow(state-fields): option: whether the caller gave the column a ColumnDef::compare, copied by ColumnDef::header; false leaves the header unsortable
+    pub(super) label: Prop<String>,
     pub(super) sortable: bool,
-    // xtask-allow(state-fields): option: the starting width in the caller's unit; absent leaves it to layout
     /// The starting width in the caller's unit; `None` leaves it to layout.
     pub(super) width: Option<f64>,
-    // xtask-allow(state-fields): option: the caller's ColumnDef::min_width, copied by ColumnDef::header; absent keeps the resize range's own minimum
     pub(super) min_width: Option<f64>,
 }
 
@@ -106,9 +103,7 @@ pub struct TableHeaderState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TableRowState {
     pub input: PartState,
-    // xtask-allow(state-fields): independent: whether the table selection holds the row; Space, a pointer press and the caller's binding change it, and a multiple selection keeps rows selected while the tab stop is elsewhere
     pub selected: bool,
-    // xtask-allow(state-fields): independent: whether the row holds the tab stop (itself under TableFocus::Rows, one of its cells under TableFocus::Cells); arrows between cells and under Manual activation move it without changing the selection
     /// The row holds the tab stop: itself with [`TableFocus::Rows`], one of
     /// its cells with [`TableFocus::Cells`].
     pub active: bool,
@@ -118,10 +113,8 @@ pub struct TableRowState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TableCellState {
     pub input: PartState,
-    // xtask-allow(state-fields): independent: copied from the cell's row selection; Space selects the row of the focused cell, and arrows leave the selection where it is
     /// The cell's row is selected.
     pub selected: bool,
-    // xtask-allow(state-fields): independent: whether the cell holds the tab stop, only under TableFocus::Cells; arrows move it between cells of selected and unselected rows alike
     /// The cell holds the tab stop only with [`TableFocus::Cells`].
     pub active: bool,
 }

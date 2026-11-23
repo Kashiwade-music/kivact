@@ -29,8 +29,10 @@ updates on every step.
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::motion::{Easing, Transition, animated};
 
-fn progress() -> impl IntoView {
+#[component]
+fn progress() -> impl Element {
     let target = signal(0.0_f64);
     let amount = animated(target, Transition::tween(250, Easing::EaseOut));
 
@@ -90,10 +92,11 @@ offsets and shapes it with its easing. The easing of the last keyframe is not
 used, since no segment starts there.
 
 ```rust,no_run
-use kivact::motion::Keyframe;
+use kivact::motion::{Easing, Keyframe, Transition, animated};
 use kivact::prelude::*;
 
-fn lift_card() -> impl IntoView {
+#[component]
+fn lift_card() -> impl Element {
     let target = signal(0.0_f64);
     let lift = animated(
         target,
@@ -124,8 +127,10 @@ change layout. Read the animated value in a style closure:
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::motion::{Spring, Transition, animated};
 
-fn drawer() -> impl IntoView {
+#[component]
+fn drawer() -> impl Element {
     let open = signal(false);
     let offset = animated(
         move || if open.get() { 0.0_f64 } else { -240.0 },
@@ -137,7 +142,7 @@ fn drawer() -> impl IntoView {
         text("Drawer content").style(move || {
             style()
                 .padding(16)
-                .background(ColorToken::SurfaceAlt)
+                .background(color::SURFACE_ALT)
                 .translate_x(offset.get())
         }),
     ))
@@ -182,14 +187,16 @@ opacity, solid backgrounds, border colors, the transform, shadows and filters:
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
+use kivact::motion::{Easing, Transition};
 
-fn hover_card() -> impl IntoView {
+#[component]
+fn hover_card() -> impl Element {
     column(text("Hover me"))
         .style(
             style()
                 .padding(24)
-                .background(ColorToken::Surface)
-                .hover(style().background(ColorToken::SurfaceAlt).translate_y(-2))
+                .background(color::SURFACE)
+                .hover(style().background(color::SURFACE_ALT).translate_y(-2))
                 .transition(TransitionProp::All, Transition::tween(150, Easing::EaseOut)),
         )
 }
@@ -208,14 +215,16 @@ the rest can use another timing:
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
+use kivact::motion::{Easing, Spring, Transition};
 
-fn chip() -> impl IntoView {
+#[component]
+fn chip() -> impl Element {
     text("Pinned")
         .style(
             style()
                 .padding(8)
-                .background(ColorToken::Surface)
-                .hover(style().background(ColorToken::SurfaceAlt).translate_y(-2).opacity(0.9))
+                .background(color::SURFACE)
+                .hover(style().background(color::SURFACE_ALT).translate_y(-2).opacity(0.9))
                 // Colors and opacity in 150 ms; the lift on a spring.
                 .transition(TransitionProp::All, Transition::tween(150, Easing::EaseOut))
                 .transition(TransitionProp::Transform, Transition::spring(Spring::STIFF)),
@@ -239,13 +248,15 @@ go.
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
+use kivact::motion::{Easing, Transition};
 
+#[component]
 fn notice(shown: Signal<bool>) -> impl IntoView {
     show(shown, || {
         text("Saved").style(
             style()
                 .padding(12)
-                .background(ColorToken::SurfaceAlt)
+                .background(color::SURFACE_ALT)
                 // Slide in from the right and fade in; leave the same way.
                 .enter(style().translate_x(40).opacity(0.0))
                 .exit(style().translate_x(40).opacity(0.0))
@@ -286,10 +297,11 @@ presentation time. Start it with a rate:
 
 ```rust,no_run
 use kivact::draw::{Path, Stroke};
-use kivact::motion::{FrameInfo, FrameRate};
+use kivact::motion::{FrameInfo, FrameRate, frame_loop};
 use kivact::prelude::*;
 
-fn clock_hand() -> impl IntoView {
+#[component]
+fn clock_hand() -> impl Element {
     let angle = signal(0.0_f64);
 
     let frames = frame_loop(move |frame: FrameInfo| {
@@ -305,7 +317,7 @@ fn clock_hand() -> impl IntoView {
             center.x + radians.sin() * 40.0,
             center.y - radians.cos() * 40.0,
         );
-        draw.stroke_path(&Path::new().move_to(center).line_to(tip), &Stroke::new(3), ColorToken::Accent);
+        draw.stroke_path(&Path::new().move_to(center).line_to(tip), &Stroke::new(3), color::ACCENT);
     })
     .style(style().size(120, 120))
     .name("Clock hand")
@@ -351,10 +363,11 @@ acts on it for you in most cases:
   if that matters to the user:
 
 ```rust,no_run
-use kivact::motion::{FrameInfo, FrameRate};
+use kivact::motion::{FrameInfo, FrameRate, frame_loop};
 use kivact::prelude::*;
 
-fn starfield() -> impl IntoView {
+#[component]
+fn starfield() -> impl Element {
     let shift = signal(0.0_f64);
     // A simulation keeps moving under reduced motion.
     let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f64() * 12.0))
@@ -376,9 +389,11 @@ wait. `screen.advance(Duration)` moves time forward through every frame. You can
 start a test with reduced motion on or switch it while the screen runs:
 
 ```rust,test_harness
+use kivact::motion::{Easing, Transition, animated};
 use kivact::prelude::*;
 
-fn progress() -> impl IntoView {
+#[component]
+fn progress() -> impl Element {
     let target = signal(0.0_f64);
     let amount = animated(target, Transition::tween(250, Easing::Linear));
     column((

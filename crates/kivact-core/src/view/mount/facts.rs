@@ -5,13 +5,11 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_engine::contract::NodeType;
-use kivact_runtime::{Notifier, Owner};
-use kivact_style::CompiledStyle;
+use kivact_runtime::{Owner, Trigger};
 
 /// What a node's first write decided, for the style and draw stages.
 pub(super) struct NodeFacts {
     pub(super) kind: NodeType,
-    // xtask-allow(state-fields): option: set once by resolve: a focusable source not fixed to false, or native text editing; false means the theme's focus ring and disabled look do not apply
     /// The node is a focus stop: the theme's focus ring and disabled look
     /// apply under its style, styled or not (see `kivact_style::internal::compile_style`).
     pub(super) focus_stop: bool,
@@ -37,8 +35,8 @@ pub(crate) enum LocalPaint {
 /// Retained style paint and its render-safe metadata notification source.
 #[derive(Clone)]
 pub(crate) struct LocalPaintSource {
-    pub(super) value: Rc<RefCell<Option<Box<CompiledStyle>>>>,
-    pub(super) revision: Notifier,
+    pub(super) value: Rc<RefCell<Option<kivact_style::draw::LocalPaint>>>,
+    pub(super) revision: Trigger,
 }
 
 impl LocalPaintSource {
@@ -46,7 +44,7 @@ impl LocalPaintSource {
     pub(super) fn new(owner: Owner, at: &'static Location<'static>) -> Self {
         Self {
             value: Rc::new(RefCell::new(None)),
-            revision: owner.notifier(at),
+            revision: owner.trigger(at),
         }
     }
 }

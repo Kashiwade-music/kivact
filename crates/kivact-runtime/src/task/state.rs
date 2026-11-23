@@ -6,30 +6,44 @@
 //! host that runs the App's turns.
 
 use kivact_types::cell::Registry;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::panic::Location;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::task::Waker;
+use std::time::SystemTime;
 
 use super::executor::Executor;
-use crate::task::worker_pool::{self, Pool};
-use crate::{ErrorKind, OwnerId, UiError};
-use crate::{Owned, Runtime};
+use crate::reactive::Runtime;
+use crate::reactive::extensions::TurnWork;
+use crate::task::worker_pool::Pool;
+use crate::{Owned, Owner, OwnerId, Value};
+
+/// One shared clock: the owner that holds its signal and timer task, and
+/// how many live callers use it (`task::clock`).
+pub(crate) struct ClockEntry {
+    pub(super) every_ns: u64,
+    pub(super) owner: Owner,
+    pub(super) value: Value<SystemTime>,
+    pub(super) users: Cell<u32>,
+}
 
 /// Arrival identity of a registered timer.
 pub(crate) type TimerId = u64;
 
+/// The timer table's key: its deadline, then its arrival identity.
+pub(crate) type TimerKey = (u64, TimerId);
+
 /// Cancellation handoffs never borrow the timer table.
 #[derive(Default)]
-pub(crate) struct CancelQueue(kivact_types::cell::LocalMailbox<Vec<TimerId>>);
+pub(crate) struct CancelQueue(kivact_types::cell::LocalMailbox<Vec<TimerKey>>);
 
 impl CancelQueue {
-    pub(crate) fn push(&self, id: TimerId) {
+    pub(crate) fn push(&self, key: TimerKey) {
         let mut pending = self.0.take().unwrap_or_default();
-        pending.push(id);
+        pending.push(key);
         self.0.put(pending);
     }
 }
@@ -52,8 +66,8 @@ pub(crate) struct Scheduler {
 impl Scheduler {
     fn drain_cancel(&mut self) {
         while let Some(pending) = self.cancel.0.take() {
-            for id in pending {
-                self.timers.retain(|(_, timer), _| *timer != id);
+            for key in pending {
+                self.timers.remove(&key);
             }
         }
     }
@@ -95,6 +109,7 @@ pub(crate) struct TaskCell {
     pub(super) task: std::cell::OnceCell<super::executor::RawTask>,
 }
 
+// xtask-allow(state): record: tokio, time, finished, queues and pool are separate subsystems with their own writers (the tokio bridge, the timer scheduler, spawn, actions and the blocking pool); pool is the only lifecycle of the blocking pool; blocking_threads is the worker count fixed by new; remotes lists the open mailboxes of other threads and remote_wake marks mail; clocks lists the shared clocks and their users
 /// Everything the task subsystem keeps per App, driven by the host that runs
 /// the App's turns: it installs the state with its waker (`new`),
 /// polls ready futures and fires due timers each turn, and drains and shuts
@@ -107,43 +122,45 @@ pub struct TaskState {
     pub(super) exec: Executor,
     /// Pending host-clock timers.
     pub(super) time: RefCell<Scheduler>,
-    // xtask-allow(state-fields): option: absent means the default worker count
     /// Worker count of the blocking pool (`None`: the default).
     pub(super) blocking_threads: Option<usize>,
     /// Owned tasks whose future completed; their objects are removed after
     /// the poll that finished them.
     pub(super) finished: RefCell<Vec<Owned<Rc<TaskCell>>>>,
-    /// Live actions with a queue policy (for the exit drain).
+    /// Live queued actions (for the exit drain).
     pub(super) queues: RefCell<Registry<dyn Drain>>,
-    /// Queued actions of disposed owners still draining, with their deadline (ns).
-    pub(super) draining: RefCell<Vec<Rc<DrainEntry>>>,
+    /// The UI side of every open `remote` and `remote_trigger` mailbox.
+    pub(crate) remotes: RefCell<Vec<Rc<dyn super::remote::Deliver>>>,
+    /// The mark and waker other threads use to reach the mailboxes.
+    pub(crate) remote_wake: super::remote::RemoteWake,
+    /// The shared clocks and their users (`task::clock`).
+    pub(super) clocks: RefCell<Vec<Rc<ClockEntry>>>,
     /// The blocking pool, created on first use.
-    fallback_threads: RefCell<Vec<std::thread::JoinHandle<()>>>,
     pub(super) pool: RefCell<PoolState>,
 }
 
 impl TaskState {
     /// Empty state to install as a runtime extension; `blocking_threads` sizes
     /// the blocking pool when it is created (`None`: `min(4, CPUs)`).
-    pub fn new(blocking_threads: Option<usize>, waker: crate::ThreadWaker) -> Self {
+    pub fn new(blocking_threads: Option<usize>, waker: crate::driver::ThreadWaker) -> Self {
         TaskState {
             #[cfg(feature = "tokio")]
             tokio: RefCell::new(super::tokio_state::TokioState::NotStarted),
+            remotes: RefCell::new(Vec::new()),
+            remote_wake: super::remote::RemoteWake::new(waker.clone()),
             exec: Executor::new(waker),
             time: RefCell::new(Scheduler::default()),
             blocking_threads,
             finished: RefCell::new(Vec::new()),
             queues: RefCell::new(Registry::new()),
-            draining: RefCell::new(Vec::new()),
+            clocks: RefCell::new(Vec::new()),
             pool: RefCell::new(PoolState::NotStarted),
-            fallback_threads: RefCell::new(Vec::new()),
         }
     }
 
-    /// The task state installed in `rt`'s App.
-    #[inline]
-    pub fn of(rt: &Runtime) -> &TaskState {
-        rt.ext::<TaskState>()
+    /// The task subsystem of `rt`, installed when the App was created.
+    pub(crate) fn of(rt: &Runtime) -> &TaskState {
+        rt.extension::<Rc<TaskState>>()
     }
 
     /// Whether a spawned future is ready to be polled (the next turn has
@@ -159,17 +176,9 @@ impl TaskState {
     }
 
     /// When the host must run a turn next for the task subsystem (ns): the
-    /// earlier of the next pending timer and the next drain deadline of a
-    /// draining action. `None` when neither exists.
+    /// next pending timer. `None` when there is none.
     pub fn next_deadline(&self) -> Option<u64> {
-        let timer = self.time.borrow_mut().next_deadline();
-        let drain = self
-            .draining
-            .borrow()
-            .iter()
-            .map(|entry| entry.deadline)
-            .min();
-        [timer, drain].into_iter().flatten().min()
+        self.time.borrow_mut().next_deadline()
     }
 
     /// Counts of what the subsystem holds now. Reading them creates nothing
@@ -203,7 +212,30 @@ impl TaskState {
         if let PoolState::Running(p) = pool {
             p.shutdown();
         }
-        worker_pool::wait_for_threads(self.fallback_threads.take());
+    }
+}
+
+impl TurnWork for TaskState {
+    fn ready_work(&self) -> bool {
+        self.has_ready()
+    }
+
+    fn mail_waiting(&self) -> bool {
+        self.remote_wake.is_pending()
+    }
+
+    /// Deliver every open mailbox once, as host code of `rt`, when another
+    /// thread sent mail.
+    fn deliver_mail(&self, rt: &Runtime) {
+        if !self.remote_wake.take() {
+            return;
+        }
+        let inboxes: Vec<Rc<dyn super::remote::Deliver>> = self.remotes.borrow().clone();
+        rt.enter(|| {
+            for inbox in inboxes {
+                inbox.deliver();
+            }
+        });
     }
 }
 
@@ -216,72 +248,29 @@ pub(crate) trait Drain {
 }
 
 impl TaskState {
-    /// Drop drained actions and abandon those past their deadline (reported
-    /// to the App's default sink). The host calls it each turn.
-    pub fn check_draining(&self, rt: &Runtime) {
-        let now = rt.now_ns();
-        let list = std::mem::take(&mut *self.draining.borrow_mut());
-        let mut keep = Vec::new();
-        for entry in list {
-            let a = &entry.action;
-            let deadline = entry.deadline;
-            if !a.busy() {
-                continue;
-            }
-            if now >= deadline {
-                let n = a.abandon();
-                rt.report(
-                    None,
-                    UiError::new(
-                        ErrorKind::Closed,
-                        format!("action drain deadline passed; {n} run(s) abandoned"),
-                        None,
-                    ),
-                );
-                continue;
-            }
-            keep.push(entry);
-        }
-        self.draining.borrow_mut().extend(keep);
-    }
-
-    /// Any queued action (live or draining) still has work: the host waits for
-    /// this to turn false before it exits.
+    /// Any live queued action still has work: App exit waits for this to
+    /// turn false.
     pub fn queues_busy(&self) -> bool {
-        self.draining
-            .borrow()
-            .iter()
-            .any(|entry| entry.action.busy())
-            || self
-                .queues
-                .borrow_mut()
-                .live()
-                .into_iter()
-                .any(|a| a.busy())
+        self.queues
+            .borrow_mut()
+            .live()
+            .into_iter()
+            .any(|a| a.busy())
     }
 
-    /// Abandon every live and draining queued action (the exit deadline
-    /// passed); returns how many runs were dropped.
+    /// Abandon every live queued action (the exit deadline passed); returns
+    /// how many runs were dropped.
     pub fn abandon_all_queues(&self) -> usize {
-        let all: Vec<Rc<dyn Drain>> = {
-            let mut v: Vec<Rc<dyn Drain>> = self
-                .draining
-                .borrow_mut()
-                .drain(..)
-                .map(|entry| entry.action.clone())
-                .collect();
-            v.extend(self.queues.borrow_mut().live());
-            v
-        };
-        all.iter().map(|a| a.abandon()).sum()
+        self.queues
+            .borrow_mut()
+            .live()
+            .iter()
+            .map(|a| a.abandon())
+            .sum()
     }
 }
 
 impl TaskState {
-    pub(crate) fn retain_fallback(&self, handle: std::thread::JoinHandle<()>) {
-        self.fallback_threads.borrow_mut().push(handle);
-    }
-
     /// The App's blocking pool, created on first use.
     pub(crate) fn blocking_pool(&self) -> Arc<Pool> {
         let mut state = self.pool.borrow_mut();
@@ -311,7 +300,6 @@ pub struct TaskStats {
 /// One pending timer, as [`TaskState::list`] reports it.
 pub struct TaskEntry {
     /// Where the timer was created.
-    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub created_at: &'static Location<'static>,
     /// The owner that created it.
     pub owner: Option<OwnerId>,
@@ -331,16 +319,5 @@ impl PoolState {
             Self::Running(pool) => pool.outstanding.load(Ordering::SeqCst),
             Self::NotStarted | Self::ShutDown => 0,
         }
-    }
-}
-
-/// A detached queue retained until it drains or reaches its deadline.
-pub(super) struct DrainEntry {
-    action: Rc<dyn Drain>,
-    deadline: u64,
-}
-impl DrainEntry {
-    pub(super) fn new(action: Rc<dyn Drain>, deadline: u64) -> Rc<Self> {
-        Rc::new(Self { action, deadline })
     }
 }

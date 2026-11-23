@@ -23,7 +23,7 @@ use std::rc::Rc;
 
 use kivact_core::custom::{Owned, Owner, Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Value, memo, var};
+use kivact_core::state::{Signal, Value, memo, var};
 use kivact_core::view::{NodeRef, Orientation, Role};
 
 use super::axis::Axis;
@@ -66,8 +66,8 @@ pub struct TabListState {
 /// for it.
 ///
 /// ```no_run
-/// use kivact_core::{state::signal, view::{Element, column, node, text, for_each}};
-/// use kivact_interaction::{use_tabs, ListItem};
+/// use kivact::{state::signal, view::{Element, column, node, text, for_each}};
+/// use kivact::interaction::{use_tabs, ListItem};
 /// let options = signal(vec![ListItem::new("general", "General"),
 ///     ListItem::new("keys", "Keys")]);
 /// let selected = signal("general");
@@ -85,8 +85,7 @@ pub struct TabListState {
 /// ```
 pub struct TabsApi<K: kivact_core::state::ItemKey> {
     group: ListApi<K>,
-    options: Value<Vec<ListItem<K>>>,
-    selected: Binding<K>,
+    selected: Signal<K>,
     edit: crate::EditSession<K>,
     owner: Owner,
     refs: Owned<Rc<Refs<K>>>,
@@ -106,11 +105,11 @@ impl<K: kivact_core::state::ItemKey> Copy for TabsApi<K> {}
 #[track_caller]
 pub fn use_tabs<K: kivact_core::state::ItemKey>(
     items: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl kivact_core::state::IntoBinding<K>,
+    value: kivact_core::state::Signal<K>,
 ) -> TabsApi<K> {
     let owner = Owner::current();
     let options = items.into_value();
-    let original: Binding<K> = value.into_binding();
+    let original: Signal<K> = value;
     let edit = crate::EditSession::new(move |value| original.set(value));
     let selected = kivact_core::state::binding(original.into_value(), move |value: K| {
         edit.once(original.get_untracked(), || original.set(value))
@@ -137,7 +136,6 @@ pub fn use_tabs<K: kivact_core::state::ItemKey>(
     TabsApi {
         edit,
         group,
-        options,
         selected,
         owner,
         refs,
@@ -154,28 +152,6 @@ impl<K: kivact_core::state::ItemKey> TabsApi<K> {
     ) -> Self {
         self.edit.on_edit(f);
         self
-    }
-    /// Drawing state of the mounted tab list.
-    pub fn list_state(self) -> Value<TabListState> {
-        let input = self.group.list_state();
-        let orientation = self.orientation;
-        memo(move || TabListState {
-            input: input.get(),
-            orientation: orientation.get(),
-        })
-    }
-    /// Drawing state of an individual tab.
-    pub fn item_state(self, key: K) -> Value<TabState> {
-        let input = self.group.item_state(key);
-        let orientation = self.orientation;
-        memo(move || {
-            let input = input.get();
-            TabState {
-                input: input.input,
-                selected: input.selected,
-                orientation: orientation.get(),
-            }
-        })
     }
 
     /// Whether moving to a tab with the arrow keys also selects it.
@@ -245,20 +221,8 @@ impl<K: kivact_core::state::ItemKey> TabsApi<K> {
     /// A tab with reactive label, selection, constraints and roving navigation.
     #[track_caller]
     pub fn item(self, key: K) -> Part<TabState> {
-        let member = self.group.item(key.clone());
         let (tab_ref, panel_ref) = self.refs(&key);
-        let options = self.options;
-        let key = var(key);
-        let label = memo(move || {
-            options.with(|rows| {
-                key.with(|key| {
-                    rows.iter()
-                        .find(|row| &row.key == key)
-                        .map(|row| row.label.get())
-                        .unwrap_or_default()
-                })
-            })
-        });
+        let member = self.group.item(key);
         let orientation = self.orientation;
         let base = member.map_state(move |state| TabState {
             input: state.input,
@@ -269,7 +233,6 @@ impl<K: kivact_core::state::ItemKey> TabsApi<K> {
         Part::new(part_state, move |host| {
             host.part(base)
                 .role(Role::Tab)
-                .name(label)
                 .controls(panel_ref)
                 .node_ref(tab_ref)
         })
@@ -279,14 +242,14 @@ impl<K: kivact_core::state::ItemKey> TabsApi<K> {
     #[track_caller]
     pub fn panel(self, key: K) -> Part<TabState> {
         let (tab_ref, panel_ref) = self.refs(&key);
+        let membership = self.group.membership();
+        let index = self.group.index();
+        let watch = membership.watch(key.clone());
         let key = var(key);
-        let selected = self.selected();
-        let options = self.options;
         let orientation = self.orientation;
         let shown = memo(move || {
             key.with(|key| {
-                selected.with(|selected| selected == key)
-                    && options.with(|rows| rows.iter().any(|row| &row.key == key))
+                membership.contains(key, watch) && index.with(|index| index.position(key).is_some())
             })
         });
         let input = part(move |input| TabState {

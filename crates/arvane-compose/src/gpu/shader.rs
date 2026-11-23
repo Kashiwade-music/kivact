@@ -7,16 +7,16 @@ use super::pass::{FrameTextures, copy, view, with_pass};
 use super::pipelines::buffer;
 use super::shader_cache::{IMAGE_SLOTS, make_pipeline};
 use super::state::GpuContext;
-use crate::ComposeError;
+use crate::RenderError;
 use crate::plan::{DrawOp, Sampling, Scissor, ShaderOp, Source};
 use arvane_render::RASTER_FORMAT;
+use kivact_types::Composite;
 use kivact_types::effect::{ShaderProgram, ShaderUse};
 use kivact_types::geometry::{Point, Size};
 use kivact_types::geometry3d::Projective;
 use kivact_types::pixel::{BlendMode, Pixels};
-use kivact_types::render::Composite;
 
-/// The texture of `pixels` (straight alpha) premultiplied, as the shader's images read them.
+/// The texture of `pixels`, premultiplied as they are, as the shader's images read them.
 fn premultiplied_texture(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -36,14 +36,6 @@ fn premultiplied_texture(
         usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
         view_formats: &[],
     });
-    let mut bytes = Vec::with_capacity(pixels.rgba.len());
-    for px in pixels.rgba.as_chunks::<4>().0 {
-        let a = f32::from(px[3]) / 255.0;
-        for c in &px[..3] {
-            bytes.push((f32::from(*c) * a).round() as u8);
-        }
-        bytes.push(px[3]);
-    }
     queue.write_texture(
         wgpu::TexelCopyTextureInfo {
             texture: &texture,
@@ -51,7 +43,7 @@ fn premultiplied_texture(
             origin: wgpu::Origin3d::ZERO,
             aspect: wgpu::TextureAspect::All,
         },
-        &bytes,
+        &pixels.rgba,
         wgpu::TexelCopyBufferLayout {
             offset: 0,
             bytes_per_row: Some(4 * pixels.width),
@@ -111,15 +103,15 @@ impl GpuContext {
         encoder: &mut wgpu::CommandEncoder,
         op: &ShaderOp<'_>,
         frame: &FrameTextures<'_>,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let key = (op.shader.program.hash, true);
-        if self.pipeline(op.shader.program.as_ref(), key).is_none() {
+        if !self.pipeline_ready(op.shader.program.as_ref(), key) {
             return self.record_fallback(encoder, op, frame);
         }
         let coverage = self
             .chunks
             .get(&op.coverage)
-            .ok_or_else(|| ComposeError::Backend("a shader's coverage chunk is missing".into()))?;
+            .ok_or_else(|| RenderError::Backend("a shader's coverage chunk is missing".into()))?;
         let draw = Draw {
             shader: op.shader,
             size: (op.size.width as f32, op.size.height as f32),
@@ -128,7 +120,7 @@ impl GpuContext {
             content: None,
             coverage: Coverage::Texture(coverage),
             map: map_columns(&op.map).try_into().map_err(|_| {
-                ComposeError::InvalidComposition("a shader map has no 3 × 3 matrix".into())
+                RenderError::InvalidComposition("a shader map has no 3 × 3 matrix".into())
             })?,
         };
         let target = frame.target(op.target)?;
@@ -144,9 +136,9 @@ impl GpuContext {
         dest: &wgpu::Texture,
         shader: &ShaderUse,
         (px_per_unit, origin, bounds): (f64, Point, Size),
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let key = (shader.program.hash, false);
-        if self.pipeline(shader.program.as_ref(), key).is_none() {
+        if !self.pipeline_ready(shader.program.as_ref(), key) {
             copy(encoder, source, dest);
             return Ok(());
         }
@@ -182,15 +174,12 @@ impl GpuContext {
         self.draw_shader(encoder, key, &vertices, dest, draw)
     }
 
-    /// The pipeline of `program` for `key`, made on first use. None when it failed (its failure is reported once).
-    fn pipeline(
-        &mut self,
-        program: &ShaderProgram,
-        key: (u64, bool),
-    ) -> Option<&wgpu::RenderPipeline> {
-        let shaders = &mut self.shaders;
+    /// Whether the pipeline of `program` for `key` is there, made on first use. False when it
+    /// failed (its failure is reported once).
+    fn pipeline_ready(&mut self, program: &ShaderProgram, key: (u64, bool)) -> bool {
+        let mut shaders = self.gpu.shaders.borrow_mut();
         if !shaders.pipelines.contains_key(&key) {
-            let made = match make_pipeline(&self.device, &shaders.layout, program, key.1) {
+            let made = match make_pipeline(&self.gpu.device, &shaders.layout, program, key.1) {
                 Ok(pipeline) => Some(pipeline),
                 Err(message) => {
                     self.shader_failures.push((program.hash, message));
@@ -199,7 +188,7 @@ impl GpuContext {
             };
             shaders.pipelines.insert(key, made);
         }
-        shaders.pipelines.get(&key).and_then(Option::as_ref)
+        shaders.pipelines.get(&key).is_some_and(Option::is_some)
     }
 
     /// Record the fallback chunk of a shader op, as the CPU draws it.
@@ -208,7 +197,7 @@ impl GpuContext {
         encoder: &mut wgpu::CommandEncoder,
         op: &ShaderOp<'_>,
         frame: &FrameTextures<'_>,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let fallback = DrawOp {
             target: op.target,
             source: Source::Chunk(op.fallback),
@@ -233,14 +222,15 @@ impl GpuContext {
         vertices: &[f32],
         target: &wgpu::Texture,
         draw: Draw<'_>,
-    ) -> Result<(), ComposeError> {
-        let Some(pipeline) = self.shaders.pipelines.get(&key).and_then(Option::as_ref) else {
-            return Err(ComposeError::Backend(
+    ) -> Result<(), RenderError> {
+        let shaders = self.gpu.shaders.borrow();
+        let Some(pipeline) = shaders.pipelines.get(&key).and_then(Option::as_ref) else {
+            return Err(RenderError::Backend(
                 "a shader pipeline is missing for a draw".into(),
             ));
         };
-        let device = &self.device;
-        let queue = &self.queue;
+        let device = &self.gpu.device;
+        let queue = &self.gpu.queue;
         let context = [
             draw.size.0,
             draw.size.1,
@@ -257,12 +247,12 @@ impl GpuContext {
         );
         let images = self.shader_images(&draw);
         let content_view = draw.content.map(|(texture, _, _)| view(texture));
-        let content_ref = content_view.as_ref().unwrap_or(&self.pipelines.dummy);
+        let content_ref = content_view.as_ref().unwrap_or(&self.gpu.pipelines.dummy);
         let coverage_view = match draw.coverage {
             Coverage::White => None,
             Coverage::Texture(texture) => Some(view(texture)),
         };
-        let coverage_ref = coverage_view.as_ref().unwrap_or(&self.shaders.white);
+        let coverage_ref = coverage_view.as_ref().unwrap_or(&shaders.white);
         let draw_bytes = draw_uniform_bytes(&draw, target);
         let draw_buffer = buffer(device, queue, wgpu::BufferUsages::UNIFORM, &draw_bytes);
         let vertex_bytes: Vec<u8> = vertices.iter().flat_map(|v| v.to_le_bytes()).collect();
@@ -289,8 +279,8 @@ impl GpuContext {
         let mut images: Vec<wgpu::TextureView> = Vec::with_capacity(IMAGE_SLOTS);
         for slot in &draw.shader.images {
             images.push(match slot {
-                Some(pixels) => premultiplied_texture(&self.device, &self.queue, pixels),
-                None => self.pipelines.dummy.clone(),
+                Some(pixels) => premultiplied_texture(&self.gpu.device, &self.gpu.queue, pixels),
+                None => self.gpu.pipelines.dummy.clone(),
             });
         }
         images
@@ -305,52 +295,55 @@ impl GpuContext {
         coverage: &wgpu::TextureView,
     ) -> wgpu::BindGroup {
         let [context, params, draw] = uniforms;
-        self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Arvane shader"),
-            layout: &self.shaders.layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: context.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: params.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&self.shaders.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::TextureView(&images[0]),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 4,
-                    resource: wgpu::BindingResource::TextureView(&images[1]),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 5,
-                    resource: wgpu::BindingResource::TextureView(&images[2]),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 6,
-                    resource: wgpu::BindingResource::TextureView(&images[3]),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 7,
-                    resource: wgpu::BindingResource::TextureView(content),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 8,
-                    resource: wgpu::BindingResource::TextureView(coverage),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 9,
-                    resource: draw.as_entire_binding(),
-                },
-            ],
-        })
+        let shaders = self.gpu.shaders.borrow();
+        self.gpu
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Arvane shader"),
+                layout: &shaders.layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: context.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: params.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::Sampler(&shaders.sampler),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: wgpu::BindingResource::TextureView(&images[0]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
+                        resource: wgpu::BindingResource::TextureView(&images[1]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 5,
+                        resource: wgpu::BindingResource::TextureView(&images[2]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 6,
+                        resource: wgpu::BindingResource::TextureView(&images[3]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 7,
+                        resource: wgpu::BindingResource::TextureView(content),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 8,
+                        resource: wgpu::BindingResource::TextureView(coverage),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 9,
+                        resource: draw.as_entire_binding(),
+                    },
+                ],
+            })
     }
 }
 

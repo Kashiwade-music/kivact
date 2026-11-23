@@ -14,9 +14,11 @@ gpu = ["kivact/gpu"]
 [dependencies]
 kivact = { path = "../../crates/kivact", default-features = false }
 kivact-ui-soft = { path = "../../crates/kivact-ui-soft" }
+catalog-shell = { path = "../catalog-shell" }
 
 [dev-dependencies]
 kivact = { path = "../../crates/kivact", default-features = false, features = ["test"] }
+catalog-shell = { path = "../catalog-shell", features = ["test"] }
 
 [lints]
 workspace = true

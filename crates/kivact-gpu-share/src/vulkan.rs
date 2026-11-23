@@ -26,15 +26,27 @@
     reason = "the Vulkan calls of an engine's shared pool, below any safe API"
 )]
 
+mod contract;
+#[cfg(any(feature = "import", feature = "wgpu"))]
+pub(crate) mod open;
+#[cfg(feature = "export")]
 mod physical_device;
+#[cfg(feature = "export")]
 mod pool;
-mod raw;
+#[cfg(any(feature = "adapter", feature = "export"))]
+pub(crate) mod raw;
+#[cfg(feature = "export")]
 mod read_back;
 
-pub use crate::vulkan_contract::{API_VERSION, DEVICE_EXTENSIONS, HAND_OFF_LAYOUT};
+#[cfg(feature = "export")]
 pub use physical_device::find_physical_device;
 #[cfg(feature = "wgpu")]
 pub(crate) use physical_device::{identity, uuids};
+#[cfg(feature = "export")]
 pub use pool::{Pool, Submission, Target};
-pub use raw::FORMAT;
+#[cfg(feature = "export")]
 pub use read_back::{ReadImage, read_back};
+
+pub use contract::{API_VERSION, DEVICE_EXTENSIONS, FORMAT, HAND_OFF_LAYOUT, usage};
+#[cfg(feature = "import")]
+pub(crate) use contract::{MEMORY_HANDLE, SEMAPHORE_HANDLE};

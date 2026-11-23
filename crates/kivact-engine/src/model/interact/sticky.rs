@@ -31,7 +31,7 @@
 //! that does not scroll (`overflow: hidden`) is none. The transforms
 //! between a box and its scrollport are not looked at.
 
-use kivact_types::{Dimension, NodeId, Point, Rect};
+use kivact_types::{Length, NodeId, Point, Rect};
 
 use crate::model::Model;
 
@@ -50,10 +50,8 @@ impl Model {
         ids.sort_unstable();
         for (_, id) in ids {
             let shift = self.sticky_shift(id).unwrap_or_default();
-            if let Some(n) = self.tree.get_mut(id)
-                && n.shift != shift
-            {
-                n.shift = shift;
+            if self.tree.contains(id) && self.tree.set_shift_of(id, shift) {
+                self.forget_origins();
                 self.changes.stuck(id);
                 self.a11y.moved(id);
             }
@@ -71,17 +69,18 @@ impl Model {
         let parent = self.tree.flat_parent(n)?;
         let r = self.rect(id)?;
         // Where layout put it, with the scrolls and outer shifts of now.
+        let now = self.tree.shift_of(id);
         let at = Rect {
-            x: r.x - n.shift.x,
-            y: r.y - n.shift.y,
+            x: r.x - now.x,
+            y: r.y - now.y,
             ..r
         };
         let (scroller, port) = self.scrollport(parent);
         let block = self.containing_block(parent, scroller == Some(parent))?;
-        let len = |d: Dimension, of: f64| match d {
-            Dimension::Px(v) => Some(v),
-            Dimension::Percent(p) => Some(of * p / 100.0),
-            Dimension::Calc { percent, px } => Some(of * percent / 100.0 + px),
+        let len = |d: Length, of: f64| match d {
+            Length::Px(v) => Some(v),
+            Length::Percent(p) => Some(of * p / 100.0),
+            Length::Calc { percent, px, .. } => Some(of * percent / 100.0 + px),
             _ => None,
         };
         Some(Point {
@@ -137,7 +136,8 @@ impl Model {
                 ..c
             });
         }
-        let s = self.tree.get(parent)?.scroll;
+        self.tree.get(parent)?;
+        let s = self.tree.scroll_of(parent);
         Some(Rect {
             x: r.x + c.x - s.x,
             y: r.y + c.y - s.y,

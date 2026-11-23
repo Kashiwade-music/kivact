@@ -52,8 +52,8 @@
 //!   [`LayoutViolation`]s; `assert_layout` fails with all of them and keeps
 //!   the frame in [`failure_dir`]. [`Screen::assert_layout_with`] preserves
 //!   explicit check options and the same failure artifacts. A Japanese label needs Noto Sans JP given
-//!   with `TestFonts::Only` (the bundled font has no CJK). The E2E is
-//!   `dev/tests/kivact-public-api/tests/e2e/layout_check.rs`.
+//!   by a theme with fonts (`Theme::with_fonts`; the bundled font has no CJK). The E2E is
+//!   `dev/tests/kivact-public-api/tests/e2e_core/layout_check.rs`.
 
 //!
 //! Embedded editors can use `TestParent` to open a real host, inject native
@@ -95,7 +95,7 @@ mod render;
 mod screen;
 
 /// The work counts of a presented frame, as [`Screen::frame_stats`] reports them.
-pub use kivact_types::render::FrameStats;
+pub use kivact_types::export::FrameStats;
 pub use options::{MirrorMode, RenderOptions, Renderer, TestFonts};
 pub use render::{gpu_unavailable, native_unavailable, render, render_with, render_with_handle};
 

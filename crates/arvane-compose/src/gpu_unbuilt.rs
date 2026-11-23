@@ -1,9 +1,15 @@
-//! Role: The GPU executor's public names when feature `gpu` is not built: no device exists, so every call fails.
+//! Role: The GPU executor's public names without feature `gpu`: every call fails.
+//! No device exists in this build, so no call can succeed.
+//!
+//! [`GpuDevice`] is uninhabited. [`GpuContext`] and [`SurfaceConfigurer`] are not,
+//! so that code which only the `gpu` build reaches does not look unreachable here:
+//! their constructors are unreachable, and no value of them can be made.
 
-use crate::{ComposeError, GpuReport};
+use crate::{GpuReport, RenderError};
+use arvane_protocol::{Composition, CpuFrame};
 use kivact_types::ids::DrawableId;
-use kivact_types::render::{Composition, CpuFrame};
 use kivact_types::{ExternalFrame, ExternalImageId, GpuAdapter, SharedTextures};
+use std::rc::Rc;
 use std::time::Duration;
 
 /// How GPU devices are made (inert without the `gpu` feature).
@@ -17,8 +23,15 @@ impl GpuEnv {
     }
 }
 
-/// A GPU executor cannot exist without the `gpu` feature.
-pub enum GpuContext {}
+/// A GPU device cannot exist without the `gpu` feature.
+pub enum GpuDevice {}
+
+/// What configuring a window's surface needs. No value exists without the `gpu` feature.
+#[derive(Clone)]
+pub struct SurfaceConfigurer(());
+
+/// A window's GPU context. No value exists without the `gpu` feature.
+pub struct GpuContext(());
 
 /// A window surface cannot exist without the `gpu` feature.
 pub enum GpuSurface {}
@@ -32,32 +45,95 @@ pub enum Presentation {
     Skipped,
 }
 
-impl GpuContext {
-    /// Nothing to release without a device.
-    pub fn release_caches(&mut self) {
-        match *self {}
-    }
-
+impl GpuDevice {
     /// Always fails: the `gpu` feature is not built.
-    pub fn new(_env: &GpuEnv) -> Result<Self, ComposeError> {
-        Err(ComposeError::NoAdapter(
+    pub fn new(_env: &GpuEnv) -> Result<Self, RenderError> {
+        Err(RenderError::NoAdapter(
             "built without the gpu feature".into(),
         ))
     }
 
-    /// Unreachable: no context exists.
+    /// Unreachable: no device exists.
     pub fn describe(&self) -> String {
         match *self {}
     }
 
-    /// Unreachable: no context exists.
+    /// Unreachable: no device exists.
     pub fn interop_adapter(&self) -> Option<GpuAdapter> {
         match *self {}
     }
 
-    /// Unreachable: no context exists.
+    /// Unreachable: no device exists.
     pub fn failure(&self) -> Option<String> {
         match *self {}
+    }
+
+    /// Unreachable: no device exists.
+    pub fn configurer(&self) -> SurfaceConfigurer {
+        match *self {}
+    }
+
+    /// Unreachable: no device exists.
+    pub fn surface<T>(&self, _target: T) -> Result<GpuSurface, RenderError>
+    where
+        T: Send + Sync + 'static,
+    {
+        match *self {}
+    }
+
+    /// Unreachable: no device exists.
+    pub fn surface_maker<T: Send + Sync + 'static>(
+        &self,
+    ) -> impl FnOnce(T) -> Result<GpuSurface, RenderError> + Send + 'static {
+        unbuilt_maker(self)
+    }
+
+    /// Unreachable: no device exists.
+    pub fn import_external(
+        &self,
+        _id: ExternalImageId,
+        _shared: SharedTextures,
+    ) -> Result<(), RenderError> {
+        match *self {}
+    }
+
+    /// Unreachable: no device exists.
+    pub fn drop_external(&self, _id: ExternalImageId) {
+        match *self {}
+    }
+
+    /// Unreachable: no device exists.
+    pub fn take_missed_external(&self) -> Vec<ExternalFrame> {
+        match *self {}
+    }
+}
+
+impl SurfaceConfigurer {
+    /// Unreachable: no configurer exists.
+    pub fn configure(
+        &self,
+        _surface: &mut GpuSurface,
+        _width: u32,
+        _height: u32,
+    ) -> Result<(), RenderError> {
+        unreachable!("built without the gpu feature: no configurer exists")
+    }
+}
+
+impl GpuContext {
+    /// Unreachable: no device exists to share.
+    pub fn new(gpu: Rc<GpuDevice>) -> Self {
+        match *gpu {}
+    }
+
+    /// Unreachable: no context exists.
+    pub fn device(&self) -> &Rc<GpuDevice> {
+        unreachable!("built without the gpu feature: no context exists")
+    }
+
+    /// Nothing to release without a device.
+    pub fn release_caches(&mut self) {
+        unreachable!("built without the gpu feature: no context exists")
     }
 
     /// Unreachable: no context exists.
@@ -67,8 +143,8 @@ impl GpuContext {
         _composition: &Composition,
         _scale: f64,
         _physical: (u32, u32),
-    ) -> Result<(Presentation, Duration, GpuReport), ComposeError> {
-        match *self {}
+    ) -> Result<(Presentation, Duration, GpuReport), RenderError> {
+        unreachable!("built without the gpu feature: no context exists")
     }
 
     /// Unreachable: no context exists.
@@ -77,38 +153,13 @@ impl GpuContext {
         _surface: &mut GpuSurface,
         _pixels: &[u32],
         _size: (u32, u32),
-    ) -> Result<(Presentation, Duration), ComposeError> {
-        match *self {}
+    ) -> Result<(Presentation, Duration), RenderError> {
+        unreachable!("built without the gpu feature: no context exists")
     }
 
     /// Unreachable: no context exists.
-    pub fn read_back(&self, _surface: &GpuSurface) -> Result<CpuFrame, ComposeError> {
-        match *self {}
-    }
-
-    /// Unreachable: no context exists.
-    pub fn configure(
-        &self,
-        _surface: &mut GpuSurface,
-        _width: u32,
-        _height: u32,
-    ) -> Result<(), ComposeError> {
-        match *self {}
-    }
-
-    /// Unreachable: no context exists.
-    pub fn surface<T>(&self, _target: T) -> Result<GpuSurface, ComposeError>
-    where
-        T: Send + Sync + 'static,
-    {
-        match *self {}
-    }
-
-    /// Unreachable: no context exists.
-    pub fn surface_maker<T: Send + Sync + 'static>(
-        &self,
-    ) -> impl FnOnce(T) -> Result<GpuSurface, ComposeError> + Send + 'static {
-        unbuilt_maker(self)
+    pub fn read_back(&self, _surface: &GpuSurface) -> Result<CpuFrame, RenderError> {
+        unreachable!("built without the gpu feature: no context exists")
     }
 
     /// Unreachable: no context exists.
@@ -117,27 +168,8 @@ impl GpuContext {
         _composition: &Composition,
         _size: (u32, u32),
         _scale: f64,
-    ) -> Result<CpuFrame, ComposeError> {
-        match *self {}
-    }
-
-    /// Unreachable: no context exists.
-    pub fn import_external(
-        &mut self,
-        _id: ExternalImageId,
-        _shared: SharedTextures,
-    ) -> Result<(), ComposeError> {
-        match *self {}
-    }
-
-    /// Unreachable: no context exists.
-    pub fn drop_external(&mut self, _id: ExternalImageId) {
-        match *self {}
-    }
-
-    /// Unreachable: no context exists.
-    pub fn take_missed_external(&mut self) -> Vec<ExternalFrame> {
-        match *self {}
+    ) -> Result<CpuFrame, RenderError> {
+        unreachable!("built without the gpu feature: no context exists")
     }
 
     /// Unreachable: no context exists.
@@ -147,14 +179,26 @@ impl GpuContext {
         _generation: u64,
         _adapter: &GpuAdapter,
         _size: (u32, u32),
-    ) -> Result<SharedTextures, ComposeError> {
-        match *self {}
+    ) -> Result<SharedTextures, RenderError> {
+        unreachable!("built without the gpu feature: no context exists")
     }
 
     /// Unreachable: no context exists.
     pub fn drop_export(&mut self, _sink: DrawableId) {
-        match *self {}
+        unreachable!("built without the gpu feature: no context exists")
     }
+
+    /// Unreachable: no context exists.
+    pub fn export_losses(&self) -> Vec<arvane_protocol::ExportLoss> {
+        unreachable!("built without the gpu feature: no context exists")
+    }
+}
+
+/// Always fails: the `gpu` feature is not built, so no adapter is probed.
+pub fn probe_adapter(_env: &GpuEnv) -> Result<String, RenderError> {
+    Err(RenderError::NoAdapter(
+        "built without the gpu feature".into(),
+    ))
 }
 
 impl GpuSurface {
@@ -164,9 +208,9 @@ impl GpuSurface {
     }
 }
 
-/// The surface maker of an executor that cannot exist: never called.
+/// The surface maker of a device that cannot exist: never called.
 fn unbuilt_maker<T: Send + Sync + 'static>(
-    context: &GpuContext,
-) -> fn(T) -> Result<GpuSurface, ComposeError> {
-    match *context {}
+    device: &GpuDevice,
+) -> fn(T) -> Result<GpuSurface, RenderError> {
+    match *device {}
 }

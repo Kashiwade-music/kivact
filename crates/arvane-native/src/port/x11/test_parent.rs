@@ -3,9 +3,9 @@
 mod queries;
 
 use super::conn::Native;
+use arvane_protocol::CpuFrame;
 use arvane_shell::ShellError;
 use kivact_types::NativeWindow;
-use kivact_types::render::CpuFrame;
 use kivact_types::{KeyCode, MouseButton};
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
@@ -21,6 +21,7 @@ use x11rb::protocol::xproto::{
 };
 use x11rb::wrapper::ConnectionExt as _;
 
+// xtask-allow(state): independent: point is the last injected pointer position, covers the cover windows added by cover, wm_frame the WM frame recorded by open and taken by close; none constrains another
 /// A top-level X11 host on a separate connection from its embedded child.
 pub struct TestParent {
     point: Cell<(f64, f64)>,
@@ -43,7 +44,7 @@ impl TestParent {
             width as f64,
             height as f64,
             Some(1.0),
-            kivact_types::embed::Visibility::Shown,
+            kivact_types::embed::EmbedVisibility::Shown,
         )?;
         let protocols = native
             .connection

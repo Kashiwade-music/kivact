@@ -16,7 +16,6 @@
 
 use std::time::Duration;
 
-use crate::options_cell::OptionsCell;
 use kivact_core::custom::{Owner, Part, part};
 use kivact_types::cell::Generation;
 
@@ -54,7 +53,10 @@ impl Hub {
         })
     }
     fn take_id(&self) -> TooltipId {
-        self.next.update(Generation::next)
+        self.next.update(|g| {
+            g.next();
+        });
+        self.next.get_untracked()
     }
     fn current(&self) -> Option<TooltipId> {
         self.machine.get().stack.last().copied()
@@ -109,10 +111,10 @@ impl Hub {
 /// trigger is `described_by` it while it is shown.
 ///
 /// ```no_run
-/// use kivact_core::view::{Element, node, node_ref, text};
-/// use kivact_core::view::{Placement, Role, overlay, show};
-/// use kivact_interaction::use_tooltip;
-/// let tip = use_tooltip();
+/// use kivact::view::{Element, node, node_ref, text};
+/// use kivact::view::{Placement, Role, overlay, show};
+/// use kivact::interaction::use_tooltip;
+/// let tip = use_tooltip(true);
 /// let trigger = tip.trigger();
 /// let anchor = node_ref();
 /// let view = (
@@ -126,134 +128,54 @@ impl Hub {
 /// ```
 #[derive(Clone, Copy)]
 pub struct TooltipApi {
-    options: OptionsCell<TooltipOptions>,
-    // xtask-allow(state-fields): independent: set by TooltipApi::trigger at mount; the hint content is mounted only while the tooltip shows
-    trigger_state: Signal<Option<Value<PopupState>>>,
-    // xtask-allow(state-fields): independent: set by TooltipApi::content when the hint mounts after the show delay, after the trigger attached
-    content_state: Signal<Option<Value<PopupState>>>,
-    delayed: DelayedApi,
+    /// Whether the hint may show.
+    enabled: Value<bool>,
+    /// What follows the attached trigger: made when it attaches and
+    /// dropped when it unmounts.
+    attached: Signal<Option<Attached>>,
+    /// Whether the hint is shown: the attached trigger's shown state,
+    /// false before it attaches.
     visible: Value<bool>,
     anchor: NodeRef,
     surface: NodeRef,
+    hub: Hub,
+    id: TooltipId,
+    config: Value<kivact_core::style::Theme>,
 }
 
-#[derive(Clone, Copy, Default)]
-struct TooltipOptions {
-    disabled: Option<Value<bool>>,
+/// The engagement's delayed visibility and the shown state of one trigger mount.
+#[derive(Clone, Copy)]
+struct Attached {
+    delayed: DelayedApi,
+    visible: Value<bool>,
 }
 
 /// Create a tooltip under the current setup owner, reading [`crate::TooltipTiming`].
 ///
-/// The first tooltip of an App creates the App's shared one-at-a-time state.
-/// Setup only.
+/// `enabled` suppresses the hint while false. The first tooltip of an App
+/// creates the App's shared one-at-a-time state. Setup only.
 #[track_caller]
-pub fn use_tooltip() -> TooltipApi {
-    let options = OptionsCell::new(TooltipOptions::default());
+pub fn use_tooltip(enabled: impl IntoValue<bool>) -> TooltipApi {
     let config = kivact_core::style::use_theme();
     let hub = Hub::of_app();
     let id = hub.take_id();
-
-    let anchor = node_ref();
-    let surface = node_ref();
-    let hover = anchor.hovered();
-    let surface_hover = surface.hovered();
-    let focus = anchor.focus_within();
-    let engaged = memo(move || {
-        !options
-            .value()
-            .get()
-            .disabled
-            .is_some_and(|disabled| disabled.get())
-            && (hover.get() || surface_hover.get() || focus.get())
-    });
-
-    // The delay, or none while another tooltip is warm; both end with the
-    // engagement. One tooltip at a time: the delayed machine's visibility
-    // changes are the only events this tooltip sends to the App hub, so the
-    // one shown last is visible, and one that another took over shows again
-    // when that one hides.
-    let delayed = delayed(
-        engaged,
-        move || {
-            if hub.warm_for(id) {
-                Duration::ZERO
-            } else {
-                config.get().ext::<crate::InteractionPolicy>().tooltip.delay
-            }
-        },
-        Duration::ZERO,
-        move |shown| {
-            if shown {
-                hub.want(id);
-            } else {
-                hub.release(
-                    id,
-                    config
-                        .get_untracked()
-                        .ext::<crate::InteractionPolicy>()
-                        .tooltip
-                        .skip_delay,
-                );
-            }
-        },
-    );
-    let visible = memo(move || delayed.is_open().get() && hub.current() == Some(id));
-    on_cleanup(move || {
-        if hub.next.try_get().is_some() {
-            hub.release(
-                id,
-                config
-                    .get()
-                    .ext::<crate::InteractionPolicy>()
-                    .tooltip
-                    .skip_delay,
-            );
-        }
-    });
+    let attached = signal(None::<Attached>);
     TooltipApi {
-        trigger_state: signal(None),
-        content_state: signal(None),
-        options,
-        delayed,
-        visible,
-        anchor,
-        surface,
+        enabled: enabled.into_value(),
+        attached,
+        visible: (move || {
+            attached.with(|attached| attached.as_ref().is_some_and(|a| a.visible.get()))
+        })
+        .into_value(),
+        anchor: node_ref(),
+        surface: node_ref(),
+        hub,
+        id,
+        config,
     }
 }
 
 impl TooltipApi {
-    /// Drawing state of the actual mounted trigger.
-    pub fn trigger_state(self) -> Value<PopupState> {
-        memo(move || {
-            self.trigger_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(PopupState {
-                    input: kivact_core::custom::PartState::default(),
-                    open: self.visible.get(),
-                })
-        })
-    }
-    /// Drawing state of the actual mounted hint.
-    pub fn content_state(self) -> Value<PopupState> {
-        memo(move || {
-            self.content_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(PopupState {
-                    input: kivact_core::custom::PartState::default(),
-                    open: self.visible.get(),
-                })
-        })
-    }
-
-    /// Suppress the hint while disabled.
-    pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
-        self.options
-            .update(|options| options.disabled = Some(disabled.into_value()));
-        self
-    }
-
     /// Whether the hint is shown now.
     pub fn is_open(self) -> Value<bool> {
         self.visible
@@ -262,7 +184,78 @@ impl TooltipApi {
     /// Hide the hint until the trigger is engaged again.
     #[track_caller]
     fn dismiss(self) {
-        self.delayed.hide();
+        if let Some(attached) = self.attached.get_untracked() {
+            attached.delayed.hide();
+        }
+    }
+
+    /// Create what follows the attached trigger, for the life of its mount:
+    /// the engagement, the delay and the shown state. Setup only, under the
+    /// trigger mount's owner.
+    fn attach(self) {
+        let TooltipApi {
+            enabled,
+            attached,
+            anchor,
+            surface,
+            hub,
+            id,
+            config,
+            ..
+        } = self;
+        let hover = anchor.hovered();
+        let surface_hover = surface.hovered();
+        let focus = anchor.focus_within();
+        let engaged =
+            memo(move || enabled.get() && (hover.get() || surface_hover.get() || focus.get()));
+
+        // The delay, or none while another tooltip is warm; both end with the
+        // engagement. One tooltip at a time: the delayed machine's visibility
+        // changes are the only events this tooltip sends to the App hub, so the
+        // one shown last is visible, and one that another took over shows again
+        // when that one hides.
+        let delayed = delayed(
+            engaged,
+            move || {
+                if hub.warm_for(id) {
+                    Duration::ZERO
+                } else {
+                    config.get().ext::<crate::InteractionPolicy>().tooltip.delay
+                }
+            },
+            Duration::ZERO,
+            move |shown| {
+                if shown {
+                    hub.want(id);
+                } else {
+                    hub.release(
+                        id,
+                        config
+                            .get_untracked()
+                            .ext::<crate::InteractionPolicy>()
+                            .tooltip
+                            .skip_delay,
+                    );
+                }
+            },
+        );
+        let visible = memo(move || delayed.is_open().get() && hub.current() == Some(id));
+        attached.update(|slot| *slot = Some(Attached { delayed, visible }));
+        on_cleanup(move || {
+            if attached.try_get_untracked().is_some() {
+                attached.update(|slot| *slot = None);
+            }
+            if hub.next.try_get().is_some() {
+                hub.release(
+                    id,
+                    config
+                        .get()
+                        .ext::<crate::InteractionPolicy>()
+                        .tooltip
+                        .skip_delay,
+                );
+            }
+        });
     }
 
     /// The trigger whose hover and focus show the hint.
@@ -278,7 +271,6 @@ impl TooltipApi {
             open: visible.get(),
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.trigger_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(self.anchor)
@@ -304,6 +296,7 @@ impl TooltipApi {
                         Handled::No
                     }
                 })
+                .on_attach(move |_| self.attach())
         })
     }
 
@@ -319,7 +312,6 @@ impl TooltipApi {
             open: visible.get(),
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(self.surface)

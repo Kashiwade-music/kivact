@@ -4,11 +4,13 @@ use crate::text_input::EditLines;
 use crate::text_input::edit_lines::Coloring;
 use crate::text_input::pieces::shape_long;
 use crate::text_input::records::{Colored, Run, Shape, Shown};
-use kivact_editing::{LineColors, LineState, Lines, TextGeometry, caret_at};
+use kivact_editing::{LineColors, LineState, TextGeometry, caret_at};
 use kivact_types::text_utf::floor_char_boundary as floor;
 use kivact_types::{Point, Rect};
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::ops::Range;
+use std::rc::Rc;
 use std::sync::Arc;
 
 /// The text measured for an input's natural width: the lines starting in
@@ -33,13 +35,6 @@ pub(crate) struct Published {
     pub(crate) runs: Arc<[Arc<kivact_types::SemanticsTextRun>]>,
 }
 
-/// An input's lines as a behavior reads them, shaping the lines it asks
-/// about.
-pub(crate) struct Shaping<'a> {
-    lines: std::cell::RefCell<(&'a mut EditLines, &'a mut arvane::Engine)>,
-    revision: u64,
-}
-
 /// The text a line shows: bullets for masked text, spaces for line
 /// breaks and CRs (one byte each, so offsets stay).
 fn display(text: &str, masked: bool) -> Cow<'_, str> {
@@ -58,7 +53,7 @@ fn display(text: &str, masked: bool) -> Cow<'_, str> {
 
 impl EditLines {
     /// Line `i` shaped from `text`, if it is not yet.
-    pub(crate) fn ensure(&mut self, text: &str, i: usize, engine: &mut arvane::Engine) {
+    pub(crate) fn ensure(&mut self, text: &str, i: usize, engine: &mut arvane_text::TextEngine) {
         let Some((line, _)) = self.line(i) else {
             return;
         };
@@ -101,7 +96,11 @@ impl EditLines {
 
     /// The natural width of the lines: the widest of the lines that
     /// start in the first 16 KiB bytes of `text` (shaped now).
-    pub(crate) fn measured_width(&mut self, text: &str, engine: &mut arvane::Engine) -> f64 {
+    pub(crate) fn measured_width(
+        &mut self,
+        text: &str,
+        engine: &mut arvane_text::TextEngine,
+    ) -> f64 {
         let mut width = 0.0f64;
         let mut i = 0;
         while i < self.len() && (i == 0 || self.range(i).start < MEASURED) {
@@ -114,7 +113,12 @@ impl EditLines {
 
     /// Line `i`'s baseline below its top (a line without text has a
     /// space's).
-    pub(crate) fn baseline(&mut self, text: &str, i: usize, engine: &mut arvane::Engine) -> f64 {
+    pub(crate) fn baseline(
+        &mut self,
+        text: &str,
+        i: usize,
+        engine: &mut arvane_text::TextEngine,
+    ) -> f64 {
         if self.line(i).is_none_or(|(l, _)| l.content == l.start) {
             return self.blank;
         }
@@ -128,7 +132,7 @@ impl EditLines {
         &mut self,
         text: &str,
         i: usize,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Option<kivact_types::ShapedTextSnapshot> {
         self.ensure(text, i, engine);
         self.line(i)?.0.shape.shaped().cloned()
@@ -142,7 +146,7 @@ impl EditLines {
         text: &str,
         i: usize,
         width: f64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> f64 {
         if matches!(
             self.align,
@@ -198,7 +202,7 @@ impl EditLines {
         text: &str,
         at: usize,
         width: f64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Rect {
         if !self.shows_value() {
             return Rect {
@@ -242,7 +246,7 @@ impl EditLines {
         i: usize,
         (from, to): (usize, usize),
         width: f64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Vec<Rect> {
         if !self.shows_value() {
             return Vec::new();
@@ -272,7 +276,7 @@ impl EditLines {
         i: usize,
         x: f64,
         width: f64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> usize {
         if !self.shows_value() {
             return 0;
@@ -308,7 +312,7 @@ impl EditLines {
         x: f64,
         y: f64,
         width: f64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> usize {
         let i = ((y / self.height.max(f64::EPSILON)).floor().max(0.0) as usize)
             .min(self.len().saturating_sub(1));
@@ -429,7 +433,7 @@ impl EditLines {
         text: &str,
         i: usize,
         color: kivact_types::Rgba,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Option<kivact_types::ShapedTextSnapshot> {
         let content = self.content(i)?;
         let mut style = self.key.style.clone();
@@ -444,14 +448,14 @@ impl EditLines {
         let shown = display(&text[content], false);
         let shaped = shape_long(&shown, |r| {
             // The spans of the piece `r`, from its start.
-            let spans: Vec<kivact_types::render::TextSpan> = colored
+            let spans: Vec<arvane_protocol::ResolvedSpan> = colored
                 .spans
                 .iter()
                 .filter(|style| style.range.start < r.end && style.range.end > r.start)
-                .map(|span| kivact_types::render::TextSpan {
+                .map(|span| arvane_protocol::ResolvedSpan {
                     range: span.range.start.max(r.start) - r.start
                         ..span.range.end.min(r.end) - r.start,
-                    style: kivact_types::render::SpanStyle {
+                    style: arvane_protocol::ResolvedSpanStyle {
                         color: span.color.map(kivact_types::Rgba::sanitize),
                         decoration: span.decoration,
                         highlight: span.background.is_some(),
@@ -459,7 +463,7 @@ impl EditLines {
                     },
                 })
                 .collect();
-            let rich = kivact_types::render::RichText {
+            let rich = arvane_protocol::RichText {
                 text: &shown[r],
                 spans: &spans,
             };
@@ -525,7 +529,7 @@ impl EditLines {
         at: Point,
         width: f64,
         ids: &mut dyn FnMut() -> u64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Published {
         let lines = self.published_lines(caret);
         let runs = lines
@@ -548,7 +552,7 @@ impl EditLines {
         at: Point,
         width: f64,
         ids: &mut dyn FnMut() -> u64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Arc<kivact_types::SemanticsTextRun> {
         let origin = Point {
             x: at.x + self.offset(text, i, width, engine),
@@ -607,41 +611,70 @@ impl EditLines {
     }
 }
 
-impl<'a> Shaping<'a> {
-    /// Lend exclusive cache and shaper access for synchronous editing queries.
-    /// Queries may lazily shape lines; the captured revision stays fixed.
-    pub(crate) fn new(lines: &'a mut EditLines, engine: &'a mut arvane::Engine) -> Self {
-        Shaping {
-            revision: lines.revision(),
-            lines: std::cell::RefCell::new((lines, engine)),
+// xtask-allow(state): independent: lines is the input's own line cache and engine the shared shaper, both owned elsewhere and borrowed one request at a time; neither field is reassigned, only borrowed
+/// An input's lines as an editing behavior reads them for one request:
+/// the input's own line cache and the shaper, shared, shaping only the
+/// lines a query asks about. It answers for the revision it was made for
+/// while nobody else holds the cache or the shaper.
+pub(crate) struct SharedLines {
+    lines: Rc<RefCell<Option<EditLines>>>,
+    engine: Rc<RefCell<arvane_text::TextEngine>>,
+    revision: u64,
+}
+
+impl SharedLines {
+    /// The lines of the input whose line cache is `lines`, of `revision`.
+    pub(crate) fn new(
+        lines: Rc<RefCell<Option<EditLines>>>,
+        engine: Rc<RefCell<arvane_text::TextEngine>>,
+        revision: u64,
+    ) -> Self {
+        SharedLines {
+            lines,
+            engine,
+            revision,
         }
     }
 
-    /// The revision of the text the lines are of.
-    pub(crate) fn revision(&self) -> u64 {
-        self.revision
+    /// `f` on the lines, when they answer.
+    fn read<T>(&self, f: impl FnOnce(&EditLines) -> T) -> Option<T> {
+        let lines = self.lines.try_borrow().ok()?;
+        lines.as_ref().filter(|l| self.answers(l)).map(f)
+    }
+
+    /// `f` on the lines and the shaper (it may shape a line), when the
+    /// lines answer.
+    fn shape<T>(
+        &self,
+        f: impl FnOnce(&mut EditLines, &mut arvane_text::TextEngine) -> T,
+    ) -> Option<T> {
+        let mut lines = self.lines.try_borrow_mut().ok()?;
+        let lines = lines.as_mut().filter(|l| self.answers(l))?;
+        let mut engine = self.engine.try_borrow_mut().ok()?;
+        Some(f(lines, &mut engine))
+    }
+
+    /// The lines are of the revision and show the value.
+    fn answers(&self, lines: &EditLines) -> bool {
+        lines.revision() == self.revision && lines.shows_value()
     }
 }
 
-impl Lines for Shaping<'_> {
-    fn shows_value(&self) -> bool {
-        self.lines.borrow().0.shows_value()
+impl kivact_editing::host::Lines for SharedLines {
+    fn count(&self) -> Option<usize> {
+        self.read(EditLines::len)
     }
-    fn len(&self) -> usize {
-        self.lines.borrow().0.len()
-    }
-    fn line_of(&self, at: usize) -> usize {
-        self.lines.borrow().0.line_of(at)
+    fn line_of(&self, at: usize) -> Option<usize> {
+        self.read(|l| l.line_of(at))
     }
     fn content(&self, i: usize) -> Option<Range<usize>> {
-        self.lines.borrow().0.content(i)
+        self.read(|l| l.content(i)).flatten()
     }
-    fn caret(&self, text: &str, at: usize, width: f64) -> Rect {
-        let (lines, engine) = &mut *self.lines.borrow_mut();
-        lines.caret(text, at, width, engine)
+    fn caret_x(&self, text: &str, at: usize, width: f64) -> Option<f64> {
+        self.shape(|l, engine| l.caret(text, at, width, engine).x)
     }
-    fn nearest(&self, text: &str, i: usize, x: f64, width: f64) -> usize {
-        let (lines, engine) = &mut *self.lines.borrow_mut();
-        lines.nearest(text, i, x, width, engine)
+    fn nearest(&self, text: &str, i: usize, x: f64, width: f64) -> Option<usize> {
+        self.shape(|l, engine| l.content(i).map(|_| l.nearest(text, i, x, width, engine)))
+            .flatten()
     }
 }

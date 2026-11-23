@@ -1,44 +1,38 @@
-//! Role: Catalog page of Sidebar: groups, icon mode, sub-menus and frames.
+//! Catalog page of Sidebar: groups, icon mode, sub-menus and frames.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
+use kivact::view::Orientation;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "sidebar",
-        name: "Sidebar",
-        description: "ナビゲーションを置く、開閉できる側面の領域です。sidebar_provider に開閉の束縛、sidebar、隣のページを渡します。sidebar_trigger、端のレール、Ctrl+B（Mac は Cmd+B）で開閉し、デモは枠の中に収めています。Ctrl+B をウィンドウのどこでも使うには、provider をアプリのルートの view にします。",
-        usage: "use kivact::prelude::*;\nuse kivact::style::use_theme;\nuse kivact_ui_basic as basic;",
-        source: include_str!("sidebar.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "basic",
-                "Basic",
-                "sidebar の header、content、footer に view を渡します。グループは sidebar_group、行は sidebar_menu_button で、active、badge、icon を付けられます。隣のページには、見出しの行とダッシュボードの枠を置いています。",
-                basic,
-            ),
-            Example::new(
-                "icon",
-                "Collapsible icon",
-                "collapsible に Icon を渡すと、閉じたときに 48 px のアイコンの列になります。閉じた行にポインタを置くと、ラベルがツールチップで出ます。",
-                icon,
-            ),
-            Example::new(
-                "submenu",
-                "Sub menu and action",
-                "sub に sidebar_menu_sub_button を渡すと、罫線の奥に子の行が並びます。action は行の端に置く操作です。",
-                submenu,
-            ),
-            Example::new(
-                "floating",
-                "Floating on the right",
-                "variant に Floating、side に Right を渡すと、8 px 浮いた枠付きのパネルが右に付きます。rail は端の細い帯で、押すと開閉します。",
-                floating,
-            ),
-        ],
-    }
+    Page::new("sidebar", "Sidebar", "Components", include_str!("sidebar.rs"))
+        .description("A collapsible side area that holds navigation. Pass a binding for the open state, the sidebar and the next page to sidebar_provider. It opens and closes with sidebar_trigger, the rail at the edge, and Ctrl+B (Cmd+B on Mac); the demo keeps everything inside its frame. To use Ctrl+B anywhere in the window, make the provider the root view of the app.")
+        .usage("use kivact::prelude::*;\nuse kivact::style::use_theme;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "basic",
+            "Basic",
+            "Pass views to the header, content and footer of the sidebar. sidebar_group makes a group and sidebar_menu_button makes a row, which can take active, badge and icon. The next page holds a heading row and a dashboard frame.",
+            basic,
+        ))
+        .example(Example::new(
+            "icon",
+            "Collapsible icon",
+            "Passing Icon to collapsible makes it a 48 px column of icons when closed. Pointing at a closed row shows its label as a tooltip.",
+            icon,
+        ))
+        .example(Example::new(
+            "submenu",
+            "Sub menu and action",
+            "Passing sidebar_menu_sub_button as sub lists the child rows beside a rule. action is an operation placed at the end of a row.",
+            submenu,
+        ))
+        .example(Example::new(
+            "floating",
+            "Floating on the right",
+            "Pass Floating as variant and Right as side, and a bordered panel 8 px off the edge attaches on the right. rail is a thin strip at the edge that opens and closes it when pressed.",
+            floating,
+        ))
 }
 
 // example: basic
@@ -49,16 +43,16 @@ fn basic() -> impl IntoView {
             style()
                 .width(580)
                 .height(340)
-                .border(1, basic::ColorName::Border)
+                .border(1, basic::BORDER)
                 .padding(1),
         )
     }
     /// The page beside the sidebar: a header row and a dashboard sketch.
     fn page_area(title: &'static str) -> impl IntoView {
-        let tile = || kivact::ui::skeleton().style(style().grow(1).height(56));
+        let tile = || kivact::ui::skeleton().style(style().flex_grow(1).height(56));
         column((
             row((
-                basic::sidebar_trigger(),
+                kivact::ui::sidebar_trigger(),
                 basic::separator()
                     .orientation(Orientation::Vertical)
                     .style(style().height(16)),
@@ -77,43 +71,45 @@ fn basic() -> impl IntoView {
             ),
             column((
                 row((tile(), tile(), tile())).style(style().gap(12)),
-                kivact::ui::skeleton().style(style().grow(1).min_height(80)),
+                kivact::ui::skeleton().style(style().flex_grow(1).min_height(80)),
             ))
-            .style(style().grow(1).padding(12).padding_top(0).gap(12)),
+            .style(style().flex_grow(1).padding(12).padding_top(0).gap(12)),
         ))
-        .style(style().grow(1))
+        .style(style().flex_grow(1))
     }
     let open = signal(true);
-    frame(basic::sidebar_provider(
-        open,
-        basic::sidebar()
-            .collapsible(basic::SidebarCollapsible::None)
-            .header(basic::large("Acme Inc"))
-            .content({
-                (
-                    basic::sidebar_group("Application").content({
-                        basic::sidebar_menu((
-                            basic::sidebar_menu_button("Home")
-                                .icon(kivact::view::icon("house"))
-                                .active(true),
-                            basic::sidebar_menu_button("Inbox")
-                                .icon(kivact::view::icon("inbox"))
-                                .badge("12"),
-                            basic::sidebar_menu_button("Calendar")
-                                .icon(kivact::view::icon("calendar")),
-                        ))
-                    }),
-                    basic::sidebar_separator(),
-                    basic::sidebar_group("Settings").content({
-                        basic::sidebar_menu(
-                            basic::sidebar_menu_button("Preferences")
-                                .icon(kivact::view::icon("settings")),
-                        )
-                    }),
-                )
-            }),
-        page_area("Overview"),
-    ))
+    frame(
+        kivact::ui::sidebar_provider(
+            open,
+            kivact::ui::sidebar()
+                .header(basic::large("Acme Inc"))
+                .content({
+                    (
+                        kivact::ui::sidebar_group("Application").content({
+                            kivact::ui::sidebar_menu((
+                                kivact::ui::sidebar_menu_button("Home")
+                                    .icon(kivact::view::icon("house"))
+                                    .active(true),
+                                kivact::ui::sidebar_menu_button("Inbox")
+                                    .icon(kivact::view::icon("inbox"))
+                                    .badge("12"),
+                                kivact::ui::sidebar_menu_button("Calendar")
+                                    .icon(kivact::view::icon("calendar")),
+                            ))
+                        }),
+                        kivact::ui::sidebar_separator(),
+                        kivact::ui::sidebar_group("Settings").content({
+                            kivact::ui::sidebar_menu((kivact::ui::sidebar_menu_button(
+                                "Preferences",
+                            )
+                            .icon(kivact::view::icon("settings")),))
+                        }),
+                    )
+                }),
+            page_area("Overview"),
+        )
+        .collapsible(kivact::ui::SidebarCollapsible::None),
+    )
 }
 // end example
 
@@ -125,16 +121,16 @@ fn icon() -> impl IntoView {
             style()
                 .width(580)
                 .height(340)
-                .border(1, basic::ColorName::Border)
+                .border(1, basic::BORDER)
                 .padding(1),
         )
     }
     /// The page beside the sidebar: a header row and a dashboard sketch.
     fn page_area(title: &'static str) -> impl IntoView {
-        let tile = || kivact::ui::skeleton().style(style().grow(1).height(56));
+        let tile = || kivact::ui::skeleton().style(style().flex_grow(1).height(56));
         column((
             row((
-                basic::sidebar_trigger(),
+                kivact::ui::sidebar_trigger(),
                 basic::separator()
                     .orientation(Orientation::Vertical)
                     .style(style().height(16)),
@@ -153,33 +149,33 @@ fn icon() -> impl IntoView {
             ),
             column((
                 row((tile(), tile(), tile())).style(style().gap(12)),
-                kivact::ui::skeleton().style(style().grow(1).min_height(80)),
+                kivact::ui::skeleton().style(style().flex_grow(1).min_height(80)),
             ))
-            .style(style().grow(1).padding(12).padding_top(0).gap(12)),
+            .style(style().flex_grow(1).padding(12).padding_top(0).gap(12)),
         ))
-        .style(style().grow(1))
+        .style(style().flex_grow(1))
     }
     let open = signal(true);
-    frame(basic::sidebar_provider(
-        open,
-        basic::sidebar()
-            .collapsible(basic::SidebarCollapsible::Icon)
-            .rail(true)
-            .content({
-                basic::sidebar_group("Platform").content({
-                    basic::sidebar_menu((
-                        basic::sidebar_menu_button("Playground")
+    frame(
+        kivact::ui::sidebar_provider(
+            open,
+            kivact::ui::sidebar().rail(true).content({
+                kivact::ui::sidebar_group("Platform").content({
+                    kivact::ui::sidebar_menu((
+                        kivact::ui::sidebar_menu_button("Playground")
                             .icon(kivact::view::icon("square-terminal")),
-                        basic::sidebar_menu_button("Models")
+                        kivact::ui::sidebar_menu_button("Models")
                             .icon(kivact::view::icon("bot"))
                             .active(true),
-                        basic::sidebar_menu_button("Documentation")
+                        kivact::ui::sidebar_menu_button("Documentation")
                             .icon(kivact::view::icon("book-open")),
                     ))
                 })
             }),
-        page_area("Playground"),
-    ))
+            page_area("Playground"),
+        )
+        .collapsible(kivact::ui::SidebarCollapsible::Icon),
+    )
 }
 // end example
 
@@ -191,16 +187,16 @@ fn submenu() -> impl IntoView {
             style()
                 .width(580)
                 .height(340)
-                .border(1, basic::ColorName::Border)
+                .border(1, basic::BORDER)
                 .padding(1),
         )
     }
     /// The page beside the sidebar: a header row and a dashboard sketch.
     fn page_area(title: &'static str) -> impl IntoView {
-        let tile = || kivact::ui::skeleton().style(style().grow(1).height(56));
+        let tile = || kivact::ui::skeleton().style(style().flex_grow(1).height(56));
         column((
             row((
-                basic::sidebar_trigger(),
+                kivact::ui::sidebar_trigger(),
                 basic::separator()
                     .orientation(Orientation::Vertical)
                     .style(style().height(16)),
@@ -219,41 +215,42 @@ fn submenu() -> impl IntoView {
             ),
             column((
                 row((tile(), tile(), tile())).style(style().gap(12)),
-                kivact::ui::skeleton().style(style().grow(1).min_height(80)),
+                kivact::ui::skeleton().style(style().flex_grow(1).min_height(80)),
             ))
-            .style(style().grow(1).padding(12).padding_top(0).gap(12)),
+            .style(style().flex_grow(1).padding(12).padding_top(0).gap(12)),
         ))
-        .style(style().grow(1))
+        .style(style().flex_grow(1))
     }
     let open = signal(true);
     let add = button("Add project")
         .hide_label(true)
         .icon(kivact::view::icon("plus"))
         .variant(ButtonVariant::Ghost);
-    frame(basic::sidebar_provider(
-        open,
-        basic::sidebar()
-            .collapsible(basic::SidebarCollapsible::None)
-            .content({
-                basic::sidebar_group("Projects").action(add).content({
-                    basic::sidebar_menu((
-                        basic::sidebar_menu_button("Design Engineering")
+    frame(
+        kivact::ui::sidebar_provider(
+            open,
+            kivact::ui::sidebar().content({
+                kivact::ui::sidebar_group("Projects").action(add).content({
+                    kivact::ui::sidebar_menu((
+                        kivact::ui::sidebar_menu_button("Design Engineering")
                             .icon(kivact::view::icon("frame"))
                             .sub({
                                 (
-                                    basic::sidebar_menu_sub_button("Overview").active(true),
-                                    basic::sidebar_menu_sub_button("Roadmap"),
+                                    kivact::ui::sidebar_menu_sub_button("Overview").active(true),
+                                    kivact::ui::sidebar_menu_sub_button("Roadmap"),
                                 )
                             }),
-                        basic::sidebar_menu_button("Sales & Marketing")
+                        kivact::ui::sidebar_menu_button("Sales & Marketing")
                             .icon(kivact::view::icon("chart-pie"))
                             .action(kivact::view::icon("ellipsis")),
-                        basic::sidebar_menu_skeleton(),
+                        kivact::ui::sidebar_menu_skeleton(),
                     ))
                 })
             }),
-        page_area("Projects"),
-    ))
+            page_area("Projects"),
+        )
+        .collapsible(kivact::ui::SidebarCollapsible::None),
+    )
 }
 // end example
 
@@ -265,16 +262,16 @@ fn floating() -> impl IntoView {
             style()
                 .width(580)
                 .height(340)
-                .border(1, basic::ColorName::Border)
+                .border(1, basic::BORDER)
                 .padding(1),
         )
     }
     /// The page beside the sidebar: a header row and a dashboard sketch.
     fn page_area(title: &'static str) -> impl IntoView {
-        let tile = || kivact::ui::skeleton().style(style().grow(1).height(56));
+        let tile = || kivact::ui::skeleton().style(style().flex_grow(1).height(56));
         column((
             row((
-                basic::sidebar_trigger(),
+                kivact::ui::sidebar_trigger(),
                 basic::separator()
                     .orientation(Orientation::Vertical)
                     .style(style().height(16)),
@@ -293,29 +290,31 @@ fn floating() -> impl IntoView {
             ),
             column((
                 row((tile(), tile(), tile())).style(style().gap(12)),
-                kivact::ui::skeleton().style(style().grow(1).min_height(80)),
+                kivact::ui::skeleton().style(style().flex_grow(1).min_height(80)),
             ))
-            .style(style().grow(1).padding(12).padding_top(0).gap(12)),
+            .style(style().flex_grow(1).padding(12).padding_top(0).gap(12)),
         ))
-        .style(style().grow(1))
+        .style(style().flex_grow(1))
     }
     let open = signal(true);
-    frame(basic::sidebar_provider(
-        open,
-        basic::sidebar()
-            .side(basic::SidebarSide::Right)
-            .variant(basic::SidebarVariant::Floating)
-            .collapsible(basic::SidebarCollapsible::Offcanvas)
-            .rail(true)
-            .content({
-                basic::sidebar_group("Help").content({
-                    basic::sidebar_menu((
-                        basic::sidebar_menu_button("Support").icon(kivact::view::icon("life-buoy")),
-                        basic::sidebar_menu_button("Feedback").icon(kivact::view::icon("send")),
+    frame(
+        kivact::ui::sidebar_provider(
+            open,
+            kivact::ui::sidebar().rail(true).content({
+                kivact::ui::sidebar_group("Help").content({
+                    kivact::ui::sidebar_menu((
+                        kivact::ui::sidebar_menu_button("Support")
+                            .icon(kivact::view::icon("life-buoy")),
+                        kivact::ui::sidebar_menu_button("Feedback")
+                            .icon(kivact::view::icon("send")),
                     ))
                 })
             }),
-        page_area("Help"),
-    ))
+            page_area("Help"),
+        )
+        .side(kivact::ui::SidebarSide::Right)
+        .frame(kivact::ui::SidebarFrame::Floating)
+        .collapsible(kivact::ui::SidebarCollapsible::Offcanvas),
+    )
 }
 // end example

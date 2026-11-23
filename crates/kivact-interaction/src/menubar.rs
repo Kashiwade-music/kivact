@@ -19,7 +19,6 @@
 //! trigger opens that menu.
 
 use kivact_core::custom::{Part, PartState};
-use kivact_core::state::IntoBinding;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Value, Var, memo, signal, var};
 use kivact_core::view::{
@@ -34,24 +33,13 @@ use super::{
 /// A row of menu triggers that moves the open menu, without a look of its own.
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// # pub use kivact_core::{view, state, style};
-/// # pub mod prelude {
-/// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-/// # }
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::{MenuEntry, use_menu, use_menubar};
 /// use kivact::prelude::*;
-/// use kivact_core::view::Element;
+/// use kivact::view::Element;
 ///
 /// fn bar() -> impl IntoView {
-///     let file = use_menu(vec![MenuEntry::item("new", "New")]).on_activate(|_| {});
-///     let edit = use_menu(vec![MenuEntry::item("undo", "Undo")]).on_activate(|_| {});
+///     let file = use_menu(vec![MenuEntry::item("new", "New")], signal(false)).on_activate(|_| {});
+///     let edit = use_menu(vec![MenuEntry::item("undo", "Undo")], signal(false)).on_activate(|_| {});
 ///     let titles = vec!["File".to_string(), "Edit".to_string()];
 ///     let menubar = use_menubar(titles, vec![file, edit]);
 ///     row((
@@ -74,6 +62,7 @@ impl<K: kivact_core::state::ItemKey> Clone for MenubarApi<K> {
 }
 impl<K: kivact_core::state::ItemKey> Copy for MenubarApi<K> {}
 
+// xtask-allow(state): independent: focus is the trigger list's selection, written only through use_list's binding; menus holds the menus given at setup and nothing writes it afterwards
 /// A menu bar over the triggers titled `titles` that open `menus`, in order.
 /// The number of menus is read once, when the bar is built; the titles follow
 /// the value. Setup only.
@@ -93,11 +82,10 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
         })
     });
     // The triggers are a horizontal list: the arrows move the focus along it.
-    // xtask-allow(state-fields): independent: the trigger list's selection, written by use_list as the arrows and activation move along the bar; menus is fixed at setup, so any index or none pairs with it
     let focus = signal(None::<usize>);
     let list = use_list(
         items,
-        Selection::Single(focus.into_binding()),
+        Selection::Single(focus),
         ListOptions {
             axis: Some(Orientation::Horizontal),
             boundary: ListBoundary::Wrap,
@@ -106,9 +94,8 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
             ..ListOptions::default()
         },
     );
-    // xtask-allow(state-fields): option: the menus the bar opens, fixed when the bar is made
     let menus = var(menus);
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     menus.with(|items| {
         for (at, menu) in items.iter().copied().enumerate() {
             menu.menubar_navigation(kivact_core::state::callback(move |right| {
@@ -132,15 +119,6 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
 }
 
 impl<K: kivact_core::state::ItemKey> MenubarApi<K> {
-    /// Drawing state of the mounted menu bar.
-    pub fn bar_state(self) -> Value<PartState> {
-        self.list.list_state()
-    }
-    /// Drawing state of a mounted top-level trigger.
-    pub fn item_state(self, at: usize) -> Value<ListItemState> {
-        self.list.item_state(at)
-    }
-
     /// The row of triggers: a `Role::MenuBar`. While a menu is open, the
     /// arrows along the bar move the open menu; between closed triggers the
     /// list moves the focus. Setup only.

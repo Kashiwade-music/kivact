@@ -172,6 +172,7 @@ pub(crate) fn drag(state: State) -> Gesture<DragSnapshot> {
                 }
             },
         ),
+        move || super::stale::stale(state),
     )
 }
 fn finish_fields(state: State) {

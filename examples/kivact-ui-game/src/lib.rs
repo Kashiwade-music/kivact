@@ -1,9 +1,15 @@
-//! Role: Interactive styled component catalog for kivact-ui-game.
-#![warn(redundant_imports)]
-mod fonts;
-mod game;
-mod messages;
+//! Role: The game kit's catalog: eleven pages of its components.
+//!
+//! Each page is a file of `src/pages/`: its demo sits between `// example:` and `// end example`,
+//! so the code on screen is the code that runs.
 
-pub use fonts::fonts;
-pub use game::catalog;
-pub use messages::{locale, messages};
+mod consts;
+mod fonts;
+mod list;
+mod pages;
+mod support;
+mod theme;
+
+pub use consts::START;
+pub use list::pages;
+pub use theme::{THEME, theme};

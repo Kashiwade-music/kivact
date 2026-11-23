@@ -2,13 +2,15 @@
 
 use super::caption::{Names, title};
 use super::state::Shared;
+use crate::calendar::look::CalendarTheme;
 use crate::layer::with_recipe_style;
 use crate::{ButtonVariant, ControlSize};
 use kivact_core::custom::{Part, PartState};
 use kivact_core::i18n::{CalendarDate, CalendarMonth, Weekday};
-use kivact_core::style::{Align, Direction, Justify, Position, TextAlign, pct, style};
+use kivact_core::style::{Align, FlexDirection, Justify, Position, TextAlign, pct, style};
 use kivact_core::view::{Element, Node, column, node, row, text};
 use kivact_core::view::{IntoView, Role, View, show};
+use kivact_interaction::{MonthSwipeApi, MonthSwipePhase};
 use std::rc::Rc;
 
 /// A ghost icon button of the caption row, 28 px square, behind a paging part.
@@ -27,7 +29,7 @@ fn nav_button(
 }
 
 fn spacer(size: f64) -> Node {
-    node().style(style().size(size, size).shrink(0))
+    node().style(style().size(size, size).flex_shrink(0))
 }
 
 pub(super) fn month_panel(
@@ -58,7 +60,7 @@ pub(super) fn month_panel(
                         .height(20)
                         .font_size(12.8)
                         .text_align(TextAlign::Center)
-                        .color(kivact_core::style::ColorToken::TextMuted),
+                        .color(kivact_core::style::color::TEXT_MUTED),
                 )
                 .into_view()
         })
@@ -77,12 +79,10 @@ pub(super) fn month_panel(
                 style().margin_top(
                     kivact_core::style::use_theme()
                         .get()
-                        .ext::<crate::UiTokens>()
-                        .calendar
-                        .week_gap,
+                        .get(&crate::calendar::look::WEEK_GAP_VAR),
                 ),
             )
-            .style(move || week_motion(swipe.get(), entering))
+            .style(move || week_motion(swipe.phase().get(), entering))
             .into_view()
         })
         .collect::<Vec<_>>();
@@ -99,14 +99,12 @@ pub(super) fn month_panel(
                 .gap(
                     kivact_core::style::use_theme()
                         .get()
-                        .ext::<crate::UiTokens>()
-                        .calendar
-                        .month_gap,
+                        .get(&crate::calendar::look::MONTH_GAP_VAR),
                 )
                 .width(shared.cell_size * 7.0)
-                .shrink(0),
+                .flex_shrink(0),
         ),
-        |r| r.calendar_recipes().month_recipe(),
+        |r: &CalendarTheme| r.month_recipe(),
         &shared.variants,
         PartState::default,
     )
@@ -114,10 +112,10 @@ pub(super) fn month_panel(
 
 /// The weeks follow a touch swipe's finger and, when the swipe turned the
 /// month, spring in from the side it brought the new month from.
-fn week_motion(swipe: super::navigation::Swipe, entering: f64) -> kivact_core::style::Style {
+fn week_motion(swipe: MonthSwipePhase, entering: f64) -> kivact_core::style::Style {
     let shift = swipe.shift();
     let base = style().translate_x(shift);
-    if entering == 0.0 || matches!(swipe, super::navigation::Swipe::Dragging { .. }) {
+    if entering == 0.0 || matches!(swipe, MonthSwipePhase::Dragging { .. }) {
         return base;
     }
     base.enter(style().translate_x(entering)).transition(
@@ -182,9 +180,9 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
             .selected(move || marked.get().selection != kivact_interaction::DaySelection::None)
             .child(text(day.day().to_string()))
             .child(event_marks(shared, day, marked)),
-        |r| r.calendar_recipes().day_recipe(),
+        |r: &CalendarTheme| r.day_recipe(),
         &shared.variants,
-        move || crate::calendar_values::CalendarDayVisual {
+        move || crate::calendar::look::CalendarDayVisual {
             date: day,
             cell_size,
             day: marked.get(),
@@ -196,7 +194,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
     let button = button.style(move || style().size(cell_size, cell_size));
     let band = with_recipe_style(
         node(),
-        |r| r.calendar_recipes().range_recipe(),
+        |r: &CalendarTheme| r.range_recipe(),
         &shared.variants,
         move || marked.get(),
     );
@@ -204,7 +202,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
         style()
             .position(Position::Relative)
             .size(shared.cell_size, shared.cell_size)
-            .shrink(0),
+            .flex_shrink(0),
     )
 }
 
@@ -230,9 +228,9 @@ fn event_marks(
                 .map(|event| {
                     with_recipe_style(
                         node(),
-                        |r| r.calendar_recipes().event_recipe(),
+                        |r: &CalendarTheme| r.event_recipe(),
                         &variants,
-                        move || crate::calendar_tokens::CalendarEventVisual {
+                        move || crate::calendar::look::CalendarEventVisual {
                             color: event.color,
                             selected: marked.get().selection
                                 == kivact_interaction::DaySelection::Edge,
@@ -245,7 +243,7 @@ fn event_marks(
     );
     with_recipe_style(
         node().child(contents),
-        |r| r.calendar_recipes().events_recipe(),
+        |r: &CalendarTheme| r.events_recipe(),
         &shared.variants,
         PartState::default,
     )
@@ -258,7 +256,7 @@ fn month_caption(
     index: usize,
     month: CalendarMonth,
 ) -> Node {
-    let rtl = kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl;
+    let rtl = kivact_core::view::use_direction() == kivact_core::view::ReadingDirection::Rtl;
     let (back, forward) = if rtl {
         ("chevron-right", "chevron-left")
     } else {
@@ -294,8 +292,8 @@ fn month_caption(
         previous,
         node().child(title(shared, names, index, month)).style(
             style()
-                .grow(1)
-                .direction(Direction::Row)
+                .flex_grow(1)
+                .flex_direction(FlexDirection::Row)
                 .justify_content(Justify::Center)
                 .align_items(Align::Center),
         ),
@@ -304,10 +302,10 @@ fn month_caption(
     ))
     .style(
         style()
-            .direction(if rtl {
-                Direction::RowReverse
+            .flex_direction(if rtl {
+                FlexDirection::RowReverse
             } else {
-                Direction::Row
+                FlexDirection::Row
             })
             .align_items(Align::Center)
             .height(shared.cell_size)
@@ -315,34 +313,12 @@ fn month_caption(
     );
     with_recipe_style(
         caption,
-        |r| r.calendar_recipes().caption_recipe(),
+        |r: &CalendarTheme| r.caption_recipe(),
         &shared.variants,
         PartState::default,
     )
 }
 
-fn interactive_day(
-    swipe: kivact_core::state::MachineHandle<super::navigation::SwipeSnapshot>,
-) -> Node {
-    node()
-        .on_pointer(move |event: kivact_core::view::PointerEvent| {
-            let dragging = matches!(swipe.get(), super::navigation::Swipe::Dragging { .. });
-            swipe.send(super::navigation::Event::Pointer(event));
-            if matches!(swipe.get(), super::navigation::Swipe::Dragging { .. }) {
-                event.capture();
-                kivact_core::view::Handled::Yes
-            } else if dragging {
-                kivact_core::view::Handled::Yes
-            } else {
-                kivact_core::view::Handled::No
-            }
-        })
-        .on_key(move |_| {
-            swipe.send(super::navigation::Event::IndependentActivation);
-            kivact_core::view::Handled::No
-        })
-        .a11y_action(kivact_core::view::A11yAction::Activate, move |_| {
-            swipe.send(super::navigation::Event::IndependentActivation);
-            kivact_core::view::Handled::No
-        })
+fn interactive_day(swipe: MonthSwipeApi) -> Node {
+    node().part(swipe.day())
 }

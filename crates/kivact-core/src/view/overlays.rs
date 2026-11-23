@@ -48,10 +48,11 @@ use std::rc::Rc;
 
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
-use kivact_runtime::EffectKind;
 use kivact_runtime::HandlerResult;
+use kivact_runtime::Owner;
+use kivact_runtime::driver::EffectKind;
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{ErrorKind, UiError};
-use kivact_runtime::{Owner, Runtime};
 use kivact_types::{A11yRequest, NodeId, OverlayProps};
 
 use kivact_runtime::{IntoValue, Prop as InputProp};
@@ -98,6 +99,12 @@ pub use kivact_types::Placement;
 #[doc(inline)]
 pub use kivact_types::OverlayAlign;
 
+/// Where a surface opens: a [`Placement`] side, with an optional
+/// [`OverlayAlign`] and offset (`Placement::Below.align(..).offset(..)`).
+/// A bare `Placement` converts into one.
+#[doc(inline)]
+pub use kivact_types::SurfacePlacement;
+
 /// Where an overlay is placed, chosen by its constructor: the reactive source
 /// of [`kivact_types::OverlayAt`] (the same two cases).
 enum Place {
@@ -113,6 +120,7 @@ enum Place {
     },
 }
 
+// xtask-allow(state): independent: viewport_margin, keep_anchor_clear and modal are separate builder settings, each written only by its own by-value builder; node_mut, the only &mut self method, lends root and writes none of them
 /// Out-of-flow layer (popup, menu, tooltip). Built by [`overlay`] and
 /// [`overlay_at`].
 pub struct Overlay {
@@ -365,6 +373,13 @@ impl Element for Overlay {
     }
 }
 
+/// The theme's overlay margin, read in the theme in effect (tracked).
+fn theme_overlay_margin() -> f64 {
+    kivact_style::use_theme()
+        .get()
+        .get(&kivact_style::control::OVERLAY_MARGIN_VAR)
+}
+
 impl IntoView for Overlay {
     fn into_view(self) -> View {
         view_fn(move |cx| {
@@ -397,7 +412,7 @@ impl IntoView for Overlay {
                     ),
                 );
             }
-            let id = mount_host(cx, NodeType::Overlay, common, at);
+            let id = mount_host(cx, NodeType::Overlay, common, Some(at));
             let weak = cx.weak();
             cx.effect(EffectKind::Render, at, move || {
                 let at_place = match &place {
@@ -405,7 +420,7 @@ impl IntoView for Overlay {
                         node,
                         at_least_width,
                     } => kivact_types::OverlayAt::Anchor {
-                        node: node_ref::node_value(node, at),
+                        node: node_ref::node_value(node),
                         at_least_width: *at_least_width,
                     },
                     Place::Point { point, .. } => {
@@ -418,16 +433,13 @@ impl IntoView for Overlay {
                         placement: placement.get(),
                         align: align.get(),
                         offset: offset.get(),
-                        fit: viewport_margin
-                            .as_ref()
-                            .map(InputProp::get)
-                            .or_else(|| Some(kivact_style::use_theme().get().overlay_margin()))
-                            .map(|margin| kivact_types::OverlayFit {
-                                margin,
-                                keep_anchor_clear,
-                                rtl: crate::view::use_direction().get()
-                                    == crate::view::ReadingDirection::Rtl,
-                            }),
+                        fit: Some(kivact_types::OverlayFit {
+                            margin: viewport_margin
+                                .as_ref()
+                                .map_or_else(theme_overlay_margin, InputProp::get),
+                            keep_anchor_clear,
+                            rtl: crate::view::use_direction() == crate::view::ReadingDirection::Rtl,
+                        }),
                         modal,
                     };
                     ViewState::tree_mut(&rt).update(

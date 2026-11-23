@@ -9,7 +9,8 @@ use crate::mutation::Mutation;
 use crate::text_input::EditLines;
 #[cfg(all(debug_assertions, feature = "testing"))]
 use crate::text_input::{RefreshError, RefreshMode};
-use kivact_editing::{EditState, Editor, Taken, TextSession};
+use kivact_editing::host::{Editor, Taken};
+use kivact_editing::{EditState, TextSession};
 use kivact_types::NodeId;
 use std::cell::RefMut;
 use std::rc::Rc;
@@ -31,13 +32,14 @@ impl Model {
         slot.and_then(|slot| {
             let installed = edit.is_some();
             let editor = std::mem::replace(
-                &mut self.editors[slot.0],
+                &mut self.slots.editors[slot.0],
                 edit.map(|state| Box::new(EditorNode::new(state))),
             );
             // An editor measures itself; a node that stops editing is
             // measured by its kind again.
             if let Some(node) = self.tree.get(id) {
-                self.measure
+                self.slots
+                    .measure
                     .set_measure(slot.0, &node.properties.kind, installed);
             }
             editor
@@ -53,7 +55,7 @@ impl Model {
             return self.set_edit(id, None);
         };
         let value = data.value.clone().unwrap_or_else(|| Rc::from(""));
-        let edit = match &mut self.editors[node.index.0] {
+        let edit = match &mut self.slots.editors[node.index.0] {
             Some(edit) => {
                 if edit.editor.state().value() != &*value {
                     edit.controlled = if edit.editor.set_controlled(&value) {
@@ -64,7 +66,6 @@ impl Model {
                         ControlledValue::HeldDuringComposition { value }
                     };
                 }
-                edit.flush_damage();
                 return None;
             }
             None => EditState::new(&value),
@@ -88,14 +89,14 @@ impl Model {
             .value
             .as_ref()
             .is_some_and(|old| Rc::ptr_eq(old, &value))
-            && self.editors[node.index.0]
+            && self.slots.editors[node.index.0]
                 .as_ref()
                 .is_some_and(|edit| matches!(edit.controlled, ControlledValue::InSync { at } if edit.editor.revision() == at));
         if known {
             return false;
         }
         data.value = Some(value.clone());
-        let changed = match self.editors[node.index.0].as_mut() {
+        let changed = match self.slots.editors[node.index.0].as_mut() {
             Some(edit) if initialize => {
                 // Creation starts at the end; later controlled writes clamp selection.
                 edit.editor = Editor::new(EditState::new(&value));
@@ -124,15 +125,12 @@ impl Model {
             }
             None => false,
         };
-        if let Some(edit) = &mut self.editors[node.index.0]
+        if let Some(edit) = &mut self.slots.editors[node.index.0]
             && matches!(edit.controlled, ControlledValue::InSync { .. })
         {
             edit.controlled = ControlledValue::InSync {
                 at: edit.editor.revision(),
             };
-        }
-        if let Some(edit) = &mut self.editors[node.index.0] {
-            edit.flush_damage();
         }
         if changed {
             self.changed(
@@ -163,12 +161,7 @@ impl Model {
         if incoming.how() == Taken::Same && incoming.state().session() == &before.1 {
             return false;
         }
-        self.edit_editor_with(id, |journal, _| {
-            let reported = incoming.how() != Taken::Same
-                || journal.state().marked() != incoming.state().marked();
-            journal.take(incoming);
-            reported
-        });
+        self.edit_editor_with(id, |journal, _| journal.take(incoming));
         self.editor_node(id).is_some_and(|node| {
             (node.editor.revision(), node.editor.state().session()) != (before.0, &before.1)
         })
@@ -184,10 +177,7 @@ impl Model {
         if before == session {
             return false;
         }
-        self.edit_input(id, |edit| {
-            edit.set_session(session);
-            edit.marked() != before.marked()
-        });
+        self.edit_input(id, |edit| edit.set_session(session));
         self.edit_session(id).is_some_and(|now| now != before)
     }
 
@@ -203,14 +193,14 @@ impl Model {
             if !n.reports_session() {
                 continue;
             }
-            let Some(session) = self.editors[n.index.0]
+            let Some(session) = self.slots.editors[n.index.0]
                 .as_deref()
                 .map(|editor| editor.editor.state())
                 .map(|e| e.session().clone())
             else {
                 continue;
             };
-            let changed = self.editors[n.index.0]
+            let changed = self.slots.editors[n.index.0]
                 .as_mut()
                 .is_some_and(|node| node.report_session(&session));
             if changed {
@@ -234,12 +224,12 @@ impl Model {
 
     pub(crate) fn editor_node(&self, id: NodeId) -> Option<&EditorNode> {
         let slot = self.tree.nodes.index_of(id)?;
-        self.editors[slot.0].as_deref()
+        self.slots.editors[slot.0].as_deref()
     }
 
     pub(crate) fn editor_node_mut(&mut self, id: NodeId) -> Option<&mut EditorNode> {
         let slot = self.tree.nodes.index_of(id)?;
-        self.editors[slot.0].as_deref_mut()
+        self.slots.editors[slot.0].as_deref_mut()
     }
 
     pub(crate) fn edit(&self, id: NodeId) -> Option<&EditState> {
@@ -256,13 +246,13 @@ impl Model {
     pub(crate) fn edit_lines(
         &self,
         id: NodeId,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Option<(RefMut<'_, EditLines>, &str)> {
         let width = crate::model::interact::visual::text_box(self, id).width;
         crate::measure::input::edit_lines(
             &self.tree,
-            &self.measure,
-            &self.editors,
+            &self.slots.measure,
+            &self.slots.editors,
             id,
             crate::measure::input::LineViewport::Paint(width),
             engine,
@@ -275,13 +265,13 @@ impl Model {
     pub(crate) fn refresh_lines(
         &self,
         id: NodeId,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         mode: RefreshMode,
     ) -> Result<Option<RefreshedLines<'_>>, RefreshError> {
         crate::measure::input::refresh_lines(
             &self.tree,
-            &self.measure,
-            &self.editors,
+            &self.slots.measure,
+            &self.slots.editors,
             id,
             crate::measure::input::LineViewport::Paint(
                 crate::model::interact::visual::text_box(self, id).width,

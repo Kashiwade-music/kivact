@@ -38,7 +38,7 @@ impl Model {
     /// text whose box key or content changed.
     pub(crate) fn lint_layout(
         &mut self,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         laid_out: bool,
         remeasured: &[NodeId],
     ) {
@@ -46,8 +46,9 @@ impl Model {
         let host = &*self;
         lint.keys.retain(|id, _| host.tree().contains(*id));
         let is_text = |id: &NodeId| {
-            host.node(*id)
-                .is_some_and(|n| n.kind() == NodeType::Text || host.editors[n.index.0].is_some())
+            host.node(*id).is_some_and(|n| {
+                n.kind() == NodeType::Text || host.slots.editors[n.index.0].is_some()
+            })
         };
         let mut ids: Vec<NodeId> = if laid_out {
             host.tree()
@@ -74,7 +75,7 @@ impl Model {
             }
             lint.keys.insert(id, now);
             let mut findings = Vec::new();
-            text_findings(host, engine, &lint.check, id, false, &mut findings);
+            text_findings(host, engine, &lint.check, id, &mut findings);
             warnings.extend(findings.into_iter().map(|f| HostEvent::LayoutWarning {
                 node: id,
                 rule: f.rule,

@@ -200,8 +200,8 @@ impl ColorMatrix {
     }
 }
 
-/// Straight-alpha RGBA8 pixels a scene draws as they are (no decode, no
-/// asset store). Compared by size and `Arc` identity, never by content, so
+/// Premultiplied-alpha RGBA8 pixels a scene draws as they are (each color
+/// channel already multiplied by alpha; no decode, no asset store). Compared by size and `Arc` identity, never by content, so
 /// a new `Arc` every frame costs one comparison.
 #[derive(Clone, Debug)]
 pub struct Pixels {
@@ -209,7 +209,7 @@ pub struct Pixels {
     pub width: u32,
     /// Pixel height of the buffer.
     pub height: u32,
-    /// Tightly packed straight-alpha RGBA8, row-major from the top left,
+    /// Tightly packed premultiplied RGBA8, row-major from the top left,
     /// width times height times four bytes with no row padding.
     /// Keep the same allocation for unchanged pixels; renderers cache by Arc identity.
     pub rgba: crate::AssetBytes,
@@ -273,4 +273,74 @@ pub enum BlendMode {
     Luminosity,
     /// Additive (CSS `plus-lighter`, canvas `lighter`).
     PlusLighter,
+}
+
+/// A Porter–Duff compositing operator.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Composite {
+    /// Source over destination.
+    #[default]
+    SourceOver,
+    /// Source in destination.
+    SourceIn,
+    /// Source out destination.
+    SourceOut,
+    /// Source atop destination.
+    SourceAtop,
+    /// Destination over source.
+    DestinationOver,
+    /// Destination in source.
+    DestinationIn,
+    /// Destination out source.
+    DestinationOut,
+    /// Destination atop source.
+    DestinationAtop,
+    /// Additive.
+    Lighter,
+    /// Replace the destination.
+    Copy,
+    /// Exclusive or.
+    Xor,
+}
+
+/// How a layer combines with what is beneath it: as it is, with a blend
+/// mode (CSS `mix-blend-mode`), or with a Porter–Duff operator (Canvas
+/// `globalCompositeOperation`). One value, so a blend and an operator
+/// never stand side by side.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Mix {
+    /// Source over, normal blending.
+    #[default]
+    Normal,
+    /// A blend mode with what is beneath.
+    Blend(BlendMode),
+    /// A Porter–Duff operator with what is beneath.
+    Composite(Composite),
+}
+
+impl Mix {
+    /// `Blend(Normal)` and `Composite(SourceOver)` are `Normal`; any other
+    /// value is itself.
+    pub const fn normalized(self) -> Mix {
+        match self {
+            Mix::Blend(BlendMode::Normal) | Mix::Composite(Composite::SourceOver) => Mix::Normal,
+            other => other,
+        }
+    }
+
+    /// The blend mode (`Normal` unless this is a blend).
+    pub const fn blend_mode(self) -> BlendMode {
+        match self {
+            Mix::Blend(mode) => mode,
+            Mix::Normal | Mix::Composite(_) => BlendMode::Normal,
+        }
+    }
+
+    /// The Porter–Duff operator (`SourceOver` unless this is an operator).
+    pub const fn composite(self) -> Composite {
+        match self {
+            Mix::Composite(op) => op,
+            Mix::Normal | Mix::Blend(_) => Composite::SourceOver,
+        }
+    }
 }

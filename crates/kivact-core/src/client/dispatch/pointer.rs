@@ -1,7 +1,7 @@
 //! Role: Pointer, wheel, hover, file-drop and activation events.
 
 use kivact_engine::contract::HostEvent;
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_style::draw::RegionId;
 use kivact_types::{FilePhase, NodeId, Point};
 
@@ -22,22 +22,14 @@ pub(super) fn activate(rt: &Runtime, id: NodeId, region: Option<RegionId>) -> bo
     true
 }
 
-/// Run the activations `NodeRef::activate` asked for (`requests`): the
-/// default action of each target that is still mounted, enabled and
-/// admitted by the open modal, as a click would run it. Returns whether
-/// there were any. An activation asked for by one of them waits for the
-/// next call.
-pub(crate) fn run_requested_activations(rt: &Runtime) -> bool {
-    let pending = requests::take_activations(rt);
-    let any = !pending.is_empty();
-    for target in pending {
-        let in_scope = ViewState::tree(rt).reader().in_modal_scope(target.node);
-        if ViewState::tree(rt).get(target.node).is_none() || !in_scope {
-            continue;
-        }
-        activate(rt, target.node, target.region);
+/// Run the default action of `target` that `NodeRef::activate` asked for,
+/// as a click would, if it is still mounted and admitted by the open modal.
+pub(crate) fn run_activation(rt: &Runtime, target: kivact_types::FocusTarget) {
+    let in_scope = ViewState::tree(rt).reader().in_modal_scope(target.node);
+    if ViewState::tree(rt).get(target.node).is_none() || !in_scope {
+        return;
     }
-    any
+    activate(rt, target.node, target.region);
 }
 
 pub(super) fn pointer(
@@ -56,7 +48,12 @@ pub(super) fn pointer(
         return;
     }
     let event = routed.input;
-    let e = PointerEvent::from_routed(routed);
+    let target_size = ViewState::tree(rt)
+        .reader()
+        .box_model(node)
+        .map(|b| kivact_types::Size::new(b.border.width, b.border.height))
+        .unwrap_or_default();
+    let e = PointerEvent::from_routed(routed, target_size);
     let found = {
         let tree = ViewState::tree(rt);
         let stop = tree.modal_boundary(node);

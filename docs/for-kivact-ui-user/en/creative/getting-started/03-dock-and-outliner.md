@@ -9,7 +9,6 @@ The finished app keeps all layers in one signal. The outliner and the inspector 
 Replace `src/main.rs` with the whole program below. It reuses the fields from step 2, now bound to a *layer* instead of to loose signals.
 
 ```rust,test_harness
-use kivact::state::Binding;
 use kivact::prelude::*;
 use kivact::style::{Color, ThemeMode, rgb};
 use kivact_ui_creative as ui;
@@ -42,14 +41,14 @@ fn sample_layers() -> Vec<Layer> {
     .collect()
 }
 
-/// A binding to one field of the layer that `current` names.
+/// A signal for one field of the layer that `current` names.
 fn layer_field<T: Clone + PartialEq + 'static>(
     layers: Signal<Vec<Layer>>,
     current: Value<Option<u64>>,
     fallback: T,
     read: fn(&Layer) -> T,
     write: fn(&mut Layer, T),
-) -> Binding<T> {
+) -> Signal<T> {
     binding(
         move || {
             layers.with(|all| {
@@ -60,7 +59,7 @@ fn layer_field<T: Clone + PartialEq + 'static>(
         },
         move |value: T| {
             layers.update(|all| {
-                let id = current.get_untracked();
+                let id = current.get();
                 if let Some(layer) = all.iter_mut().find(|layer| Some(layer.id) == id) {
                     write(layer, value);
                 }
@@ -69,7 +68,8 @@ fn layer_field<T: Clone + PartialEq + 'static>(
     )
 }
 
-fn layer_form(layers: Signal<Vec<Layer>>, current: Value<Option<u64>>) -> impl IntoView {
+#[component]
+fn layer_form(layers: Signal<Vec<Layer>>, current: Value<Option<u64>>) -> impl Element {
     let x = layer_field(layers, current, 0.0, |l| l.x, |l, v| l.x = v);
     let opacity = layer_field(layers, current, 1.0, |l| l.opacity, |l, v| l.opacity = v);
     let fill = layer_field(layers, current, rgb(0), |l| l.fill, |l, v| l.fill = v);
@@ -104,7 +104,8 @@ fn layer_form(layers: Signal<Vec<Layer>>, current: Value<Option<u64>>) -> impl I
     .style(style().gap(6).padding(10))
 }
 
-fn editor(layers: Signal<Vec<Layer>>) -> impl IntoView {
+#[component]
+fn editor(layers: Signal<Vec<Layer>>) -> impl Element {
     let outline = ui::OutlinerState::new([]);
     outline.selection.set(vec![2]);
     // The layer the inspector edits: the first selected one.
@@ -179,14 +180,14 @@ mod tests {
         // "Title" starts selected: End jumps its X to the top of the range.
         screen.get_by_role(Role::SpinButton, "X").focus();
         screen.press_key(Key::End);
-        assert_eq!(layers.get_untracked()[1].x, 1000.0);
+        assert_eq!(layers.get()[1].x, 1000.0);
 
         // Selecting another layer in the outliner re-targets the inspector.
         screen.get_by_role(Role::TreeItem, "Subtitle").click();
         screen.get_by_role(Role::SpinButton, "X").focus();
         screen.press_key(Key::Home);
-        assert_eq!(layers.get_untracked()[2].x, -1000.0);
-        assert_eq!(layers.get_untracked()[1].x, 1000.0, "Title is untouched");
+        assert_eq!(layers.get()[2].x, -1000.0);
+        assert_eq!(layers.get()[1].x, 1000.0, "Title is untouched");
     }
 }
 ```
@@ -203,8 +204,8 @@ Run it with `cargo run`. You should see a window split in two: a **Layers** pane
 ## What you wrote
 
 - **One model, two views.** All layers live in the single `layers` signal. The outliner shows `layers` as a list of `TreeItem`s, and the inspector edits one field of one layer. Neither owns the data, so neither can drift from the other.
-- **`ui::OutlinerState`** bundles the outliner's view state as bindings you own: `expanded` (open items), `selection` and `renaming`. Because the selection is a `Binding<Vec<u64>>` that you hold, the inspector can read it. That is how the two panels share the selection. Every editor of the kit has such a state struct (`TimeState`, `GraphState`, ...).
-- **`layer_field`** turns "this field of whichever layer is selected" into a `Binding<T>`. `binding(get, set)` joins a reader (a closure that is re-run when what it reads changes) and a writer. The component sees an ordinary binding; it neither knows nor cares that a list sits behind it. `memo` caches `current`, so readers re-run only when the selected id actually changes.
+- **`ui::OutlinerState`** bundles the outliner's view state as signals you own: `expanded` (open items), `selection` and `renaming`. Because the selection is a `Signal<Vec<u64>>` that you hold, the inspector can read it. That is how the two panels share the selection. Every editor of the kit has such a state struct (`TimeState`, `GraphState`, ...).
+- **`layer_field`** turns "this field of whichever layer is selected" into a `Signal<T>`. `binding(get, set)` joins a reader (a closure that is re-run when what it reads changes) and a writer. The component sees an ordinary signal; it neither knows nor cares that a list sits behind it. `memo` caches `current`, so readers re-run only when the selected id actually changes.
 - **`show_some(current, ..).fallback(..)`** shows the form while a layer is selected and a hint otherwise. Moving from one selected layer to another keeps the same form; only the bindings' results change.
 - **The dock layout is data.** `ui::DockLayout<K>` is a tree of splits (`DockNode::split`) with tabbed containers (`DockNode::tabs`) at its leaves. `K` is any key you choose that is `Clone + Eq + Hash`; here a `&'static str` names each panel. You hand the layout to `ui::dock(layout, factory)` as a signal, and every change the user makes (dragging a tab, splitting, resizing) is written back to it, so you can save it, restore it or undo it like any other state.
 - **The panel factory runs once per key.** Switching tabs hides a panel without destroying it, so a panel keeps its own state. `closable(false)` removes the tab's close button.

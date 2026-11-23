@@ -47,13 +47,14 @@ controller; the code only decides what it looks like.
 ```rust,test_harness
 use kivact::interaction::use_switch;
 use kivact::prelude::*;
-use kivact::style::Direction;
+use kivact::style::FlexDirection;
 
 /// A pill with a knob that slides to the right when on.
-pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Element {
+#[component]
+pub fn pill_switch(label: Value<String>, on: Signal<bool>) -> impl Element {
     let api = use_switch(on);
-    let state = api.control_state();
     let control = api.control();
+    let state = control.state();
     node()
         .part(control)
         .name(label)
@@ -61,15 +62,15 @@ pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Ele
             let state = state.get();
             let on = state.checked.is_checked();
             style()
-                .direction(Direction::Row)
+                .flex_direction(FlexDirection::Row)
                 .justify_content(if on { Justify::End } else { Justify::Start })
                 .size(44, 24)
                 .padding(3)
-                .radius(12)
-                .background(if on { ColorToken::Accent } else { ColorToken::Border })
+                .border_radius(12)
+                .background(if on { color::ACCENT } else { color::BORDER })
                 .opacity(if state.input.is_pressed() { 0.8 } else { 1.0 })
         })
-        .child(node().style(style().size(18, 18).radius(9).background(ColorToken::Surface)))
+        .child(node().style(style().size(18, 18).border_radius(9).background(color::SURFACE)))
 }
 
 fn app() -> impl IntoView {
@@ -119,12 +120,12 @@ Four things happened without you writing them:
 - **Role and state.** `use_switch(..).control()` sets `Role::Switch`, the checked
   state and the focus stop. A screen reader announces "Notifications, switch, off".
 - **Input.** Click, Space and the screen-reader actions all flip the same
-  `Binding`; a switch ignores Enter. The control writes the value to the binding
+  `Signal`; a switch ignores Enter. The control writes the value to the binding
   you gave it, so the state stays with you.
 - **Disabled.** `pill_switch(..).disabled(true)` works: a disabled node ignores
   input and the state reports `disabled`. The Part reads the final disabled state from its host during mounting,
   so one modifier disables both the input and its appearance.
-- **State for drawing.** `api.control_state()` is a `Value` that follows the real
+- **State for drawing.** `control.state()` is a `Value` that follows the real
   target: pressed, hovered, focused, focus-visible, disabled and `checked`. Draw
   from it. Do not keep a second signal that tries to mimic it.
 
@@ -132,7 +133,7 @@ Three rules are common to every controller:
 
 1. **Create the controller during setup** and call it once per control. It is a
    `Copy` handle.
-2. **Read drawing state from the controller.** `api.control_state()` follows the
+2. **Read drawing state from the controller.** `Part::state()` follows the
    actual attached node. Use an explicit `node_ref()` and `.node_ref(anchor)`
    when you need a reference; the Part only attaches behavior.
 3. **Do not repeat what the controller does.** If you add your own `on_key` for
@@ -152,23 +153,22 @@ use kivact::prelude::*;
 use kivact::custom::Part;
 use kivact::interaction::use_switch;
 
-fn custom_switch() -> impl IntoView {
-    scope(|| {
-        let enabled = signal(false);
-        let api = use_switch(enabled);
-        let state = api.control_state();
-        let control = api.control();
-        let part = Part::new(state, move |host| host.part(control));
-        node().part(part).name("Notifications")
-            .style(move || style().padding(8).background(
-                if state.get().checked.is_checked() {
-                    ColorToken::Accent
-                } else {
-                    ColorToken::Surface
-                }
-            ))
-            .child("Notifications")
-    })
+#[component]
+fn custom_switch() -> impl Element {
+    let enabled = signal(false);
+    let api = use_switch(enabled);
+    let control = api.control();
+    let state = control.state();
+    let part = Part::new(state, move |host| host.part(control));
+    node().part(part).name("Notifications")
+        .style(move || style().padding(8).background(
+            if state.get().checked.is_checked() {
+                color::ACCENT
+            } else {
+                color::SURFACE
+            }
+        ))
+        .child("Notifications")
 }
 ```
 
@@ -178,10 +178,7 @@ pressed signal. Use `Node`'s inherent methods for semantics such as `role` and
 `checked`. A builder reaches those methods with `.with_node(|host| ...)`;
 `Element` supplies its common modifiers such as `style`, `disabled` and `name`.
 
-As in this example, create the controller inside `scope(move || ...)` when the
-control needs its own owner. That setup runs once at mounting, and the controller's
-cleanup and timers end with the same lifetime when it is removed. See
-[component lifetimes](custom-components.md#give-setup-its-own-lifetime).
+A component body runs once per mount, so the controller's cleanup and timers end with the instance when it is removed.
 
 ## Choose from a list with keyboard navigation
 
@@ -193,18 +190,20 @@ list semantics; you provide the keys, the order and the looks.
 use std::hash::Hash;
 
 use kivact::interaction::{ListOptions, use_list};
+use kivact::view::Orientation;
 use kivact::prelude::*;
+use kivact::state::ItemKey;
 
 /// A row of options; the arrow keys move and select, Tab leaves the row.
+#[component]
 pub fn segmented<K: ItemKey>(
-    label: impl IntoText,
-    options: Vec<ListItem<K>>,
-    selected: impl IntoBinding<Option<K>>,
+    label: Value<String>,
+    options: Value<Vec<ListItem<K>>>,
+    selected: Signal<Option<K>>,
 ) -> impl Element {
-    let options = options.into_value();
     let list = use_list(
         options,
-        selected.into_binding(),
+        selected,
         ListOptions {
             axis: Some(Orientation::Horizontal),
             ..ListOptions::default()
@@ -215,8 +214,8 @@ pub fn segmented<K: ItemKey>(
         |option| option.key().clone(),
         move |option| {
             let key = option.with_untracked(|option| option.key().clone());
-            let state = list.item_state(key.clone());
             let part = list.item(key);
+            let state = part.state();
             node()
                 .part(part)
                 .style(move || {
@@ -224,8 +223,8 @@ pub fn segmented<K: ItemKey>(
                     style()
                         .padding_x(12)
                         .padding_y(6)
-                        .background(if state.selected { ColorToken::Accent } else { ColorToken::SurfaceAlt })
-                        .color(if state.selected { ColorToken::AccentText } else { ColorToken::Text })
+                        .background(if state.selected { color::ACCENT } else { color::SURFACE_ALT })
+                        .color(if state.selected { color::ACCENT_TEXT } else { color::TEXT })
                         .opacity(if state.input.is_disabled() { 0.4 } else { 1.0 })
                 })
                 .child(text(move || option.with(|option| option.label())))
@@ -283,8 +282,8 @@ What the list gives you:
   `Selection::Multiple`); each item is an `Option` named by its label and
   `selected` when it is part of the selection.
 - **Selection is yours.** The list never keeps a copy. It writes the user's choice to the
-  binding you passed (`Selection::Single` over `Binding<Option<K>>`, or
-  `Selection::Multiple` over `Binding<Vec<K>>` with Shift and Ctrl ranges), and a
+  binding you passed (`Selection::Single` over `Signal<Option<K>>`, or
+  `Selection::Multiple` over `Signal<Vec<K>>` with Shift and Ctrl ranges), and a
   selected key that a filter hides is not cleared.
 - **Navigation.** `ListOptions` picks the axis, wrapping at the ends, whether moving
   selects, typeahead and whether the choice happens on activation. The presets
@@ -305,16 +304,17 @@ use std::hash::Hash;
 
 use kivact::interaction::use_select;
 use kivact::prelude::*;
-use kivact::view::overlay;
+use kivact::state::ItemKey;
+use kivact::view::{Placement, overlay};
 
+#[component]
 pub fn dropdown<K: ItemKey>(
-    label: impl IntoText,
-    options: Vec<ListItem<K>>,
-    value: impl IntoBinding<Option<K>>,
+    label: Value<String>,
+    options: Value<Vec<ListItem<K>>>,
+    value: Signal<Option<K>>,
 ) -> impl IntoView {
-    let label = label.into_text_value();
-    let options = options.into_value();
-    let select = use_select(options, value);
+    let open = signal(false);
+    let select = use_select(options, value, open);
     let trigger = select.trigger();
     let anchor = node_ref();
     (
@@ -325,8 +325,8 @@ pub fn dropdown<K: ItemKey>(
             .style(
                 style()
                     .padding(8)
-                    .border(1, ColorToken::Border)
-                    .radius(6)
+                    .border(1, color::BORDER)
+                    .border_radius(6)
                     .min_width(120),
             )
             .child(text(select.label())),
@@ -336,15 +336,15 @@ pub fn dropdown<K: ItemKey>(
                 |option| option.key().clone(),
                 move |option| {
             let key = option.with_untracked(|option| option.key().clone());
-                    let state = select.item_state(key.clone());
                     let part = select.item(key);
+                    let state = part.state();
                     node()
                         .part(part)
                         .style(move || {
                             let state = state.get();
                             style()
                                 .padding(8)
-                                .background(if state.active { ColorToken::Selection } else { ColorToken::Raised })
+                                .background(if state.active { color::SELECTION } else { color::RAISED })
                         })
                         .child(text(move || option.with(|option| option.label())))
                 },
@@ -400,7 +400,7 @@ the value without opening, Alt+Down, F4, Enter, Space and a click open it, the l
 takes focus on the selected option, Escape closes without choosing, and focus goes
 back to the trigger. The same pairing of `trigger()`, `content()` and `show` works
 for `use_popup`, `use_disclosure`, `use_tooltip` and `use_dialog`; a menu mounts its
-content with `MenuApi::while_open` instead of `show`. Only the Parts differ. For a modal surface, a dialog's content also traps Tab inside
+content with the Api's `surface(placement, content)`, which wires the anchor, the opening and the content Part. Only the Parts differ. For a modal surface, a dialog's content also traps Tab inside
 and returns focus to the opener when it closes.
 
 ## Drag to change a value
@@ -411,7 +411,7 @@ or `Cancel` when the user presses Escape (the value goes back to where it starte
 
 A drag starts at the press by default. Add `.slop(10)` to wait until movement exceeds 10 logical pixels, and `.axis_lock()` to keep its delta on the first movement axis after that threshold. Add `.track_velocity()` to read `DragUpdate.velocity` in logical pixels per millisecond over the latest 100 ms; without it, velocity is zero. Pending presses that end before the threshold produce no start, update, end or edit callbacks. These are setup options on the existing drag handle.
 
-Use `.source_with(move || value.get_untracked())` when the payload must snapshot live application data at the accepted press. The factory runs once, including when the press first enters the pending slop state. All updates retain that snapshot; the next accepted press samples again. `.source(payload)` keeps fixed setup data.
+Use `.source_with(move || value.get())` when the payload must snapshot live application data at the accepted press. The factory runs once, including when the press first enters the pending slop state. All updates retain that snapshot; the next accepted press samples again. `.source(payload)` keeps fixed setup data.
 
 `drag.active_payload()` returns a reactive, read-only `Value<Option<T>>` of the same press-time snapshot while pending or active, and `None` after release. Only this method requires `T: PartialEq`; it does not resample the factory or create a second payload store. Component authors can use `kivact::custom::Generation` to allocate identities and `.next().as_u64()` when an API needs a numeric id.
 
@@ -421,18 +421,20 @@ use std::rc::Rc;
 
 use kivact::interaction::{DragCoordinates, DragUpdate, EditSession, use_drag};
 use kivact::prelude::*;
+use kivact::view::EditPhase;
 
 /// A number you change by dragging sideways.
-pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Element {
+#[component]
+pub fn scrub(label: Value<String>, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Element {
     let edit = EditSession::new(move |initial| value.set(initial))
         .on_edit(move |phase| history.borrow_mut().push(phase));
     let drag = use_drag::<f64>(DragCoordinates::Window)
-        .edit(edit, move || value.get_untracked())
+        .edit(edit, move || value.get())
         .on_update(move |update: DragUpdate<f64>| {
             value.set(update.payload + update.delta.x);
         });
-    let state = drag.source_state();
-    let source = drag.source_with(move || value.get_untracked());
+    let source = drag.source_with(move || value.get());
+    let state = source.state();
     node()
         .part(source)
         .name(label)
@@ -441,8 +443,8 @@ pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<E
             style()
                 .width(120)
                 .padding(8)
-                .border(1, ColorToken::Border)
-                .background(if state.get().active { ColorToken::SurfaceAlt } else { ColorToken::Surface })
+                .border(1, color::BORDER)
+                .background(if state.get().active { color::SURFACE_ALT } else { color::SURFACE })
         })
         .child(text(move || format!("{:.0}", value.get())))
 }
@@ -498,6 +500,7 @@ a logarithmic knob wherever it is.
 ```rust,test_harness
 use kivact::interaction::{ScalarMapping, ScalarRange, ScalarStep, use_scalar};
 use kivact::prelude::*;
+use kivact::view::Orientation;
 
 fn frequency() -> impl IntoView {
     let hz = signal(440.0);
@@ -506,11 +509,12 @@ fn frequency() -> impl IntoView {
         .mapping(ScalarMapping::logarithmic())
         .key_step(ScalarStep::Position(0.01))
         .expect("valid key step");
-    let state = slider.control_state();
+    let thumb = slider.thumb();
+    let state = thumb.state();
     node()
         .part(slider.track(Orientation::Horizontal))
         .style(style().size(200, 24))
-        .child(node().part(slider.thumb()).name("Frequency"))
+        .child(node().part(thumb).name("Frequency"))
         .child(text(move || format!("{:.0} Hz at {:.2}", hz.get(), state.get().fraction)))
 }
 ```
@@ -563,14 +567,14 @@ use kivact::view::{A11yAction, PointerPhase};
 const CELL: f64 = 20.0;
 
 /// A row of `max` dots; the number of lit dots is the rating.
-pub fn rating(max: u32, value: impl IntoBinding<u32>) -> impl Element {
-    let value = value.into_binding();
+#[component]
+pub fn rating(max: u32, value: Signal<u32>) -> impl Element {
     primitive()
         // The size depends only on `max`: the layout measures again when it changes.
         .measure(max, |max: &u32, _: Constraints| Size::new(*max as f64 * CELL, CELL))
         .draw(move |d, size| {
             for i in 0..max {
-                let color = if i < value.get() { ColorToken::Accent } else { ColorToken::Border };
+                let color = if i < value.get() { color::ACCENT } else { color::BORDER };
                 d.circle(Point::new(i as f64 * CELL + CELL / 2.0, size.height / 2.0), 7.0, color);
             }
         })
@@ -603,8 +607,8 @@ pub fn rating(max: u32, value: impl IntoBinding<u32>) -> impl Element {
 }
 
 fn app() -> impl IntoView {
-    let stars = signal(2);
-    column((rating(5, stars), text(move || format!("stars: {}", stars.get()))))
+    let stars = signal(2_u32);
+    column((rating(5_u32, stars), text(move || format!("stars: {}", stars.get()))))
         .style(style().gap(8).padding(16).align_items(Align::Start))
 }
 
@@ -669,15 +673,15 @@ use kivact::interaction::use_text_edit;
 use kivact::prelude::*;
 
 /// A field with a character counter. `max` is enforced by the editor.
-pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize) -> impl Element {
-    let value = value.into_binding();
+#[component]
+pub fn limited_input(label: Value<String>, value: Signal<String>, max: usize) -> impl Element {
     let api = use_text_edit(value).max_length(max).placeholder("Type here");
-    let state = api.control_state();
     let control = api.control();
+    let state = control.state();
     let editor = node().part(control).name(label).style(move || {
         style()
-            .grow(1)
-            .border_bottom(if state.get().is_focused() { 2 } else { 1 }, ColorToken::Accent)
+            .flex_grow(1)
+            .border_bottom(if state.get().is_focused() { 2 } else { 1 }, color::ACCENT)
             .padding_y(6)
     });
     row((editor, text(move || format!("{}/{max}", value.with(|text| text.chars().count())))))
@@ -686,7 +690,7 @@ pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max:
 
 fn app() -> impl IntoView {
     let title = signal(String::new());
-    column((limited_input("Title", title, 8), text(move || format!("title: {}", title.get()))))
+    column((limited_input("Title", title, 8_usize), text(move || format!("title: {}", title.get()))))
         .style(style().gap(8).padding(16).width(320))
 }
 
@@ -737,8 +741,7 @@ line. Its optional `color`, `background` and `decoration` override paint.
 
 Use `TextEditing::decorations(content, f)` for document byte ranges. Return
 `kivact::custom::Decoration` values with `Background`, `Outline`, or
-`Underline(TextDecorationStyle)` kinds. Reactive content and theme changes update
-the paint. Password values and placeholders omit range styling.
+`Underline(TextDecorationStyle)` kinds. Content that changes and theme changes update the paint. Password values and placeholders omit range styling.
 
 An editing node accepts children (including `custom::inline_view`), `draw`, and
 `draw_over`. These layers paint over the native text, selection and caret.
@@ -748,6 +751,8 @@ The callback updates after text, selection and geometry changes. Standalone
 `NodeRefExt::text_layout` queries keep window coordinates and only shape the
 requested lines. Caret offsets and `hit_test` results count Unicode scalars;
 style and decoration ranges count UTF-8 bytes.
+
+`EditContext` answers for every line of the text and shapes only the lines you ask about; it is valid during the request that gave it to you, so do not keep it.
 
 ## Write behavior with a state machine
 
@@ -769,8 +774,8 @@ enum CopyState { Idle, Copied }
 enum CopyEvent { Pressed, Expired }
 enum CopyEffect { Write(String) }
 
-struct CopyButton { text: String } // Snapshot read by the pure transition.
-impl Machine for CopyButton {
+struct CopyInput { text: String } // Snapshot read by the pure transition.
+impl Machine for CopyInput {
     type State = CopyState;
     type Event = CopyEvent;
     type Effect = CopyEffect;
@@ -785,21 +790,17 @@ impl Machine for CopyButton {
     }
 }
 
-fn copy_button(text: impl IntoValue<String>) -> impl IntoView {
-    let text = text.into_value();
-    scope(move || {
-        let m = machine(CopyState::Idle, move || CopyButton { text: text.get() }, |_, effect| match effect {
-            CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
-        });
-        button(move || if m.get() == CopyState::Copied { "Copied" } else { "Copy" })
-            .on_press(move || m.send(CopyEvent::Pressed))
-    })
+#[component]
+fn copy_button(text: Value<String>) -> impl Element {
+    let m = machine(CopyState::Idle, move || CopyInput { text: text.get() }, |_, effect| match effect {
+        CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
+    });
+    button(move || if m.get() == CopyState::Copied { "Copied" } else { "Copy" })
+        .on_press(move || m.send(CopyEvent::Pressed))
 }
 ```
 
-Create the machine in the component's setup owner. For a reusable component with
-its own mount lifetime, convert `text` once, then return `scope(move || { ... })`
-and create the machine inside that initializer. Its pending timer is cancelled
+`#[component] fn copy_button` creates a type named `CopyButton`, so the snapshot struct is named `CopyInput` to keep the two names apart. Create the machine in the component's setup owner. A component body runs once per mount, so the Machine belongs to this instance. Its pending timer is cancelled
 when that instance is removed. Keep the transition pure: it chooses a next state
 and describes work; the effect runner performs the clipboard write.
 

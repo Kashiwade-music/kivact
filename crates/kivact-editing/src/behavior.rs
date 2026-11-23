@@ -1,28 +1,22 @@
 //! Role: Editor behavior hooks: the routed request, its context and the outcome.
 
 use crate::edit_state::EditState;
-use kivact_types::{Key, Modifiers, Rect};
+use kivact_types::{Key, Modifiers};
 use std::ops::Range;
 use std::rc::Rc;
 
-/// The editing behavior's result, interpreted by the native host.
+/// The editing behavior's result, interpreted by the native host. A
+/// change the behavior made to the text is reported as `TextChanged`
+/// whatever the result says: the host reads it from the state.
 #[derive(Clone, Debug, PartialEq)]
 pub enum EditOutcome {
     /// Leave this request for normal event routing.
     NotEditing,
-    /// Consumed; `changed` says the value changed (send `TextChanged`).
-    Done {
-        /// The value changed.
-        changed: bool,
-    },
-    /// Copy or cut of a non-empty selection: the host writes `text` to the
-    /// clipboard (a cut already removed it: `changed`).
-    Copy {
-        /// The copied text.
-        text: String,
-        /// The value changed (a cut).
-        changed: bool,
-    },
+    /// Consumed.
+    Done,
+    /// Copy or cut of a non-empty selection: the host writes the text to
+    /// the clipboard (a cut also removed it from the state).
+    Copy(String),
     /// Ask the host to read the clipboard and route a Paste request.
     Paste,
 }
@@ -31,33 +25,32 @@ pub enum EditOutcome {
 /// the editor's native constraints and its laid-out lines.
 ///
 /// The layout queries take the state the behavior was given and answer
-/// for its text as the request found it (`None` once the behavior changed
-/// the text, or when the editor is not laid out or shows its
-/// placeholder). Lines are hard lines (a single-line editor has one);
-/// `x` is in logical pixels from the start of the editor's text box,
-/// before the editor's horizontal scroll.
-pub struct EditContext<'a> {
-    // xtask-allow(state-fields): option: the editor's authored multiline prop the engine passes per request; false means committed text keeps no line breaks
+/// for its text as the request found it, for every line of the text
+/// (`None` once the behavior changed the text, or when the editor is not
+/// laid out or shows its placeholder). The host shapes only the lines a
+/// query asks about. Lines are hard lines (a single-line editor has
+/// one); `x` is in logical pixels from the start of the editor's text
+/// box, before the editor's horizontal scroll. A context serves one
+/// request: it is neither cloned nor kept.
+pub struct EditContext {
     /// Whether committed text may contain line breaks.
     pub multiline: bool,
-    // xtask-allow(state-fields): option: the editor's authored read_only prop the engine passes per request; false lets user input change the value
     /// Whether user input must preserve the value.
     pub read_only: bool,
-    // xtask-allow(state-fields): option: whether the editor's authored input purpose is Password, passed per request; false lets copy and cut expose the value
     /// Whether clipboard copy and cut must hide the value.
     pub password: bool,
-    // xtask-allow(state-fields): independent: the editor's laid-out lines for this request, which the engine always supplies and a caller without layout leaves out; the flags are authored props and do not decide whether lines exist
-    layout: Option<EditLayout<'a>>,
+    layout: Option<EditLayout>,
 }
 
-impl<'a> EditContext<'a> {
-    /// Build the constraints and optional geometry for one editing request.
-    /// Geometry queries remain valid only for the supplied layout's revision.
+impl EditContext {
+    /// The constraints and the lines of one editing request (the host
+    /// builds it; `layout` answers the line queries).
+    #[doc(hidden)]
     pub fn new(
         multiline: bool,
         read_only: bool,
         password: bool,
-        layout: Option<EditLayout<'a>>,
+        layout: Option<EditLayout>,
     ) -> Self {
         Self {
             multiline,
@@ -68,20 +61,21 @@ impl<'a> EditContext<'a> {
     }
 
     /// The lines, when they are of `state`'s text.
-    fn layout(&self, state: &EditState) -> Option<EditLayout<'a>> {
+    fn layout(&self, state: &EditState) -> Option<&EditLayout> {
         self.layout
-            .filter(|l| l.revision == state.revision() && l.lines.shows_value())
+            .as_ref()
+            .filter(|l| l.revision == state.revision())
     }
 
     /// The number of lines of `state`'s text.
     pub fn line_count(&self, state: &EditState) -> Option<usize> {
-        Some(self.layout(state)?.lines.len())
+        self.layout(state)?.lines.count()
     }
 
     /// The line holding byte offset `at` of `state`'s text (a line break
     /// belongs to the line it ends).
     pub fn line_of(&self, state: &EditState, at: usize) -> Option<usize> {
-        Some(self.layout(state)?.lines.line_of(at))
+        self.layout(state)?.lines.line_of(at)
     }
 
     /// The byte range of `line`'s text, without its line break.
@@ -93,55 +87,70 @@ impl<'a> EditContext<'a> {
     /// `x`.
     pub fn x_of(&self, state: &EditState, at: usize) -> Option<f64> {
         let l = self.layout(state)?;
-        Some(l.lines.caret(state.value(), at, l.width).x)
+        l.lines.caret_x(state.value(), at, l.width)
     }
 
-    /// The grapheme boundary of `line` whose caret is nearest `x` (the
-    /// line's end past its last character), as a byte offset of
-    /// `state`'s text.
+    /// The editing stop of `line` (a grapheme and shaping-cluster
+    /// boundary) whose caret is nearest `x` (the line's end past its last
+    /// character), as a byte offset of `state`'s text.
     pub fn offset_at(&self, state: &EditState, line: usize, x: f64) -> Option<usize> {
         let l = self.layout(state)?;
-        (line < l.lines.len()).then(|| l.lines.nearest(state.value(), line, x, l.width))
+        l.lines.nearest(state.value(), line, x, l.width)
     }
 }
 
-/// The host's laid-out lines, as an [`EditContext`] reads them.
-/// Offsets and ranges are UTF-8 byte positions in the supplied document;
-/// content ranges exclude line breaks. A break belongs to the line it ends,
-/// and the byte immediately after the break belongs to the next line.
+/// The host's laid-out lines of one revision of the text, as an
+/// [`EditContext`] reads them. Offsets and ranges are UTF-8 byte offsets
+/// into that text; content ranges exclude line breaks. A break belongs to
+/// the line it ends, and the byte right after it to the next line. Every
+/// query answers `None` when the host cannot answer it now: the lines are
+/// no longer of that revision, they show the placeholder, or the host is
+/// using them.
+#[doc(hidden)]
 pub trait Lines {
-    /// They show the value, not the placeholder.
-    fn shows_value(&self) -> bool;
-    /// How many there are.
-    fn len(&self) -> usize;
-    /// Whether this provider has no lines.
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
+    /// How many lines there are.
+    fn count(&self) -> Option<usize>;
     /// The line holding byte offset `at`, including its terminating break.
-    fn line_of(&self, at: usize) -> usize;
+    fn line_of(&self, at: usize) -> Option<usize>;
     /// Line `i`'s text, without its break.
     fn content(&self, i: usize) -> Option<Range<usize>>;
-    /// The caret at byte offset `at` of `text`, in a box `width` wide.
-    fn caret(&self, text: &str, at: usize, width: f64) -> Rect;
-    /// The grapheme boundary of line `i` whose caret is nearest `x`.
-    fn nearest(&self, text: &str, i: usize, x: f64, width: f64) -> usize;
+    /// The `x` of the caret at byte offset `at` of `text`, in a box
+    /// `width` wide.
+    fn caret_x(&self, text: &str, at: usize, width: f64) -> Option<f64>;
+    /// The editing stop of line `i` whose caret is nearest `x`: the
+    /// stops of [`crate::TextGeometry`] (grapheme and shaping-cluster
+    /// boundaries); `None` past the last line.
+    fn nearest(&self, text: &str, i: usize, x: f64, width: f64) -> Option<usize>;
 }
 
 /// The lines an [`EditContext`] reads, the revision of the text they are
 /// of and the width of the box they are aligned in.
-#[derive(Clone, Copy)]
-pub struct EditLayout<'a> {
-    /// Host line geometry provider for this snapshot.
-    pub lines: &'a (dyn Lines + 'a),
-    /// Document revision for which the geometry was computed.
-    pub revision: u64,
-    /// Logical alignment width before horizontal text scrolling.
-    pub width: f64,
+#[doc(hidden)]
+pub struct EditLayout {
+    /// The host's lines, shared with its line cache for the request.
+    pub(crate) lines: Box<dyn Lines>,
+    /// The revision of the text the lines are of.
+    pub(crate) revision: u64,
+    /// The width of the box the lines are aligned in.
+    pub(crate) width: f64,
+}
+
+impl EditLayout {
+    /// The host's `lines` of the text at `revision`, aligned in a box
+    /// `width` wide.
+    #[doc(hidden)]
+    pub fn new(lines: impl Lines + 'static, revision: u64, width: f64) -> Self {
+        Self {
+            lines: Box::new(lines),
+            revision,
+            width,
+        }
+    }
 }
 
 /// A routed key or clipboard text for the attached editing behavior.
-pub enum EditRequest<'a> {
+#[derive(Clone, Debug, PartialEq)]
+pub enum EditRequest {
     /// A key after native composition and focus routing.
     Key {
         /// The logical editing key.
@@ -150,11 +159,11 @@ pub enum EditRequest<'a> {
         modifiers: Modifiers,
     },
     /// Clipboard text to normalize and insert.
-    Paste(&'a str),
+    Paste(String),
 }
 
 /// What an editing behavior runs.
-type Behave = dyn Fn(&mut EditState, EditRequest<'_>, &EditContext<'_>) -> EditOutcome;
+type Behave = dyn Fn(&mut EditState, EditRequest, &EditContext) -> EditOutcome;
 
 /// An editing function run synchronously while the engine owns its model.
 ///
@@ -169,7 +178,7 @@ pub struct EditBehavior(Rc<Behave>);
 impl EditBehavior {
     /// Use this function for routed editing keys and clipboard text.
     pub fn new(
-        f: impl Fn(&mut EditState, EditRequest<'_>, &EditContext<'_>) -> EditOutcome + 'static,
+        f: impl Fn(&mut EditState, EditRequest, &EditContext) -> EditOutcome + 'static,
     ) -> Self {
         Self(Rc::new(f))
     }
@@ -178,8 +187,8 @@ impl EditBehavior {
     pub fn invoke(
         &self,
         state: &mut EditState,
-        request: EditRequest<'_>,
-        context: &EditContext<'_>,
+        request: EditRequest,
+        context: &EditContext,
     ) -> EditOutcome {
         (self.0)(state, request, context)
     }

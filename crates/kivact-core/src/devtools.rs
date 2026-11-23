@@ -1,10 +1,13 @@
 //! Role: The DevTools target: answers the agent's calls from the App's internals.
 
 mod a11y;
+pub(crate) mod apply;
 mod console;
 mod convert;
 mod emulation;
+mod hooks;
 mod input;
+pub(crate) mod inspect_mode;
 mod lifecycle;
 mod motion;
 mod node;
@@ -12,8 +15,8 @@ mod overlay;
 mod perf;
 mod query;
 mod review;
-mod scripts;
 pub(crate) mod start;
+pub(crate) mod state;
 mod styles;
 mod target;
 mod tree;

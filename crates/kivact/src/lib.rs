@@ -2,7 +2,7 @@
 //!
 //! Components are plain functions that take arguments, return a view and
 //! run once. State lives in an App-owned arena; you hold Copy handles
-//! (`Signal`, `Value`, `Binding`, ...) created by the setup functions
+//! (`Signal`, `Value`, ...) created by the setup functions
 //! (`signal`, `memo`, `binding`, `effect`, ... like Solid's `createSignal`,
 //! `createMemo`, `createEffect`). Callbacks are plain closures. A component
 //! author who stores a caller's closure keeps it as a Copy
@@ -19,7 +19,8 @@
 //! ```no_run
 //! use kivact::prelude::*;
 //!
-//! fn counter(initial: i32) -> impl IntoView {
+//! #[component]
+//! fn counter(initial: i32) -> impl Element {
 //!     let count = signal(initial);
 //!     column((
 //!         text(move || format!("count: {}", count.get())),
@@ -49,15 +50,17 @@ pub use kivact_core::gpu_interop;
 pub use kivact_core::{App, ErrorKind, Result, UiError};
 #[doc(inline)]
 pub use kivact_core::{
-    custom, diagnostics, draw, geometry, i18n, motion, platform, state, style, task, view,
+    custom, diagnostics, geometry, i18n, motion, platform, state, style, task, view,
 };
+/// Drawing tools: canvases, local element layers and windowless rendering ([`draw::Offscreen`]).
+pub mod draw;
+/// Project a nested writable field: `bind!(model.address.street)`.
+pub use kivact_core::state::bind;
 /// Turn a component function into its props builder (see the guide "Write reusable components").
-pub use kivact_macros::component;
+pub use kivact_macros::{Prop, component};
 #[cfg(feature = "test")]
 #[doc(inline)]
 pub use kivact_test as test;
 
-/// What an App wishes of its window's GPU device at launch ([`App::gpu_preference`]).
-pub mod launch;
 /// Everyday names and standard UI functions used by the introductory guides.
 pub mod prelude;

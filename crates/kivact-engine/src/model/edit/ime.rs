@@ -17,7 +17,7 @@ impl Model {
                 .focused_input()
                 .and_then(|i| self.node(i))
                 .and_then(|n| {
-                    self.editors[n.index.0]
+                    self.slots.editors[n.index.0]
                         .as_deref()
                         .map(|editor| editor.editor.state())
                 })
@@ -29,7 +29,6 @@ impl Model {
             let selected = selection.map(|(a, b)| a.min(b)..a.max(b));
             self.compose_text(None, text, selected);
         }
-        self.sync();
     }
 
     /// Text the IME committed.
@@ -38,7 +37,6 @@ impl Model {
             return;
         }
         self.insert_text(text);
-        self.sync();
     }
 
     /// The IME ended its session: the composition is gone.
@@ -79,7 +77,7 @@ impl Model {
         let Some((start, end)) = self
             .node(id)
             .and_then(|n| {
-                self.editors[n.index.0]
+                self.slots.editors[n.index.0]
                     .as_deref()
                     .map(|editor| editor.editor.state())
             })
@@ -92,8 +90,7 @@ impl Model {
         else {
             return;
         };
-        self.place_caret(id, start.min(end), false);
-        self.place_caret(id, start.max(end), true);
+        self.edit_input(id, |e| e.select(start.min(end)..start.max(end)));
         self.sync();
     }
 
@@ -110,7 +107,7 @@ impl Model {
             .map_or(kivact_types::InputPurpose::Text, |n| n.purpose())
     }
     /// The IME text to give the window when it changes.
-    pub(crate) fn ime_changed(&mut self, engine: &mut arvane::Engine) -> ImeUpdate {
+    pub(crate) fn ime_changed(&mut self, engine: &mut arvane_text::TextEngine) -> ImeUpdate {
         if let Some(id) = self.focused_session() {
             return match self.session_ime_changed(id) {
                 Some(text) => ImeUpdate::Set(Some(text)),
@@ -121,7 +118,7 @@ impl Model {
             let n = self.node(id)?;
             let area = crate::model::interact::text_geometry::text_line(self, id, engine);
             let transform = self.window_map(id);
-            let editor = self.editors[n.index.0].as_deref()?;
+            let editor = self.slots.editors[n.index.0].as_deref()?;
             Some(InputSource {
                 node: id,
                 revision: editor.editor.revision(),

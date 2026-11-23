@@ -1,66 +1,53 @@
-//! Role: Catalog page of Code Block: title, line numbers, small size, scrolling.
+//! Catalog page of Code Block: title, line numbers, small size, scrolling.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "code-block",
-        name: "Code Block",
-        description: "題名、コピーの操作、行番号、フッターを持つコードの表示部品です。Rust は rust_lines で色分けでき、ほかの言語は呼び出し側が CodeLine と CodeSpan で色を渡します。コードは読み取り専用の text box で、一部を選んで Ctrl+C でコピーできます。コピーのボタンは Core がクリップボードへ書き込みます。このカタログの各コードも、この部品で表示しています。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("code_block.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "reactive",
-                "Reactive source and theme",
-                "ソースの変更時だけ解析し、色は現在のテーマに追従します。",
-                reactive,
-            ),
-            Example::new(
-                "basic",
-                "Title and copy",
-                "rust_source で一度解析し、rust_lines を highlight コールバックに渡します。押すと 2 秒間、アイコンがチェックに変わります。",
-                basic,
-            ),
-            Example::new(
-                "line-numbers",
-                "Line numbers",
-                "line_numbers(true) で、左に行番号を表示します。",
-                line_numbers,
-            ),
-            Example::new(
-                "small",
-                "Small and footer",
-                "variant に CodeBlockSize::Sm を渡すと 12 px の文字になります。footer で下に補足を添えられます。",
-                small,
-            ),
-            Example::new(
-                "scroll",
-                "Max height",
-                "max_height を超えるコードは縦にスクロールします。横に長い行も横にスクロールします。",
-                scroll_code,
-            ),
-        ],
-    }
+    Page::new("code-block", "Code Block", "Components", include_str!("code_block.rs"))
+        .description("A code display with a title, a copy action, line numbers and a footer. Rust is colored from the core Rust tokens (kivact::ui::rust_tokens). The code is a read-only text box, so you can select part of it and copy it with Ctrl+C. The copy button writes to the clipboard through the core. Every code on this catalog is shown with this component.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "reactive",
+            "Reactive source and theme",
+            "The source is parsed only when it changes, and the colors follow the current theme.",
+            reactive,
+        ))
+        .example(Example::new(
+            "basic",
+            "Title and copy",
+            "The Rust tokens are computed once with rust_tokens, and highlighter passes them to the highlight callback. A press changes the icon to a check mark for 2 seconds.",
+            basic,
+        ))
+        .example(Example::new(
+            "line-numbers",
+            "Line numbers",
+            "line_numbers(true) shows the line numbers on the left.",
+            line_numbers,
+        ))
+        .example(Example::new(
+            "small",
+            "Small and footer",
+            "Pass CodeBlockSize::Sm as the variant for 12 px text. footer adds a note below.",
+            small,
+        ))
+        .example(Example::new(
+            "scroll",
+            "Max height",
+            "Code taller than max_height scrolls vertically. A long line scrolls horizontally too.",
+            scroll_code,
+        ))
 }
 
 // example: basic
 fn basic() -> impl IntoView {
     let source = "fn main() {\n    println!(\"Hello, Kivact!\");\n}";
-    let parsed = basic::rust_source(source);
     kivact::ui::code_block(source.to_string())
-        .highlight(
-            move || {
-                (
-                    parsed.clone(),
-                    kivact::style::use_tokens::<basic::Tokens>().code.clone(),
-                )
-            },
-            basic::rust_lines,
-        )
+        .highlight(kivact::ui::highlighter(
+            kivact::ui::rust_tokens(source),
+            |tokens, text, index| basic::rust_lines(tokens, text, index),
+        ))
         .title("main.rs")
         .style(style().width(pct(100)))
 }
@@ -68,40 +55,13 @@ fn basic() -> impl IntoView {
 
 // example: line-numbers
 fn line_numbers() -> impl IntoView {
-    use basic::{CodeLine, CodeSpan, CodeTone};
-    let lines = vec![
-        CodeLine(vec![
-            CodeSpan::new("let", CodeTone::Keyword),
-            CodeSpan::new(" count = ", CodeTone::Plain),
-            CodeSpan::new("signal", CodeTone::Function),
-            CodeSpan::new("(0);", CodeTone::Punctuation),
-        ]),
-        CodeLine(vec![CodeSpan::new(
-            "// Increment on press.",
-            CodeTone::Comment,
-        )]),
-        CodeLine(vec![
-            CodeSpan::new("count.", CodeTone::Plain),
-            CodeSpan::new("update", CodeTone::Function),
-            CodeSpan::new("(|n| *n += 1);", CodeTone::Punctuation),
-        ]),
-    ];
-    let source = lines
-        .iter()
-        .map(CodeLine::text)
-        .collect::<Vec<_>>()
-        .join("\n");
-    kivact::ui::code_block(source)
+    let source = "let count = signal(0);\n// Increment on press.\ncount.update(|n| *n += 1);";
+    kivact::ui::code_block(source.to_string())
         .copy_button(false)
-        .highlight(
-            move || {
-                (
-                    lines.clone(),
-                    kivact::style::use_tokens::<basic::Tokens>().code.clone(),
-                )
-            },
-            basic::rust_lines,
-        )
+        .highlight(kivact::ui::highlighter(
+            kivact::ui::rust_tokens(source),
+            |tokens, text, index| basic::rust_lines(tokens, text, index),
+        ))
         .line_numbers(true)
         .style(style().width(pct(100)))
 }
@@ -126,18 +86,12 @@ fn scroll_code() -> impl IntoView {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    let parsed = basic::rust_source(&lines);
+    let tokens = kivact::ui::rust_tokens(&lines);
     kivact::ui::code_block(lines)
         .copy_button(false)
-        .highlight(
-            move || {
-                (
-                    parsed.clone(),
-                    kivact::style::use_tokens::<basic::Tokens>().code.clone(),
-                )
-            },
-            basic::rust_lines,
-        )
+        .highlight(kivact::ui::highlighter(tokens, |tokens, text, index| {
+            basic::rust_lines(tokens, text, index)
+        }))
         .max_height(120.0)
         .style(style().width(pct(100)))
 }
@@ -146,20 +100,14 @@ fn scroll_code() -> impl IntoView {
 // example: reactive
 fn reactive() -> impl IntoView {
     let source = signal("fn main() {}".to_string());
-    let parsed = memo(move || basic::rust_source(&source.get()));
+    let tokens = memo(move || kivact::ui::rust_tokens(&source.get()));
     column((
-        kivact::ui::text_area("Source", source),
+        kivact::ui::text_area(source).label("Source"),
         kivact::ui::code_block(source)
             .title("Editable source preview")
-            .highlight(
-                move || {
-                    (
-                        parsed.get(),
-                        kivact::style::use_tokens::<basic::Tokens>().code.clone(),
-                    )
-                },
-                basic::rust_lines,
-            ),
+            .highlight(kivact::ui::highlighter(tokens, |tokens, text, index| {
+                basic::rust_lines(tokens, text, index)
+            })),
     ))
     .style(style().gap(12).width(pct(100)))
 }

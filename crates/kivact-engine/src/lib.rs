@@ -58,6 +58,7 @@ pub mod embed;
 
 mod a11y;
 pub mod api;
+#[cfg(any(debug_assertions, feature = "testing", feature = "devtools"))]
 mod check;
 pub mod contract;
 mod frame_log;
@@ -77,7 +78,7 @@ pub use host::run_native;
 #[cfg(feature = "testing")]
 pub use host::testing;
 
-pub(crate) use frame_log::{FrameLog, FrameTimes};
+pub(crate) use frame_log::FrameLog;
 pub(crate) use model::keys::KeyResult;
 pub(crate) use model::pointer::PointerSpace;
 pub(crate) use model::semantics::{is_list_role, semantic_role};

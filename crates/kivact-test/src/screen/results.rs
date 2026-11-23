@@ -205,7 +205,6 @@ pub struct LayoutViolation {
     pub test_id: Option<String>,
     /// Where the text was created: the call of the builder that created it,
     /// else of its nearest located ancestor.
-    // xtask-allow(api-shape): existing test diagnostic contract reports the original builder location.
     pub created_at: &'static Location<'static>,
 }
 
@@ -285,7 +284,6 @@ pub struct SemanticNode {
     /// draw regions carry the location of the nearest located ancestor; the
     /// root has none. Two instances of the same component share their
     /// locations; tell them apart with `Screen::within`.
-    // xtask-allow(api-shape): semantic snapshots retain the nearest builder location for diagnostics.
     pub at: Option<&'static Location<'static>>,
     pub children: Vec<SemanticNode>,
 }

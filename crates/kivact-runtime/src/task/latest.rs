@@ -1,12 +1,12 @@
 //! Role: The one in-flight run of latest-wins work (a resource fetch, a `Latest` run).
 
 use std::cell::Cell;
-use std::future::Future;
 use std::panic::Location;
 use std::rc::Rc;
 
 use super::state::TaskCell;
-use crate::{Owned, Owner, Runtime};
+use crate::driver::Runtime;
+use crate::{Owned, Owner};
 use kivact_types::cell::Generation;
 
 /// The run in flight: its owner task and its id.
@@ -19,6 +19,7 @@ enum Latest {
     },
 }
 
+// xtask-allow(state): identity: generation only allocates run ids (start) and keeps counting across Idle so a stale run's id never matches; current is the only phase, Idle or Running with the task and the id start gave it, written by start, cancel and end
 /// At most one run in flight; starting one cancels the previous one, and a run publishes only
 /// while it is still the current one (a `start` or `cancel` during its last poll stops it too).
 pub(crate) struct LatestRun {

@@ -12,8 +12,9 @@ use kivact_types::NodeId;
 
 use crate::view::NodeRef;
 use crate::view::state::ViewState;
-use kivact_runtime::Kind;
-use kivact_runtime::{NodeId as GraphNode, Runtime};
+use kivact_runtime::NodeId as GraphNode;
+use kivact_runtime::driver::Kind;
+use kivact_runtime::driver::Runtime;
 
 const DEPTH: usize = 8;
 
@@ -33,7 +34,6 @@ pub struct Why {
 pub struct WhyProp {
     /// name (`Content`, `Paint`, `Disabled`, ...).
     pub prop: String,
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     /// Where the binding (render effect) was created.
     pub effect_at: &'static Location<'static>,
     /// What that effect read during its last run.
@@ -47,10 +47,8 @@ pub struct WhyDep {
     pub kind: &'static str,
     /// Value type name.
     pub ty: &'static str,
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     /// Where the signal or memo was created.
     pub created_at: &'static Location<'static>,
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     /// Last value-changing write: its location and turn (`Turn::Setup` while
     /// the App was set up).
     pub last_write: Option<(&'static Location<'static>, Turn)>,
@@ -95,7 +93,7 @@ pub(crate) fn explain(rt: &Runtime, id: NodeId) -> Why {
     let (label, origins, semantic_origins) = {
         let tree = ViewState::tree(rt);
         match tree.get(id) {
-            Some(n) => {
+            Some(_) => {
                 let role = match tree.role(id) {
                     Some(r) => format!("{r:?}"),
                     _ => tree.with_node(id, |node| {
@@ -108,8 +106,9 @@ pub(crate) fn explain(rt: &Runtime, id: NodeId) -> Why {
                 };
                 (
                     format!("{role} {name:?}"),
-                    n.origins.clone(),
-                    n.semantic_origins().to_vec(),
+                    tree.provenance(id)
+                        .map_or_else(Vec::new, |p| p.origins.clone()),
+                    tree.semantic_origins(id).to_vec(),
                 )
             }
             None => ("(removed)".to_string(), Vec::new(), Vec::new()),

@@ -1,70 +1,63 @@
 //! Role: Hard-edged, information-dense operation-console components.
 //!
 //! The complete public API is built from the public `kivact` facade.
-//! Install [`theme`] on an app or subtree (`theme(mode)`, with
-//! [`theme_with`] and [`ThemeOptions`] for the compact metrics), then compose the
-//! constructors.
-//! Constructors returning `Node` accept all ordinary Kivact modifiers.
-//! Builders implement `Element` and therefore `Element` as well.
+//! Install [`theme`] on an app or subtree (`theme(mode)`, with [`theme_with`]
+//! and [`ThemeOptions`] for the density and the fonts), then compose the
+//! constructors. The console's own variants are given with `.variant(..)`.
 //!
 //! The standard controls of `kivact::ui` (button, checkbox, switch, text
 //! input, select, menu, dialog, tooltip, tabs, radio group, slider,
-//! splitter and toast region) draw in the console's look under [`theme`];
-//! `RadioGroupVariant::Segmented`, [`ChoiceCard`], [`Navigation`] and [`Boxed`] are the
-//! kit's other looks of the radio group and the tabs, given with
-//! `.variant(..)`. The kit adds what the standard controls do not have.
+//! splitter and toast region) draw in the console's look under [`theme`].
+//! The kit adds what the standard controls do not have.
 //!
-//! The texts the components show themselves (a dialog's close button, the
-//! command palette's hint) are English and read through
-//! `kivact::i18n::message`: an App replaces them with
-//! `App::messages`.
+//! The color variables of the kit are in [`color`] and the font families in
+//! [`fonts`]; each is a theme variable, so `theme.set(&color::PRIMARY_HOVER_VAR, ..)`
+//! changes it.
+
+pub mod color;
+pub mod fonts;
 
 mod button;
 mod choice;
 mod choice_style;
-mod color;
+mod control_parts;
 mod display;
 mod icons;
 mod kpi;
 mod overlays;
-mod recipes;
-mod recipes_avatar;
-mod recipes_badge;
 mod recipes_collections;
 mod recipes_controls;
-mod recipes_extra;
+mod recipes_controls_choice;
+mod recipes_controls_progress;
 mod recipes_feedback;
-mod recipes_field;
-mod recipes_files;
-mod recipes_groups;
-mod recipes_indicators;
+mod recipes_feedback_indicators;
 mod recipes_input;
-mod recipes_items;
 mod recipes_metrics;
 mod recipes_navigation;
-mod recipes_palette;
-mod recipes_progress;
-mod recipes_small;
+mod recipes_overlays;
+mod shapes;
+mod size;
+mod sparkline;
 mod surface;
 mod table;
 mod theme;
-mod tokens;
+mod tone;
+mod variants;
 
 pub use button::{chevron, tool_button};
-pub use choice::{Boxed, ChoiceCard, Navigation, card_label, navigation_label};
-pub use color::ColorName;
+pub use choice::{card_label, navigation_label};
 pub use display::{ActivityEntry, activity};
 pub use kpi::{Kpi, kpi};
 pub use overlays::{IconMenu, icon_menu};
-pub use recipes_avatar::AvatarVariant;
-pub use recipes_badge::BadgeVariant;
-pub use recipes_controls::{ButtonTone, Slant};
-pub use recipes_groups::GameInputGroupVariant;
-pub use recipes_indicators::SkeletonVariant;
-pub use recipes_metrics::{HeadingVariant, StatVariant};
-pub use recipes_progress::GaugeSegments;
-pub use recipes_small::Striped;
-pub use surface::{cut_corner, halo, hud, mono};
-pub use table::GameCellVariant;
+pub use shapes::cut_corner;
+pub use size::Density;
+pub use surface::{halo, hud, mono};
+pub use table::{
+    BadgeCell, DetailCell, IdentifierCell, ProgressCell, UserCell, badge_cell, detail_cell,
+    identifier_cell, progress_cell, user_cell,
+};
 pub use theme::{ThemeOptions, theme, theme_with};
-pub use tokens::{Density, Tokens};
+pub use variants::{
+    AvatarVariant, BadgeVariant, ChoiceCard, GaugeSegments, HeadingVariant, InputGroupVariant,
+    SkeletonVariant, StatVariant, TabsVariant,
+};

@@ -91,7 +91,7 @@ use crate::text_input::{line_height, line_offset};
 
 /// Measures leaves with an Arvane engine and the host's assets.
 pub(crate) struct Measure<'a> {
-    engine: &'a mut arvane::Engine,
+    engine: &'a mut arvane_text::TextEngine,
     assets: &'a mut ArvaneAssets,
     cache: &'a MeasureColumns,
     editors: &'a [Option<Box<EditorNode>>],
@@ -111,7 +111,7 @@ impl kivact_layout::LeafMeasurer for EngineMeasure<'_, '_> {
 
 impl<'a> Measure<'a> {
     pub(crate) fn new(
-        engine: &'a mut arvane::Engine,
+        engine: &'a mut arvane_text::TextEngine,
         assets: &'a mut ArvaneAssets,
         cache: &'a MeasureColumns,
         editors: &'a [Option<Box<EditorNode>>],
@@ -131,7 +131,7 @@ impl<'a> Measure<'a> {
     fn node_text(
         &mut self,
         node: &crate::tree::node::HostNode,
-        text: kivact_types::render::RichText<'_>,
+        text: arvane_protocol::RichText<'_>,
         mut style: kivact_types::ComputedTextStyle,
         max_width: Option<f64>,
     ) -> Option<LeafSize> {
@@ -140,7 +140,7 @@ impl<'a> Measure<'a> {
         style.decoration = kivact_types::TextDecoration::default();
         let mut extents = self.cache.extents(node.index.0)?;
         if extents.as_ref().is_none_or(|e| *e.style != style) {
-            let single = self.engine.text_metrics(text, &style, None).ok();
+            let single = self.engine.measure(text, &style, None).ok();
             *extents = Some(Box::new(TextExtents {
                 style: self.cache.share_style(style),
                 single,
@@ -155,10 +155,7 @@ impl<'a> Measure<'a> {
         if let Some((_, size)) = extents.wrapped.iter().find(|(w, _)| *w == width) {
             return size.map(text_leaf);
         }
-        let size = self
-            .engine
-            .text_metrics(text, &extents.style, Some(width))
-            .ok();
+        let size = self.engine.measure(text, &extents.style, Some(width)).ok();
         if extents.wrapped.len() == WRAPPED_PER_NODE {
             extents.wrapped.remove(0);
         }
@@ -236,7 +233,7 @@ impl Measure<'_> {
                         .check_family(self.engine, id, span.style.family.as_deref());
                 }
                 let spans = rich_spans(self.engine, n.spans(), &style);
-                let text = kivact_types::render::RichText {
+                let text = arvane_protocol::RichText {
                     text: n.content().unwrap_or(""),
                     spans: &spans,
                 };
@@ -374,10 +371,10 @@ impl Measure<'_> {
 /// The Arvane spans of a rich text in `style` (empty for plain text: no
 /// allocation), their families resolved; colors are not measured.
 pub(crate) fn rich_spans(
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     spans: &[kivact_types::TextSpan],
     style: &kivact_types::ComputedTextStyle,
-) -> Vec<kivact_types::render::TextSpan> {
+) -> Vec<arvane_protocol::ResolvedSpan> {
     if spans.is_empty() {
         return Vec::new();
     }
@@ -409,7 +406,7 @@ fn leaf_size(
 /// draws it in the leaf (its family and line height are the leaf's
 /// inherited ones, resolved when the service is constructed).
 struct LeafText<'a> {
-    engine: std::cell::RefCell<&'a mut arvane::Engine>,
+    engine: std::cell::RefCell<&'a mut arvane_text::TextEngine>,
     inherited: std::rc::Rc<kivact_types::ComputedTextStyle>,
 }
 
@@ -450,7 +447,7 @@ impl kivact_types::TextShaper for LeafText<'_> {
         )
     }
 
-    fn outline(&self, run: &kivact_types::render::GlyphRun) -> Vec<kivact_types::PathCmd> {
-        arvane::glyph_outline(run)
+    fn outline(&self, run: &kivact_types::shaped::GlyphRun) -> Vec<kivact_types::PathCmd> {
+        arvane_render::glyph_outline(run)
     }
 }

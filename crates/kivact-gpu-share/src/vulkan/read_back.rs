@@ -1,4 +1,4 @@
-//! Role: Reads an engine's Vulkan image back to the CPU as straight RGBA8.
+//! Role: Reads an engine's Vulkan image back to the CPU as premultiplied RGBA8.
 //!
 //! For a window that cannot import (it draws on the CPU, or its GPU is not
 //! up yet): the UI shows the frame as `Pixels`. That needs no shared pool:
@@ -12,7 +12,6 @@
 use super::raw::{COLOR, barrier, memory_type};
 use crate::common::{Error, api};
 use ash::vk;
-use kivact_types::color::unpremultiply;
 use std::time::Duration;
 
 /// An engine's image to read back ([`read_back`]): a 2D image of
@@ -58,7 +57,7 @@ impl Drop for Scratch<'_> {
     }
 }
 
-/// `image`'s pixels as straight-alpha RGBA8 (`width` × `height` × 4 bytes,
+/// `image`'s pixels as premultiplied RGBA8 (as `Pixels`) (`width` × `height` × 4 bytes,
 /// rows top to bottom), copied on `queue` (of the family given with it)
 /// after its earlier work there and waited for at most `timeout`.
 ///
@@ -158,7 +157,6 @@ pub unsafe fn read_back(
     // SAFETY: the mapping holds `size` bytes, written and made visible to
     // the host (the barrier and the fence).
     unsafe { std::ptr::copy_nonoverlapping(mapped.cast::<u8>(), rgba.as_mut_ptr(), len) };
-    unpremultiply(&mut rgba);
     Ok(rgba)
 }
 

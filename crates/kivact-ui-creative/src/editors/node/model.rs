@@ -43,10 +43,8 @@ pub struct NodeData {
     pub parameters: Vec<String>,
     /// Editable controls are stored in the application's node model.
     pub controls: Vec<NodeControl>,
-    // xtask-allow(state-fields): option: absent means the node shows no preview image
     /// Application-provided image displayed within the node preview rectangle.
     pub preview: Option<Pixels>,
-    // xtask-allow(state-fields): independent: the application's node mute, flipped by the application on NodeRequest::ToggleMute (M key); it only dims the node in paint, so a muted node may have a preview image or not
     pub muted: bool,
 }
 impl Default for NodeData {
@@ -56,7 +54,7 @@ impl Default for NodeData {
             label: String::new(),
             position: Point::new(0.0, 0.0),
             size: Size::new(180.0, 160.0),
-            color: crate::color::default_item_color(),
+            color: crate::color::DEFAULT_ITEM_COLOR,
             inputs: Vec::new(),
             outputs: Vec::new(),
             parameters: Vec::new(),
@@ -78,7 +76,7 @@ impl NodeData {
             label: label.into(),
             position: Point::new(0.0, 0.0),
             size: Size::new(180.0, 160.0),
-            color: crate::color::default_item_color(),
+            color: crate::color::DEFAULT_ITEM_COLOR,
             inputs,
             outputs,
             ..Self::default()

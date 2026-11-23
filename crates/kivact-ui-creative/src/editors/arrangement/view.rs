@@ -1,141 +1,94 @@
-//! Role: The Arrangement builder and the track canvas view it builds.
+//! Role: The Arrangement component and the track canvas view it builds.
 
 use super::gesture::State;
 use crate::ArrangementState;
 use crate::Clip;
 use crate::editors::arrangement::a11y::texts::ArrangementTexts;
 use crate::editors::arrangement::model::{ArrangementRequest, TimelineMarker, TimelineTrack};
-use kivact::custom::NodeRefExt;
+use crate::editors::shared::metrics::LOOP_MIN_LENGTH;
+use crate::editors::shared::model::EditorEvent;
+use crate::editors::shared::ruler::{Ruler, duration};
 
-use kivact::interaction::EditSession;
-use kivact::state::{Callback, Value};
-use kivact::state::{IntoValue, callback};
+use kivact::component;
+use kivact::interaction::{EditSession, ScalarRange};
+use kivact::state::{Callback, IntoValue, Value, callback};
 use kivact::style::{Cursor, Overflow, pct, style};
-use kivact::view::{A11yAction, HandlerResult, IntoView, Role, View, node_ref};
-use kivact::view::{Element, Node, node};
+use kivact::view::{A11yAction, Node, Role, node, node_ref};
 
 /// A complete arrange surface with loop locators, markers, tracks, clips and automation.
-pub struct Arrangement {
-    root: Node,
+///
+/// Clip positions, widths and `length` use beats; the zoom of `state` is
+/// pixels per beat. Item lists are read-only. Apply `on_edit` requests in the
+/// application. `state` holds the selection, the playhead, the loop, the
+/// zoom, the scroll and the tool, which the arrangement writes and reads.
+/// A non-finite or non-positive length reports a UI error and uses an empty range.
+#[component]
+pub fn arrangement(
+    clips: Value<Vec<Clip>>,
+    tracks: Value<Vec<TimelineTrack>>,
+    state: ArrangementState,
+    #[prop(default = 16.0)] length: Value<f64>,
+    zoom_range: Option<Value<ScalarRange>>,
+    min_duration: Option<Value<f64>>,
+    loop_min_duration: Option<Value<f64>>,
+    on_add_track: Option<Callback<()>>,
+    on_edit: Option<Callback<EditorEvent<ArrangementRequest>>>,
+    #[prop(default = Vec::new())] markers: Value<Vec<TimelineMarker>>,
+    #[prop(default = true)] snap: Value<bool>,
+    #[prop(default = 1.0)] step: Value<f64>,
+) -> impl Element {
+    let zoom = match zoom_range {
+        Some(range) => range,
+        None => ScalarRange::new(8.0, 80.0)
+            .expect("invariant: default arrangement zoom")
+            .into_value(),
+    };
+    let min_duration = match min_duration {
+        Some(value) => duration(value, 0.0625),
+        None => 0.0625.into_value(),
+    };
+    let loop_min_duration = match loop_min_duration {
+        Some(value) => duration(value, 0.0625),
+        None => LOOP_MIN_LENGTH.into_value(),
+    };
+    let ruler = Ruler {
+        zoom,
+        min_duration,
+        ..Default::default()
+    };
+    ArrangementView {
+        items: clips,
+        tracks,
+        length,
+        ruler,
+        loop_min_duration,
+        state,
+        markers,
+        snap,
+        step,
+        add_track: on_add_track,
+        on_edit,
+    }
+    .into_node()
+}
+
+/// The settings a component collects, which build the canvas of the arrangement.
+struct ArrangementView {
     items: Value<Vec<Clip>>,
     tracks: Value<Vec<TimelineTrack>>,
     length: Value<f64>,
-    ruler: crate::editors::shared::ruler::Ruler,
+    ruler: Ruler,
     loop_min_duration: Value<f64>,
     state: ArrangementState,
     markers: Value<Vec<TimelineMarker>>,
     snap: Value<bool>,
     step: Value<f64>,
     add_track: Option<Callback<()>>,
-    on_edit: Option<Callback<crate::editors::shared::model::EditorEvent<ArrangementRequest>>>,
+    on_edit: Option<Callback<EditorEvent<ArrangementRequest>>>,
 }
 
-/// Clip positions, widths and `length` use beats; the zoom of `state` is
-/// pixels per beat. Item lists are read-only. Apply `on_edit` requests in the
-/// application. `state` holds the selection, the playhead, the loop, the
-/// zoom, the scroll and the tool, which the arrangement writes and reads.
-/// A non-finite or non-positive length reports a UI error and uses an empty range.
-#[track_caller]
-pub fn arrangement(
-    clips: impl IntoValue<Vec<Clip>>,
-    tracks: impl IntoValue<Vec<TimelineTrack>>,
-    state: ArrangementState,
-) -> Arrangement {
-    Arrangement {
-        root: node().role(Role::Canvas).focusable(true).style(
-            style()
-                .width(pct(100))
-                .height(380)
-                .min_width(0)
-                .overflow(Overflow::Hidden)
-                .cursor(Cursor::Default),
-        ),
-        items: clips.into_value(),
-        tracks: tracks.into_value(),
-        length: 16_f64.into_value(),
-        ruler: crate::editors::shared::ruler::Ruler {
-            zoom: kivact::interaction::ScalarRange::new(8.0, 80.0)
-                .expect("invariant: default arrangement zoom")
-                .into_value(),
-            min_duration: 0.0625.into_value(),
-            ..Default::default()
-        },
-        loop_min_duration: crate::editors::shared::metrics::LOOP_MIN_LENGTH.into_value(),
-        state,
-        markers: (move || Vec::new()).into_value(),
-        snap: true.into_value(),
-        step: 1.0.into_value(),
-        add_track: None,
-        on_edit: None,
-    }
-}
-
-impl Arrangement {
-    /// Reactive extent in beats; sixteen by default.
-    pub fn length(mut self, length: impl IntoValue<f64>) -> Self {
-        self.length = length.into_value();
-        self
-    }
-
-    /// Receive absolute item proposals and gesture boundaries.
-    /// The application applies requests and restores its items on Cancel.
-    pub fn on_edit<R: HandlerResult>(
-        mut self,
-        f: impl Fn(crate::editors::shared::model::EditorEvent<ArrangementRequest>) -> R + 'static,
-    ) -> Self {
-        self.on_edit = Some(callback(f));
-        self
-    }
-    /// Logical pixels per beat; the default range is 8..80.
-    #[track_caller]
-    pub fn zoom_range(
-        mut self,
-        range: impl kivact::state::IntoValue<kivact::interaction::ScalarRange>,
-    ) -> Self {
-        self.ruler.zoom = kivact::state::IntoValue::into_value(range);
-        self
-    }
-    /// Smallest proposed clip duration in beats; defaults to 1/16.
-    #[track_caller]
-    pub fn min_duration(mut self, duration: impl kivact::state::IntoValue<f64>) -> Self {
-        self.ruler.min_duration = crate::editors::shared::ruler::duration(duration, 0.0625);
-        self
-    }
-    /// Smallest proposed loop range in beats; defaults to 1/4.
-    #[track_caller]
-    pub fn loop_min_duration(mut self, duration: impl kivact::state::IntoValue<f64>) -> Self {
-        self.loop_min_duration = crate::editors::shared::ruler::duration(duration, 0.0625);
-        self
-    }
-    /// Run when the add-track action is invoked. Setup only.
-    #[track_caller]
-    pub fn on_add_track(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.add_track = Some(f.into());
-        self
-    }
-    pub fn markers(mut self, markers: impl IntoValue<Vec<TimelineMarker>>) -> Self {
-        self.markers = markers.into_value();
-        self
-    }
-    pub fn snap(mut self, snap: impl IntoValue<bool>) -> Self {
-        self.snap = snap.into_value();
-        self
-    }
-    pub fn step(mut self, beats: impl IntoValue<f64>) -> Self {
-        self.step = beats.into_value();
-        self
-    }
-}
-
-impl Element for Arrangement {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for Arrangement {
-    fn into_view(self) -> View {
+impl ArrangementView {
+    fn into_node(self) -> Node {
         let Prepared {
             root,
             state,
@@ -147,7 +100,10 @@ impl IntoView for Arrangement {
         let selection = state.selection;
         let gesture = super::input::drag(state);
         let availability = kivact::custom::part(|input| input);
-        observe_inputs(state, reference, availability.state());
+        state.press.watch_inputs(
+            crate::editors::shared::gesture::inputs_ok(reference, availability.state()),
+            move || state.cancel(),
+        );
         let action = callback(move |event| super::edit::a11y(state, add_track, event));
         let semantic_items = kivact::state::memo(move || super::a11y::semantic(state));
         let root = root.regions(
@@ -175,10 +131,7 @@ impl IntoView for Arrangement {
                     selection.with(Vec::len)
                 )
             })
-            .style(move || {
-                let t = &kivact::style::use_theme().get();
-                style().background(t.ext::<crate::tokens::Tokens>().island)
-            })
+            .style(style().background(crate::color::ISLAND))
             .a11y_action(A11yAction::Select, move |event| action.call(event))
             .a11y_action(A11yAction::Activate, move |event| action.call(event))
             .a11y_action(A11yAction::SetValue, move |event| action.call(event))
@@ -196,7 +149,6 @@ impl IntoView for Arrangement {
                         .on_key(move |e| super::input::key(state, e))
                 })
             })
-            .into_view()
     }
 }
 
@@ -206,10 +158,10 @@ struct Prepared {
     reference: kivact::view::NodeRef,
     add_track: Option<Callback<()>>,
 }
-impl Arrangement {
+impl ArrangementView {
     fn prepare(self) -> Prepared {
+        let root = canvas_root();
         let Self {
-            root,
             items,
             tracks,
             length,
@@ -291,40 +243,16 @@ impl Arrangement {
     }
 }
 
-fn observe_inputs(
-    state: State,
-    reference: kivact::view::NodeRef,
-    availability_state: Value<kivact::custom::PartState>,
-) {
-    let focus = reference.focus_within();
-    kivact::state::effect(move || {
-        let focused = focus.get();
-        let visible = reference.is_visible();
-        let clips = state.data.get();
-        let tracks = state.track_data.get();
-        let missing = state.initial().is_some_and(|v| match v {
-            super::gesture::Snapshot::Clips(initial) => initial.iter().any(|v| {
-                !clips
-                    .iter()
-                    .any(|c| c.id == v.0 && tracks.iter().any(|t| t.id == c.lane))
-            }),
-            super::gesture::Snapshot::Automation(track, id, Some(_)) => !tracks
-                .iter()
-                .any(|t| t.id == track && t.automation.iter().any(|p| p.id == id)),
-            super::gesture::Snapshot::Automation(track, _, None) => {
-                !tracks.iter().any(|t| t.id == track)
-            }
-            _ => false,
-        });
-        let input = availability_state.get();
-        state.press.inputs_changed(
-            focused,
-            visible && !input.is_hidden(),
-            !input.is_disabled(),
-            !missing,
-            move || state.cancel(),
-        );
-    });
+/// The focusable canvas that the regions, the pointer and the keys attach to.
+fn canvas_root() -> Node {
+    node().role(Role::Canvas).focusable(true).style(
+        style()
+            .width(pct(100))
+            .height(380)
+            .min_width(0)
+            .overflow(Overflow::Hidden)
+            .cursor(Cursor::Default),
+    )
 }
 
 fn validated_length(length: Value<f64>) -> Value<f64> {
@@ -346,13 +274,13 @@ fn validated_length(length: Value<f64>) -> Value<f64> {
 struct CollectionInputs {
     selection: Value<Vec<u64>>,
     regions: Value<crate::editors::arrangement::a11y::targets::Regions>,
-    active_auto: kivact::state::Binding<Option<(u64, u64)>>,
+    active_auto: kivact::state::Signal<Option<(u64, u64)>>,
     choose: kivact::interaction::ListApi<u64>,
 }
 fn collection_inputs(
     data: Value<Vec<Clip>>,
     track_data: Value<Vec<TimelineTrack>>,
-    selected: kivact::state::Binding<Vec<u64>>,
+    selected: kivact::state::Signal<Vec<u64>>,
 ) -> CollectionInputs {
     let selection = selected.into_value();
     let (regions, active_auto) =
@@ -374,11 +302,11 @@ fn collection_inputs(
 }
 
 fn arrangement_edit(
-    playhead: kivact::state::Binding<f64>,
-    loop_range: kivact::state::Binding<(f64, f64)>,
-    cycling: kivact::state::Binding<bool>,
-    transform: kivact::state::Binding<kivact::interaction::ViewTransform>,
-    on_edit: Option<Callback<crate::editors::shared::model::EditorEvent<ArrangementRequest>>>,
+    playhead: kivact::state::Signal<f64>,
+    loop_range: kivact::state::Signal<(f64, f64)>,
+    cycling: kivact::state::Signal<bool>,
+    transform: kivact::state::Signal<kivact::interaction::ZoomPan>,
+    on_edit: Option<Callback<EditorEvent<ArrangementRequest>>>,
 ) -> EditSession<super::gesture::Snapshot> {
     let restore = super::edit::Restore {
         playhead,

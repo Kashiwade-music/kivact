@@ -7,15 +7,16 @@ use crate::policy::scalar::ScalarRange;
 use crate::roving::{Observation, Roving};
 use crate::{ListApi, ListItem, ListOptions, use_list};
 use kivact_core::custom::{NodeRefExt, Owned, Owner};
-use kivact_core::state::{Binding, IntoBinding, Signal, Value, effect, memo, signal};
+use kivact_core::state::{Selector, selector};
+use kivact_core::state::{Signal, Value, effect, memo, signal};
 use kivact_core::view::NodeRef;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 type Label<K> = Rc<dyn Fn(&K) -> String>;
-type MultiSort<C> = Binding<Vec<(C, SortOrder)>>;
-type SortOption<K, C> = OptionValue<DataTableOptions<K, C>, Binding<Option<(C, SortOrder)>>>;
+type MultiSort<C> = Signal<Vec<(C, SortOrder)>>;
+type SortOption<K, C> = OptionValue<DataTableOptions<K, C>, Signal<Option<(C, SortOrder)>>>;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(super) enum Target<K, C> {
@@ -26,21 +27,13 @@ pub(super) enum Target<K, C> {
 #[derive(Clone)]
 pub(super) struct DataTableOptions<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> {
     pub(super) label: Option<Label<K>>,
-    pub(super) sort: Binding<Option<(C, SortOrder)>>,
+    pub(super) sort: Signal<Option<(C, SortOrder)>>,
     pub(super) multi_sort: Option<MultiSort<C>>,
-    pub(super) widths: Binding<HashMap<C, f64>>,
+    pub(super) widths: Signal<HashMap<C, f64>>,
     pub(super) resize: (ScalarRange, f64),
 }
 
 pub(super) struct State<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> {
-    // xtask-allow(state-fields): independent: the table grid part's state, set by table/handle.rs when the kit attaches the grid and absent before; the label and multi-sort options beside it are fixed at setup
-    pub(super) grid_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
-    pub(super) header_states:
-        Signal<std::collections::HashMap<C, Value<super::data::TableHeaderState>>>,
-    pub(super) row_states: Signal<std::collections::HashMap<K, Value<super::data::TableRowState>>>,
-    pub(super) cell_states:
-        Signal<std::collections::HashMap<(K, C), Value<super::data::TableCellState>>>,
-
     pub(super) owner: Owner,
     /// The App's root when the table was created: a cell of another App has
     /// another root.
@@ -57,8 +50,10 @@ pub(super) struct State<K: kivact_core::state::ItemKey, C: kivact_core::state::I
     /// the focus bookkeeping.
     pub(super) roving: Roving<Target<K, C>>,
     pub(super) tab_stop: Value<Option<Target<K, C>>>,
-    /// The cell holding the tab stop.
-    pub(super) active: Value<Option<(K, C)>>,
+    /// Whether a row holds the active cell, per row key.
+    pub(super) active_row: Selector<K>,
+    /// Whether a cell is the active cell, per cell.
+    pub(super) active_cell: Selector<(K, C)>,
 }
 
 pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
@@ -71,29 +66,16 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
     let root = Owner::root();
     let options = OptionsCell::new(DataTableOptions {
         label: None::<Label<K>>,
-        sort: signal(None::<(C, SortOrder)>).into_binding(),
+        sort: signal(None::<(C, SortOrder)>),
         multi_sort: None,
-        widths: signal(HashMap::new()).into_binding(),
+        widths: signal(HashMap::new()),
         resize: (
             ScalarRange::new(16.0, 4096.0).expect("invariant: finite column bounds"),
             10.0,
         ),
     });
     let settings = options.value();
-    let items = memo(move || {
-        let label = settings.with(|options| options.label.clone());
-        keys.with(|keys| {
-            keys.iter()
-                .map(|key| match &label {
-                    Some(label) => {
-                        let (label, key) = (label.clone(), key.clone());
-                        ListItem::new(key.clone(), move || label(&key))
-                    }
-                    None => ListItem::new(key.clone(), ""),
-                })
-                .collect::<Vec<_>>()
-        })
-    });
+    let items = row_items(keys, settings);
     let policy = match focus {
         TableFocus::None => ListOptions::default(),
         TableFocus::Rows(policy) => policy,
@@ -103,23 +85,21 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
         },
     };
     let rows = use_list(items, selection, policy);
-    let selected = rows.selected();
     let widths = initial_widths(columns);
     let roving = Roving::<Target<K, C>>::new();
     let registry = roving.clone();
-    let tab_stop = tab_stop_value(keys, columns, selected, registry);
+    let tab_stop = tab_stop_value(keys, columns, rows.membership().keys(), registry);
     let active = memo(move || {
         tab_stop.get().and_then(|target| match target {
             Target::Cell(key, column) => Some((key, column)),
             Target::Header(_) => None,
         })
     });
-    options.update(|options| options.widths = widths.into_binding());
+    let active_row =
+        selector(move || active.with(|active| active.as_ref().map(|(row, _)| row.clone())));
+    let active_cell = selector(active);
+    options.update(|options| options.widths = widths);
     let state = Rc::new(State {
-        grid_state: signal(None),
-        header_states: signal(std::collections::HashMap::new()),
-        row_states: signal(std::collections::HashMap::new()),
-        cell_states: signal(std::collections::HashMap::new()),
         owner,
         root,
         list: rows,
@@ -130,7 +110,8 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
         options,
         headers: RefCell::new(HashMap::new()),
         roving,
-        active,
+        active_row,
+        active_cell,
         tab_stop,
     });
     let stored = owner.store("DataTableApi", state.clone());
@@ -178,7 +159,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> State<K, C>
     pub(super) fn multi_sort(&self) -> OptionValue<DataTableOptions<K, C>, Option<MultiSort<C>>> {
         OptionValue::new(self.options, |options| options.multi_sort)
     }
-    pub(super) fn widths(&self) -> OptionValue<DataTableOptions<K, C>, Binding<HashMap<C, f64>>> {
+    pub(super) fn widths(&self) -> OptionValue<DataTableOptions<K, C>, Signal<HashMap<C, f64>>> {
         OptionValue::new(self.options, |options| options.widths)
     }
     pub(super) fn resize(&self) -> OptionValue<DataTableOptions<K, C>, (ScalarRange, f64)> {
@@ -251,10 +232,31 @@ impl<S: Clone + 'static, T> OptionValue<S, T> {
     }
 }
 
+/// The rows as list items, named by the table's label function.
+fn row_items<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    keys: Value<Vec<K>>,
+    settings: Value<DataTableOptions<K, C>>,
+) -> Value<Vec<ListItem<K>>> {
+    memo(move || {
+        let label = settings.with(|options| options.label.clone());
+        keys.with(|keys| {
+            keys.iter()
+                .map(|key| match &label {
+                    Some(label) => {
+                        let (label, key) = (label.clone(), key.clone());
+                        ListItem::new(key.clone(), move || label(&key))
+                    }
+                    None => ListItem::new(key.clone(), ""),
+                })
+                .collect::<Vec<_>>()
+        })
+    })
+}
+
 fn tab_stop_value<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
     keys: Value<Vec<K>>,
     columns: Value<Vec<Header<C>>>,
-    selected: Value<Vec<K>>,
+    selected: Value<HashSet<K>>,
     registry: Roving<Target<K, C>>,
 ) -> Value<Option<Target<K, C>>> {
     let requested = registry.requested;
@@ -279,7 +281,7 @@ fn tab_stop_value<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey
             selected
                 .with(|selected| {
                     keys.iter()
-                        .filter(|key| selected.contains(key))
+                        .filter(|key| selected.contains(*key))
                         .find_map(&first_in)
                 })
                 .or_else(|| keys.iter().find_map(first_in))

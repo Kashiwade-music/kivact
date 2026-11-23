@@ -1,6 +1,9 @@
 //! Role: Present a bottom-aligned sheet with draggable detents.
-use crate::recipes_dialog::{body_text, motion, shadows};
+use crate::color as c;
+use crate::recipe_parts::{body_text, shadowed, tween};
+use crate::shadows;
 
+use kivact::component;
 use kivact::interaction::DialogMode;
 use kivact::interaction::DismissOn;
 use kivact::interaction::DragAxis;
@@ -13,13 +16,12 @@ use kivact::interaction::pull_to_snap;
 use kivact::interaction::resist_overshoot;
 use kivact::interaction::use_dialog;
 use kivact::interaction::use_drag;
-use kivact::state::Binding;
-use kivact::state::IntoBinding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::Machine;
 use kivact::state::MachineHandle;
 use kivact::state::PropValue;
+use kivact::state::Signal;
 use kivact::state::Step;
 use kivact::state::Value;
 use kivact::state::binding;
@@ -28,16 +30,15 @@ use kivact::style::Align;
 use kivact::style::Justify;
 use kivact::style::Overflow;
 use kivact::style::Position;
+use kivact::style::ThemeMode;
 use kivact::style::pct;
 use kivact::style::style;
+use kivact::style::use_theme;
 use kivact::view::DismissReason;
 use kivact::view::Element;
-use kivact::view::IntoView;
-use kivact::view::IntoViewFn;
 use kivact::view::NodeRef;
 use kivact::view::Placement;
 use kivact::view::Role;
-use kivact::view::View;
 use kivact::view::ViewFn;
 use kivact::view::column;
 use kivact::view::node;
@@ -118,38 +119,103 @@ pub enum DialogPurpose {
 }
 
 /// Bottom-aligned sheet rebuilt on each opening from the caller's open binding.
-pub struct BottomSheet {
-    label: kivact::state::Value<String>,
-    open: Binding<bool>,
-    purpose: DialogPurpose,
-    height: SheetHeight,
-    snap_points: Vec<SnapPoint>,
-    scrim: kivact::state::Value<bool>,
-    padding: kivact::state::Value<f64>,
-    // xtask-allow(state-fields): option: caller target from BottomSheet::final_focus; absent leaves focus restoration to the modal overlay's opener.
+///
+/// Creates an informational sheet with capped height, a scrim and 16-pixel body padding
+/// by default. `padding` is in four-pixel steps, so its default of 4 is 16 px.
+#[component]
+pub fn bottom_sheet(
+    label: Value<String>,
+    open: Signal<bool>,
+    #[prop(default = DialogPurpose::Info)] purpose: DialogPurpose,
+    #[prop(default = SheetHeight::Capped)] height: SheetHeight,
+    #[prop(default = Vec::new())] snap_points: Vec<SnapPoint>,
+    #[prop(default = true)] scrim: Value<bool>,
+    #[prop(default = 4.0)] padding: Value<f64>,
     final_focus: Option<NodeRef>,
     content: Option<ViewFn>,
-}
-
-/// Create an informational sheet with capped height, a scrim and 16-pixel body padding.
-pub fn bottom_sheet(label: impl IntoText, open: impl IntoBinding<bool>) -> BottomSheet {
-    BottomSheet {
-        label: label.into_text_value(),
-        open: open.into_binding(),
-        purpose: DialogPurpose::Info,
-        height: SheetHeight::Capped,
-        snap_points: Vec::new(),
-        scrim: true.into_value(),
-        padding: 16.0.into_value(),
-        final_focus: None,
-        content: None,
+) -> impl IntoView {
+    let modal = scrim.get();
+    let padding = (move || padding.get() * 4.0).into_value();
+    // The modal overlay automatically restores its opener. An explicit
+    // target overrides that restoration after either kind of closure.
+    if let Some(target) = final_focus {
+        kivact::state::effect_on(open, move |shown| {
+            if !shown {
+                target.restore_focus();
+            }
+        });
     }
+    let kind = if purpose == DialogPurpose::Required {
+        DialogMode::AlertModal
+    } else {
+        DialogMode::Modal
+    };
+    let dismiss = DismissOn {
+        escape: purpose != DialogPurpose::Required,
+        outside: purpose == DialogPurpose::Info,
+    };
+    let behavior = use_dialog(open, kind).dismiss(dismiss);
+    show(open, move || {
+        let body_ref = node_ref();
+        let body_rect = body_ref.rect();
+        let points = snap_points.clone();
+        let detents: SheetDetents = Rc::new(move || {
+            let viewport = kivact::platform::window_size().get().height;
+            let full = sheet_height(height, viewport, body_rect.get().map_or(0.0, |r| r.height));
+            (full, offsets(full, viewport, &points))
+        });
+        let sheet = sheet_machine(detents.clone(), purpose, open);
+        let state = sheet.state();
+        let drag = sheet_drag(sheet);
+        let handle = sheet_handle(drag);
+        let body = column(content.as_ref().map(|content| content.call(())))
+            .node_ref(body_ref)
+            .style(move || style().padding(padding.get()));
+        let body = scroll(body)
+            .name(label)
+            .style(style().flex_grow(1).min_height(0));
+        let position_points = snap_points.clone();
+        let panel = column((body, handle))
+            .style(move || sheet_panel_style(height, body_rect, &position_points, state));
+        let scrim = sheet_scrim(modal, detents.clone(), state, dismiss, open);
+        let frame = column((scrim, panel)).style(|| {
+            let viewport = kivact::platform::window_size().get();
+            style()
+                .size(viewport.width, viewport.height)
+                .justify_content(Justify::End)
+                .align_items(Align::Center)
+        });
+        let layer = overlay(node_ref(), Placement::Center, frame).viewport_margin(0.0);
+        if modal {
+            layer
+                .with_node(move |node| node.part(behavior.content()))
+                .name(label)
+                .into_view()
+        } else {
+            layer
+                .with_node(move |node| {
+                    node.role(if purpose == DialogPurpose::Required {
+                        Role::AlertDialog
+                    } else {
+                        Role::Dialog
+                    })
+                })
+                .name(label)
+                .on_dismiss(move |reason| {
+                    if dismiss.escape && reason == DismissReason::Escape {
+                        open.set(false);
+                    }
+                })
+                .into_view()
+        }
+    })
+    .into_view()
 }
 
 /// Opens one of several independent sheets from a shared step binding.
 pub fn bottom_sheet_flow<K: PropValue>(
     label: impl IntoText,
-    step: Binding<Option<K>>,
+    step: Signal<Option<K>>,
     key: K,
 ) -> BottomSheet {
     let selected = key.clone();
@@ -166,135 +232,6 @@ pub fn bottom_sheet_flow<K: PropValue>(
             },
         ),
     )
-}
-
-impl BottomSheet {
-    /// Choose fixed dismissal rules; informational by default.
-    pub fn purpose(mut self, purpose: DialogPurpose) -> Self {
-        self.purpose = purpose;
-        self
-    }
-
-    /// Choose the maximum sheet height; capped by default.
-    pub fn height(mut self, height: SheetHeight) -> Self {
-        self.height = height;
-        self
-    }
-
-    /// Set extra visible-height detents; the fully open position is always included.
-    pub fn snap_points(mut self, points: impl IntoIterator<Item = SnapPoint>) -> Self {
-        self.snap_points = points.into_iter().collect();
-        self
-    }
-
-    /// Enable the scrim; its value at mounting also chooses modal presentation.
-    pub fn scrim(mut self, scrim: impl IntoValue<bool>) -> Self {
-        self.scrim = scrim.into_value();
-        self
-    }
-
-    /// Set body padding in four-pixel spacing steps; defaults to four steps.
-    pub fn padding(mut self, step: impl IntoValue<f64>) -> Self {
-        let step = step.into_value();
-        self.padding = (move || step.get() * 4.0).into_value();
-        self
-    }
-
-    /// Restore focus to this target after closing instead of relying on the default opener.
-    pub fn final_focus(mut self, target: NodeRef) -> Self {
-        self.final_focus = Some(target);
-        self
-    }
-
-    /// Build body content anew for each opening; no content is installed by default.
-    pub fn content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
-        self.content = Some(content.into_view_fn());
-        self
-    }
-}
-
-impl IntoView for BottomSheet {
-    fn into_view(self) -> View {
-        let open = self.open;
-        let purpose = self.purpose;
-        let modal = self.scrim.get();
-        // The modal overlay automatically restores its opener. An explicit
-        // target overrides that restoration after either kind of closure.
-        if let Some(target) = self.final_focus {
-            kivact::state::effect_on(open, move |shown| {
-                if !shown {
-                    target.restore_focus();
-                }
-            });
-        }
-        let kind = if purpose == DialogPurpose::Required {
-            DialogMode::AlertModal
-        } else {
-            DialogMode::Modal
-        };
-        let dismiss = DismissOn {
-            escape: purpose != DialogPurpose::Required,
-            outside: purpose == DialogPurpose::Info,
-        };
-        let behavior = use_dialog(open, kind).dismiss(dismiss);
-        show(open, move || {
-            let body_ref = node_ref();
-            let body_rect = body_ref.rect();
-            let height = self.height;
-            let points = self.snap_points.clone();
-            let detents: SheetDetents = Rc::new(move || {
-                let viewport = kivact::platform::window_size().get().height;
-                let full =
-                    sheet_height(height, viewport, body_rect.get().map_or(0.0, |r| r.height));
-                (full, offsets(full, viewport, &points))
-            });
-            let sheet = sheet_machine(detents.clone(), purpose, open);
-            let state = sheet.state();
-            let drag = sheet_drag(sheet);
-            let handle = sheet_handle(drag);
-            let body = column(self.content.as_ref().map(|content| content.call(())))
-                .node_ref(body_ref)
-                .style(move || style().padding(self.padding.get()));
-            let body = scroll(body)
-                .name(self.label)
-                .style(style().grow(1).min_height(0));
-            let position_points = self.snap_points.clone();
-            let panel = column((body, handle))
-                .style(move || sheet_panel_style(height, body_rect, &position_points, state));
-            let scrim = sheet_scrim(modal, detents.clone(), state, dismiss, open);
-            let frame = column((scrim, panel)).style(|| {
-                let viewport = kivact::platform::window_size().get();
-                style()
-                    .size(viewport.width, viewport.height)
-                    .justify_content(Justify::End)
-                    .align_items(Align::Center)
-            });
-            let layer = overlay(node_ref(), Placement::Center, frame).viewport_margin(0.0);
-            if modal {
-                layer
-                    .with_node(move |node| node.part(behavior.content()))
-                    .name(self.label)
-                    .into_view()
-            } else {
-                layer
-                    .with_node(move |node| {
-                        node.role(if purpose == DialogPurpose::Required {
-                            Role::AlertDialog
-                        } else {
-                            Role::Dialog
-                        })
-                    })
-                    .name(self.label)
-                    .on_dismiss(move |reason| {
-                        if dismiss.escape && reason == DismissReason::Escape {
-                            open.set(false);
-                        }
-                    })
-                    .into_view()
-            }
-        })
-        .into_view()
-    }
 }
 
 fn sheet_height(height: SheetHeight, viewport: f64, content: f64) -> f64 {
@@ -344,7 +281,7 @@ struct SheetMachine {
 fn sheet_machine(
     detents: SheetDetents,
     purpose: DialogPurpose,
-    open: Binding<bool>,
+    open: Signal<bool>,
 ) -> MachineHandle<SheetMachine> {
     machine(
         Sheet::Resting { snap: 0 },
@@ -444,21 +381,21 @@ fn sheet_panel_style(
     position_points: &[SnapPoint],
     sheet: Value<Sheet>,
 ) -> kivact::style::Style {
-    let p = kivact::style::use_tokens::<crate::Tokens>();
     let viewport = kivact::platform::window_size().get().height;
     let full = sheet_height(height, viewport, body_rect.get().map_or(0.0, |r| r.height));
     let detents = offsets(full, viewport, position_points);
     let offset = sheet.get().offset(&detents);
-    let base = shadows(body_text(&p), &p.shadows.high)
+    let dark = use_theme().get().mode() == ThemeMode::Dark;
+    let base = shadowed(body_text(style()), shadows::high(dark))
         .width(pct(100))
         .max_width(640)
         .max_height(pct(92))
-        .radius_top_left(12)
-        .radius_top_right(12)
-        .background(p.colors.bg_surface)
-        .border_top(1, p.colors.border)
-        .border_left(1, p.colors.border)
-        .border_right(1, p.colors.border)
+        .border_top_left_radius(12)
+        .border_top_right_radius(12)
+        .background(c::BG_SURFACE)
+        .border_top(1, c::BORDER)
+        .border_left(1, c::BORDER)
+        .border_right(1, c::BORDER)
         .overflow(Overflow::Hidden)
         .translate_y(offset);
     let base = if height == SheetHeight::Hug {
@@ -469,7 +406,7 @@ fn sheet_panel_style(
     if matches!(sheet.get(), Sheet::Dragging { .. }) {
         base
     } else {
-        motion(base, &p, 300).enter(style().translate_y(pct(100)))
+        tween(base, 300).enter(style().translate_y(pct(100)))
     }
 }
 
@@ -478,13 +415,12 @@ fn sheet_scrim(
     scrim_detents: SheetDetents,
     sheet: Value<Sheet>,
     dismiss: DismissOn,
-    open: Binding<bool>,
+    open: Signal<bool>,
 ) -> Option<kivact::view::Node> {
     modal.then(|| {
         node()
             .with_node(move |node| node.role(Role::Generic))
             .style(move || {
-                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let (full, detents) = scrim_detents();
                 let offset = sheet.get().offset(&detents);
                 let shortest = detents[detents.len() - 1];
@@ -500,12 +436,12 @@ fn sheet_scrim(
                 let base = style()
                     .position(Position::Absolute)
                     .inset(0)
-                    .background(p.colors.overlay_scrim)
+                    .background(c::OVERLAY_SCRIM)
                     .opacity(opacity);
                 if matches!(sheet.get(), Sheet::Dragging { .. }) {
                     base
                 } else {
-                    motion(base, &p, 300).enter(style().opacity(0.0))
+                    tween(base, 300).enter(style().opacity(0.0))
                 }
             })
             .on_press(move || {
@@ -519,10 +455,7 @@ fn sheet_scrim(
 fn sheet_handle(drag: kivact::interaction::DragApi<()>) -> kivact::view::Node {
     node()
         .with_node(move |node| node.part(drag.source(())))
-        .child(node().style(|| {
-            let p = kivact::style::use_tokens::<crate::Tokens>();
-            style().size(36, 4).radius(2).background(p.colors.border)
-        }))
+        .child(node().style(|| style().size(36, 4).border_radius(2).background(c::BORDER)))
         .style(
             style()
                 .position(Position::Absolute)

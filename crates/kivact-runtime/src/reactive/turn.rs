@@ -34,8 +34,8 @@ impl Sched {
         &mut self,
         graph: &mut crate::reactive::arena::Arena<RNode>,
     ) -> Option<Key> {
-        let (_, key) = self.render.first().copied()?;
-        Self::unqueue(self, graph, key);
+        let (_, key) = self.render.pop_first()?;
+        Self::unmark(graph, key);
         Some(key)
     }
 
@@ -44,11 +44,10 @@ impl Sched {
         &mut self,
         graph: &mut crate::reactive::arena::Arena<RNode>,
     ) -> Vec<Key> {
-        self.render
-            .clone()
-            .into_iter()
+        let set = std::mem::take(&mut self.render);
+        set.into_iter()
             .map(|(_, k)| {
-                Self::unqueue(self, graph, k);
+                Self::unmark(graph, k);
                 k
             })
             .collect()
@@ -59,21 +58,22 @@ impl Sched {
         &mut self,
         graph: &mut crate::reactive::arena::Arena<RNode>,
     ) -> Vec<Key> {
-        self.user
-            .clone()
-            .into_iter()
+        let set = std::mem::take(&mut self.user);
+        set.into_iter()
             .map(|(_, k)| {
-                Self::unqueue(self, graph, k);
+                Self::unmark(graph, k);
                 k
             })
             .collect()
     }
 
-    fn unqueue(&mut self, graph: &mut crate::reactive::arena::Arena<RNode>, key: Key) {
-        if let Some(NodeData::Effect(e) | NodeData::Watcher(e)) =
-            graph.get_mut(key).map(|n| &mut n.data)
+    /// An effect taken out of its queue set is stale again, not queued.
+    fn unmark(graph: &mut crate::reactive::arena::Arena<RNode>, key: Key) {
+        if let Some(n) = graph.get_mut(key)
+            && matches!(n.data, NodeData::Effect(_) | NodeData::Watcher(_))
+            && let CompState::Queued(stale) = n.state
         {
-            e.run.state.dequeue(self, e.kind, e.seq, key);
+            n.state = CompState::Stale(stale);
         }
     }
     pub(crate) fn remove(&mut self, state: &mut CompState, kind: EffectKind, seq: u64, key: Key) {
@@ -117,14 +117,12 @@ impl Runtime {
     /// Run queued Render/Internal effects until none is left. One effect
     /// running more than `CYCLE_LIMIT` times in one pass is a cycle; that
     /// limit is fixed. The pass as a whole stops after `CYCLE_LIMIT` runs
-    /// per graph node (plus one): that bound grows with the size of the
-    /// App, so a large App whose effects each run a few times is not cut.
-    /// Either cut is reported as a `Cycle` to the default sink.
-    pub fn stabilize(&self) {
+    /// per graph node (plus one), counted against the graph as it is at
+    /// each run: an effect may mount many nodes, so the bound grows during
+    /// the pass, and a large App whose effects each run a few times is not
+    /// cut. Either cut is reported as a `Cycle` to the default sink.
+    pub(crate) fn stabilize(&self) {
         let mut runs: usize = 0;
-        let limit = CYCLE_LIMIT * (self.graph.borrow().len() + 1);
-        // Runs of each effect in this pass (the per-effect cycle limit).
-        let mut own_runs: std::collections::HashMap<Key, usize> = std::collections::HashMap::new();
         loop {
             let next = self
                 .sched
@@ -132,11 +130,11 @@ impl Runtime {
                 .pop_render(&mut self.graph.borrow_mut());
             let Some(key) = next else { break };
             runs += 1;
-            let own = own_runs.entry(key).or_insert(0);
-            *own += 1;
-            if *own > CYCLE_LIMIT || runs > limit {
+            let own = self.count_pass_run(key);
+            let limit = CYCLE_LIMIT * (self.graph.borrow().len() + 1);
+            if usize::from(own) > CYCLE_LIMIT || runs > limit {
                 self.abandon_render_effects(key);
-                let at = self.graph.borrow().get(key).map(|n| n.at);
+                let at = self.node_at(key);
                 self.default_sink(new_error(
                     ErrorKind::Cycle {
                         path: at.into_iter().collect(),
@@ -147,6 +145,34 @@ impl Runtime {
                 break;
             }
             self.run_effect(key);
+        }
+        self.reset_pass_runs();
+    }
+
+    /// Count one run of effect `key` in this stabilize pass; returns the count.
+    fn count_pass_run(&self, key: Key) -> u8 {
+        let mut g = self.graph.borrow_mut();
+        let Some(NodeData::Effect(e) | NodeData::Watcher(e)) = g.get_mut(key).map(|n| &mut n.data)
+        else {
+            return 0;
+        };
+        if e.pass_runs == 0 {
+            self.pass_touched.borrow_mut().push(key);
+        }
+        e.pass_runs = e.pass_runs.saturating_add(1);
+        e.pass_runs
+    }
+
+    /// Forget the per-pass run counts of the effects that ran.
+    fn reset_pass_runs(&self) {
+        let mut touched = self.pass_touched.borrow_mut();
+        let mut g = self.graph.borrow_mut();
+        for key in touched.drain(..) {
+            if let Some(NodeData::Effect(e) | NodeData::Watcher(e)) =
+                g.get_mut(key).map(|n| &mut n.data)
+            {
+                e.pass_runs = 0;
+            }
         }
     }
 
@@ -160,14 +186,16 @@ impl Runtime {
         keys.push(current);
         let mut g = self.graph.borrow_mut();
         for k in keys {
-            if let Some(c) = g.get_mut(k).and_then(RNode::computation_mut) {
-                c.state.abandon();
+            if let Some(n) = g.get_mut(k)
+                && n.is_computation()
+            {
+                n.state.abandon();
             }
         }
     }
 
     /// Run the user effects queued so far (one round). Returns whether any ran.
-    pub fn run_user_effects(&self) -> bool {
+    pub(crate) fn run_user_effects(&self) -> bool {
         let batch = self
             .sched
             .borrow_mut()
@@ -187,8 +215,10 @@ impl Runtime {
             .take_user(&mut self.graph.borrow_mut());
         let mut g = self.graph.borrow_mut();
         for k in &v {
-            if let Some(c) = g.get_mut(*k).and_then(RNode::computation_mut) {
-                c.state.abandon();
+            if let Some(n) = g.get_mut(*k)
+                && n.is_computation()
+            {
+                n.state.abandon();
             }
         }
         v
@@ -202,5 +232,116 @@ impl Runtime {
     /// Whether Render/Internal effects are queued.
     pub(crate) fn has_render_effects(&self) -> bool {
         self.sched.borrow().has_render()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: One stabilisation pass is bounded by the graph it runs over, and
+    //! a self-rerunning effect is still a cycle.
+
+    use std::cell::Cell;
+    use std::panic::Location;
+    use std::rc::Rc;
+
+    use crate::reactive::data::{EffectKind, Runtime};
+    use crate::reactive::error::ErrorKind;
+    use crate::reactive::host_types::Host;
+
+    struct Quiet;
+
+    impl Host for Quiet {
+        fn wake(&self) {}
+    }
+
+    /// How many `Cycle` errors reached the default sink.
+    fn cycles(rt: &Runtime) -> usize {
+        rt.errors()
+            .iter()
+            .filter(|e| matches!(e.kind(), ErrorKind::Cycle { .. }))
+            .count()
+    }
+
+    #[test]
+    fn a_pass_that_mounts_three_thousand_effects_is_not_a_cycle() {
+        const MOUNTED: usize = 3_000;
+        let rt = Runtime::register(
+            Rc::new(Quiet),
+            0,
+            crate::reactive::extensions::test_extensions(),
+        );
+        let at = Location::caller();
+        assert_eq!(rt.create_owner(None, at), rt.root);
+        rt.enter(|| {
+            let root = rt.root();
+            let go = root.signal(0u32, at);
+            let bus = root.signal(0u32, at);
+            // Each mounted effect counts its runs: one at mount, one in the pass.
+            let runs: Rc<Vec<Cell<u32>>> = Rc::new((0..MOUNTED).map(|_| Cell::new(0)).collect());
+            let driver_runs = Rc::clone(&runs);
+            // The graph is small here; the driver grows it during the pass.
+            root.effect(
+                EffectKind::Internal,
+                move || {
+                    if go.get() == 0 {
+                        return;
+                    }
+                    for i in 0..MOUNTED {
+                        let runs = Rc::clone(&driver_runs);
+                        root.effect(
+                            EffectKind::Internal,
+                            move || {
+                                let _ = bus.get();
+                                let c = &runs[i];
+                                c.set(c.get() + 1);
+                            },
+                            at,
+                        );
+                    }
+                    bus.set(1);
+                },
+                at,
+            );
+            go.set(1);
+            rt.stabilize();
+
+            assert_eq!(cycles(&rt), 0, "a pass that mounts effects is not a cycle");
+            let short = runs.iter().filter(|c| c.get() != 2).count();
+            assert_eq!(
+                short, 0,
+                "every mounted effect runs once at mount and once in the pass"
+            );
+        });
+        rt.shutdown();
+    }
+
+    #[test]
+    fn an_effect_that_reruns_itself_is_a_cycle() {
+        let rt = Runtime::register(
+            Rc::new(Quiet),
+            0,
+            crate::reactive::extensions::test_extensions(),
+        );
+        let at = Location::caller();
+        assert_eq!(rt.create_owner(None, at), rt.root);
+        rt.enter(|| {
+            let root = rt.root();
+            let kick = root.signal(0u32, at);
+            let s = root.signal(0u32, at);
+            root.effect(
+                EffectKind::Internal,
+                move || {
+                    let _ = kick.get();
+                    let v = s.get();
+                    s.set(v + 1);
+                },
+                at,
+            );
+            kick.set(1);
+            rt.stabilize();
+
+            assert_eq!(cycles(&rt), 1, "an effect that writes what it reads is cut");
+        });
+        rt.shutdown();
     }
 }

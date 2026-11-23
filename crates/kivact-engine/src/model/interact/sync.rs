@@ -14,7 +14,7 @@
 //! them, the leaving subtrees that stopped moving, the final layout styles
 //! of the changed nodes and their dirty chains, registered fonts (every
 //! text, text input and measured leaf is measured again and its input lines
-//! split again), the paint metrics (`Look`) and image assets of the touched
+//! split again), the paint metrics (`LayerTraits`) and image assets of the touched
 //! nodes, the assets of the changed scene layers, the cached image
 //! failures, then the redraw, restack and ink of the paint list, the
 //! accessibility rebuild (`a11y::state`) and the editors' sessions to
@@ -34,6 +34,7 @@ use crate::contract::{HostEvent, NodeType, SyncRecord};
 use crate::lower::AssetEvent;
 use crate::model::Model;
 use crate::model::changes::{Dirty, Dispatched, Geometry};
+use crate::paint::state::LayerTraits;
 use kivact_types::{NodeId, Size};
 
 /// Whether settling performed pending layout and geometry work.
@@ -46,6 +47,7 @@ impl Model {
     /// The window was resized.
     pub(crate) fn set_viewport(&mut self, window: Size) {
         if self.viewport != window {
+            self.forget_origins();
             self.viewport = window;
             if let Some(root) = self.tree.root() {
                 self.a11y.subtree(root);
@@ -58,6 +60,12 @@ impl Model {
             self.changes
                 .layout
                 .insert(crate::model::changes::LayoutReasons::PASS);
+            for id in self.input_ids() {
+                self.changes.mark(id, Dirty::CARET);
+            }
+            if let Some(root) = self.tree.root() {
+                self.changes.mark(root, Dirty::REPORT);
+            }
         }
     }
 
@@ -68,6 +76,9 @@ impl Model {
     pub(crate) fn remeasure(&mut self, id: NodeId) {
         if self.tree.contains(id) {
             self.changes.mark(id, Dirty::MEASURE);
+            if self.edits_input(id) {
+                self.changes.mark(id, Dirty::CARET);
+            }
             self.changes
                 .layout
                 .insert(crate::model::changes::LayoutReasons::PASS);
@@ -83,6 +94,76 @@ impl Model {
 
     pub(crate) fn invalidate_paint(&mut self) {
         self.changes.paint = true;
+        self.forget_draws();
+    }
+
+    /// Every kept drawing is drawn again (the host repaints everything:
+    /// scale, surface, reduced motion).
+    pub(crate) fn forget_draws(&mut self) {
+        for (_, slot) in self.paint.draw_owners.get_mut().drain() {
+            self.slots.draws[slot].set(None);
+        }
+    }
+
+    /// `id` and every node below it draw again: an inherited text color
+    /// changed with `id`'s state.
+    pub(crate) fn forget_draws_below(&mut self, id: NodeId) {
+        let mut stack = vec![id];
+        while let Some(x) = stack.pop() {
+            if let Some(n) = self.tree.get(x) {
+                self.slots.draws[n.index.0].set(None);
+                stack.extend(self.tree.children_ids(n));
+            }
+        }
+    }
+
+    /// The nodes a transition moves this sync (a prop's transition too, not
+    /// only a state style's): their facts are derived again, and whether
+    /// their look changed what their list steps are made of.
+    fn relook_moving(&mut self, changes: &Dispatched) -> bool {
+        let mut relook = false;
+        for id in changes.marked(Dirty::REDRAW) {
+            if self.motion.get(id).is_none() {
+                continue;
+            }
+            self.stale_fact(id);
+            let children: Vec<NodeId> = self.tree.flat_children(id).collect();
+            for child in children {
+                self.stale_fact(child);
+            }
+            relook |= self.relooked(id);
+        }
+        relook
+    }
+
+    /// Whether `id`'s look changed what its list steps are made of since
+    /// the list was built; a node the list did not record changes it.
+    pub(crate) fn relooked(&self, id: NodeId) -> bool {
+        let Some(n) = self.node(id) else {
+            return false;
+        };
+        let Some(listed) = self.paint.listed_look(id) else {
+            return true;
+        };
+        let now = LayerTraits::now(self, id, n);
+        if self.motion.moves_layer(id) || self.layout_motion_transform(id).is_some() {
+            // A moving layer applies its opacity itself: only the other facts count.
+            let steady = |look: LayerTraits| LayerTraits {
+                opacity: 1.0,
+                ..look
+            };
+            steady(now).stacking() != steady(listed).stacking()
+        } else {
+            now.stacking() != listed.stacking()
+        }
+    }
+
+    /// Whether a state of `id` (or its transition) colors the text below it.
+    pub(crate) fn colors_text_below(&self, id: NodeId) -> bool {
+        self.node(id)
+            .and_then(|n| n.states())
+            .is_some_and(|s| s.deltas().any(|d| d.text_color.is_some()))
+            || self.motion.get(id).is_some_and(|a| a.colors_text(|| true))
     }
 
     /// A font file was registered: every text, text input and measured
@@ -92,8 +173,37 @@ impl Model {
         self.changes.fonts = true;
     }
 
+    /// Measure every text and input again after the fonts changed.
+    fn remeasure_for_fonts(&mut self) {
+        let texts: Vec<NodeId> = self
+            .tree
+            .iter()
+            .filter(|(_, n)| {
+                (n.kind() == NodeType::Text || self.slots.editors[n.index.0].is_some())
+                    || n.measure().is_some()
+            })
+            .map(|(id, _)| id)
+            .collect();
+        for id in texts {
+            // New fonts can change fallback: an input's lines (painted and
+            // measured) are shaped again.
+            if let Some(slot) = self.tree.nodes.index_of(id)
+                && let Some(editor) = self.slots.editors[slot.0].as_mut()
+            {
+                editor.lines = Default::default();
+                editor.measure_lines = Default::default();
+            }
+            self.a11y.payload(id);
+            self.remeasure(id);
+        }
+    }
+
     /// Dispatch pending writes and input changes into derived work once.
     pub(crate) fn sync(&mut self) {
+        // Nothing to dispatch: a sync after another, or an input that changed nothing.
+        if self.changes.is_clean() && !self.tree.child_orders_pending() {
+            return;
+        }
         let reasons = self.changes.layout.bits();
         self.retarget_frame();
         self.finish_entrances();
@@ -119,32 +229,8 @@ impl Model {
         {
             self.layout.topology_changed();
         }
-        let tree = &self.tree;
-        self.paint.forget_missing(|id| tree.contains(id));
-        self.assets
-            .borrow_mut()
-            .prune_reports(|id| tree.contains(id));
         if self.changes.fonts {
-            let texts: Vec<NodeId> = self
-                .tree
-                .iter()
-                .filter(|(_, n)| {
-                    (n.kind() == NodeType::Text || self.editors[n.index.0].is_some())
-                        || n.measure().is_some()
-                })
-                .map(|(id, _)| id)
-                .collect();
-            for id in texts {
-                // New fonts can change fallback: an input's lines are
-                // shaped again.
-                if let Some(slot) = self.tree.nodes.index_of(id)
-                    && let Some(editor) = self.editors[slot.0].as_mut()
-                {
-                    editor.lines = Default::default();
-                }
-                self.a11y.payload(id);
-                self.remeasure(id);
-            }
+            self.remeasure_for_fonts();
         }
         let mut touched: Vec<NodeId> = self.changes.touched().collect();
         for id in &touched {
@@ -153,26 +239,43 @@ impl Model {
         touched.sort_unstable();
         self.report_images(&touched);
         let changes = self.changes.dispatch();
+        if changes.geometry != Geometry::Kept || changes.any(Dirty::SCROLLED.union(Dirty::STUCK)) {
+            self.forget_origins();
+        }
         self.record_sync(reasons, &changes);
         let moved = changes.geometry != Geometry::Kept;
         let redraw = changes.paint
             || changes.fonts
             || moved
-            || changes.any(Dirty::WRITTEN.union(Dirty::REDRAW));
+            || changes.any(Dirty::WRITTEN.union(Dirty::REDRAW).union(Dirty::SCROLLED));
         let restyled: Vec<NodeId> = changes
             .marked(Dirty::REDRAW)
             .filter(|id| self.node(*id).is_some_and(|n| n.states().is_some()))
             .collect();
+        let mut relook = self.relook_moving(&changes);
         for id in &restyled {
+            relook |= self.relooked(*id);
             self.stale_fact(*id);
             let children: Vec<NodeId> = self.tree.flat_children(*id).collect();
             for child in children {
                 self.stale_fact(child);
             }
+            if self.colors_text_below(*id) {
+                self.forget_draws_below(*id);
+            }
         }
-        let restack = changes.restack || moved || !restyled.is_empty();
+        let restack = changes.restack || moved || relook;
+        self.paint.outdate_paint(
+            &self.tree,
+            &changes,
+            redraw,
+            changes.fonts,
+            restack,
+            &self.slots.ink,
+        );
+        self.paint.rewalk_after(changes.marked(Dirty::SCROLLED));
         self.paint
-            .outdate_paint(&self.tree, &changes, redraw, changes.fonts, restack);
+            .outdate_draws(&self.tree, &changes, changes.fonts, &self.slots.draws);
         self.report_sessions();
     }
 
@@ -202,12 +305,12 @@ impl Model {
             return;
         };
         let look = n.paint().map_or_else(
-            || crate::paint::state::Look::of(&kivact_types::PaintProps::default()),
-            crate::paint::state::Look::of,
+            || crate::paint::state::LayerTraits::of(&kivact_types::PaintProps::default()),
+            crate::paint::state::LayerTraits::of,
         );
         // The list is built again when what its steps are made of changed
         // (a node not derived before has no list step yet).
-        let kept = self.paint.look[n.index.0].replace(look);
+        let kept = self.slots.look[n.index.0].replace(look);
         if kept.is_none_or(|kept| kept.stacking() != look.stacking()) {
             self.changes.restack = true;
         }
@@ -231,10 +334,9 @@ impl Model {
     }
 
     /// Run pending layout work, then distribute its geometry changes.
-    pub(crate) fn settle(&mut self, engine: &mut arvane::Engine) -> Settled {
+    pub(crate) fn settle(&mut self, engine: &mut arvane_text::TextEngine) -> Settled {
         self.sync();
-        if self.needs_layout() {
-            #[cfg(debug_assertions)]
+        let settled = if self.needs_layout() {
             let remeasured: Vec<NodeId> = self.changes.marked(Dirty::MEASURE).collect();
             self.layout(engine);
             let pending = self.assets.borrow_mut().take_pending();
@@ -248,14 +350,25 @@ impl Model {
             #[cfg(debug_assertions)]
             self.lint_layout(engine, self.changes.was_laid_out(), &remeasured);
             self.sync();
-            // In-memory sources may finish decoding during layout without a
-            // later store poll. Publish the same actual asset projection now.
-            let images: Vec<NodeId> = self.tree.images.iter().copied().collect();
+            // Images measured in this pass may have finished decoding during it.
+            let images: Vec<NodeId> = remeasured
+                .iter()
+                .copied()
+                .filter(|id| self.tree.images.contains(id))
+                .collect();
             self.report_images(&images);
             Settled::Updated
         } else {
+            // Without a pass, the reports a write made due (a drawable's
+            // geometry moved) are still taken here, not kept for the next sync.
+            if self.changes.marked(Dirty::REPORT).next().is_some() {
+                self.report_geometry(engine);
+            }
             Settled::Kept
-        }
+        };
+        // The carets that moved are kept in view once the boxes are laid out.
+        self.scroll_inputs(engine);
+        settled
     }
 
     /// Apply the asset store's finished work: measure again the images
@@ -268,22 +381,28 @@ impl Model {
             return;
         }
         let images: Vec<NodeId> = self.tree.images.iter().copied().collect();
+        let mut resized = Vec::new();
         if changed {
             for id in &images {
                 let node = self.tree.get(*id);
-                let used = node.and_then(|n| self.measure.natural(n.index.0));
+                let used = node.and_then(|n| self.slots.measure.natural(n.index.0));
                 let image = node.and_then(|n| n.image());
                 if self.assets.borrow_mut().natural_changed(image, used) {
                     self.remeasure(*id);
                     self.changes.mark(*id, Dirty::REDRAW);
                     self.a11y.payload(*id);
+                    resized.push(*id);
                 }
             }
             self.changes.restack = true;
             self.changes.paint = true;
         }
         self.sync();
-        self.report_images(&images);
+        if failed {
+            self.report_images(&images);
+        } else {
+            self.report_images(&resized);
+        }
     }
 
     /// Report the loading status of the `Image` nodes among `nodes` when it

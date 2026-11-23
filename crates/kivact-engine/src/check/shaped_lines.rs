@@ -1,4 +1,4 @@
-//! Role: Shape a text as it is painted and read its lines' advances and ink.
+//! Role: Shape a text as it is painted and read its lines' advances and line boxes.
 
 use crate::contract::NodeType;
 use crate::model::Model;
@@ -7,9 +7,9 @@ use kivact_types::{NodeId, Point, Rect};
 
 /// A shaped line, placed in the layout space.
 pub(super) struct Line {
-    /// Its ink: the advance across, the glyphs' outlines (or, without
-    /// them, the capitals' top to the descent) down.
-    pub(super) ink: Rect,
+    /// Its box: the advance across, the line box down (the line-height
+    /// included). The glyphs' outlines do not count.
+    pub(super) bounds: Rect,
     /// Its baseline.
     pub(super) baseline: f64,
     /// The height of the capitals above the baseline.
@@ -27,12 +27,12 @@ pub(super) struct Shaped {
 }
 
 impl Shaped {
-    /// The rect the text covers: its lines' advances across, their ink
-    /// down.
+    /// The rect the text covers: its lines' advances across, their line
+    /// boxes down.
     pub(super) fn rect(&self) -> Rect {
         self.lines
             .iter()
-            .map(|l| l.ink)
+            .map(|l| l.bounds)
             .reduce(|a, b| a.union(b))
             .unwrap_or_default()
     }
@@ -42,9 +42,8 @@ impl Shaped {
 /// not checked: a multiline input scrolls its lines).
 pub(super) fn shape(
     host: &Model,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     id: NodeId,
-    ink: bool,
 ) -> Option<Shaped> {
     let n = host.node(id)?;
     let props = host.text_props(id);
@@ -56,7 +55,7 @@ pub(super) fn shape(
     );
     let area = visual::text_box(host, id);
     let (shaped, origin) = match n.kind() {
-        _ if host.editors[n.index.0].is_some() && !n.multiline() => {
+        _ if host.slots.editors[n.index.0].is_some() && !n.multiline() => {
             let line = crate::model::interact::text_geometry::line_box(host, id, engine, area);
             let (mut lines, text) = host.edit_lines(id, engine)?;
             (
@@ -67,7 +66,7 @@ pub(super) fn shape(
                 },
             )
         }
-        NodeType::Text if host.editors[n.index.0].is_none() => (
+        NodeType::Text if host.slots.editors[n.index.0].is_none() => (
             crate::model::interact::text_geometry::shape_static_text(host, id, engine, area.width)?,
             Point {
                 x: area.x,
@@ -76,73 +75,26 @@ pub(super) fn shape(
         ),
         _ => return None,
     };
-    let inks = line_inks(&shaped, origin, ink);
     let lines = shaped
         .lines
         .iter()
-        .zip(inks)
-        .map(|(l, ink)| {
-            let x = origin.x + l.rect.x;
-            // From the capitals' top to the descent: where a line's ink
-            // lies without looking at the glyphs.
-            let top = if l.cap_height > 0.0 {
-                l.cap_height
-            } else {
-                l.ascent
-            };
-            let metrics = Rect {
-                x,
-                y: origin.y + l.baseline - top,
-                width: l.rect.width,
-                height: top + l.descent,
-            };
-            // The advance across, the ink down.
-            let ink = ink.map_or(metrics, |i| Rect {
-                x,
-                width: l.rect.width,
-                ..i
-            });
-            Line {
-                ink,
-                baseline: origin.y + l.baseline,
-                cap_height: l.cap_height,
-                height: l.rect.height,
-                cut: l.cut,
-            }
+        .map(|l| Line {
+            // The advance across, the line box down: the line's tile of the
+            // paragraph, from its top.
+            bounds: Rect {
+                x: origin.x + l.line_box.x,
+                y: origin.y + l.line_box.y,
+                width: l.line_box.width,
+                height: l.line_box.height,
+            },
+            baseline: origin.y + l.baseline,
+            cap_height: l.cap_height,
+            height: l.line_box.height,
+            cut: l.cut,
         })
         .collect();
     Some(Shaped {
         lines,
         font_size: props.font_size,
     })
-}
-
-fn line_inks(
-    shaped: &kivact_types::render::ShapedText,
-    origin: Point,
-    ink: bool,
-) -> Vec<Option<Rect>> {
-    let mut inks: Vec<Option<Rect>> = vec![None; shaped.lines.len()];
-    if ink {
-        for run in &shaped.runs {
-            let (Some(b), Some(g)) = (arvane::glyph_ink_bounds(run), run.glyphs.first()) else {
-                continue;
-            };
-            // The line whose baseline this run sits on.
-            let nearest = (0..shaped.lines.len()).min_by(|a, b| {
-                let d = |i: usize| (shaped.lines[i].baseline - g.y).abs();
-                d(*a).total_cmp(&d(*b))
-            });
-            if let Some(i) = nearest {
-                let b = Rect {
-                    x: origin.x + b.x,
-                    y: origin.y + b.y,
-                    width: b.width,
-                    height: b.height,
-                };
-                inks[i] = Some(inks[i].map_or(b, |a| a.union(b)));
-            }
-        }
-    }
-    inks
 }

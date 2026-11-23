@@ -12,28 +12,23 @@ The kit has no copies of the standard controls. `text_input`, `select`, `switch`
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::theme::Typography;
-use kivact::style::{Direction, Theme, ThemeMode};
+use kivact::style::{FlexDirection, FontFamily, Theme, ThemeMode, font};
 use kivact_ui_basic as basic;
 
 fn theme(mode: ThemeMode) -> Theme {
-    let theme = basic::theme(mode);
-    let text = Typography {
-        family: Some("Inter, sans-serif".into()),
-        ..theme.text().clone()
-    };
-    theme.with_text(text)
+    basic::theme(mode).set(&font::FAMILY_VAR, FontFamily::from("Inter, sans-serif"))
 }
 
 fn fonts() -> Vec<&'static [u8]> {
     Vec::new()
 }
 
+#[component]
 fn profile_card(
     name: Signal<String>,
     saved_name: Signal<String>,
     language: Signal<Option<&'static str>>,
-) -> impl IntoView {
+) -> impl Element {
     let languages = vec![
         ListItem::new("en", "English"),
         ListItem::new("ja", "Japanese"),
@@ -42,39 +37,40 @@ fn profile_card(
     let changed = move || name.get() != saved_name.get();
     kivact::ui::card({
         basic::field_group((
-            field("Display name", text_input("Display name", name))
+            field("Display name", text_input(name))
                 .hint("Shown on your public page."),
-            field("Language", select("Language", languages, language)),
+            field("Language", select(languages, language)),
         ))
     })
     .header(
         row((
             column((
-                text("Profile").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
+                text("Profile").style(style().font_size(14).line_height(20.0 / 14.0).font_weight(500)),
                 text("Choose how others see you.").style(
                     style()
                         .line_height(1.625)
-                        .color(basic::ColorName::MutedForeground),
+                        .color(basic::MUTED_FOREGROUND),
                 ),
             ))
-            .style(style().gap(4).grow(1).min_width(0)),
+            .style(style().gap(4).flex_grow(1).min_width(0)),
             row({
                 show(changed, || {
                     kivact::ui::badge("Unsaved changes").variant(basic::BadgeVariant::Secondary)
                 })
             })
-            .style(style().align_self(Align::Start).shrink(0)),
+            .style(style().align_self(Align::Start).flex_shrink(0)),
         ))
         .style(style().align_items(Align::Start).gap(8)),
     )
     .style(style().width(420))
 }
 
+#[component]
 fn notifications_card(
     digest: Signal<bool>,
     mentions: Signal<bool>,
     reminder: Signal<Option<&'static str>>,
-) -> impl IntoView {
+) -> impl Element {
     let reminders = vec![
         ListItem::new("daily", "Daily"),
         ListItem::new("weekly", "Weekly"),
@@ -89,7 +85,7 @@ fn notifications_card(
             .hint("A summary of your week, every Monday.")
             .style(
                 style()
-                    .direction(Direction::Row)
+                    .flex_direction(FlexDirection::Row)
                     .align_items(Align::Center)
                     .gap(12),
             ),
@@ -97,7 +93,7 @@ fn notifications_card(
                 .hint("Tell me when someone mentions me.")
                 .style(
                     style()
-                        .direction(Direction::Row)
+                        .flex_direction(FlexDirection::Row)
                         .align_items(Align::Center)
                         .gap(12),
                 ),
@@ -111,19 +107,20 @@ fn notifications_card(
     })
     .header(
         column((
-            text("Notifications").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
+            text("Notifications").style(style().font_size(14).line_height(20.0 / 14.0).font_weight(500)),
             text("Choose what you want to hear about.").style(
                 style()
                     .line_height(1.625)
-                    .color(basic::ColorName::MutedForeground),
+                    .color(basic::MUTED_FOREGROUND),
             ),
         ))
-        .style(style().gap(4).grow(1).min_width(0)),
+        .style(style().gap(4).flex_grow(1).min_width(0)),
     )
     .style(style().width(420))
 }
 
-fn settings() -> impl IntoView {
+#[component]
+fn settings() -> impl Element {
     let name = signal(String::from("Ada"));
     let saved_name = signal(String::from("Ada"));
     let language = signal(Some("en"));
@@ -151,17 +148,15 @@ fn settings() -> impl IntoView {
             .size(pct(100), pct(100))
             .padding(24)
             .gap(16)
-            .background(basic::ColorName::Background)
-            .color(basic::ColorName::Foreground),
+            .background(basic::BACKGROUND)
+            .color(basic::FOREGROUND),
     )
 }
 
 fn main() -> kivact::Result<()> {
-    let mut app = App::new("Settings").theme(theme(ThemeMode::Light));
-    for font in fonts() {
-        app = app.font(font);
-    }
-    app.run(settings)
+    App::new("Settings")
+        .theme(theme(ThemeMode::Light).with_fonts(fonts()))
+        .run(settings)
 }
 ```
 
@@ -180,7 +175,7 @@ Run it. You should see two bordered cards side by side under the heading, with t
 - **`changed` is a closure.** `show(changed, || ..)` calls it whenever the signals it reads change, and mounts the badge only while it returns `true`. A plain closure is enough for a reactive value.
 - **Choices are `ListItem`s.** A `ListItem::new(key, label)` pairs a key you choose with the text shown. `select` and `toggle_group` hold the chosen key as `Option<K>`, here `Option<&'static str>`; `None` means nothing is chosen.
 - **Pass ready slot content.** Standard card `.header(..)`, `.content(..)` and `.footer(..)` receive views. Slots that create content again for each opening take a closure; each builder documents that distinction.
-- **`field(label, control)`** from Kivact pairs a visible label with a control and an optional `.with_hint(..)`. Pressing the label activates the control, and screen readers announce the label as the control's name. The switch inside has `.hide_label(true)` because the field already shows the label.
+- **`field(label, control)`** from Kivact pairs a visible label with a control and an optional `.hint(..)`. Pressing the label activates the control, and screen readers announce the label as the control's name. The switch inside has `.hide_label(true)` because the field already shows the label.
 - **`basic::field_group`** stacks fields with the kit's spacing, and `basic::field_separator()` draws a rule between them.
 
 ## Next

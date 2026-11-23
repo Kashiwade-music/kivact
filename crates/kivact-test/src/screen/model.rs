@@ -1,6 +1,6 @@
 //! Role: Store screen handles, queries and core timing.
 
-use kivact_core::launch::{Inspect, LaunchHandle};
+use kivact_core::__test::{Inspect, LaunchHandle};
 use kivact_core::view::PointerKind;
 use kivact_core::view::Role;
 use kivact_engine::testing::ArvaneTestHost;
@@ -13,6 +13,7 @@ use std::time::Duration;
 /// How long `find_by_*` and `wait_for` wait by default (virtual time).
 pub(super) const FIND_TIMEOUT: Duration = Duration::from_secs(5);
 
+// xtask-allow(state): record: separate test-session facts: host is the driver borrowed by each step, actions the last logged actions (Screen::log), contacts the contacts down (contact_down, contact_up, contact_cancel), last_contact the contact id allocator (contact_down)
 /// A rendered App on real windows of the engine's test driver, shared by
 /// every [`Screen`] handle of its windows.
 pub(crate) struct TestApp {
@@ -30,7 +31,6 @@ pub(crate) struct TestApp {
     /// The touch and pen contacts the test has down (`contact_*`), in the
     /// order they went down, each at its last position.
     pub(super) contacts: RefCell<Vec<(Contact, kivact_style::draw::Point)>>,
-    // xtask-allow(state-fields): identity: the platform pointer id of the last contact
     /// The platform's id of the last contact (the window gives each
     /// contact a pointer id of its own, never the mouse's).
     pub(super) last_contact: Cell<u64>,

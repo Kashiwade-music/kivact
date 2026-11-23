@@ -11,7 +11,9 @@
 //! - A grid container's box holds the same box properties as the node's
 //!   own (taffy reads the container's core style from either), built by
 //!   the one conversion (`style`).
-//! - The defaults are taffy's (`taffy::Style::DEFAULT`): a row flex box.
+//! - The defaults are taffy's (`taffy::Style::DEFAULT`): a row flex box,
+//!   except `position`: `Relative`, because taffy's default `Static` is no
+//!   containing block and the layout pass needs every node to be one (`tree::root`).
 //! - `min_size` is the node's own minimum; taffy reads it raised to
 //!   `min_width_floor` (an overlay at least as wide as its anchor), in the
 //!   grid container's box too.
@@ -19,8 +21,8 @@
 use taffy::{
     AlignContent, AlignItems, AlignSelf, BoxGenerationMode, CoreStyle, Dimension, Display,
     FlexDirection, FlexWrap, FlexboxContainerStyle, FlexboxItemStyle, GridItemStyle, GridPlacement,
-    JustifyContent, LengthPercentage, LengthPercentageAuto, Line, Overflow, Point, Position, Rect,
-    Size,
+    JustifyContent, LengthPercentage, LengthPercentageAuto, Line, OofItemStyle, Overflow, Point,
+    Position, Rect, Size,
 };
 
 use kivact_types::{GridLine, GridPos};
@@ -78,6 +80,7 @@ pub(crate) struct GridArea {
     pub(crate) justify_self: Option<AlignSelf>,
 }
 
+// xtask-allow(state): independent: aspect_ratio, align_self and grid_area are authored props written only by convert::taffy_style; the &mut self methods (set_min_width_floor, set_size_bounds) write only the size bounds
 /// The taffy style of one layout node (see the module docs).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NodeStyle {
@@ -91,7 +94,6 @@ pub(crate) struct NodeStyle {
     /// the layout pass, never by the props.
     pub(crate) min_width_floor: f32,
     pub(crate) max_size: Size<LengthPercentageAuto>,
-    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
     pub(crate) aspect_ratio: Option<f32>,
     pub(crate) margin: Rect<LengthPercentageAuto>,
     pub(crate) padding: Rect<LengthPercentage>,
@@ -99,18 +101,13 @@ pub(crate) struct NodeStyle {
     pub(crate) gap: Size<LengthPercentage>,
     pub(crate) flex_direction: FlexDirection,
     pub(crate) flex_wrap: FlexWrap,
-    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
-    pub(crate) align_items: Option<AlignItems>,
-    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
+    pub(crate) align_items: AlignItems,
     pub(crate) align_self: Option<AlignSelf>,
-    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
-    pub(crate) align_content: Option<AlignContent>,
-    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
-    pub(crate) justify_content: Option<JustifyContent>,
+    pub(crate) align_content: AlignContent,
+    pub(crate) justify_content: JustifyContent,
     pub(crate) flex_basis: Dimension,
     pub(crate) flex_grow: f32,
     pub(crate) flex_shrink: f32,
-    // xtask-allow(state-fields): option: the node's placement as a grid item (column, row, justify-self); absent means auto-placed and aligned by the container's justify_items
     /// Its place as a grid item (absent: auto-placed).
     pub(crate) grid_area: Option<Box<GridArea>>,
 }
@@ -129,7 +126,7 @@ impl Default for NodeStyle {
                 Display::Grid => NodeDisplay::Grid(None),
                 _ => NodeDisplay::Flex,
             },
-            position: d.position,
+            position: Position::Relative,
             overflow: d.overflow,
             inset: d.inset,
             size: d.size,
@@ -301,17 +298,17 @@ impl FlexboxContainerStyle for NodeStyle {
     }
 
     #[inline(always)]
-    fn align_content(&self) -> Option<AlignContent> {
+    fn align_content(&self) -> AlignContent {
         self.align_content
     }
 
     #[inline(always)]
-    fn align_items(&self) -> Option<AlignItems> {
+    fn align_items(&self) -> AlignItems {
         self.align_items
     }
 
     #[inline(always)]
-    fn justify_content(&self) -> Option<JustifyContent> {
+    fn justify_content(&self) -> JustifyContent {
         self.justify_content
     }
 }
@@ -365,5 +362,38 @@ impl GridItemStyle for NodeStyle {
     #[inline(always)]
     fn justify_self(&self) -> Option<AlignSelf> {
         self.grid_area.as_deref().and_then(|area| area.justify_self)
+    }
+}
+
+impl OofItemStyle for NodeStyle {
+    #[inline(always)]
+    fn align_self(&self) -> Option<AlignSelf> {
+        self.align_self
+    }
+
+    #[inline(always)]
+    fn justify_self(&self) -> Option<AlignSelf> {
+        self.grid_area.as_deref().and_then(|area| area.justify_self)
+    }
+
+    // An absolute child of a grid container is placed in the area of
+    // these lines (taffy reads the grid back through
+    // `get_detailed_layout_info`), as in taffy 0.14.
+    #[inline(always)]
+    fn grid_row(&self) -> Line<GridPlacement<String>> {
+        line(
+            self.grid_area
+                .as_deref()
+                .map_or(GridLine::default(), |a| a.row),
+        )
+    }
+
+    #[inline(always)]
+    fn grid_column(&self) -> Line<GridPlacement<String>> {
+        line(
+            self.grid_area
+                .as_deref()
+                .map_or(GridLine::default(), |a| a.column),
+        )
     }
 }

@@ -1,4 +1,4 @@
-//! Role: Run the shared xtask-core checks plus this workspace's module rules.
+//! Role: Run the shared xtask-core checks plus local checks; draw diagrams on request.
 //!
 //! `dev/xtask/policy/workspace.toml` holds both the xtask-core policy and
 //! the `[module_rules]` this binary adds (`module_rules.rs`). xtask-core
@@ -21,10 +21,17 @@ mod canonical_path;
 mod check_cli;
 mod check_policy;
 mod check_source;
-mod devtools_codegen;
+mod core_filters;
+mod diagrams;
+mod docs_pairs;
 mod effect_writes;
+mod element_shadow;
+mod hand_element;
 mod impl_model;
+mod interaction_view;
 mod kit_literal_color;
+mod kpi_compare;
+mod kpi_run;
 mod local_checks;
 mod macros;
 mod module_rules;
@@ -34,8 +41,9 @@ mod policy;
 mod public_surface;
 mod public_type_edges;
 mod report;
-mod state_fields;
-mod structural_options;
+mod state;
+mod ui_machine;
+mod unit_machine;
 
 fn main() -> ExitCode {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -43,15 +51,22 @@ fn main() -> ExitCode {
         .nth(2)
         .expect("dev/xtask is two levels below the repository root");
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
-    if arguments.first().map(String::as_str) == Some("devtools-codegen") {
-        return devtools_codegen::run(root, &arguments[1..]);
+    if arguments.first().map(String::as_str) == Some("diagrams") {
+        return diagrams::run(root, &arguments[1..]);
+    }
+    if arguments.first().map(String::as_str) == Some("kpi-compare") {
+        return kpi_compare::run(root, &arguments[1..]);
+    }
+    if arguments.first().map(String::as_str) == Some("kpi-run") {
+        return kpi_run::run(root, &arguments[1..]);
     }
     if arguments
         .iter()
         .any(|argument| matches!(argument.as_str(), "--help" | "-h"))
     {
         println!(
-            "Local checks: --only <{}> [--crate <crate> [--module <path>]] [--report] [--report-audit]",
+            "Local checks: --only <local|{}> [--crate <crate> [--module <path>]] [--report]\n--crate runs only the local checks.\n`cargo xtask diagrams` writes architecture/ (needs Node.js).\n`cargo xtask kpi-compare <B0> <CPn>` compares two dev/bench/run.sh reports (dev/bench/kpi.toml).
+`cargo xtask kpi-run [--no-catalog] <label>` runs dev/bench/run.sh through bash (for cargo-only runners).",
             check_cli::RULES.join("|")
         );
         return xtask_core::main(root);
@@ -70,6 +85,8 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    // The check validates the diagram model but never writes it; `cargo xtask diagrams` does.
+    config.no_write = true;
     let local = match local_checks::check(&config.root, &config.policy, &options) {
         Ok(errors) => errors,
         Err(error) => {
@@ -77,7 +94,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    if options.only.is_some() {
+    if options.only.is_some() || options.package.is_some() {
         return local_checks::selected(&options, &local);
     }
     let rules = match policy::prepare(&mut config) {
@@ -94,6 +111,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    core_filters::apply(&config.root, &mut report.errors);
     match xtask_core::analyze(&config) {
         Ok(analysis) => report
             .errors
@@ -105,12 +123,6 @@ fn main() -> ExitCode {
         report.notes.extend(local.errors);
     } else {
         report.errors.extend(local.errors);
-    }
-    if local.audit_open > 0 {
-        report.errors.push(format!(
-            "state-audit: {} open row(s) in dev/xtask/state-audit.md",
-            local.audit_open
-        ));
     }
     report::print(&report)
 }

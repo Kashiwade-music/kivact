@@ -1,13 +1,14 @@
 //! Role: Where the DevTools app gets its data: a live agent or fixed answers for tests.
 
+use kivact::task::blocking;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact_devtools_client as client;
 use kivact_devtools_protocol as p;
+use kivact_devtools_protocol::client;
 
 /// A live connection, or fixed answers.
 #[derive(Clone)]
@@ -66,6 +67,30 @@ impl Source {
                     .map_err(UiError::from)
             }
             Source::Fixture(fixture) => fixture.answer::<M>(&params),
+        }
+    }
+
+    /// Open `location` (relative to `root`) in the user's editor. `Live` runs
+    /// the editor command of `config` on a blocking thread; `Fixture` only
+    /// records an `open_in_editor` call, so a test never starts a program.
+    pub(crate) async fn open_in_editor(
+        &self,
+        config: p::DevtoolsConfig,
+        root: String,
+        location: p::SourceLocation,
+    ) -> Result<(), String> {
+        match self {
+            Source::Live(_) => {
+                blocking(move || crate::editor::open_in_editor(&config, &root, &location)).await
+            }
+            Source::Fixture(fixture) => {
+                let sent = serde_json::json!({ "root": root, "location": location });
+                fixture
+                    .calls
+                    .borrow_mut()
+                    .push(("open_in_editor".to_owned(), sent));
+                Ok(())
+            }
         }
     }
 

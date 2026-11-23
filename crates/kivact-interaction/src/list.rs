@@ -1,7 +1,7 @@
 //! Role: One list behavior attaches selection and navigation through parts.
 //!
 //! [`use_list`] takes a reactive `Vec<ListItem<K>>` and a [`Selection`]
-//! (`Single` over `Binding<Option<K>>`, `Multiple` over `Binding<Vec<K>>`).
+//! (`Single` over `Signal<Option<K>>`, `Multiple` over `Signal<Vec<K>>`).
 //! The order and the selection stay the caller's: a writer that refuses a
 //! selection is not replaced by an internal one, and a selected key that a
 //! filter or virtualization hides is not cleared. [`ListApi::list`] is the
@@ -66,7 +66,6 @@ mod data;
 mod handle;
 mod input;
 mod machine;
-mod order;
 mod parts;
 mod selection;
 mod state;
@@ -76,4 +75,5 @@ pub use data::{
     ListActivation, ListBoundary, ListCommandModifier, ListGesture, ListItem, ListItemState,
     ListMissingAnchor, ListMode, ListOptions, ListRangeMode, ListRangeOptions,
 };
+pub(crate) use handle::use_list_retaining;
 pub use handle::{ListApi, use_list};

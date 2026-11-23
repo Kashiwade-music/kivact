@@ -40,7 +40,7 @@ pub(super) fn visual_parent(
                 p.background.as_ref().is_some_and(paints)
                     || crate::lower::shape::border_widths(p.border.as_ref()) != Edges::all(0.0)
             }) || n.clips()
-                || semantic_role(n, host.editors[n.index.0].is_some())
+                || semantic_role(n, host.slots.editors[n.index.0].is_some())
                     .is_some_and(|r| check.single_line_roles.contains(&r))
         })
     })
@@ -66,9 +66,7 @@ fn paints(fill: &Fill) -> bool {
 /// The axes a limit holds on.
 #[derive(Clone, Copy)]
 pub(super) struct Axes {
-    // xtask-allow(state-fields): independent: Axes::held_by clears x when the node scrolls horizontally or is a text input, y when it scrolls vertically; overflow-x and overflow-y are authored apart, so all four pairs occur
     x: bool,
-    // xtask-allow(state-fields): independent: Axes::held_by clears y when the node scrolls vertically, x for horizontal scrolling or a text input; overflow-x and overflow-y are authored apart, so all four pairs occur
     y: bool,
 }
 
@@ -117,19 +115,28 @@ pub(super) struct Clip {
 }
 
 /// The clipping ancestors of the text `id` (`up`, nearest first), with the
-/// padding box each clips to.
+/// padding box each clips to. A scroll box ends the walk: what lies past its
+/// scrolling axis is scrolled out of view, not cut by the boxes above it.
 pub(super) fn clips(host: &Model, id: NodeId, up: &[NodeId]) -> Vec<Clip> {
     let input = host
         .node(id)
-        .is_some_and(|n| host.editors[n.index.0].is_some());
-    up.iter()
-        .filter_map(|a| {
-            let n = host.node(*a).filter(|n| n.clips())?;
-            Some(Clip {
+        .is_some_and(|n| host.slots.editors[n.index.0].is_some());
+    let mut out = Vec::new();
+    for a in up {
+        let Some(n) = host.node(*a).filter(|n| n.clips()) else {
+            continue;
+        };
+        if let Some(rect) = padding_box(host, *a) {
+            out.push(Clip {
                 node: *a,
-                rect: padding_box(host, *a)?,
+                rect,
                 axes: Axes::held_by(n, input),
-            })
-        })
-        .collect()
+            });
+        }
+        let (sx, sy) = n.scroll_axes();
+        if sx || sy {
+            break;
+        }
+    }
+    out
 }

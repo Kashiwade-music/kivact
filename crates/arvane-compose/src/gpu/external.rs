@@ -27,7 +27,7 @@
 //! - Every texture acquired in a frame is released in the same frame
 //!   (`ExternalPass`), whether the frame was submitted, skipped or failed.
 
-use crate::ComposeError;
+use crate::RenderError;
 use kivact_types::ExternalFrame;
 
 #[cfg(feature = "gpu-interop")]
@@ -111,7 +111,7 @@ impl External {
     /// Make the frames `frames` names ready to draw (steps 1 and 2 of the
     /// module documentation). Only [`ExternalPass`] calls it.
     #[cfg(feature = "gpu-interop")]
-    fn begin(&mut self, frames: &[ExternalFrame], open: &mut Frame) -> Result<(), ComposeError> {
+    fn begin(&mut self, frames: &[ExternalFrame], open: &mut Frame) -> Result<(), RenderError> {
         if self.images.is_empty() {
             return Ok(());
         }
@@ -166,7 +166,7 @@ impl External {
             image
                 .import
                 .acquire(slot, value)
-                .map_err(|error| ComposeError::Backend(error.to_string()))?;
+                .map_err(|error| RenderError::Backend(error.to_string()))?;
             open.acquired.push((id, slot));
         }
         Ok(())
@@ -175,13 +175,13 @@ impl External {
     /// Give the textures of the frame back and signal what it drew
     /// (step 3 of the module documentation). Only [`ExternalPass`] calls it.
     #[cfg(feature = "gpu-interop")]
-    fn end(&mut self, open: Frame, submitted: Submission) -> Result<(), ComposeError> {
+    fn end(&mut self, open: Frame, submitted: Submission) -> Result<(), RenderError> {
         let mut result = Ok(());
         for (id, slot) in open.acquired {
             if let Some(image) = self.images.get_mut(&id)
                 && let Err(error) = image.import.release(slot)
             {
-                result = Err(ComposeError::Backend(error.to_string()));
+                result = Err(RenderError::Backend(error.to_string()));
             }
         }
         if matches!(submitted, Submission::Abandoned) {
@@ -204,7 +204,7 @@ impl External {
             let value = lowest - 1;
             if value > image.released {
                 if let Err(error) = image.import.signal(value) {
-                    result = Err(ComposeError::Backend(error.to_string()));
+                    result = Err(RenderError::Backend(error.to_string()));
                 }
                 image.released = value;
             }
@@ -222,16 +222,16 @@ impl External {
         adapter: &GpuAdapter,
         id: ExternalImageId,
         shared: SharedTextures,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         self.drop_image(id);
         if !adapter.matches(&shared.adapter) {
-            return Err(ComposeError::Backend(format!(
+            return Err(RenderError::Backend(format!(
                 "the textures are on another adapter than the window's ({})",
                 adapter.name
             )));
         }
         let import = kivact_gpu_share::import::Import::new(device, queue, shared)
-            .map_err(|error| ComposeError::Backend(error.to_string()))?;
+            .map_err(|error| RenderError::Backend(error.to_string()))?;
         let (width, height) = import.size();
         let views = import
             .textures()
@@ -288,12 +288,12 @@ impl Drop for External {
 #[cfg(not(feature = "gpu-interop"))]
 impl External {
     /// No imports: nothing to make ready.
-    fn begin(&mut self, _: &[ExternalFrame], _: &mut Frame) -> Result<(), ComposeError> {
+    fn begin(&mut self, _: &[ExternalFrame], _: &mut Frame) -> Result<(), RenderError> {
         Ok(())
     }
 
     /// No imports: nothing to give back.
-    fn end(&mut self, _: Frame, _: Submission) -> Result<(), ComposeError> {
+    fn end(&mut self, _: Frame, _: Submission) -> Result<(), RenderError> {
         Ok(())
     }
 }
@@ -321,7 +321,7 @@ impl<'a> ExternalPass<'a> {
     pub(crate) fn begin(
         external: &'a mut External,
         frames: &[ExternalFrame],
-    ) -> Result<Self, ComposeError> {
+    ) -> Result<Self, RenderError> {
         let mut pass = Self {
             external,
             frame: Frame::default(),
@@ -343,7 +343,7 @@ impl<'a> ExternalPass<'a> {
 
 impl Submitted<'_> {
     /// Release the textures and signal what the frame drew.
-    pub(crate) fn finish(mut self) -> Result<(), ComposeError> {
+    pub(crate) fn finish(mut self) -> Result<(), RenderError> {
         let frame = std::mem::take(&mut self.0.frame);
         self.0.external.end(frame, Submission::Submitted)
     }

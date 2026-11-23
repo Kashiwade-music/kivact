@@ -17,8 +17,8 @@
 //! - Decorations and bands follow the glyphs drawn: a dropped glyph has
 //!   none, the ellipsis has the paragraph's decoration.
 
-use kivact_types::render::TextSpan;
-use kivact_types::render::{
+use arvane_protocol::ResolvedSpan;
+use kivact_types::shaped::{
     FontSource, Glyph, GlyphRun, TextDecorationRect, TextHighlight, TextLine,
 };
 use kivact_types::{ComputedTextStyle, TextDecoration};
@@ -312,6 +312,9 @@ pub(crate) fn lines(
     justified: bool,
     range: impl Fn(std::ops::Range<usize>) -> std::ops::Range<usize>,
 ) -> Vec<TextLine> {
+    // Parley stacks each line box below the one before, so the line boxes
+    // add up to the layout's height (the one `plan` measures).
+    let mut top = 0.0f64;
     layout
         .lines()
         .take(plan.visible)
@@ -326,6 +329,14 @@ pub(crate) fn lines(
                 ),
                 None => native_inline_bounds(&line, justified),
             };
+            let width = width.max(0.0);
+            let line_box = Rect {
+                x,
+                y: top,
+                width,
+                height: f64::from(m.line_height),
+            };
+            top += line_box.height;
             // The tallest letters of the line's fonts.
             let (mut cap_height, mut x_height) = (0.0f64, 0.0f64);
             for run in line.runs() {
@@ -338,9 +349,10 @@ pub(crate) fn lines(
                 rect: Rect {
                     x,
                     y: f64::from(m.block_min_coord),
-                    width: width.max(0.0),
+                    width,
                     height: f64::from(m.block_max_coord) - f64::from(m.block_min_coord),
                 },
+                line_box,
                 baseline: f64::from(m.baseline),
                 ascent: f64::from(m.ascent),
                 descent: f64::from(m.descent),
@@ -367,7 +379,7 @@ struct Segment {
 
 /// What a planned paragraph draws.
 pub(crate) struct Drawn {
-    pub(crate) runs: Vec<kivact_types::render::GlyphRunSnapshot>,
+    pub(crate) runs: Vec<kivact_types::shaped::GlyphRunSnapshot>,
     pub(crate) decorations: Vec<TextDecorationRect>,
     pub(crate) highlights: Vec<TextHighlight>,
 }
@@ -377,7 +389,7 @@ pub(crate) struct Drawn {
 pub(crate) fn draw(
     layout: &Layout<u32>,
     style: &ComputedTextStyle,
-    spans: &[TextSpan],
+    spans: &[ResolvedSpan],
     plan: &Plan,
     ellipsis: Option<&Ellipsis>,
 ) -> Drawn {
@@ -484,7 +496,7 @@ fn glyph_run(run: &parley::GlyphRun<'_, u32>, glyphs: Vec<Glyph>) -> GlyphRun {
 fn decorations(
     segments: &[Segment],
     style: &ComputedTextStyle,
-    spans: &[TextSpan],
+    spans: &[ResolvedSpan],
 ) -> Vec<TextDecorationRect> {
     let mut out: Vec<TextDecorationRect> = Vec::new();
     for s in segments {
@@ -569,7 +581,7 @@ fn decorations(
 
 /// The bands of the highlighted spans: one per span and line, over its
 /// glyphs' advance and their fonts' ascent and descent.
-fn highlights(segments: &[Segment], spans: &[TextSpan]) -> Vec<TextHighlight> {
+fn highlights(segments: &[Segment], spans: &[ResolvedSpan]) -> Vec<TextHighlight> {
     let mut out: Vec<(usize, TextHighlight)> = Vec::new();
     for s in segments {
         let Some(span) = s

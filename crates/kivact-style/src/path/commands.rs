@@ -1,6 +1,6 @@
 //! Role: The `Path` value and the commands that build it: lines, curves, arcs and shapes.
 
-use crate::geometry::{CornerRadius, Point, Rect};
+use crate::geometry::{Point, Rect};
 use kivact_runtime::UiError;
 use kivact_types as p;
 use kivact_types::FillRule;
@@ -206,14 +206,9 @@ impl Path {
             .line_to(Point::new(rect.x, rect.y + rect.height))
             .close()
     }
-    /// Clockwise corners, starting at the top left; elliptical and percentage radii match styles.
-    pub fn rounded_rect(mut self, rect: Rect, corners: [CornerRadius; 4]) -> Self {
-        let mut r = corners.map(|r| {
-            (
-                r.x.to_len().of(rect.width).max(0.0),
-                r.y.to_len().of(rect.height).max(0.0),
-            )
-        });
+    /// Clockwise corners from the top left, each `(x, y)` in px; radii that do not fit shrink together as CSS's do.
+    pub fn rounded_rect(mut self, rect: Rect, radii: [(f64, f64); 4]) -> Self {
+        let mut r = radii.map(|(x, y)| (x.max(0.0), y.max(0.0)));
         let ratio = |length: f64, sum: f64| if sum > length { length / sum } else { 1.0 };
         let scale = ratio(rect.width, r[0].0 + r[1].0)
             .min(ratio(rect.width, r[3].0 + r[2].0))

@@ -1,14 +1,17 @@
 //! Role: Style a keyboard-reachable text trigger for standard hover previews.
+use crate::color as c;
+use kivact::component;
+use kivact::state::Value;
+use kivact::style::{TextDecorationLine, style};
+use kivact::view::text;
+
 /// A keyboard-reachable text trigger with the native solid underline fallback.
-pub fn hover_card_text(label: impl kivact::state::IntoText) -> kivact::view::Node {
-    kivact::view::text(label).focusable(true).style(|| {
-        kivact::style::style()
-            .text_decoration(kivact::style::TextDecorationLine::UNDERLINE)
-            .text_decoration_color(
-                kivact::style::use_tokens::<crate::Tokens>()
-                    .colors
-                    .border_emphasized,
-            )
+#[component]
+pub fn hover_card_text(label: Value<String>) -> impl Element {
+    text(label).focusable(true).style(|| {
+        style()
+            .text_decoration(TextDecorationLine::UNDERLINE)
+            .text_decoration_color(c::BORDER_EMPHASIZED)
             .text_underline_offset(2)
     })
 }

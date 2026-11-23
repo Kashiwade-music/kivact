@@ -4,7 +4,7 @@
 
 Use `image(source)` to show a PNG, JPEG or SVG, name it so assistive technology
 can describe it, size it with a style, and register your own fonts with
-`App::font`. This guide also covers images loaded at run time, animated images,
+`Theme::with_fonts`. This guide also covers images loaded at run time, animated images,
 SVG files used as icons or as pictures with their own text, and the axes of
 variable fonts.
 
@@ -154,7 +154,7 @@ fn main() -> kivact::Result<()> {
   `Contain` (default), `Cover`, `Fill`, `None` (natural size, clipped by the box)
   and `ScaleDown` (natural size, unless the box is smaller).
 - Set one side only to keep the aspect ratio: `style().height(160)`.
-- `style().radius(8)` rounds the corners, `style().clip(true)` clips children,
+- `style().border_radius(8)` rounds the corners, `style().clip(true)` clips children,
   and `style().opacity(..)` fades the image.
 
 ## Play an animated image
@@ -212,7 +212,7 @@ fn favorite() -> impl IntoView {
     row((
         image(STAR)
             .monochrome(true)
-            .style(style().size(20, 20).color(ColorToken::Warning)),
+            .style(style().size(20, 20).color(color::WARNING)),
         text("Favorite"),
     ))
     .style(style().gap(8).padding(16))
@@ -253,7 +253,7 @@ fn status() -> impl IntoView {
 
 fn main() -> kivact::Result<()> {
     let regular = std::fs::read("assets/Inter-Regular.ttf").expect("font file");
-    App::new("Status").font(regular).run(status)
+    App::new("Status").theme(Theme::light().with_fonts([regular])).run(status)
 }
 ```
 
@@ -294,7 +294,7 @@ fn headlines() -> impl IntoView {
 
 fn main() -> kivact::Result<()> {
     let inter = std::fs::read("assets/Inter-Variable.ttf").expect("font file");
-    App::new("Headlines").font(inter).run(headlines)
+    App::new("Headlines").theme(Theme::light().with_fonts([inter])).run(headlines)
 }
 ```
 
@@ -304,9 +304,11 @@ shorthand for the `tnum` feature.
 
 ## Register your own fonts
 
-`App::font` loads a TTF, OTF or TTC file before the first screen. After that you
-can use the font's **family name** (the name written in the font, which is often
-not the file name) in `style().font_family(..)`:
+Fonts belong to the theme. `Theme::with_fonts([..])` takes TTF, OTF or TTC fonts,
+each one as static bytes, a `Vec<u8>` read at run time or a path, and the App
+loads them before the first screen. After that you can use the font's **family
+name** (the name written in the font, which is often not the file name) in
+`style().font_family(..)`:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -322,17 +324,17 @@ fn app() -> impl IntoView {
 }
 
 fn main() -> kivact::Result<()> {
-    // In an app, embed the files: `.font(include_bytes!("../assets/Inter-Regular.ttf"))`.
+    // In an app, embed the files instead:
+    // .with_fonts([include_bytes!("../assets/Inter-Regular.ttf").as_slice(), include_bytes!("../assets/Inter-Bold.ttf").as_slice()])
     let regular = std::fs::read("assets/Inter-Regular.ttf").expect("font file");
     let bold = std::fs::read("assets/Inter-Bold.ttf").expect("font file");
-
-    App::new("Fonts").font(regular).font(bold).run(app)
+    App::new("Fonts").theme(Theme::light().with_fonts([regular, bold])).run(app)
 }
 ```
 
-- Call `.font(..)` once per file. Regular and bold are usually separate files;
-  register both and pick the face with `style().weight(700)`. `italic(true)`
-  picks an italic face when the family has one.
+- Put every file in the list given to `with_fonts`. Regular and bold are usually
+  separate files; register both and pick the face with `style().font_weight(700)`.
+  `font_style(FontStyle::Italic)` picks an italic face when the family has one.
 - `font_family` is inherited by the node's descendants, so set it on a container
   to change a whole panel. The generic names `system-ui`, `sans-serif`, `serif`
   and `monospace` always work.
@@ -341,9 +343,8 @@ fn main() -> kivact::Result<()> {
 - A family that is not installed falls back to the system UI font and is
   reported once as an `Asset` error. A file that is not a usable font (WOFF, a
   truncated file) is reported too, and the app still starts.
-- For one default font in the whole app, set the theme's text family:
-  `theme.with_text(Typography { family: Some("Inter".into()), ..theme.text().clone() })`
-  with `Typography` from `kivact::style::theme`.
+- For one default font in the whole app, set `font_family` on the root view: it
+  is inherited by everything below.
 - `kivact::platform::font_families()` lists the families available, including
   the ones you registered. Call it from setup or a handler.
 

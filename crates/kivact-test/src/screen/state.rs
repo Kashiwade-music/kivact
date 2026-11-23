@@ -10,7 +10,7 @@ use kivact_engine::contract::SceneLayer;
 use kivact_engine::testing::Renderer;
 use kivact_types::NodeId;
 use kivact_types::WindowId;
-use kivact_types::render::FrameStats;
+use kivact_types::export::FrameStats;
 
 use super::model::{Screen, TestApp};
 use super::results::SemanticNode;
@@ -31,9 +31,20 @@ impl Screen {
     }
 
     /// The discovery file of the running DevTools agent, if there is one.
+    /// The agent starts in the background; this waits for it (5 s of real time at most).
     #[cfg(feature = "devtools")]
     pub fn devtools_target(&self) -> Option<std::path::PathBuf> {
-        self.inspect().devtools_target()
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            if let Some(path) = self.inspect().devtools_target() {
+                return Some(path);
+            }
+            if !self.inspect().devtools_starting() || std::time::Instant::now() >= deadline {
+                return None;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+            self.run_until_idle();
+        }
     }
 
     /// The App's counters ([`Stats`] says how to read them): `batches` and

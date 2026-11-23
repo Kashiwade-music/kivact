@@ -4,15 +4,17 @@
 
 use std::borrow::Cow;
 
+use arvane_protocol::{LayerFilter, LayerKey, PixelRect, RenderScene};
+use kivact_types::Composite;
 use kivact_types::Matrix4;
 use kivact_types::effect::ShaderUse;
+use kivact_types::export::FrameStats;
 use kivact_types::geometry::{Point, Rect, Size};
 use kivact_types::geometry3d::{Polygon, Projective};
 use kivact_types::gpu::ExternalFrame;
 use kivact_types::ids::DrawableId;
 use kivact_types::paint::{MaskComposite, MaskMode};
 use kivact_types::pixel::{BlendMode, Pixels};
-use kivact_types::render::{Composite, FrameStats, LayerFilter, LayerKey, PixelRect, RenderScene};
 
 use crate::cache::{ChunkKey, ChunkRecord, LayerRecord};
 
@@ -142,10 +144,8 @@ pub(crate) enum Source<'a> {
     External {
         /// The frame to draw.
         frame: ExternalFrame,
-        // xtask-allow(state-fields): option: the fallback pixels the application gave with the frame (`Draw::gpu_frame_with_pixels`), which only the CPU compositor draws; absent when it gave none, and the CPU compositor then reports the frame missed
         /// The CPU pixels, if any.
         cpu: Option<&'a Pixels>,
-        // xtask-allow(state-fields): option: the source rectangle; absent for the whole frame
         /// The source rectangle, None for all of it.
         source: Option<kivact_types::geometry::Rect>,
     },

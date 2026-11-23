@@ -1,7 +1,30 @@
 //! Role: Number, color, XML text and PNG encoding of the SVG document.
 
 use crate::SvgError;
-use kivact_types::Rgba;
+use kivact_types::{BlendMode, Rgba};
+
+/// The CSS `mix-blend-mode` keyword of `mode`.
+pub(super) fn blend_name(mode: BlendMode) -> &'static str {
+    match mode {
+        BlendMode::Normal => "normal",
+        BlendMode::Multiply => "multiply",
+        BlendMode::Screen => "screen",
+        BlendMode::Overlay => "overlay",
+        BlendMode::Darken => "darken",
+        BlendMode::Lighten => "lighten",
+        BlendMode::ColorDodge => "color-dodge",
+        BlendMode::ColorBurn => "color-burn",
+        BlendMode::HardLight => "hard-light",
+        BlendMode::SoftLight => "soft-light",
+        BlendMode::Difference => "difference",
+        BlendMode::Exclusion => "exclusion",
+        BlendMode::Hue => "hue",
+        BlendMode::Saturation => "saturation",
+        BlendMode::Color => "color",
+        BlendMode::Luminosity => "luminosity",
+        BlendMode::PlusLighter => "plus-lighter",
+    }
+}
 
 /// A number with at most three decimals, trailing zeros dropped.
 pub(super) fn number(value: f64) -> String {
@@ -35,6 +58,22 @@ pub(super) fn hex(color: Rgba) -> String {
     )
 }
 
+/// The CSS color of `color`: `#rrggbb`, or `rgba(r, g, b, a)` when it is not
+/// opaque.
+pub(super) fn css_color(color: Rgba) -> String {
+    if color.a.clamp(0.0, 1.0) == 1.0 {
+        return hex(color);
+    }
+    let channel = |v: f64| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+    format!(
+        "rgba({}, {}, {}, {})",
+        channel(color.r),
+        channel(color.g),
+        channel(color.b),
+        number(color.a.clamp(0.0, 1.0))
+    )
+}
+
 /// Escape `text` for an XML text node or a double-quoted attribute.
 pub(super) fn escape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -51,15 +90,17 @@ pub(super) fn escape(text: &str) -> String {
     out
 }
 
-/// A `data:image/png;base64,…` URI of straight-alpha RGBA8 pixels.
+/// A `data:image/png;base64,…` URI of premultiplied RGBA8 pixels, written as a straight-alpha PNG.
 pub(super) fn png_data_uri(width: u32, height: u32, rgba: &[u8]) -> Result<String, SvgError> {
+    let mut straight = rgba.to_vec();
+    kivact_types::color::unpremultiply(&mut straight);
     let mut png = Vec::new();
     let encode = |png: &mut Vec<u8>| -> Result<(), png::EncodingError> {
         let mut encoder = png::Encoder::new(png, width, height);
         encoder.set_color(png::ColorType::Rgba);
         encoder.set_depth(png::BitDepth::Eight);
         let mut writer = encoder.write_header()?;
-        writer.write_image_data(rgba)?;
+        writer.write_image_data(&straight)?;
         writer.finish()
     };
     encode(&mut png).map_err(|error| {

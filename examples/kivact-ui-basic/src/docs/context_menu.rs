@@ -1,45 +1,38 @@
-//! Role: Catalog page of Context Menu: basic, submenu, checkboxes and a custom target.
+//! Catalog page of Context Menu: basic, submenu, checkboxes and a custom target.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact::style::BorderStyle;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "context-menu",
-        name: "Context Menu",
-        description: "右クリックで開くメニューです。標準の kivact::ui::menu を attach_context で対象に取り付けると、このテーマでは context-menu.tsx の幅で描きます。右クリックはポインタの位置に、Shift+F10 とメニューキーは対象の位置に開き、閉じると元のフォーカスに戻ります。項目の種類と操作は Dropdown Menu と同じです。",
-        usage: "use kivact::prelude::*;\nuse kivact::style::{BorderStyle, use_theme};\nuse kivact_ui_basic as basic;",
-        source: include_str!("context_menu.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "basic",
-                "Basic",
-                "標準の menu を作り、対象の Node を attach_context に渡します。対象はキー操作が届くように focusable にして role を付けます。枠にフォーカスして Shift+F10 を押しても開きます。",
-                basic,
-            ),
-            Example::new(
-                "submenu",
-                "Submenu",
-                "MenuEntry::submenu で入れ子にします。右矢印で子のメニューへ入ります。",
-                submenu,
-            ),
-            Example::new(
-                "checkboxes",
-                "Checkboxes and radios",
-                "check と radio の状態はアプリが持ちます。選んだ key を受け取る関数で更新します。",
-                checkboxes,
-            ),
-            Example::new(
-                "target",
-                "Custom target",
-                "対象にはどんな Node でも渡せます。メニューの名前は、対象に付けた name になります。",
-                target,
-            ),
-        ],
-    }
+    Page::new("context-menu", "Context Menu", "Components", include_str!("context_menu.rs"))
+        .description("A menu that opens on a right click. Attach the standard kivact::ui::menu to a target with attach_context; this theme draws it at the width of context-menu.tsx. A right click opens it at the pointer, and Shift+F10 or the menu key opens it at the target. Closing returns focus to where it was. The kinds of items and the actions are the same as in Dropdown Menu.")
+        .usage("use kivact::prelude::*;\nuse kivact::style::{BorderStyle, use_theme};\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "basic",
+            "Basic",
+            "Make a standard menu and pass the target Node to attach_context. Make the target focusable with a role so that keys reach it. Focusing the frame and pressing Shift+F10 opens it too.",
+            basic,
+        ))
+        .example(Example::new(
+            "submenu",
+            "Submenu",
+            "MenuEntry::submenu nests a menu. The right arrow enters the child menu.",
+            submenu,
+        ))
+        .example(Example::new(
+            "checkboxes",
+            "Checkboxes and radios",
+            "The app holds the state of check and radio items. Update it in the function that receives the chosen key.",
+            checkboxes,
+        ))
+        .example(Example::new(
+            "target",
+            "Custom target",
+            "Any Node can be the target. The name of the menu is the name given to the target.",
+            target,
+        ))
 }
 
 // example: basic
@@ -54,7 +47,7 @@ fn basic() -> impl IntoView {
                 .height(75)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
-                .border(1, basic::ColorName::Border)
+                .border(1, basic::BORDER)
                 .border_style(BorderStyle::Dashed)
                 .font_size(12),
         )
@@ -84,7 +77,7 @@ fn submenu() -> impl IntoView {
                 .height(75)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
-                .border(1, basic::ColorName::Border)
+                .border(1, basic::BORDER)
                 .border_style(BorderStyle::Dashed)
                 .font_size(12),
         )
@@ -127,7 +120,7 @@ fn checkboxes() -> impl IntoView {
                 .height(75)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
-                .border(1, basic::ColorName::Border)
+                .border(1, basic::BORDER)
                 .border_style(BorderStyle::Dashed)
                 .font_size(12),
         )
@@ -164,7 +157,7 @@ fn target() -> impl IntoView {
                 .height(90)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
-                .background(basic::ColorName::Muted)
+                .background(basic::MUTED)
                 .font_size(12),
         )
         .child(text("Right click the notes"));

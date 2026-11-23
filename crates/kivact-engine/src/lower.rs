@@ -18,20 +18,19 @@
 pub(crate) mod assets;
 pub(crate) mod border;
 pub(crate) mod border_image;
+pub(crate) mod content_versions;
 pub(crate) mod context;
 pub(crate) mod conversion;
 pub(crate) mod drawables;
 pub(crate) mod effects;
 pub(crate) mod fill;
 pub(crate) mod glyphs;
-pub(crate) mod path;
 pub(crate) mod sanitize;
 pub(crate) mod scene;
 mod scene_cache;
 mod scene_out;
 pub(crate) use scene_cache::SceneCache;
-pub(crate) use scene_out::{LayerProps, SceneOut};
-pub(crate) mod scene_shape;
+pub(crate) use scene_out::{LayerChange, LayerProps, SceneOut};
 pub(crate) mod shape;
 
 mod asset_event;

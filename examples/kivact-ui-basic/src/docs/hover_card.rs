@@ -1,40 +1,34 @@
-//! Role: Catalog page of Hover Card: a preview that opens on hover.
+//! Catalog page of Hover Card: a preview that opens on hover.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
+use kivact::view::Placement;
 use kivact_ui_basic as basic;
 use std::time::Duration;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "hover-card",
-        name: "Hover Card",
-        description: "リンクなどにポインターを重ねる（またはフォーカスする）と、遅れて詳細を表示するカードです。カードの上にポインターを移しても開いたままで、離れてから少し遅れて閉じます。Escape と外側の押下ですぐ閉じます。",
-        usage: "use kivact::geometry::Edge;\nuse kivact::prelude::*;\nuse kivact_ui_basic as basic;\nuse std::time::Duration;",
-        source: include_str!("hover_card.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "カードの中身を作る関数を渡し、attach でトリガーに取り付けます。既定では 600 ms 後に開き、離れて 300 ms 後に閉じます。",
-                default,
-            ),
-            Example::new(
-                "delay",
-                "Delay and placement",
-                "open_delay と close_delay で待ち時間を、placement（kivact::view::Placement）で開く側を選びます。",
-                delay,
-            ),
-        ],
-    }
+    Page::new("hover-card", "Hover Card", "Components", include_str!("hover_card.rs"))
+        .description("A card with more detail, shown after a delay when the pointer rests on a link or the link takes focus. It stays open while the pointer is on the card, and closes a little after the pointer leaves. Escape and a press outside close it at once.")
+        .usage("use kivact::geometry::Edge;\nuse kivact::prelude::*;\nuse kivact_ui_basic as basic;\nuse std::time::Duration;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "Pass a function that makes the content of the card and attach it to the trigger. By default it opens after 600 ms and closes 300 ms after the pointer leaves.",
+            default,
+        ))
+        .example(Example::new(
+            "delay",
+            "Delay and placement",
+            "open_delay and close_delay set the waits; placement (kivact::view::Placement) chooses the side it opens on.",
+            delay,
+        ))
 }
 
 // example: default
 fn default() -> impl IntoView {
     kivact::ui::hover_card(|| {
         column((
-            text("@nextjs").style(style().font_size(14).weight(600)),
+            text("@nextjs").style(style().font_size(14).font_weight(600)),
             text("The React Framework – created and maintained by @vercel."),
             row((
                 icon("calendar"),

@@ -23,7 +23,7 @@ pub(crate) struct Pointer {
 
 impl Pointer {
     pub(crate) fn attach_track(self, rect: Value<Option<Rect>>, axis: Axis) {
-        let rtl = axis.is_horizontal() && use_direction().get() == ReadingDirection::Rtl;
+        let rtl = axis.is_horizontal() && use_direction() == ReadingDirection::Rtl;
         self.phase.send(Event::Attach(Geometry { rect, axis, rtl }));
     }
 
@@ -208,16 +208,15 @@ impl Pointer {
 }
 
 /// The drag of one slider's thumbs and track: its payload is where the press
-/// landed. Disabled while `disabled` holds a true value or no track is
-/// attached. Setup only.
+/// landed. Disabled while no track is attached; a source reads the disabled
+/// state of the node it is attached to at each press. Setup only.
 #[track_caller]
 pub(crate) fn drag(
     session: EditSession<[f64; 2]>,
     snapshot: Value<[f64; 2]>,
     pointer: Pointer,
-    disabled: Value<bool>,
 ) -> DragApi<Grip> {
-    let off = memo(move || !pointer.attached.get() || disabled.get());
+    let off = memo(move || !pointer.attached.get());
     use_drag::<Grip>(DragCoordinates::Window)
         .disabled(off)
         .edit(session, move || snapshot.get_untracked())

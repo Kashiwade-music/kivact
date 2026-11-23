@@ -27,7 +27,7 @@ impl ArvaneTestHost {
             &mut errors,
         );
         for (id, node) in model.tree.nodes.iter() {
-            let caret = model.editors[node.index.0]
+            let caret = model.slots.editors[node.index.0]
                 .as_deref()
                 .map(|editor| editor.editor.state())
                 .map_or(0, |edit| edit.caret());
@@ -59,23 +59,27 @@ impl ArvaneTestHost {
         let independent = model.a11y.clone();
         let state = std::mem::replace(&mut model.a11y, independent);
         let lines: Vec<_> = model
+            .slots
             .editors
             .iter_mut()
             .enumerate()
             .filter_map(|(slot, node)| {
                 let node = node.as_mut()?;
                 let independent = node.lines.borrow().clone();
-                Some((slot, std::mem::replace(node.lines.get_mut(), independent)))
+                Some((
+                    slot,
+                    std::mem::replace(&mut *node.lines.borrow_mut(), independent),
+                ))
             })
             .collect();
         let rebuilt = Some(model.build_semantics(&mut engine));
         model.a11y = state;
         for (slot, original) in lines {
-            *model.editors[slot]
+            *model.slots.editors[slot]
                 .as_mut()
                 .expect("invariant: reference does not remove editors")
                 .lines
-                .get_mut() = original;
+                .borrow_mut() = original;
         }
         compare_accessibility(published.as_ref(), rebuilt.as_ref(), &mut errors);
         errors
@@ -83,8 +87,8 @@ impl ArvaneTestHost {
 }
 
 fn compare_accessibility(
-    published: Option<&kivact_types::render::SemanticsTree>,
-    rebuilt: Option<&kivact_types::render::SemanticsTree>,
+    published: Option<&arvane_protocol::SemanticsTree>,
+    rebuilt: Option<&arvane_protocol::SemanticsTree>,
     errors: &mut Vec<String>,
 ) {
     if published != rebuilt {

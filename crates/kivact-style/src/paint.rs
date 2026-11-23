@@ -17,8 +17,8 @@
 //! `filter`, `backdrop_filter` and `backdrop_blur` (`Filter`: a list of CSS
 //! filter functions), `mix_blend_mode` (`BlendMode`), `mask` (a `Paint`)
 //! and `clip_path` (`Shape`: polygon, inset, circle, ellipse). These values
-//! are `Draw`'s too and live in `kivact::draw`, except `Background` and
-//! `BorderStyle`, which only a style takes (`kivact::style`); the prelude
+//! are `Draw`'s too; `kivact::style` exports them all, and `Draw` takes the paints
+//! too. The prelude
 //! keeps the everyday names only.
 //!
 //! A `Paint` is one CSS background layer: a color, a [`Gradient`] or an

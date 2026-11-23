@@ -1,6 +1,7 @@
 //! Role: The Review panel.
 
 use kivact::prelude::*;
+use kivact::ui::item_row;
 use kivact_devtools_protocol as p;
 
 use crate::state::{Inspected, Panel, Session};
@@ -32,7 +33,7 @@ pub(crate) fn view(session: Session) -> impl IntoView {
                 button("Open folder").on_press(move || open_folder(session)),
             ))
             .style(style().gap(8).align_items(Align::Center)),
-            text_area("Comment", comment),
+            text_area(comment).label("Comment"),
             button("Add comment")
                 .disabled(move || comment.get().trim().is_empty())
                 .on_press(move || add_comment(session, comment)),
@@ -45,7 +46,7 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         ))
         .style(style().gap(8).padding(12).align_items(Align::Start)),
     )
-    .style(style().grow(1.0).min_height(0.0))
+    .style(style().flex_grow(1.0).min_height(0.0))
 }
 
 /// The editor shown while a comment is being changed.
@@ -67,7 +68,7 @@ fn comment_editor(session: Session, edit: Signal<CommentEdit>) -> impl IntoView 
         move || matches!(edit.get(), CommentEdit::Editing { .. }),
         move || {
             row((
-                text_area("Edit comment", draft),
+                text_area(draft).label("Edit comment"),
                 button("Save").on_press(move || save_comment(session, edit)),
                 button("Cancel").on_press(move || edit.set(CommentEdit::Idle)),
             ))
@@ -145,10 +146,11 @@ fn comment_view(
 
 /// Select the node of an item and show its tree.
 fn go_to(session: Session, window: p::WindowId, node: p::NodeId) {
-    if session
+    let mut loading = false;
+    session
         .inspected
-        .update(|inspected| inspected.select_in(window, node))
-    {
+        .update(|inspected| loading = inspected.select_in(window, node));
+    if loading {
         session.load_window(window, Some(node));
     }
     session.panel.set(Panel::Elements);

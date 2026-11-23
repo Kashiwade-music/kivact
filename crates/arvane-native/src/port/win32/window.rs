@@ -1,10 +1,12 @@
 //! Role: Embedded ShellWindow services and synchronous CPU/GPU presentation.
 use super::native::Native;
-use super::state::{DrainGuard, ReentryGuard, ScaleSource, StartSlot, State};
+use super::state::{DrainGuard, ReentryGuard, ScaleSource, State};
 use crate::port::embed::child::{ChildPort, Command, Shared};
 use crate::port::embed::session::Session;
-use crate::port::embed::surface::ChildSurface;
-use arvane_shell::{AccessibilityError, ShellError, ShellImeText, ShellWindow, SizeReply};
+use arvane_shell::{
+    AccessibilityError, FrameSink, ImeRequest, ShellError, ShellImeText, ShellWindow, SizeReply,
+    WindowSurface,
+};
 use arvane_shell::{ClickCounter, MakeHandler, Mouse, PlatformTree, ShellEvent, ShellWaker};
 use kivact_types::{Cursor, Rect, Size};
 use kivact_types::{PlatformRequest, PlatformResult};
@@ -29,15 +31,19 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 pub(super) struct Window(pub(super) Rc<State>);
 
 pub(super) fn environment(state: &State) -> kivact_types::Environment {
-    let scale = state.shared.scale();
-    let mouse = crate::native_input::pointer_settings(state.shared.scale());
+    environment_of(&state.shared, frame_period(state.native.hwnd()))
+}
+/// The environment of an embedded child from its shared state and frame period.
+fn environment_of(shared: &Shared, frame_period_ns: u64) -> kivact_types::Environment {
+    let scale = shared.scale();
+    let mouse = crate::native_input::pointer_settings(shared.scale());
     kivact_types::Environment {
         scale_factor: scale,
         window_size: kivact_types::Size {
-            width: f64::from(state.shared.size().0) / scale,
-            height: f64::from(state.shared.size().1) / scale,
+            width: f64::from(shared.size().0) / scale,
+            height: f64::from(shared.size().1) / scale,
         },
-        frame_period_ns: frame_period(state.native.hwnd()),
+        frame_period_ns,
         theme_hint: crate::native_input::theme_hint(),
         reduced_motion: crate::native_input::reduced_motion(),
         locale: crate::native_input::locale::system_locale(),
@@ -135,48 +141,17 @@ impl ShellWindow for Window {
                 crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
             }
             PlatformRequest::FocusWindow => self.focus().map(|()| PlatformResult::Done),
-            PlatformRequest::RequestWindowSize(_) => {
-                unreachable!("invariant: the engine asks sizes through request_size")
-            }
             PlatformRequest::Fullscreen(_) => return PlatformResult::Unsupported,
-            PlatformRequest::ForeignChild => return PlatformResult::Unsupported,
         }
         .unwrap_or_else(|error| match error {
             ShellError::Unsupported(_) => PlatformResult::Unsupported,
             ShellError::Failed(failure) => PlatformResult::Failed(failure),
         })
     }
-    fn cpu_format(&self) -> arvane_shell::CpuFormat {
-        arvane_shell::CpuFormat::Xrgb8888
-    }
 
-    /// An embedded editor's window cannot be raised.
-    fn focus(&mut self) -> Result<(), ShellError> {
-        Err(ShellError::unsupported(
-            "focus_window in an embedded editor",
-        ))
-    }
-
-    fn keeps_frames(&self) -> bool {
-        false
-    }
-    fn keep_frame(&mut self, _frame: arvane_shell::CpuFrame) {
-        unreachable!("invariant: native windows do not retain presented frames");
-    }
-
-    fn recover_surface(&mut self) -> Result<(), ShellError> {
-        self.release_cpu_surface();
-        Ok(())
-    }
-    fn shows_cpu_frame(&self) -> bool {
-        self.0.cpu.borrow().shows_frame()
-    }
-    fn release_cpu_surface(&mut self) {
-        self.0.cpu.borrow_mut().release();
-    }
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::render::SemanticsTree,
+        tree: &arvane_protocol::SemanticsTree,
     ) -> Result<(), AccessibilityError> {
         let result = self.0.a11y.replace(tree);
         if result.is_ok() {
@@ -186,12 +161,19 @@ impl ShellWindow for Window {
     }
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::render::SemanticsUpdate,
+        update: &arvane_protocol::SemanticsUpdate,
     ) -> Result<(), AccessibilityError> {
         self.0
             .a11y
             .update(update)
             .map(|_| super::a11y::publish(&self.0))
+    }
+    fn request_accessibility_action(
+        &self,
+        node: u64,
+        request: kivact_types::A11yRequest,
+    ) -> Option<ShellEvent> {
+        self.0.a11y.request_action(node, request)
     }
     fn size(&self) -> Size {
         let applied = self.0.shared.applied();
@@ -243,8 +225,21 @@ impl ShellWindow for Window {
             ..Default::default()
         }
     }
-    fn surface_generation(&self) -> Option<u64> {
-        self.0.surface.get().generation()
+    fn drawable(&self) -> arvane_shell::Drawable {
+        match self.0.shared.applied().visibility {
+            kivact_types::embed::EmbedVisibility::Hidden => arvane_shell::Drawable::Hidden,
+            kivact_types::embed::EmbedVisibility::Shown => {
+                let (width, height) = self.physical_size();
+                if width == 0 || height == 0 {
+                    arvane_shell::Drawable::NoPixels
+                } else {
+                    // The embedded surface is never made again: its generation is always 1.
+                    arvane_shell::Drawable::Yes {
+                        generation: std::num::NonZeroU64::MIN,
+                    }
+                }
+            }
+        }
     }
     fn request_redraw(&self) {
         if self.0.shared.alive() {
@@ -257,9 +252,6 @@ impl ShellWindow for Window {
     fn set_title(&self, _: &str) {}
     fn set_min_size(&self, _: Option<Size>) {}
     fn set_resizable(&self, _: bool) {}
-    fn reduced_motion(&self) -> bool {
-        self.environment().reduced_motion
-    }
     fn environment(&self) -> kivact_types::Environment {
         environment(&self.0)
     }
@@ -282,48 +274,57 @@ impl ShellWindow for Window {
             super::input::cursor(cursor);
         }
     }
-    fn set_ime_purpose(&self, _purpose: kivact_types::InputPurpose) {}
-    fn set_ime_allowed(&self, allowed: bool) {
-        self.0
-            .input
-            .ime
-            .borrow_mut()
-            .set_allowed(&mut super::ime::Port(&self.0), allowed);
+    /// Enable or disable IME input for the focused editor, as `ime` asks.
+    fn set_ime(&self, ime: Option<ImeRequest>) {
+        match ime {
+            None => {
+                self.soft_keyboard(false);
+                self.ime_allowed(false);
+            }
+            Some(request) => {
+                self.ime_allowed(true);
+                self.soft_keyboard(request.soft_keyboard);
+                self.ime_cursor_area(request.cursor_area);
+                self.ime_purpose(request.purpose);
+                self.ime_text(request.text);
+            }
+        }
     }
-    fn set_soft_keyboard(&self, _: bool) {}
-    fn set_ime_cursor_area(&self, area: Rect) {
-        // Native pixels keep a scale change visible to the shared output cache.
-        let scale = self.0.shared.scale();
-        let area = Rect {
-            x: area.x * scale,
-            y: area.y * scale,
-            width: area.width * scale,
-            height: area.height * scale,
-        };
-        self.0
-            .input
-            .ime
-            .borrow_mut()
-            .set_cursor_area(&mut super::ime::Port(&self.0), area);
+
+    /// The window's presentation surface: this window itself.
+    fn surface(&mut self) -> &mut dyn WindowSurface {
+        self
     }
-    fn set_ime_text(&self, text: Option<ShellImeText>) {
-        self.0
-            .input
-            .ime
-            .borrow_mut()
-            .set_text(&mut super::ime::Port(&self.0), text);
-    }
-    fn frame_period_ns(&self) -> u64 {
-        frame_period(self.0.native.hwnd())
-    }
+}
+
+impl WindowSurface for Window {
     fn wait_until(&mut self, done: &mut dyn FnMut() -> bool, limit: Duration) -> bool {
         crate::wait::until(done, limit)
     }
+
+    /// Native windows keep no presented frames.
+    fn frame_sink(&mut self) -> Option<&mut dyn FrameSink> {
+        None
+    }
+
+    fn recover_surface(&mut self) -> Result<(), ShellError> {
+        self.release_cpu_surface();
+        Ok(())
+    }
+
+    fn shows_cpu_frame(&self) -> bool {
+        self.0.cpu.borrow().shows_frame()
+    }
+
+    fn release_cpu_surface(&mut self) {
+        self.0.cpu.borrow_mut().release();
+    }
+
     fn present_with(
         &mut self,
         width: u32,
         height: u32,
-        damage: Option<&[kivact_types::render::PixelRect]>,
+        damage: Option<&[arvane_protocol::PixelRect]>,
         draw: &mut dyn FnMut(&mut [u32], arvane_shell::BufferAge) -> bool,
     ) -> Result<bool, ShellError> {
         let (Some(w), Some(h)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {
@@ -358,6 +359,51 @@ impl ShellWindow for Window {
     }
 }
 
+impl Window {
+    /// An embedded editor's window cannot be raised.
+    fn focus(&mut self) -> Result<(), ShellError> {
+        Err(ShellError::unsupported(
+            "focus_window in an embedded editor",
+        ))
+    }
+
+    fn ime_purpose(&self, _purpose: kivact_types::InputPurpose) {}
+
+    fn ime_allowed(&self, allowed: bool) {
+        self.0
+            .input
+            .ime
+            .borrow_mut()
+            .set_allowed(&mut super::ime::Port(&self.0), allowed);
+    }
+
+    fn soft_keyboard(&self, _: bool) {}
+
+    fn ime_cursor_area(&self, area: Rect) {
+        // Native pixels keep a scale change visible to the shared output cache.
+        let scale = self.0.shared.scale();
+        let area = Rect {
+            x: area.x * scale,
+            y: area.y * scale,
+            width: area.width * scale,
+            height: area.height * scale,
+        };
+        self.0
+            .input
+            .ime
+            .borrow_mut()
+            .set_cursor_area(&mut super::ime::Port(&self.0), area);
+    }
+
+    fn ime_text(&self, text: Option<ShellImeText>) {
+        self.0
+            .input
+            .ime
+            .borrow_mut()
+            .set_text(&mut super::ime::Port(&self.0), text);
+    }
+}
+
 impl State {
     #[allow(
         clippy::too_many_arguments,
@@ -368,7 +414,6 @@ impl State {
         native: Arc<Native>,
         instance: isize,
         scale_source: ScaleSource,
-        visibility: kivact_types::embed::Visibility,
         unhandled_keys: kivact_types::UnhandledKeys,
         on_resize_request: Option<
             Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>,
@@ -381,14 +426,7 @@ impl State {
             uia: RefCell::new(super::state::Uia::Inactive),
             services: RefCell::new(crate::services::Services::default()),
             input: crate::native_input::state::NativeInput::new(
-                kivact_types::Environment {
-                    scale_factor: shared.scale(),
-                    theme_hint: crate::native_input::theme_hint(),
-                    reduced_motion: crate::native_input::reduced_motion(),
-                    pointer: crate::native_input::pointer_settings(shared.scale()),
-                    locale: crate::native_input::locale::system_locale(),
-                    ..Default::default()
-                },
+                environment_of(&shared, kivact_types::defaults::FRAME_PERIOD_NS),
                 waker.clone(),
             ),
             target: Arc::new(super::target::Target {
@@ -396,13 +434,11 @@ impl State {
                 native: native.clone(),
                 shared: shared.clone(),
             }),
-            session: Session::new(shared.clone(), waker),
+            session: Session::new(shared.clone(), waker, make),
             shared,
             native,
             on_resize_request,
             unhandled_keys,
-            surface: Cell::new(ChildSurface::new(visibility)),
-            start: RefCell::new(StartSlot::Ready(make)),
             events: RefCell::new(VecDeque::new()),
             in_callback: ReentryGuard::default(),
             draining: DrainGuard::default(),
@@ -425,19 +461,16 @@ impl State {
     pub(super) fn waker(&self) -> ShellWaker {
         self.session.waker()
     }
-    /// Run the root handler once, inside the window procedure's panic
-    /// boundary: `open` sends the private `START` message; a second one is an
-    /// invariant violation.
+    /// Run the root handler inside the window procedure's panic boundary:
+    /// `open` sends the private `START` message, and the session starts the App
+    /// only while it is still opening.
     pub(super) fn start_once(self: &Rc<Self>) {
-        let StartSlot::Ready(make) = self.start.replace(StartSlot::Started) else {
-            unreachable!("invariant: START is sent once by open");
-        };
         {
             let _callback = self
                 .in_callback
                 .enter()
                 .expect("invariant: open runs no App callback before start");
-            self.session.start(make, &mut Window(self.clone()));
+            self.session.start(&mut Window(self.clone()));
         }
         if self.shared.stopped() {
             self.stop();
@@ -576,14 +609,14 @@ impl State {
             self.event(event);
         }
     }
-    /// Apply a queued show/hide on the UI thread: a hidden child has no surface.
-    fn apply_visibility(self: &Rc<Self>, visibility: kivact_types::embed::Visibility) {
+    /// Apply a queued show/hide on the UI thread; a hidden child keeps its surface.
+    fn apply_visibility(self: &Rc<Self>, visibility: kivact_types::embed::EmbedVisibility) {
         if self.shared.stopped() {
             return;
         }
         let hwnd = self.native.hwnd();
-        match visibility {
-            kivact_types::embed::Visibility::Hidden => {
+        let changed = match visibility {
+            kivact_types::embed::EmbedVisibility::Hidden => {
                 // SAFETY: focus keys read this UI thread's focus window only.
                 let focused = unsafe { GetFocus() };
                 // SAFETY: the check reads this child's parent chain only.
@@ -606,22 +639,22 @@ impl State {
                 unsafe {
                     ShowWindow(hwnd, SW_HIDE);
                 }
-                self.shared.set_visibility(visibility);
+                self.shared.set_visibility(visibility)
             }
-            kivact_types::embed::Visibility::Shown => {
+            kivact_types::embed::EmbedVisibility::Shown => {
                 // SAFETY: showing without activation only targets our live child.
                 unsafe {
                     ShowWindow(hwnd, SW_SHOWNA);
                 }
-                self.shared.set_visibility(visibility);
+                self.shared.set_visibility(visibility)
             }
+        };
+        if changed {
+            self.event(ShellEvent::Visibility(
+                visibility == kivact_types::embed::EmbedVisibility::Shown,
+            ));
         }
-        let mut surface = self.surface.get();
-        if let Some(event) = surface.apply(visibility) {
-            self.surface.set(surface);
-            self.event(event);
-        }
-        if visibility == kivact_types::embed::Visibility::Shown {
+        if visibility == kivact_types::embed::EmbedVisibility::Shown {
             // SAFETY: invalidation only targets our live child; drawing is deferred.
             unsafe {
                 InvalidateRect(hwnd, std::ptr::null(), 0);
@@ -638,7 +671,7 @@ impl State {
     }
     /// Close the handler and release the child's resources, exactly once.
     pub(super) fn dispose(self: &Rc<Self>) {
-        if !self.session.active() {
+        if !self.session.needs_cleanup() {
             return;
         }
         let closed = {
@@ -646,7 +679,7 @@ impl State {
             let Some(_callback) = self.in_callback.enter() else {
                 return;
             };
-            self.session.close(&mut Window(self.clone()))
+            self.session.dispose(&mut Window(self.clone()))
         };
         if !closed {
             self.leak_resources();
@@ -672,7 +705,8 @@ impl State {
     }
     pub(super) fn stop(self: &Rc<Self>) {
         self.shared.request_close();
-        if self.in_callback.get() || !self.session.active() {
+        self.session.stopped_outside_callback();
+        if self.in_callback.get() || !self.session.needs_cleanup() {
             return;
         }
         self.dispose();

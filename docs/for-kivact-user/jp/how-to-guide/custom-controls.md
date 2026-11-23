@@ -36,13 +36,14 @@
 ```rust,test_harness
 use kivact::interaction::use_switch;
 use kivact::prelude::*;
-use kivact::style::Direction;
+use kivact::style::FlexDirection;
 
-/// オンのとき右へつまみが動く、ピル型のスイッチ。
-pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Element {
+/// A pill with a knob that slides to the right when on.
+#[component]
+pub fn pill_switch(label: Value<String>, on: Signal<bool>) -> impl Element {
     let api = use_switch(on);
-    let state = api.control_state();
     let control = api.control();
+    let state = control.state();
     node()
         .part(control)
         .name(label)
@@ -50,15 +51,15 @@ pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Ele
             let state = state.get();
             let on = state.checked.is_checked();
             style()
-                .direction(Direction::Row)
+                .flex_direction(FlexDirection::Row)
                 .justify_content(if on { Justify::End } else { Justify::Start })
                 .size(44, 24)
                 .padding(3)
-                .radius(12)
-                .background(if on { ColorToken::Accent } else { ColorToken::Border })
+                .border_radius(12)
+                .background(if on { color::ACCENT } else { color::BORDER })
                 .opacity(if state.input.is_pressed() { 0.8 } else { 1.0 })
         })
-        .child(node().style(style().size(18, 18).radius(9).background(ColorToken::Surface)))
+        .child(node().style(style().size(18, 18).border_radius(9).background(color::SURFACE)))
 }
 
 fn app() -> impl IntoView {
@@ -106,14 +107,14 @@ mod tests {
 書いていないのに、次の 4 つが成り立っています。
 
 - **ロールと状態。** `use_switch(..).control()` が `Role::Switch`、チェック状態、フォーカスの停止位置を設定します。読み上げソフトは「Notifications、スイッチ、オフ」と読み上げます。
-- **入力。** クリック、Space、読み上げソフトの操作は、すべて同じ `Binding` を反転させます。スイッチは Enter を無視します。コントロールは渡された binding に値を書き込むので、状態は呼び出し側に残ります。
+- **入力。** クリック、Space、読み上げソフトの操作は、すべて同じ `Signal` を反転させます。スイッチは Enter を無視します。コントロールは渡された binding に値を書き込むので、状態は呼び出し側に残ります。
 - **無効化。** `pill_switch(..).disabled(true)` は動作します。無効なノードは入力を無視し、状態には `disabled` が反映されます。Part は mount 時に対象の最終的な disabled を読むため、1 つの modifier で入力と見た目の両方を無効にします。
-- **描画のための状態。** `api.control_state()` は実際の対象に追従する `Value` で、押下、ホバー、フォーカス、フォーカス可視、無効、`checked` を持ちます。これから描いてください。状態を真似る別のシグナルを持たないでください。
+- **描画のための状態。** `control.state()` は実際の対象に追従する `Value` で、押下、ホバー、フォーカス、フォーカス可視、無効、`checked` を持ちます。これから描いてください。状態を真似る別のシグナルを持たないでください。
 
 どのコントローラーにも共通の規則が 3 つあります。
 
 1. **コントローラーは setup で作り、コントロールごとに 1 回呼ぶ。** `Copy` のハンドルです。
-2. **描画の状態はコントローラーから読む。** `api.control_state()` は実際の対象に追従します。参照が必要なら `node_ref()` と `.node_ref(anchor)` で明示的に付けます。Part は振る舞いを付けます。
+2. **描画の状態はコントローラーから読む。** `Part::state()` は実際の対象に追従します。参照が必要なら `node_ref()` と `.node_ref(anchor)` で明示的に付けます。Part は振る舞いを付けます。
 3. **コントローラーがやることを繰り返さない。** 自前の `on_key` で Space を処理すると、コントロールが二重に反転します。自分の `on_press`、`on_key`、`on_pointer` は Part の既定動作より**先に**動きます。自分の処理だけ実行して既定動作を止めたいときは `Handled::PreventDefault`、すべてを止めたいときは `Handled::Yes` を返します。
 
 ## Part を合成しても状態の持ち主を増やさない
@@ -125,29 +126,28 @@ use kivact::prelude::*;
 use kivact::custom::Part;
 use kivact::interaction::use_switch;
 
-fn custom_switch() -> impl IntoView {
-    scope(|| {
-        let enabled = signal(false);
-        let api = use_switch(enabled);
-        let state = api.control_state();
-        let control = api.control();
-        let part = Part::new(state, move |host| host.part(control));
-        node().part(part).name("Notifications")
-            .style(move || style().padding(8).background(
-                if state.get().checked.is_checked() {
-                    ColorToken::Accent
-                } else {
-                    ColorToken::Surface
-                }
-            ))
-            .child("Notifications")
-    })
+#[component]
+fn custom_switch() -> impl Element {
+    let enabled = signal(false);
+    let api = use_switch(enabled);
+    let control = api.control();
+    let state = control.state();
+    let part = Part::new(state, move |host| host.part(control));
+    node().part(part).name("Notifications")
+        .style(move || style().padding(8).background(
+            if state.get().checked.is_checked() {
+                color::ACCENT
+            } else {
+                color::SURFACE
+            }
+        ))
+        .child("Notifications")
 }
 ```
 
 キーボード、ポインター、アクセシビリティの振る舞いは引き続きスイッチのコントローラーが持ちます。合成した Part は同じ事実を読むだけで、チェックや押下の状態を表す別のシグナルを持ちません。`role` や `checked` のような意味の設定には `Node` 固有のメソッドを使います。ビルダーからは `.with_node(|host| ...)` でそれらのメソッドに届きます。`style`、`disabled`、`name` などの共通の modifier は `Element` が提供します。
 
-この例のように、部品専用の owner が必要ならコントローラーの作成を `scope(move || ...)` の中に置きます。その setup は mount 時に一度だけ実行され、破棄時にはコントローラーの cleanup や timer も同じ寿命で終わります。[コンポーネントの寿命](custom-components.md#setup-に独立した寿命を持たせる)を参照してください。
+コンポーネントの本体は mount ごとに 1 回実行されるので、コントローラーの cleanup と timer は、そのインスタンスが取り除かれたときに終わります。
 
 ## キーボード操作つきでリストから選ぶ
 
@@ -157,18 +157,20 @@ fn custom_switch() -> impl IntoView {
 use std::hash::Hash;
 
 use kivact::interaction::{ListOptions, use_list};
+use kivact::view::Orientation;
 use kivact::prelude::*;
+use kivact::state::ItemKey;
 
-/// 選択肢の行。矢印キーで移動と選択を行い、Tab で行の外へ出ます。
+/// A row of options; the arrow keys move and select, Tab leaves the row.
+#[component]
 pub fn segmented<K: ItemKey>(
-    label: impl IntoText,
-    options: Vec<ListItem<K>>,
-    selected: impl IntoBinding<Option<K>>,
+    label: Value<String>,
+    options: Value<Vec<ListItem<K>>>,
+    selected: Signal<Option<K>>,
 ) -> impl Element {
-    let options = options.into_value();
     let list = use_list(
         options,
-        selected.into_binding(),
+        selected,
         ListOptions {
             axis: Some(Orientation::Horizontal),
             ..ListOptions::default()
@@ -179,8 +181,8 @@ pub fn segmented<K: ItemKey>(
         |option| option.key().clone(),
         move |option| {
             let key = option.with_untracked(|option| option.key().clone());
-            let state = list.item_state(key.clone());
             let part = list.item(key);
+            let state = part.state();
             node()
                 .part(part)
                 .style(move || {
@@ -188,8 +190,8 @@ pub fn segmented<K: ItemKey>(
                     style()
                         .padding_x(12)
                         .padding_y(6)
-                        .background(if state.selected { ColorToken::Accent } else { ColorToken::SurfaceAlt })
-                        .color(if state.selected { ColorToken::AccentText } else { ColorToken::Text })
+                        .background(if state.selected { color::ACCENT } else { color::SURFACE_ALT })
+                        .color(if state.selected { color::ACCENT_TEXT } else { color::TEXT })
                         .opacity(if state.input.is_disabled() { 0.4 } else { 1.0 })
                 })
                 .child(text(move || option.with(|option| option.label())))
@@ -232,7 +234,7 @@ mod tests {
         screen.get_by_role(Role::Option, "Month").click();
         screen.get_by_text("range: month");
 
-        // Year は無効なので、矢印キーは Month で止まります。
+        // Year is disabled: the arrow key stops at Month.
         screen.get_by_role(Role::Option, "Month").press_key(Key::ArrowRight);
         screen.get_by_text("range: month");
         screen.get_by_role(Role::Option, "Month").press_key(Key::ArrowLeft);
@@ -244,7 +246,7 @@ mod tests {
 リストが提供するものです。
 
 - **ロール。** コンテナーは `ListBox` です (`Selection::Multiple` では複数選択可)。各項目は、ラベルを名前とする `Option` で、選択に含まれているときは `selected` になります。
-- **選択は呼び出し側のもの。** リストはコピーを持ちません。ユーザーの選択は、渡した binding に書き込みます (`Binding<Option<K>>` に対する `Selection::Single`、または Shift と Ctrl の範囲選択を伴う `Binding<Vec<K>>` に対する `Selection::Multiple`)。フィルターで隠れた選択済みキーは消えません。
+- **選択は呼び出し側のもの。** リストはコピーを持ちません。ユーザーの選択は、渡した binding に書き込みます (`Signal<Option<K>>` に対する `Selection::Single`、または Shift と Ctrl の範囲選択を伴う `Signal<Vec<K>>` に対する `Selection::Multiple`)。フィルターで隠れた選択済みキーは消えません。
 - **ナビゲーション。** `ListOptions` で、軸、端での折り返し、移動で選択するか、先頭文字による検索、確定を起動操作で行うかを決めます。プリセットの `ListOptions::tabs()`、`radio()`、`menu()`、`listbox()` が一般的な部品をカバーします。ポリシーは `use_list` の 3 番目の引数で渡します。
 - **タブストップは 1 つ。** 行全体が Tab の停止位置 1 つで、中は矢印キーで移動します。無効な項目 (`ListItem::disabled(true)`) は飛ばされます。
 
@@ -257,16 +259,17 @@ use std::hash::Hash;
 
 use kivact::interaction::use_select;
 use kivact::prelude::*;
-use kivact::view::overlay;
+use kivact::state::ItemKey;
+use kivact::view::{Placement, overlay};
 
+#[component]
 pub fn dropdown<K: ItemKey>(
-    label: impl IntoText,
-    options: Vec<ListItem<K>>,
-    value: impl IntoBinding<Option<K>>,
+    label: Value<String>,
+    options: Value<Vec<ListItem<K>>>,
+    value: Signal<Option<K>>,
 ) -> impl IntoView {
-    let label = label.into_text_value();
-    let options = options.into_value();
-    let select = use_select(options, value);
+    let open = signal(false);
+    let select = use_select(options, value, open);
     let trigger = select.trigger();
     let anchor = node_ref();
     (
@@ -277,8 +280,8 @@ pub fn dropdown<K: ItemKey>(
             .style(
                 style()
                     .padding(8)
-                    .border(1, ColorToken::Border)
-                    .radius(6)
+                    .border(1, color::BORDER)
+                    .border_radius(6)
                     .min_width(120),
             )
             .child(text(select.label())),
@@ -288,15 +291,15 @@ pub fn dropdown<K: ItemKey>(
                 |option| option.key().clone(),
                 move |option| {
             let key = option.with_untracked(|option| option.key().clone());
-                    let state = select.item_state(key.clone());
                     let part = select.item(key);
+                    let state = part.state();
                     node()
                         .part(part)
                         .style(move || {
                             let state = state.get();
                             style()
                                 .padding(8)
-                                .background(if state.active { ColorToken::Selection } else { ColorToken::Raised })
+                                .background(if state.active { color::SELECTION } else { color::RAISED })
                         })
                         .child(text(move || option.with(|option| option.label())))
                 },
@@ -341,13 +344,13 @@ mod tests {
 
         screen.get_by_text("size: m");
         assert!(screen.query_by_role(Role::Option, "Medium").is_none());
-        // フォーカスはトリガーへ戻っています。
+        // Focus went back to the trigger.
         assert!(screen.get_by_role(Role::ComboBox, "Size").is_focused());
     }
 }
 ```
 
-コントローラーは次のことをすべて引き受けています。閉じたトリガーでの上下キーは開かずに値を変え、Alt+Down、F4、Enter、Space、クリックで開き、リストは選択中のオプションにフォーカスを取り、Escape は選ばずに閉じ、フォーカスはトリガーに戻ります。`trigger()`、`content()`、`show` の同じ組み合わせは `use_popup`、`use_disclosure`、`use_tooltip`、`use_dialog` でも使えます。メニューは `show` の代わりに `MenuApi::while_open` で content を mount します。違うのは Part だけです。モーダルな面では、ダイアログの content が Tab を内側に閉じ込め、閉じると開いた要素にフォーカスを戻します。
+コントローラーは次のことをすべて引き受けています。閉じたトリガーでの上下キーは開かずに値を変え、Alt+Down、F4、Enter、Space、クリックで開き、リストは選択中のオプションにフォーカスを取り、Escape は選ばずに閉じ、フォーカスはトリガーに戻ります。`trigger()`、`content()`、`show` の同じ組み合わせは `use_popup`、`use_disclosure`、`use_tooltip`、`use_dialog` でも使えます。メニューは、Api の `surface(placement, content)` で content を mount します。これは anchor、開閉、content の Part を結び付けます。違うのは Part だけです。モーダルな面では、ダイアログの content が Tab を内側に閉じ込め、閉じると開いた要素にフォーカスを戻します。
 
 ## ドラッグで値を変える
 
@@ -355,7 +358,7 @@ mod tests {
 
 ドラッグは既定で押した瞬間に始まります。`.slop(10)` を足すと移動が 10 logical pixel を越えるまで待ち、`.axis_lock()` を足すと閾値を越えた最初の移動の軸に delta を固定します。`.track_velocity()` を足すと `DragUpdate.velocity` から直近 100 ms の速度を logical pixel/ms で読めます。指定しない場合、速度は 0 です。閾値を越える前に離した場合、開始・更新・終了・編集の callback は呼びません。既存の drag handle の setup 時に指定します。
 
-押した時点のアプリの値を payload に記録する場合は `.source_with(move || value.get_untracked())` を使います。受け付けた press ごとに factory を一度だけ呼びます。slop の判定待ちに入る場合も、その press の時点で記録し、同じ gesture の全 update で保持します。次に受け付けた press では取り直します。`.source(payload)` は setup 時に与えた固定の値を使います。次の例も `source_with` で押下時点の値を記録し、更新ごとにその値へ delta を足します。別のシグナルでドラッグ開始値を保持しません。
+押した時点のアプリの値を payload に記録する場合は `.source_with(move || value.get())` を使います。受け付けた press ごとに factory を一度だけ呼びます。slop の判定待ちに入る場合も、その press の時点で記録し、同じ gesture の全 update で保持します。次に受け付けた press では取り直します。`.source(payload)` は setup 時に与えた固定の値を使います。次の例も `source_with` で押下時点の値を記録し、更新ごとにその値へ delta を足します。別のシグナルでドラッグ開始値を保持しません。
 
 `drag.active_payload()` は、待機中・ドラッグ中の同じ press 時点の snapshot を、読み取り専用の `Value<Option<T>>` で返します。離した後は `None` です。このメソッドだけが `T: PartialEq` を必要とし、factory を呼び直したり payload の別の保存先を作ったりしません。部品の作成者は `kivact::custom::Generation` で識別子を割り当て、数値の id を求める API には `.next().as_u64()` を渡せます。
 
@@ -365,19 +368,20 @@ use std::rc::Rc;
 
 use kivact::interaction::{DragCoordinates, DragUpdate, EditSession, use_drag};
 use kivact::prelude::*;
+use kivact::view::EditPhase;
 
-/// 横にドラッグして変える数値。
-pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Element {
+/// A number you change by dragging sideways.
+#[component]
+pub fn scrub(label: Value<String>, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Element {
     let edit = EditSession::new(move |initial| value.set(initial))
         .on_edit(move |phase| history.borrow_mut().push(phase));
     let drag = use_drag::<f64>(DragCoordinates::Window)
-        .edit(edit, move || value.get_untracked())
+        .edit(edit, move || value.get())
         .on_update(move |update: DragUpdate<f64>| {
             value.set(update.payload + update.delta.x);
-        })
-;
-    let state = drag.source_state();
-    let source = drag.source_with(move || value.get_untracked());
+        });
+    let source = drag.source_with(move || value.get());
+    let state = source.state();
     node()
         .part(source)
         .name(label)
@@ -386,8 +390,8 @@ pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<E
             style()
                 .width(120)
                 .padding(8)
-                .border(1, ColorToken::Border)
-                .background(if state.get().active { ColorToken::SurfaceAlt } else { ColorToken::Surface })
+                .border(1, color::BORDER)
+                .background(if state.get().active { color::SURFACE_ALT } else { color::SURFACE })
         })
         .child(text(move || format!("{:.0}", value.get())))
 }
@@ -429,6 +433,7 @@ mod tests {
 ```rust,test_harness
 use kivact::interaction::{ScalarMapping, ScalarRange, ScalarStep, use_scalar};
 use kivact::prelude::*;
+use kivact::view::Orientation;
 
 fn frequency() -> impl IntoView {
     let hz = signal(440.0);
@@ -437,11 +442,12 @@ fn frequency() -> impl IntoView {
         .mapping(ScalarMapping::logarithmic())
         .key_step(ScalarStep::Position(0.01))
         .expect("valid key step");
-    let state = slider.control_state();
+    let thumb = slider.thumb();
+    let state = thumb.state();
     node()
         .part(slider.track(Orientation::Horizontal))
         .style(style().size(200, 24))
-        .child(node().part(slider.thumb()).name("Frequency"))
+        .child(node().part(thumb).name("Frequency"))
         .child(text(move || format!("{:.0} Hz at {:.2}", hz.get(), state.get().fraction)))
 }
 ```
@@ -482,15 +488,15 @@ use kivact::view::{A11yAction, PointerPhase};
 
 const CELL: f64 = 20.0;
 
-/// `max` 個の点の列。点灯している点の数が評価です。
-pub fn rating(max: u32, value: impl IntoBinding<u32>) -> impl Element {
-    let value = value.into_binding();
+/// A row of `max` dots; the number of lit dots is the rating.
+#[component]
+pub fn rating(max: u32, value: Signal<u32>) -> impl Element {
     primitive()
-        // サイズは `max` だけで決まります。変わるとレイアウトが測り直します。
+        // The size depends only on `max`: the layout measures again when it changes.
         .measure(max, |max: &u32, _: Constraints| Size::new(*max as f64 * CELL, CELL))
         .draw(move |d, size| {
             for i in 0..max {
-                let color = if i < value.get() { ColorToken::Accent } else { ColorToken::Border };
+                let color = if i < value.get() { color::ACCENT } else { color::BORDER };
                 d.circle(Point::new(i as f64 * CELL + CELL / 2.0, size.height / 2.0), 7.0, color);
             }
         })
@@ -523,8 +529,8 @@ pub fn rating(max: u32, value: impl IntoBinding<u32>) -> impl Element {
 }
 
 fn app() -> impl IntoView {
-    let stars = signal(2);
-    column((rating(5, stars), text(move || format!("stars: {}", stars.get()))))
+    let stars = signal(2_u32);
+    column((rating(5_u32, stars), text(move || format!("stars: {}", stars.get()))))
         .style(style().gap(8).padding(16).align_items(Align::Start))
 }
 
@@ -571,16 +577,16 @@ mod tests {
 use kivact::interaction::use_text_edit;
 use kivact::prelude::*;
 
-/// 文字数カウンターつきの入力欄。`max` はエディターが強制します。
-pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize) -> impl Element {
-    let value = value.into_binding();
+/// A field with a character counter. `max` is enforced by the editor.
+#[component]
+pub fn limited_input(label: Value<String>, value: Signal<String>, max: usize) -> impl Element {
     let api = use_text_edit(value).max_length(max).placeholder("Type here");
-    let state = api.control_state();
     let control = api.control();
+    let state = control.state();
     let editor = node().part(control).name(label).style(move || {
         style()
-            .grow(1)
-            .border_bottom(if state.get().is_focused() { 2 } else { 1 }, ColorToken::Accent)
+            .flex_grow(1)
+            .border_bottom(if state.get().is_focused() { 2 } else { 1 }, color::ACCENT)
             .padding_y(6)
     });
     row((editor, text(move || format!("{}/{max}", value.with(|text| text.chars().count())))))
@@ -589,7 +595,7 @@ pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max:
 
 fn app() -> impl IntoView {
     let title = signal(String::new());
-    column((limited_input("Title", title, 8), text(move || format!("title: {}", title.get()))))
+    column((limited_input("Title", title, 8_usize), text(move || format!("title: {}", title.get()))))
         .style(style().gap(8).padding(16).width(320))
 }
 
@@ -628,7 +634,7 @@ binding は確定した値を受け取ります。IME の変換中は、エデ�
 
 文書全体の byte 範囲には `TextEditing::decorations(content, f)` を使い、
 `kivact::custom::Decoration` を返します。種類は `Background`、`Outline`、
-`Underline(TextDecorationStyle)` です。content と theme の変更に追従します。
+`Underline(TextDecorationStyle)` です。変化する content と theme の変更に追従します。
 password の値と placeholder にはこれらを描きません。
 
 編集する node には子（`custom::inline_view` を含む）、`draw`、`draw_over` を付けられます。
@@ -637,6 +643,8 @@ password の値と placeholder にはこれらを描きません。
 行の箱、caret、選択の矩形、`hit_test` を使い、文字、選択、配置の変更に追従できます。
 `NodeRefExt::text_layout` の単独の問い合わせは window 座標で、指定した行だけを整形します。
 caret と `hit_test` の offset は Unicode scalar 数、見た目の範囲は UTF-8 byte 数です。
+
+`EditContext` は、テキストの各行に答え、問い合わせた行だけを整形します。それを渡された要求の間だけ有効なので、保持しないでください。
 
 ## 状態機械で振る舞いを書く
 
@@ -656,8 +664,8 @@ enum CopyState { Idle, Copied }
 enum CopyEvent { Pressed, Expired }
 enum CopyEffect { Write(String) }
 
-struct CopyButton { text: String }               // Self が遷移の読む入力
-impl Machine for CopyButton {
+struct CopyInput { text: String } // Snapshot read by the pure transition.
+impl Machine for CopyInput {
     type State = CopyState;
     type Event = CopyEvent;
     type Effect = CopyEffect;
@@ -672,19 +680,17 @@ impl Machine for CopyButton {
     }
 }
 
-fn copy_button(text: impl IntoValue<String>) -> impl IntoView {
-    let text = text.into_value();
-    scope(move || {
-        let m = machine(CopyState::Idle, move || CopyButton { text: text.get() }, |_, effect| match effect {
-            CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
-        });
-        button(move || if m.get() == CopyState::Copied { "Copied" } else { "Copy" })
-            .on_press(move || m.send(CopyEvent::Pressed))
-    })
+#[component]
+fn copy_button(text: Value<String>) -> impl Element {
+    let m = machine(CopyState::Idle, move || CopyInput { text: text.get() }, |_, effect| match effect {
+        CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
+    });
+    button(move || if m.get() == CopyState::Copied { "Copied" } else { "Copy" })
+        .on_press(move || m.send(CopyEvent::Pressed))
 }
 ```
 
-この例は書き方を示すものです。既存のコピー用コントローラーが合う場合はそちらを使ってください。
+この例は書き方を示すものです。`#[component] fn copy_button` は型 `CopyButton` を作るため、スナップショットの struct は名前が重ならないよう `CopyInput` と名付けています。既存のコピー用コントローラーが合う場合はそちらを使ってください。
 
 ## 関連項目
 

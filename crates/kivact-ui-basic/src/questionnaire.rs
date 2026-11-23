@@ -1,14 +1,17 @@
 //! Role: Step-by-step questionnaire with choices or text input and progress.
 
+use crate::color::{FOREGROUND, INPUT, MUTED, MUTED_FOREGROUND, PRIMARY, PRIMARY_FOREGROUND};
+use crate::recipe_parts::focus_ring;
+
+use kivact::component;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::ListItem;
 use kivact::interaction::{ListItemState, ListOptions, Selection, use_list};
-use kivact::state::{Binding, Callback, Value, binding, memo};
-use kivact::state::{IntoValue, callback};
+use kivact::state::IntoValue;
+use kivact::state::{Callback, Signal, Value, binding, memo};
 use kivact::state::{Machine, Step, machine};
-use kivact::style::{Align, Color, Direction, Justify, Position, pct, style};
+use kivact::style::{Align, Color, FlexDirection, Justify, Position, pct, style, use_theme};
 use kivact::ui::{ButtonVariant, button, text_input};
-use kivact::view::HandlerResult;
 use kivact::view::{Element, Node, column, node, row, text};
 use kivact::view::{IntoView, Role, View, dynamic, for_each};
 
@@ -101,10 +104,8 @@ enum StepKind {
 #[derive(Clone, Debug, PartialEq)]
 pub struct QuestionnaireStep {
     title: String,
-    // xtask-allow(state-fields): option: absent means the step has no description
     description: Option<String>,
     kind: StepKind,
-    // xtask-allow(state-fields): option: the caller's QuestionnaireStep::optional (default false); false means the step has no Skip button and Next waits for an answer
     optional: bool,
 }
 
@@ -154,26 +155,18 @@ impl QuestionnaireStep {
 
 /// A questionnaire that asks one question at a time (`Questionnaire`).
 ///
-/// Created by [`questionnaire`]. The step shown is the caller's `current`
-/// binding, and the answers are the caller's `answers` binding, one
-/// [`QuestionnaireAnswer`] per step (unanswered, skipped or answered). It
-/// writes a whole list into that binding, and the list grows as the steps
-/// are answered: a questionnaire is a form whose result is its answer sheet,
-/// so the application can read it back, restore it or reset it. Submitting
-/// reports the sheet once; the Submit button stays disabled until a step or
-/// an answer changes.
+/// The step shown is the caller's `current` binding, and the answers are the
+/// caller's `answers` binding, one [`QuestionnaireAnswer`] per step
+/// (unanswered, skipped or answered). It writes a whole list into that
+/// binding, and the list grows as the steps are answered: a questionnaire is
+/// a form whose result is its answer sheet, so the application can read it
+/// back, restore it or reset it. Submitting reports the sheet once; the
+/// Submit button stays disabled until a step or an answer changes.
 /// The root is a `Role::Group` named by the message `basic.questionnaire.label`
 /// ("Questionnaire") unless the caller names it. The texts are messages:
 /// `basic.questionnaire.previous`, `basic.questionnaire.skip`, `basic.questionnaire.next`,
 /// `basic.questionnaire.submit` and `basic.questionnaire.progress`.
-pub struct Questionnaire {
-    root: Node,
-    steps: Value<Vec<QuestionnaireStep>>,
-    current: Binding<usize>,
-    answers: Binding<Vec<QuestionnaireAnswer>>,
-    submit: Option<Callback<Vec<QuestionnaireAnswer>>>,
-}
-
+///
 /// A questionnaire over `steps` whose shown step is `current` (zero-based)
 /// and whose answers are `answers`.
 ///
@@ -196,51 +189,78 @@ pub struct Questionnaire {
 ///     })
 /// }
 /// ```
-#[track_caller]
+#[component]
 pub fn questionnaire(
-    steps: impl IntoValue<Vec<QuestionnaireStep>>,
-    current: impl kivact::state::IntoBinding<usize>,
-    answers: impl kivact::state::IntoBinding<Vec<QuestionnaireAnswer>>,
-) -> Questionnaire {
-    Questionnaire {
-        root: node()
-            .with_node(|root| root.role(Role::Group))
-            .name(message("basic.questionnaire.label", "Questionnaire"))
-            .style(
-                style()
-                    .direction(Direction::Column)
-                    .gap(16)
-                    .width(pct(100))
-                    .min_width(0)
-                    .shrink(0),
-            ),
-        steps: steps.into_value(),
-        current: current.into_binding(),
-        answers: answers.into_binding(),
-        submit: None,
-    }
-}
-
-impl Questionnaire {
-    /// Called with the answers when the last step is submitted.
-    pub fn on_submit<R: HandlerResult>(
-        mut self,
-        f: impl Fn(Vec<QuestionnaireAnswer>) -> R + 'static,
-    ) -> Self {
-        self.submit = Some(callback(f));
-        self
-    }
-}
-
-impl Element for Questionnaire {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
+    steps: Value<Vec<QuestionnaireStep>>,
+    current: Signal<usize>,
+    answers: Signal<Vec<QuestionnaireAnswer>>,
+    on_submit: Option<Callback<Vec<QuestionnaireAnswer>>>,
+) -> impl Element {
+    let root = node()
+        .with_node(|root| root.role(Role::Group))
+        .name(message("basic.questionnaire.label", "Questionnaire"))
+        .style(
+            style()
+                .flex_direction(FlexDirection::Column)
+                .gap(16)
+                .width(pct(100))
+                .min_width(0)
+                .flex_shrink(0.0),
+        );
+    let total = memo(move || steps.with(Vec::len));
+    let index = memo(move || current.get().min(total.get().saturating_sub(1)));
+    let progress = message_with(
+        "basic.questionnaire.progress",
+        "{current} of {total}",
+        move || {
+            [
+                ("current", (index.get() + 1).to_string()),
+                ("total", total.get().to_string()),
+            ]
+        },
+    );
+    let step_view = dynamic(
+        move || index.get(),
+        move |at| {
+            steps
+                .with(|all| all.get(at).cloned())
+                .map(|step| question(&step, answer_of(answers, at)))
+                .unwrap_or_else(node)
+        },
+    );
+    // Submitting reports the answer sheet once; a changed step or answer
+    // asks again.
+    let phase = machine(
+        Phase::Asking,
+        move || Submission {
+            at: index.get(),
+            answers: answers.get(),
+        },
+        move |_, all| {
+            if let Some(submit) = on_submit {
+                submit.call(all);
+            }
+        },
+    );
+    phase.feed(index, |_| Event::StepChanged);
+    phase.feed(answers, |_| Event::AnswersChanged);
+    let actions = questionnaire_actions(current, answers, steps, index, total, phase);
+    root.child(
+        text(progress).style(
+            style()
+                .font_size(12)
+                .font_weight(500)
+                .min_width(100)
+                .tabular_nums()
+                .color(MUTED_FOREGROUND),
+        ),
+    )
+    .child(step_view)
+    .child(actions)
 }
 
 /// Write the answer of step `at`, growing the answer list.
-fn set_answer(answers: Binding<Vec<QuestionnaireAnswer>>, at: usize, value: QuestionnaireAnswer) {
+fn set_answer(answers: Signal<Vec<QuestionnaireAnswer>>, at: usize, value: QuestionnaireAnswer) {
     let mut all = answers.get();
     if all.len() <= at {
         all.resize(at + 1, QuestionnaireAnswer::Unanswered);
@@ -250,10 +270,7 @@ fn set_answer(answers: Binding<Vec<QuestionnaireAnswer>>, at: usize, value: Ques
 }
 
 /// The answer of step `at` as a binding that grows the answer list.
-fn answer_of(
-    answers: Binding<Vec<QuestionnaireAnswer>>,
-    at: usize,
-) -> Binding<QuestionnaireAnswer> {
+fn answer_of(answers: Signal<Vec<QuestionnaireAnswer>>, at: usize) -> Signal<QuestionnaireAnswer> {
     binding(
         move || answers.with(|a| a.get(at).cloned().unwrap_or_default()),
         move |value: QuestionnaireAnswer| set_answer(answers, at, value),
@@ -275,7 +292,7 @@ fn choice_card(choice: &QuestionnaireChoice, part: kivact::custom::Part<ListItem
                     style()
                         .font_size(12)
                         .line_height(1.375)
-                        .color(crate::ColorName::MutedForeground),
+                        .color(MUTED_FOREGROUND),
                 )
                 .into_view(),
         );
@@ -285,49 +302,54 @@ fn choice_card(choice: &QuestionnaireChoice, part: kivact::custom::Part<ListItem
         .with_node(|root| root.part(part))
         .with_node(|root| root.role(Role::RadioButton))
         .child(indicator)
-        .child(column(body).style(style().gap(2).grow(1).min_width(0)))
+        .child(column(body).style(style().gap(2).flex_grow(1.0).min_width(0)))
         .style(move || {
-            let p = kivact::style::use_tokens::<crate::Tokens>();
+            let t = use_theme().get();
             let st = state.get();
             let s = style()
-                .direction(Direction::Row)
+                .flex_direction(FlexDirection::Row)
                 .align_items(Align::Start)
                 .gap(10)
                 .min_height(44)
                 .padding_x(12)
                 .padding_y(10)
-                .radius(0)
+                .border_radius(0.0)
                 .font_size(12)
-                .color(p.foreground)
+                .color(FOREGROUND)
                 .border(
                     1,
                     if st.selected {
-                        p.foreground.with_alpha(0.3)
+                        FOREGROUND.with_alpha(0.3)
                     } else {
-                        p.input
+                        INPUT
                     },
                 )
                 .background(if st.selected {
-                    p.muted
+                    MUTED
                 } else {
                     Color::TRANSPARENT
                 })
-                .focus_visible(crate::theme_access::focus_ring(&p));
+                .focus_visible(focus_ring(&t));
             if st.selected {
                 s
             } else {
-                s.hover(style().background(p.muted.with_alpha(0.5)))
+                s.hover(style().background(MUTED.with_alpha(0.5)))
             }
         })
 }
 
 /// The question of one step: its title, description and answer control.
-fn question(step: &QuestionnaireStep, answer: Binding<QuestionnaireAnswer>) -> Node {
+fn question(step: &QuestionnaireStep, answer: Signal<QuestionnaireAnswer>) -> Node {
     let title = step.title.clone();
     let mut parts = vec![
         text(title.clone())
             .with_node(|root| root.role(Role::Heading))
-            .style(style().font_size(14).line_height(20.0 / 14.0).weight(500))
+            .style(
+                style()
+                    .font_size(14)
+                    .line_height(20.0 / 14.0)
+                    .font_weight(500),
+            )
             .into_view(),
     ];
     if let Some(description) = &step.description {
@@ -337,7 +359,7 @@ fn question(step: &QuestionnaireStep, answer: Binding<QuestionnaireAnswer>) -> N
                     style()
                         .font_size(12)
                         .line_height(1.625)
-                        .color(crate::ColorName::MutedForeground),
+                        .color(MUTED_FOREGROUND),
                 )
                 .into_view(),
         );
@@ -396,97 +418,32 @@ fn question(step: &QuestionnaireStep, answer: Binding<QuestionnaireAnswer>) -> N
     column(parts).style(style().gap(if step.description.is_some() { 8 } else { 0 }))
 }
 
-impl IntoView for Questionnaire {
-    fn into_view(self) -> View {
-        let Questionnaire {
-            root,
-            steps,
-            current,
-            answers,
-            submit,
-        } = self;
-        let total = memo(move || steps.with(Vec::len));
-        let index = memo(move || current.get().min(total.get().saturating_sub(1)));
-        let progress = message_with(
-            "basic.questionnaire.progress",
-            "{current} of {total}",
-            move || {
-                [
-                    ("current", (index.get() + 1).to_string()),
-                    ("total", total.get().to_string()),
-                ]
-            },
-        );
-        let step_view = dynamic(
-            move || index.get(),
-            move |at| {
-                steps
-                    .with(|all| all.get(at).cloned())
-                    .map(|step| question(&step, answer_of(answers, at)))
-                    .unwrap_or_else(node)
-            },
-        );
-        // Submitting reports the answer sheet once; a changed step or answer
-        // asks again.
-        let phase = machine(
-            Phase::Asking,
-            move || Submission {
-                at: index.get(),
-                answers: answers.get(),
-            },
-            move |_, all| {
-                if let Some(submit) = submit {
-                    submit.call(all);
-                }
-            },
-        );
-        phase.feed(index, |_| Event::StepChanged);
-        phase.feed(answers, |_| Event::AnswersChanged);
-        let actions = questionnaire_actions(current, answers, steps, index, total, phase);
-        root.child(
-            text(progress).style(
-                style()
-                    .font_size(12)
-                    .weight(500)
-                    .min_width(100)
-                    .tabular_nums()
-                    .color(crate::ColorName::MutedForeground),
-            ),
-        )
-        .child(step_view)
-        .child(actions)
-        .into_view()
-    }
-}
-
 fn choice_indicator(state: Value<ListItemState>) -> Node {
     node()
         .child(node().style(move || {
-            let p = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .position(Position::Absolute)
                 .left(3)
                 .top(3)
                 .size(8, 8)
-                .radius(4)
+                .border_radius(4.0)
                 .background(if state.get().selected {
-                    p.primary_foreground
+                    PRIMARY_FOREGROUND
                 } else {
                     Color::TRANSPARENT
                 })
         }))
         .style(move || {
-            let p = kivact::style::use_tokens::<crate::Tokens>();
             let selected = state.get().selected;
             style()
                 .position(Position::Relative)
                 .size(16, 16)
-                .shrink(0)
+                .flex_shrink(0.0)
                 .margin_top(2)
-                .radius(8)
-                .border(1, if selected { p.primary } else { p.input })
+                .border_radius(8.0)
+                .border(1, if selected { PRIMARY } else { INPUT })
                 .background(if selected {
-                    p.primary
+                    PRIMARY
                 } else {
                     Color::TRANSPARENT
                 })
@@ -496,7 +453,7 @@ fn choice_indicator(state: Value<ListItemState>) -> Node {
 fn input_answer(
     title: String,
     placeholder: Option<&String>,
-    answer: Binding<QuestionnaireAnswer>,
+    answer: Signal<QuestionnaireAnswer>,
 ) -> View {
     let text_value = binding(
         move || {
@@ -513,7 +470,9 @@ fn input_answer(
             });
         },
     );
-    let mut input = text_input(title, text_value).style(style().min_height(32));
+    let mut input = text_input(text_value)
+        .label(title)
+        .style(style().min_height(32));
     if let Some(hint) = placeholder {
         input = input.placeholder(hint.clone());
     }
@@ -521,8 +480,8 @@ fn input_answer(
 }
 
 fn questionnaire_actions(
-    current: Binding<usize>,
-    answers: Binding<Vec<QuestionnaireAnswer>>,
+    current: Signal<usize>,
+    answers: Signal<Vec<QuestionnaireAnswer>>,
     steps: Value<Vec<QuestionnaireStep>>,
     index: Value<usize>,
     total: Value<usize>,
@@ -573,7 +532,12 @@ fn questionnaire_actions(
             }
         },
     );
-    row((node().style(style().grow(1)).child(previous), skip, forward)).style(
+    row((
+        node().style(style().flex_grow(1.0)).child(previous),
+        skip,
+        forward,
+    ))
+    .style(
         style()
             .align_items(Align::Center)
             .justify_content(Justify::Start)

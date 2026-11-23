@@ -1,4 +1,4 @@
-//! Role: Binding-backed scalar operations and semantic control parts.
+//! Role: Signal-backed scalar operations and semantic control parts.
 //!
 //! A [`ScalarApi`] has no value of its own: the finite range, the min-anchored
 //! step, the key step and assistive technology all write through the
@@ -52,11 +52,9 @@
 
 mod data;
 mod edit_state;
-mod focus_machine;
 mod handle;
 mod ops;
 mod range;
-mod range_machine;
 mod touch;
 mod touch_data;
 mod touch_machine;

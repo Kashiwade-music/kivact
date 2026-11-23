@@ -1,15 +1,24 @@
-//! Role: Exercise the Soft catalog through its public navigation and appearance controls.
+//! Exercise the Soft catalog through its page walker and its page controls.
+use catalog_shell::check;
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, TestFonts, render_with};
-use kivact::view::{Key, Modifiers, Role};
-use kivact_ui_soft_catalog::{catalog, catalog_at, fonts, pages};
+use kivact::view::{Key, Role};
+use kivact_ui_soft_catalog::{THEME, pages};
 use std::time::Duration;
 
 #[test]
+fn every_page_opens_from_the_list_and_renders_cleanly() {
+    check::every_page_opens_cleanly("Soft", pages, THEME, &["carousel"]);
+}
+
+#[test]
+fn every_page_character_is_in_the_catalog_fonts() {
+    check::every_page_character_is_in_the_fonts(pages, THEME);
+}
+
+#[test]
 fn carousel_example_moves_the_slides_and_reveals_the_previous_control() {
-    let screen = render_with(RenderOptions::from_env(), || {
-        catalog_at(ThemeMode::Light, "carousel")
-    });
+    let screen = check::mount("Soft", pages, THEME, ThemeMode::Light);
+    check::open(&screen, "carousel");
     let second = screen.get_by_role(Role::Group, "Slide 2 / 4");
     let before = second.accessibility_bounds().expect("visible slide").x;
     screen.get_by_role(Role::Button, "Next slide").click();
@@ -26,9 +35,8 @@ fn carousel_example_moves_the_slides_and_reveals_the_previous_control() {
 
 #[test]
 fn carousel_example_snaps_after_horizontal_wheel_input() {
-    let screen = render_with(RenderOptions::from_env().reduced_motion(), || {
-        catalog_at(ThemeMode::Light, "carousel")
-    });
+    let screen = check::mount("Soft", pages, THEME, ThemeMode::Light);
+    check::open(&screen, "carousel");
     let first = screen.get_by_role(Role::Group, "Slide 1 / 4");
     let start = first.accessibility_bounds().expect("first slide").x;
     let second = screen.get_by_role(Role::Group, "Slide 2 / 4");
@@ -51,9 +59,8 @@ fn carousel_example_snaps_after_horizontal_wheel_input() {
 
 #[test]
 fn table_example_filters_and_expands_projects() {
-    let screen = render_with(RenderOptions::from_env(), || {
-        catalog_at(ThemeMode::Light, "table")
-    });
+    let screen = check::mount("Soft", pages, THEME, ThemeMode::Light);
+    check::open(&screen, "table");
     screen
         .get_by_role(Role::Button, "Show active projects")
         .click();
@@ -69,77 +76,9 @@ fn table_example_filters_and_expands_projects() {
 }
 
 #[test]
-fn every_page_opens_through_search_in_both_appearances() {
-    let screen = render_with(
-        RenderOptions::from_env().fonts(TestFonts::Only(
-            fonts().iter().map(|&bytes| bytes.into()).collect(),
-        )),
-        catalog,
-    );
-    let search = screen.get_by_role(Role::TextBox, "Find a component");
-    let theme = screen.get_by_test_id("catalog-theme");
-    let mode = screen.get_by_test_id("catalog-mode");
-    for page in pages() {
-        search.press_key(Key::Home);
-        search.press_key_with(
-            Key::End,
-            Modifiers {
-                shift: true,
-                ..Modifiers::default()
-            },
-        );
-        search.type_text(page.name);
-        screen.get_by_test_id(page.slug).click();
-        assert_eq!(screen.get_by_test_id("catalog-title").name(), page.name);
-        for appearance in ["Light", "Dark"] {
-            assert_eq!(mode.text(), appearance);
-            let errors = screen.errors();
-            assert!(
-                errors.is_empty(),
-                "{} ({appearance}): {errors:?}",
-                page.slug
-            );
-            theme.click();
-        }
-    }
-}
-
-#[test]
-fn search_opens_a_page_and_the_appearance_toggle_keeps_it_open() {
-    let screen = render_with(
-        RenderOptions::from_env().fonts(TestFonts::Only(
-            fonts().iter().map(|&bytes| bytes.into()).collect(),
-        )),
-        catalog,
-    );
-    screen.get_by_text("Light");
-    let search = screen.get_by_role(Role::TextBox, "Find a component");
-    search.type_text("Tooltip");
-    screen.get_by_role(Role::Button, "Tooltip").click();
-    assert_eq!(screen.get_by_test_id("catalog-title").name(), "Tooltip");
-    screen.get_by_test_id("catalog-theme").click();
-    screen.get_by_text("Dark");
-    assert_eq!(screen.get_by_test_id("catalog-title").name(), "Tooltip");
-    let motion = screen.get_by_test_id("catalog-motion");
-    assert!(!motion.is_selected());
-    motion.click();
-    assert!(motion.is_selected());
-    assert_eq!(screen.get_by_test_id("catalog-title").name(), "Tooltip");
-    assert!(pages().iter().any(|page| page.slug == "rich-text-editor"));
-}
-
-#[test]
 fn standard_examples_keep_their_controls_when_the_appearance_changes() {
-    let screen = render_with(
-        RenderOptions::from_env().fonts(TestFonts::Only(
-            fonts().iter().map(|&bytes| bytes.into()).collect(),
-        )),
-        catalog,
-    );
-    screen.get_by_role(Role::Button, "Primary");
-    let search = screen.get_by_role(Role::TextBox, "Find a component");
-    search.type_text("Checkbox Input");
-    screen.get_by_role(Role::Button, "Checkbox Input").click();
+    let screen = check::mount("Soft", pages, THEME, ThemeMode::Light);
+    check::open(&screen, "checkbox-input");
     let checkbox = screen.get_by_role(Role::CheckBox, "Unchecked");
     checkbox.click();
     assert!(
@@ -159,9 +98,8 @@ fn standard_examples_keep_their_controls_when_the_appearance_changes() {
 fn file_example_uses_picker_storage_and_clear_without_accepting_field_drops() {
     use kivact::geometry::Point;
     use kivact::view::FilePhase;
-    let screen = render_with(RenderOptions::from_env(), || {
-        catalog_at(ThemeMode::Light, "file-input")
-    });
+    let screen = check::mount("Soft", pages, THEME, ThemeMode::Light);
+    check::open(&screen, "file-input");
     let field = screen.get_by_role(Role::Button, "Attachment");
     let bounds = field.rect().expect("invariant: file field has layout");
     let point = Point::new(
@@ -183,7 +121,8 @@ fn file_example_uses_picker_storage_and_clear_without_accepting_field_drops() {
 fn item_list_examples_keep_native_positions_in_both_appearances() {
     for mode in [ThemeMode::Light, ThemeMode::Dark] {
         for page in ["list", "item"] {
-            let screen = render_with(RenderOptions::from_env(), move || catalog_at(mode, page));
+            let screen = check::mount("Soft", pages, THEME, mode);
+            check::open(&screen, page);
             let design = screen.get_by_role(Role::ListItem, "Design");
             let archive = screen.get_by_role(Role::ListItem, "Archive");
             assert_eq!(design.pos_in_set(), Some(1));

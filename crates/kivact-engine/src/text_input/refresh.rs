@@ -14,13 +14,7 @@ pub(crate) enum RefreshMode {
     /// This expensive checkpoint is useful after a source batch or adoption.
     /// In release builds it performs ordinary reconciliation only; no integrity
     /// scan, reference allocation or diagnostic assurance is provided.
-    #[cfg_attr(
-        not(any(debug_assertions, feature = "testing")),
-        expect(
-            dead_code,
-            reason = "only the testing self-check requests a verification"
-        )
-    )]
+    #[cfg(debug_assertions)]
     Verify,
 }
 
@@ -52,7 +46,7 @@ impl EditLines {
         &mut self,
         source: Source<'_>,
         style: kivact_types::ComputedTextStyle,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         mode: RefreshMode,
     ) -> Result<(), RefreshError> {
         self.reconcile(source, style, engine);
@@ -69,7 +63,7 @@ impl EditLines {
         Ok(())
     }
 
-    fn rebuild_with_metrics(&mut self, text: &str, engine: &mut arvane::Engine) {
+    fn rebuild_with_metrics(&mut self, text: &str, engine: &mut arvane_text::TextEngine) {
         let style = &self.key.style;
         let height = crate::text_input::line_height(engine, style);
         let blank = engine
@@ -83,7 +77,7 @@ impl EditLines {
         &mut self,
         source: Source<'_>,
         style: kivact_types::ComputedTextStyle,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) {
         let (key, align) = Key::of(&source, style);
         self.align = align;

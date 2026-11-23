@@ -1,14 +1,15 @@
 //! Role: Compose named search filters with an explicit editor and remove controls.
 
+use crate::color as c;
+use crate::radius as r;
+
 use kivact::i18n::message;
-use kivact::interaction::DialogMode;
 use kivact::interaction::ListItem;
-use kivact::state::Binding;
-use kivact::state::IntoBinding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::ItemKey;
 use kivact::state::Machine;
+use kivact::state::Signal;
 use kivact::state::Step;
 use kivact::state::Value;
 use kivact::state::binding;
@@ -17,6 +18,7 @@ use kivact::style::Align;
 use kivact::style::Length;
 use kivact::style::style;
 use kivact::ui::ButtonVariant;
+use kivact::ui::DialogKind;
 use kivact::ui::button;
 use kivact::ui::dialog;
 use kivact::ui::select;
@@ -57,21 +59,21 @@ pub enum SearchOperator {
 pub struct PowerSearch<K: ItemKey> {
     root: Node,
     label: Value<String>,
-    fields: Value<Vec<ListItem<K>>>,
-    filters: Binding<Vec<SearchFilter<K>>>,
+    items: Value<Vec<ListItem<K>>>,
+    filters: Signal<Vec<SearchFilter<K>>>,
 }
 
 /// Build an editor for adding, changing and removing filters over the supplied keyed fields.
 pub fn power_search<K: ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
-    filters: impl IntoBinding<Vec<SearchFilter<K>>>,
+    filters: Signal<Vec<SearchFilter<K>>>,
 ) -> PowerSearch<K> {
     PowerSearch {
         root: node(),
         label: label.into_text_value(),
-        fields: items.into_value(),
-        filters: filters.into_binding(),
+        items: items.into_value(),
+        filters,
     }
 }
 
@@ -87,7 +89,7 @@ impl<K: ItemKey> IntoView for PowerSearch<K> {
         let Self {
             root,
             label,
-            fields,
+            items,
             filters,
         } = self;
         let editor = machine(
@@ -119,7 +121,7 @@ impl<K: ItemKey> IntoView for PowerSearch<K> {
             move || editor.get().draft().value,
             move |value| editor.send(SearchEvent::Value(value)),
         );
-        let tokens_view = filter_tokens(fields, filters, editor);
+        let tokens_view = filter_tokens(items, filters, editor);
         let add = button(message("soft.power_search.add", "Add filter"))
             .variant(ButtonVariant::Ghost)
             .icon(icon("plus"))
@@ -128,21 +130,19 @@ impl<K: ItemKey> IntoView for PowerSearch<K> {
             });
         let trigger = root
             .name(label)
-            .child(row((tokens_view, add)).style(style().wrap(true).gap(4)));
+            .child(row((tokens_view, add)).style(style().flex_wrap(true).gap(4)));
         dialog(label, open)
-            .mode(DialogMode::Popover)
+            .mode(DialogKind::Popover)
             .hide_title(true)
             .width(Length::Auto)
-            .content(move || filter_form(fields, field, operator, value, editor))
+            .content(move || filter_form(items, field, operator, value, editor))
             .attach(trigger)
     }
 }
 
 #[derive(Clone, PartialEq)]
 struct FilterDraft<K> {
-    // xtask-allow(state-fields): independent: set only by the Field select or seeded from the edited filter; operator is chosen separately and Apply requires both, so a draft missing either is a valid in-progress form.
     field: Option<K>,
-    // xtask-allow(state-fields): independent: the chosen comparison; every field offers every operator
     operator: Option<SearchOperator>,
     value: String,
 }
@@ -271,7 +271,7 @@ impl<K: Clone + Eq + 'static> Machine for SearchMachine<K> {
 
 fn filter_tokens<K: ItemKey>(
     fields: Value<Vec<ListItem<K>>>,
-    filters: Binding<Vec<SearchFilter<K>>>,
+    filters: Signal<Vec<SearchFilter<K>>>,
     editor: kivact::state::MachineHandle<SearchMachine<K>>,
 ) -> impl IntoView {
     let entries =
@@ -318,12 +318,11 @@ fn filter_tokens<K: ItemKey>(
                     }
                 });
             row((edit, remove)).style(move || {
-                let t = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .height(28)
                     .align_items(Align::Center)
-                    .radius(t.radius.element)
-                    .background(t.colors.accent_muted)
+                    .border_radius(r::RADIUS_ELEMENT)
+                    .background(c::ACCENT_MUTED)
             })
         },
     )
@@ -331,9 +330,9 @@ fn filter_tokens<K: ItemKey>(
 
 fn filter_form<K: ItemKey>(
     fields: Value<Vec<ListItem<K>>>,
-    field: Binding<Option<K>>,
-    operator: Binding<Option<SearchOperator>>,
-    value: Binding<String>,
+    field: Signal<Option<K>>,
+    operator: Signal<Option<SearchOperator>>,
+    value: Signal<String>,
     editor: kivact::state::MachineHandle<SearchMachine<K>>,
 ) -> Node {
     let operators = vec![
@@ -355,14 +354,10 @@ fn filter_form<K: ItemKey>(
             editor.send(SearchEvent::Apply);
         });
     row((
-        select(message("soft.power_search.field", "Field"), fields, field),
-        select(
-            message("soft.power_search.operator", "Operator"),
-            operators,
-            operator,
-        ),
-        text_input(message("soft.power_search.value", "Value"), value),
+        select(fields, field).label(message("soft.power_search.field", "Field")),
+        select(operators, operator).label(message("soft.power_search.operator", "Operator")),
+        text_input(value).label(message("soft.power_search.value", "Value")),
         save,
     ))
-    .style(style().wrap(true).gap(8).padding(12))
+    .style(style().flex_wrap(true).gap(8).padding(12))
 }

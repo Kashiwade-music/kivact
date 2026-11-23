@@ -42,6 +42,7 @@ use crate::lower::drawables::{DrawablePlan, DrawableSite};
 use crate::lower::scene_cache::{Dependency, SceneCache};
 use std::sync::Arc;
 
+// xtask-allow(state): independent: assets and scene_cache are borrowed stores; raster is the scale stack of paint_layers and paint_scene; dependencies, dropped and failures accumulate one operation's report (record, drop_command, fail; restore rewinds the last two); drawables is set by hosting
 /// A UI-local, non-reentrant lowering operation borrowing resources and scale.
 /// Callers must not hold an overlapping resource borrow while invoking it.
 /// It records failures and drops; publishing them remains the caller's policy.
@@ -54,10 +55,8 @@ pub(crate) struct Context<'a> {
     pub(crate) dependencies: RefCell<Vec<Dependency>>,
     /// The shader clock of what is painted.
     pub(crate) time: ShaderTime,
-    // xtask-allow(state-fields): independent: drop_command counts each undrawable command; succeeded_since compares it to a checkpoint to keep a failed scene out of the cache and offscreen fails on it; canvas hosting or not, any count occurs
     dropped: Cell<u32>,
     failures: RefCell<Vec<kivact_types::Failure>>,
-    // xtask-allow(state-fields): option: absent unless the host scene being lowered is a canvas
     /// The canvas drawables of the host scene being lowered, if it is one.
     pub(crate) drawables: Option<DrawableSite<'a>>,
 }
@@ -170,10 +169,11 @@ impl<'a> Context<'a> {
     /// Why `asset` has no pixels now.
     fn unavailable(&self, asset: &kivact_types::Asset) {
         match self.assets.borrow().status(asset) {
-            Some(arvane::asset::ImageState::Failed(error)) => self.fail(
-                kivact_types::Failure::new(kivact_types::FailureKind::Resource, error.to_string()),
-            ),
-            Some(arvane::asset::ImageState::Pending) => self.fail(kivact_types::Failure::new(
+            Some(arvane_asset::ImageState::Failed(error)) => self.fail(kivact_types::Failure::new(
+                kivact_types::FailureKind::Resource,
+                error.to_string(),
+            )),
+            Some(arvane_asset::ImageState::Pending) => self.fail(kivact_types::Failure::new(
                 kivact_types::FailureKind::Unavailable,
                 "image resource is not ready",
             )),
@@ -203,20 +203,20 @@ impl<'a> Context<'a> {
     pub(crate) fn pixels(
         &self,
         asset: &kivact_types::Asset,
-        size: arvane::asset::PixelSize,
+        size: arvane_asset::PixelSize,
         frame: u32,
-    ) -> Option<(kivact_types::Pixels, arvane::asset::Region)> {
-        self.pixels_in(asset, size, arvane::asset::Region::WHOLE, None, frame)
+    ) -> Option<(kivact_types::Pixels, arvane_asset::Region)> {
+        self.pixels_in(asset, size, arvane_asset::Region::WHOLE, None, frame)
     }
 
     fn pixels_in(
         &self,
         asset: &kivact_types::Asset,
-        size: arvane::asset::PixelSize,
-        region: arvane::asset::Region,
+        size: arvane_asset::PixelSize,
+        region: arvane_asset::Region,
         tint: Option<kivact_types::Rgba>,
         frame: u32,
-    ) -> Option<(kivact_types::Pixels, arvane::asset::Region)> {
+    ) -> Option<(kivact_types::Pixels, arvane_asset::Region)> {
         if size.is_empty() {
             return None;
         }

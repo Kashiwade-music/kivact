@@ -1,0 +1,175 @@
+//! Role: The hover card builder, its open timing and its rendering.
+
+use crate::hover_card::look::HoverCardTheme;
+use kivact_core::state::{IntoText, IntoValue, Signal, Value, signal};
+use kivact_core::style::use_theme;
+use kivact_core::view::{
+    Element, IntoView, OverlayAlign, Placement, Role, View, ViewFn, column, node_ref, overlay, show,
+};
+use kivact_interaction::{Delays, InteractionPolicy, use_hover_card};
+use std::time::Duration;
+
+use crate::hover_card::look::HoverCardSurfaceState;
+
+/// Whether the trigger participates in focus opening.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FocusTrigger {
+    #[default]
+    /// Open when the existing trigger or preview gains focus.
+    Auto,
+    /// Also make the trigger keyboard focusable.
+    Always,
+    /// Only pointer or explicit opening requests open the preview.
+    Never,
+}
+/// Whether the preview is open, and who decides it.
+#[derive(Clone, Copy)]
+enum CardOpen {
+    /// The caller's binding is the sole authority.
+    Controlled(Signal<bool>),
+    /// The preview starts at this value and then follows its own behavior.
+    Uncontrolled(bool),
+}
+
+/// A floating preview with shared pointer corridor, focus, and dismissal behavior.
+pub struct HoverCard {
+    content: ViewFn,
+    variants: kivact_core::view::Variants,
+    placement: Value<Placement>,
+    align: Value<OverlayAlign>,
+    timing: Delays,
+    enabled: Value<bool>,
+    focus: FocusTrigger,
+    open: CardOpen,
+    label: Option<Value<String>>,
+}
+/// Build the preview content in a fresh owner each time it opens.
+#[track_caller]
+pub fn hover_card<V: IntoView>(content: impl Fn() -> V + 'static) -> HoverCard {
+    HoverCard {
+        content: ViewFn::from(move |()| content()),
+        variants: kivact_core::view::Variants::default(),
+        placement: Placement::Below.into_value(),
+        align: OverlayAlign::Center.into_value(),
+        timing: use_theme().get().ext::<InteractionPolicy>().hover_card,
+        enabled: true.into_value(),
+        focus: FocusTrigger::Auto,
+        open: CardOpen::Uncontrolled(false),
+        label: None,
+    }
+}
+impl HoverCard {
+    /// Select a theme-specific visual treatment.
+    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
+        self.variants = std::mem::take(&mut self.variants).with(variant);
+        self
+    }
+
+    /// Choose a constant or reactive side of the trigger.
+    #[track_caller]
+    pub fn placement(mut self, placement: impl IntoValue<Placement>) -> Self {
+        self.placement = placement.into_value();
+        self
+    }
+    /// Choose constant or reactive alignment along the trigger.
+    #[track_caller]
+    pub fn align(mut self, align: impl IntoValue<OverlayAlign>) -> Self {
+        self.align = align.into_value();
+        self
+    }
+    /// Override pointer entry delay; focus still opens immediately.
+    pub fn open_delay(mut self, delay: Duration) -> Self {
+        self.timing.open = delay;
+        self
+    }
+    /// Override the delay after pointer and focus leave.
+    pub fn close_delay(mut self, delay: Duration) -> Self {
+        self.timing.close = delay;
+        self
+    }
+    /// Use this binding as the sole authority for visibility.
+    /// Pointer entry, departure and dismissal request writes; rejected writes
+    /// are respected. An external close suppresses the current engagement.
+    pub fn open(mut self, open: Signal<bool>) -> Self {
+        self.open = CardOpen::Controlled(open);
+        self
+    }
+    /// Start visible until the first completed visit, unless an open binding is supplied.
+    pub fn default_open(mut self, open: bool) -> Self {
+        if !matches!(self.open, CardOpen::Controlled(_)) {
+            self.open = CardOpen::Uncontrolled(open);
+        }
+        self
+    }
+    /// Gate all opening requests with a reactive condition.
+    #[track_caller]
+    pub fn enabled(mut self, enabled: impl IntoValue<bool>) -> Self {
+        self.enabled = enabled.into_value();
+        self
+    }
+    /// Use existing focusability, force a tab stop, or disable focus opening.
+    pub fn focus_trigger(mut self, focus: FocusTrigger) -> Self {
+        self.focus = focus;
+        self
+    }
+    /// Give interactive content a dialog role and accessible name.
+    #[track_caller]
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.label = Some(label.into_text_value());
+        self
+    }
+    /// Attach without replacing the trigger's role or existing handlers.
+    pub fn attach<T: Element + IntoView>(self, trigger: T) -> View {
+        let anchor = node_ref();
+        let focus = self.focus;
+        let requested = match self.open {
+            CardOpen::Controlled(binding) => binding,
+            CardOpen::Uncontrolled(initial) => signal(initial),
+        };
+        let behavior = use_hover_card(
+            self.enabled,
+            move || focus != FocusTrigger::Never,
+            self.timing,
+            requested,
+        );
+        let shown = behavior.is_open();
+        let trigger = trigger
+            .node_ref(anchor)
+            .with_node(|node| node.part(behavior.trigger()));
+        let trigger = if focus == FocusTrigger::Always {
+            trigger.focusable(true)
+        } else {
+            trigger
+        };
+        let layer = show(shown, move || {
+            let part = kivact_core::custom::part(move |input| HoverCardSurfaceState {
+                input,
+                open: shown.get(),
+                placement: self.placement.get(),
+            });
+            let state = part.state();
+            let panel = crate::layer::with_recipe_style(
+                column(self.content.call(())).part(part),
+                |r: &HoverCardTheme| r.surface_recipe(),
+                &self.variants,
+                move || state.get(),
+            );
+            let layer = overlay(anchor, self.placement, panel)
+                .align(self.align)
+                .offset(use_theme().get().get(&crate::hover_card::look::OFFSET_VAR))
+                .viewport_margin(
+                    use_theme()
+                        .get()
+                        .get(&crate::hover_card::look::VIEWPORT_MARGIN_VAR),
+                )
+                .with_node(|node| node.part(behavior.content()));
+            match self.label {
+                Some(label) => layer.with_node(|node| node.role(Role::Dialog)).name(label),
+                None => layer
+                    .with_node(|node| node.role(Role::Group))
+                    .name(kivact_core::i18n::message("hover_card.label", "Preview")),
+            }
+        });
+        (trigger, layer).into_view()
+    }
+}

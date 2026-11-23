@@ -4,14 +4,15 @@
 
 Kivact は Rust 向けのネイティブ GUI フレームワークです。コンポーネントは一度だけ実行される普通の関数で、細粒度のシグナルが、読み取った部分だけをウィンドウ上で更新します。React や SolidJS を知っていれば、考え方になじみやすいはずです。アプリのドメインロジックも同じ Rust のコードベースに置けます。
 
-> **開発初期です。** Kivact にはまだリリースがなく、API は予告なく変わります。安定したビルドが必要な場合は、コミットを固定してください。
+> **開発初期です。** Kivact にはまだリリースがなく、API は予告なく変わります。安定したビルドが必要な場合は、Kivact を使うすべてのリポジトリを同じ revision (同じ `rev`) に固定してください。
 
 対象プラットフォームは Windows と Linux (Wayland / X11) です。macOS は動作確認していません。
 
 ```rust,no_run
 use kivact::prelude::*;
 
-fn counter() -> impl IntoView {
+#[component]
+fn counter() -> impl Element {
     let count = signal(0);
     column((
         text(move || format!("count: {}", count.get())),
@@ -37,9 +38,16 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact" }
 kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["test"] }
 ```
 
+Kivact のレイアウトと描画のコードは、最適化しないと遅すぎるため、デバッグビルドでも依存を最適化してください。Kivact 自身の crate を一つずつ並べないでください。revision の間で変わるためです。
+
+```toml
+[profile.dev.package."*"]
+opt-level = 3
+```
+
 リポジトリは `rust-toolchain.toml` でツールチェーンを Rust 1.98.1 (edition 2024) に固定しています。このバージョン以降を使ってください。
 
-既定では CPU で frame を描き、window が GPU を必要としたとき（ユーザーの shader を描いた、GPU texture の共有のために App が `gpu_interop::adapter()` を読んだ）に GPU device を起動します。CPU の frame が表示周期の半分を続けて超える場合も起動します。使える GPU がなければ CPU のままです。実行時に CPU 描画を強制するには、環境変数 `ARVANE_RENDERER=cpu` を設定します。`ARVANE_RENDERER=gpu` は window の起動時に device を起動します。
+既定では CPU で frame を描き、window が GPU を必要としたとき（ユーザーの shader を描いた、GPU texture の共有のために App が `gpu_interop::adapter()` を読んだ）に GPU device を起動します。CPU の frame が表示周期の半分を続けて超える場合も起動します。使える GPU がなければ CPU のままです。環境変数 `ARVANE_RENDERER` は実行時の選択です。`cpu` では GPU を起動せず、`gpu` は window の起動時に起動し、`auto` は既定のとおり必要になったときに起動します。コードでは、`App::gpu_preference` の `kivact::platform::GpuStart`（`Never`、`AtLaunch`、`OnDemand`）が同じ選択をします。
 
 ### 小さいバイナリを配布する
 
@@ -50,7 +58,7 @@ facade は既定で 2 つの feature を有効にします。`gpu`（GPU レン�
 kivact = { git = "https://github.com/Kashiwade-music/kivact", default-features = false, features = ["gpu"] }
 ```
 
-`gpu` も一覧から外せば、GPU レンダラーのないビルドになります。`templates/basic/Cargo.toml` の `[profile.release]`（fat LTO、codegen-units 1、描画・shaping・layout の crate は `opt-level = 3`、asset の worker だけで動く第三者の crate は `"z"`、ほかは `"s"`、symbol の strip）がもう半分です。バイナリが小さくなり、hot path が速くなり、release のビルドは長くなります。
+`gpu` も一覧から外せば、GPU レンダラーのないビルドになります。`templates/basic/README.md` の `[profile.release]`（fat LTO、codegen-units 1、描画・shaping・layout の crate は `opt-level = 3`、asset の worker だけで動く第三者の crate は `"z"`、ほかは `"s"`、symbol の strip）がもう半分です。バイナリが小さくなり、hot path が速くなり、release のビルドは長くなります。
 
 ## どこから読むか
 
@@ -58,5 +66,6 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", default-features =
 | --- | --- |
 | [getting-started/](getting-started/README.md) | チュートリアルです。小さな ToDo アプリを 1 ページずつ作ります。まずここから始めてください。 |
 | [how-to-guide/](how-to-guide/README.md) | フォームの検証やダイアログの表示など、目的別のガイドです。 |
+| [移行](how-to-guide/migrating-to-rework.md) | 改修前のコードのための、旧い名前と置き換え先です。 |
 | [UI キット](../../for-kivact-ui-user/jp/README.md) | 公式の 5 つのコンポーネントキット (`kivact-ui-basic`、`kivact-ui-pop`、`kivact-ui-game`、`kivact-ui-creative`、`kivact-ui-soft`) とそのテーマです。 |
 | API リファレンス | Kivact に依存するプロジェクト、またはリポジトリのクローンで `cargo doc -p kivact --open` を実行します。 |

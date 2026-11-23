@@ -11,7 +11,8 @@
 ```rust,no_run
 use kivact::prelude::*;
 
-fn sections() -> impl IntoView {
+#[component]
+fn sections() -> impl Element {
     kivact::ui::disclosure_group(signal(Some("overview")))
         .panel("overview", "Overview", || text("Project overview"))
         .panel("details", "Details", || text("Project details"))
@@ -30,9 +31,9 @@ corridor が保護します。Escape と外側の押下は、現在の操作が�
 初期表示を保ちます。明示した `open` binding が表示を決定します。ポインターとフォーカスは書き込みを
 要求し、拒否された書き込みを尊重します。外部から閉じると現在の操作が
 終わるまで開き直しません。
-`on_open_change` は初期値を除いた表示の変化を通知します。
+表示の状態は `.open(signal)` に渡した signal から読みます。
 
-`dialog(title, open).mode(DialogMode::Drawer(edge))` にはドラッグ用ハンドルが
+`dialog(title, open).mode(DialogKind::Drawer(edge))` にはドラッグ用ハンドルが
 付きます。端に向かって引き、距離または flick の閾値を超えると閉じます。
 取り消すと元の位置に戻ります。`InteractionPolicy.drawer` が閾値、
 `hover_card` がプレビューの時間を指定します。
@@ -42,4 +43,4 @@ corridor が保護します。Escape と外側の押下は、現在の操作が�
 成功するたびに待ち時間が始まり直します。失敗は owner のエラーハンドラーへ届き、
 確認表示を開始しません。owner を破棄すると処理とタイマーを取り消します。
 
-Disclosure の recipe は `DisclosureRecipeState` を読みます。実際の入力と開閉状態に加えて、固定のグループ位置 `group`（`index`、`count`）を渡すため、グループの状態を保存せず区切り線を描けます。グループとパネルの variant は統合され、同じ型ではパネル側が優先されます。`UiTokens::disclosure.motion.transition` でテーマの transition を指定できます。未指定なら duration に基づく ease-out tween を使います。
+Disclosure の recipe は `DisclosureRecipeState` を読みます。実際の入力と開閉状態に加えて、固定のグループ位置 `group`（`index`、`count`）を渡すため、グループの状態を保存せず区切り線を描けます。グループとパネルの variant は統合され、同じ型ではパネル側が優先されます。`DisclosureTheme` の `motion` 設定でテーマの transition を指定できます。未指定なら duration に基づく ease-out tween を使います。

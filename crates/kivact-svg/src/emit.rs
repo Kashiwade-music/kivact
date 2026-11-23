@@ -8,13 +8,13 @@
 //! `<defs>` block, numbered in the order they are written.
 
 use super::emitter::Emitter;
-use super::encode::{hex, number, opacity_attribute};
-use super::fill::paint_attributes;
+use super::encode::{blend_name, hex, number, opacity_attribute};
+use super::fill::{Units, paint_attributes};
 use super::shape::{outline_of, path_data};
 use crate::SvgError;
 use kivact_types::{
-    BlendMode, DrawCmd, DrawingLayer, DrawingShape, Fill, FillRule, Point, Rect, Rgba, ShapePaint,
-    Stroke, Transform,
+    Affine, DrawCmd, DrawingLayer, DrawingShape, Fill, FillRule, Mix, Point, Rect, Rgba,
+    ShapePaint, Stroke,
 };
 
 /// How a run of commands ended.
@@ -160,7 +160,7 @@ impl Emitter<'_> {
 
     /// A clip to a drawn outline, defined once as a clip path; the attributes of its group.
     fn outline_clip(&mut self, clip: &DrawingShape) -> Result<String, SvgError> {
-        let (cmds, rule, _) = outline_of(clip);
+        let (cmds, rule) = outline_of(clip);
         let d = path_data(&cmds)?;
         let id = self.id("clip");
         self.defs.push_str(&format!(
@@ -170,12 +170,17 @@ impl Emitter<'_> {
         Ok(format!(" clip-path=\"url(#{id})\""))
     }
 
-    /// The attributes of the group of a layer, which the SVG form can express
-    /// only as opacity and a clip.
+    /// The attributes of the group of a layer: opacity, a clip and a blend mode
+    /// (CSS `mix-blend-mode`). A composite operation, a filter, a mask and a 3D
+    /// transform have no SVG 1.1 or CSS form.
     fn layer_attributes(&mut self, layer: &DrawingLayer) -> Result<String, SvgError> {
-        if layer.blend != BlendMode::Normal {
-            return Err(SvgError::unsupported("a blend mode on a layer"));
-        }
+        let blend = match layer.mix {
+            Mix::Normal => None,
+            Mix::Blend(mode) => Some(mode),
+            Mix::Composite(_) => {
+                return Err(SvgError::unsupported("a composite operation on a layer"));
+            }
+        };
         if !layer.filter.is_empty() {
             return Err(SvgError::unsupported("a filter on a layer"));
         }
@@ -191,6 +196,9 @@ impl Emitter<'_> {
         }
         if let Some(clip) = &layer.clip {
             attributes.push_str(&self.outline_clip(clip)?);
+        }
+        if let Some(mode) = blend {
+            attributes.push_str(&format!(" style=\"mix-blend-mode:{}\"", blend_name(mode)));
         }
         Ok(attributes)
     }
@@ -228,7 +236,8 @@ impl Emitter<'_> {
     }
 
     fn shape(&mut self, shape: &ShapePaint) -> Result<(), SvgError> {
-        let (cmds, rule, bounds) = outline_of(&shape.shape);
+        let (cmds, rule) = outline_of(&shape.shape);
+        let bounds = shape.paint_area();
         let d = path_data(&cmds)?;
         let attributes = match &shape.stroke {
             None => {
@@ -246,7 +255,7 @@ impl Emitter<'_> {
     }
 
     fn paint(&mut self, kind: &str, fill: &Fill, bounds: Rect) -> Result<String, SvgError> {
-        paint_attributes(self, kind, fill, bounds)
+        paint_attributes(self, kind, fill, bounds, Units::UserSpace)
     }
 }
 
@@ -284,7 +293,7 @@ fn rect_attributes(rect: Rect, radius: Option<f64>) -> String {
 }
 
 /// The SVG attributes of a stroke's width, caps, joins, miter limit and dashes.
-fn stroke_attributes(stroke: &Stroke) -> String {
+pub(super) fn stroke_attributes(stroke: &Stroke) -> String {
     let cap = match stroke.cap {
         kivact_types::LineCap::Butt => "butt",
         kivact_types::LineCap::Round => "round",
@@ -312,7 +321,7 @@ fn stroke_attributes(stroke: &Stroke) -> String {
 }
 
 /// `matrix(a b c d e f)` of a transform.
-fn matrix(t: Transform) -> String {
+fn matrix(t: Affine) -> String {
     format!(
         "matrix({} {} {} {} {} {})",
         number(t.a),

@@ -1,8 +1,9 @@
 //! Role: Deliver frame ticks, smooth scrolling and environment changes.
 
-use super::state::{Clock, FrameRequests, SmoothScroll, TickHistory};
+use super::state::{FrameRequests, Now, SmoothScroll};
 use crate::contract::HostEvent;
 use crate::model::Model;
+use kivact_types::clock::Clock;
 use kivact_types::{Environment, NodeId, Point};
 
 /// The tick a `Model::tick` delivered, for the host to report.
@@ -12,12 +13,6 @@ pub(crate) struct FrameStamp {
 }
 
 impl Model {
-    /// Continue the motion clock from `now_ns` at `scale` (the DevTools'
-    /// time scale).
-    pub(crate) fn set_time_scale(&mut self, now_ns: u64, scale: f64) {
-        self.frame.time_scale = self.frame.time_scale.rescaled(now_ns, scale);
-    }
-
     /// Scroll `id` from `start` to `target` over the next frames (at once
     /// with reduced motion or unless `smooth`).
     pub(crate) fn scroll_smoothly(
@@ -37,10 +32,7 @@ impl Model {
                     easing,
                 },
             );
-            let last = match self.frame.last_frame {
-                TickHistory::NeverTicked => 0,
-                TickHistory::Ticked { last_ns } => last_ns,
-            };
+            let last = self.frame.last_frame.unwrap_or(0);
             let next = last.saturating_add(self.frame.period_ns());
             self.frame.frames.0.insert(next);
         } else {
@@ -59,26 +51,19 @@ impl Model {
             id,
             SmoothScroll::Fling {
                 velocity,
-                last_ns: self.frame.now,
+                last_ns: self.frame.now(),
             },
         );
         self.frame
             .frames
             .0
-            .insert(self.frame.now.saturating_add(self.frame.period_ns()));
+            .insert(self.frame.host_now().saturating_add(self.frame.period_ns()));
     }
 
     /// The environment before the client starts (it gets it in `HostInfo`):
-    /// stored with no event; the clock stands still from now when nothing can
-    /// be drawn.
+    /// stored with no event.
     pub(crate) fn start_env(&mut self, env: Environment, surface_active: bool) {
-        self.frame.clock = if surface_active {
-            Clock::Running
-        } else {
-            Clock::Stopped {
-                since: self.frame.now,
-            }
-        };
+        self.frame.drawable = surface_active;
         self.frame.env = env;
     }
 
@@ -95,22 +80,9 @@ impl Model {
         if env.reduced_motion != self.frame.env.reduced_motion {
             self.changes.restack = true;
             self.changes.paint = true;
+            self.forget_draws();
         }
-        match (self.frame.clock, surface_active) {
-            (Clock::Stopped { since }, true) => {
-                let now = self.frame.now;
-                self.shift_state_times(since, now);
-                self.shift_size_times(since, now);
-                self.shift_layout_times(since, now);
-                self.frame.clock = Clock::Running;
-            }
-            (Clock::Running, false) => {
-                self.frame.clock = Clock::Stopped {
-                    since: self.frame.now,
-                };
-            }
-            _ => {}
-        }
+        self.frame.drawable = surface_active;
         self.a11y.invalidate();
         self.frame.env = env.clone();
         self.push(HostEvent::EnvChanged {
@@ -129,10 +101,10 @@ impl Model {
     /// State transitions moved: retarget them, and tick now when no frame
     /// is asked for.
     pub(in crate::model) fn retarget_frame(&mut self) {
-        if self.retarget_states(self.frame.now, self.frame.reduced_motion())
+        if self.retarget_states(self.frame.now(), self.frame.reduced_motion())
             && self.frame.frames.0.is_empty()
         {
-            self.frame.frames.0.insert(self.frame.now);
+            self.frame.frames.0.insert(self.frame.host_now());
         }
     }
 
@@ -146,10 +118,10 @@ impl Model {
     pub(crate) fn tick(
         &mut self,
         now: u64,
+        clock: &Clock,
         client: Option<&mut FrameRequests>,
     ) -> Option<FrameStamp> {
-        let now = self.frame.time_scale.motion_ns(now);
-        self.frame.now = now;
+        self.frame.set_now(Now::at(now, clock));
         let source = client.is_some();
         let due = self
             .frame_deadline(client.as_deref())
@@ -160,39 +132,30 @@ impl Model {
         if let Some(client) = client {
             client.0.retain(|t| *t > now);
         }
-        if self.motion.is_active() {
-            self.changes.restack = true;
-            let moving: Vec<NodeId> = self.motion.moving().collect();
-            for id in moving {
-                self.stale_fact(id);
-                let children: Vec<NodeId> = self.tree.flat_children(id).collect();
-                for child in children {
-                    self.stale_fact(child);
-                }
-            }
-        }
-        let sizes = self.step_sizes(stamp, self.frame.reduced_motion());
-        let layout = self.step_layout_motion(stamp, self.frame.reduced_motion());
-        self.step_playback(stamp);
+        let motion = clock.motion_ns(stamp);
+        let reduced = self.frame.reduced_motion();
+        let sizes = self.step_sizes(motion, reduced);
+        let layout = self.step_layout_motion(motion, reduced);
+        self.step_playback(motion);
         self.step_shader_clocks(stamp);
-        if self.step_states(stamp, self.frame.reduced_motion()) || sizes || layout {
+        if self.step_states(motion, reduced) || sizes || layout {
             self.frame.frames.0.insert(stamp.saturating_add(period));
         }
         self.sync();
-        self.tick_scrolls(stamp, period);
-        self.frame.last_frame = TickHistory::Ticked { last_ns: stamp };
+        self.tick_scrolls(stamp, motion, period);
+        self.frame.last_frame = Some(stamp);
         source.then_some(FrameStamp {
             now_ns: stamp,
             estimated_present_ns: stamp.saturating_add(period),
         })
     }
 
-    fn tick_scrolls(&mut self, stamp: u64, period: u64) {
+    fn tick_scrolls(&mut self, stamp: u64, motion: u64, period: u64) {
         if !self.frame.smooth_scrolls.is_empty() {
             let mut scrolls = std::mem::take(&mut self.frame.smooth_scrolls);
             scrolls.retain(|id, scroll| {
                 if let SmoothScroll::Fling { velocity, last_ns } = scroll {
-                    return self.tick_fling(*id, velocity, last_ns, stamp);
+                    return self.tick_fling(*id, velocity, last_ns, motion);
                 }
                 let (start, target, began, easing) = match &*scroll {
                     SmoothScroll::Scheduled {
@@ -205,9 +168,9 @@ impl Model {
                             start,
                             target,
                             easing: easing.clone(),
-                            began_ns: stamp,
+                            began_ns: motion,
                         };
-                        (start, target, stamp, easing)
+                        (start, target, motion, easing)
                     }
                     SmoothScroll::Fling { .. } => unreachable!("invariant: fling handled above"),
                     SmoothScroll::Running {
@@ -220,7 +183,7 @@ impl Model {
                 let t = if self.frame.reduced_motion() {
                     1.0
                 } else {
-                    (stamp.saturating_sub(began) as f64 / 240_000_000.0).min(1.0)
+                    (motion.saturating_sub(began) as f64 / 240_000_000.0).min(1.0)
                 };
                 let eased = easing.apply(t);
                 self.set_scroll(
@@ -260,10 +223,10 @@ impl Model {
         };
         let retention = decay.powf(dt);
         let distance = (retention - 1.0) / decay.ln();
-        let Some(node) = self.node(id) else {
+        if self.node(id).is_none() {
             return false;
-        };
-        let at = node.scroll();
+        }
+        let at = self.tree.scroll_of(id);
         let moved = self.set_scroll(
             id,
             Point {
@@ -295,7 +258,7 @@ impl Model {
             (Some(own), Some(client)) => Some(own.min(client)),
             (own, client) => own.or(client),
         }?;
-        let TickHistory::Ticked { last_ns: last } = self.frame.last_frame else {
+        let Some(last) = self.frame.last_frame else {
             return Some(requested);
         };
         let period = self.frame.period_ns();

@@ -19,16 +19,17 @@ use kivact_types::motion::{PlayDirection, Transition};
 use super::super::Repeat;
 use super::super::animated::shift;
 use super::super::state::{
-    Anim, AnimInfo, AnimKind, LoopMotion, MotionState, RunStatus, motion_now,
+    Anim, AnimInfo, AnimKind, LoopMotion, MotionToken, RunStatus, motion_now,
 };
-use super::super::transition::Kind;
+use super::super::transition::TransitionKind;
 use super::super::values::Animatable;
 use super::calls::{Move, Reach, Reps};
 use super::curve::{seg_value, spring_rest_ms};
 use super::plan::{Plan, TrackSlot, TrackState, build_plan, span_of};
 use super::segment::{SegmentDef, SegmentKind};
+use crate::driver::EffectKind;
 use crate::{
-    Callback, EffectKind, ErrorKind, IntoValue, Notifier, Owned, Owner, Signal, UiError, Value,
+    Callback, ErrorKind, IntoValue, Owned, Owner, Signal, Trigger, UiError, Value,
     require_effectful, require_setup,
 };
 
@@ -43,11 +44,13 @@ pub struct Timeline {
 #[track_caller]
 pub fn timeline() -> Timeline {
     let at = Location::caller();
-    let owner = Owner::current("timeline", at);
+    let owner = Owner::setup("timeline", at);
     let rt = owner.runtime();
-    let cell = Rc::new(TimelineCell::new(owner, at));
+    let registration = rt.motion().token(rt.id());
+    let motion_id = registration.id;
+    let cell = Rc::new(TimelineCell::new(owner, at, registration));
     let anim: Rc<dyn Anim> = cell.clone();
-    MotionState::of(&rt).register_anim(&anim);
+    rt.motion().register_anim(motion_id, &anim);
     drop(anim);
     let events = cell.events;
     let weak = Rc::downgrade(&cell);
@@ -190,7 +193,7 @@ impl Timeline {
             transition.repeat = Repeat::Times(1);
         }
         let one_ms = match &transition.kind {
-            Kind::Spring(spring) => {
+            TransitionKind::Spring(spring) => {
                 if let Some(problem) = spring.problem() {
                     cell.owner.report(UiError::new(
                         ErrorKind::Message,
@@ -200,7 +203,7 @@ impl Timeline {
                 }
                 spring_rest_ms(spring)
             }
-            Kind::Tween { ms, .. } | Kind::Keyframes { ms, .. } => *ms,
+            TransitionKind::Tween { ms, .. } | TransitionKind::Keyframes { ms, .. } => *ms,
         };
         let repeats = match transition.repeat {
             Repeat::Times(n) => f64::from(n),
@@ -241,7 +244,7 @@ impl Timeline {
 
     /// A call of `f` at `at`: a segment of length zero (setup only).
     #[track_caller]
-    pub fn call(&self, at: At, f: impl Into<Callback<()>>) -> Segment {
+    pub fn call<M>(&self, at: At, f: impl crate::IntoHandler<(), M>) -> Segment {
         let location = Location::caller();
         require_setup("Timeline::call");
         let cell = self.cell(location);
@@ -249,7 +252,7 @@ impl Timeline {
             SegmentDef {
                 start: 0.0,
                 len: 0.0,
-                kind: SegmentKind::Call(f.into()),
+                kind: SegmentKind::Call(Callback::from_handler(f.into_handler())),
             },
             at,
             location,
@@ -296,7 +299,7 @@ impl Timeline {
         require_setup("Timeline::drive");
         let cell = self.cell(at);
         let source = progress.into_prop();
-        cell.phase.set(TimelinePhase::Driven);
+        cell.set_phase(TimelinePhase::Driven);
         cell.drive_to(crate::untrack(|| source.get()), at);
         let weak = Rc::downgrade(&cell);
         crate::reactive::watch(
@@ -314,12 +317,12 @@ impl Timeline {
     /// Register a setup-owned callback for the completion of a playback
     /// (setup only). A driven timeline never completes.
     #[track_caller]
-    pub fn on_complete(self, f: impl Into<Callback<()>>) -> Timeline {
+    pub fn on_complete<M>(self, f: impl crate::IntoHandler<(), M>) -> Timeline {
         require_setup("Timeline::on_complete");
         self.cell(Location::caller())
             .completions
             .borrow_mut()
-            .push(f.into());
+            .push(Callback::from_handler(f.into_handler()));
         self
     }
 
@@ -438,14 +441,14 @@ impl Timeline {
 /// Where a timeline stands. Time is in ms from the start of the playback.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum TimelinePhase {
-    /// Not playing, at `time` (the state after setup, at 0).
-    Idle { time: f64 },
+    /// Not playing, at the shown time (`time`) (the state after setup, at 0).
+    Idle,
     /// Playing from `from_time` since `start_ns` on the App's clock.
     Playing { start_ns: u64, from_time: f64 },
-    /// Stopped by `pause` or a seek, at `time`.
-    Paused { time: f64 },
+    /// Stopped by `pause` or a seek, at the shown time (`time`).
+    Paused,
     /// At an end after the last repetition.
-    Finished { time: f64 },
+    Finished,
     /// Time follows a progress value (`drive`).
     Driven,
 }
@@ -482,14 +485,17 @@ enum Event {
     Call(usize),
 }
 
+// xtask-allow(state): independent: phase is the only playback phase (written only by set_phase) and time the shown time (written only by apply); playback is changed only by reverse and set_rate; repeat, alternate, motion, segments, labels, tracks and completions are setup configuration; plan is a projection rebuilt only by rebuild; pending is the event queue that announce and fire_calls fill and run_pending empties
 /// The state of one timeline: its structure (setup) and its playback.
 pub(crate) struct TimelineCell {
+    /// Its registration: dropping the cell removes it from every map.
+    registration: MotionToken,
     owner: Owner,
     phase: Signal<TimelinePhase>,
     /// The time last published (ms).
     time: Signal<f64>,
     /// Wakes the watcher that runs `pending`.
-    events: Notifier,
+    events: Trigger,
     playback: Cell<Playback>,
     repeat: Cell<Repeat>,
     alternate: Cell<PlayDirection>,
@@ -503,12 +509,25 @@ pub(crate) struct TimelineCell {
 }
 
 impl TimelineCell {
-    fn new(owner: Owner, at: &'static Location<'static>) -> Self {
+    /// The only write of `phase`: keeps the motion system's running set.
+    fn set_phase(&self, next: TimelinePhase) {
+        let was = self.is_running();
+        self.phase.set(next);
+        let now = self.is_running();
+        if was != now
+            && let Some(rt) = crate::driver::Runtime::get(self.owner.app())
+        {
+            rt.motion().set_anim_running(self.registration.id, now);
+        }
+    }
+
+    fn new(owner: Owner, at: &'static Location<'static>, registration: MotionToken) -> Self {
         Self {
+            registration,
             owner,
-            phase: owner.signal(TimelinePhase::Idle { time: 0.0 }, at),
+            phase: owner.signal(TimelinePhase::Idle, at),
             time: owner.signal(0.0, at),
-            events: owner.notifier(at),
+            events: owner.trigger(at),
             playback: Cell::new(Playback {
                 rate: 1.0,
                 direction: Direction::Forward,
@@ -531,7 +550,7 @@ impl TimelineCell {
 
     fn reduced(&self) -> bool {
         let rt = self.owner.runtime();
-        MotionState::of(&rt).reduced_motion(&rt)
+        rt.motion().reduced_motion(&rt)
     }
 
     fn wake(&self) {
@@ -769,7 +788,7 @@ impl TimelineCell {
     fn finish_at_end(&self) {
         let end = self.end_time();
         self.apply(end);
-        self.phase.set(TimelinePhase::Finished { time: end });
+        self.set_phase(TimelinePhase::Finished);
         self.announce(Event::Complete);
     }
 
@@ -781,7 +800,7 @@ impl TimelineCell {
         } else {
             let time = self.current_time();
             self.apply(time);
-            self.phase.set(TimelinePhase::Paused { time });
+            self.set_phase(TimelinePhase::Paused);
         }
     }
 
@@ -804,10 +823,10 @@ impl TimelineCell {
             } => self
                 .playing_raw(start_ns, from_time, self.now())
                 .clamp(0.0, self.total()),
-            TimelinePhase::Idle { time }
-            | TimelinePhase::Paused { time }
-            | TimelinePhase::Finished { time } => time,
-            TimelinePhase::Driven => self.time.get_untracked(),
+            TimelinePhase::Idle
+            | TimelinePhase::Paused
+            | TimelinePhase::Finished
+            | TimelinePhase::Driven => self.time.get_untracked(),
         }
     }
 
@@ -819,7 +838,7 @@ impl TimelineCell {
             self.stop_for_reduced();
             return;
         }
-        self.phase.set(TimelinePhase::Playing {
+        self.set_phase(TimelinePhase::Playing {
             start_ns: self.now(),
             from_time: time,
         });
@@ -844,8 +863,10 @@ impl TimelineCell {
             return;
         }
         match self.phase.get_untracked() {
-            TimelinePhase::Idle { time } | TimelinePhase::Paused { time } => self.start_from(time),
-            TimelinePhase::Finished { .. } => self.start_from(self.start_time()),
+            TimelinePhase::Idle | TimelinePhase::Paused => {
+                self.start_from(self.time.get_untracked())
+            }
+            TimelinePhase::Finished => self.start_from(self.start_time()),
             TimelinePhase::Playing { .. } | TimelinePhase::Driven => {}
         }
         self.wake();
@@ -858,7 +879,7 @@ impl TimelineCell {
         if let TimelinePhase::Playing { .. } = self.phase.get_untracked() {
             let time = self.current_time();
             self.apply(time);
-            self.phase.set(TimelinePhase::Paused { time });
+            self.set_phase(TimelinePhase::Paused);
         }
     }
 
@@ -871,7 +892,7 @@ impl TimelineCell {
         playback.direction = playback.direction.flipped();
         self.playback.set(playback);
         if let TimelinePhase::Playing { .. } = self.phase.get_untracked() {
-            self.phase.set(TimelinePhase::Playing {
+            self.set_phase(TimelinePhase::Playing {
                 start_ns: self.now(),
                 from_time: time,
             });
@@ -891,7 +912,7 @@ impl TimelineCell {
         if self.refuse_driven("Timeline::finish", at) {
             return;
         }
-        if let TimelinePhase::Finished { .. } = self.phase.get_untracked() {
+        if let TimelinePhase::Finished = self.phase.get_untracked() {
             return;
         }
         if !self.total().is_finite() {
@@ -915,10 +936,8 @@ impl TimelineCell {
         }
         let time = ms.clamp(0.0, self.total());
         let next = match self.phase.get_untracked() {
-            TimelinePhase::Idle { .. } => TimelinePhase::Idle { time },
-            TimelinePhase::Paused { .. } | TimelinePhase::Finished { .. } => {
-                TimelinePhase::Paused { time }
-            }
+            TimelinePhase::Idle => TimelinePhase::Idle,
+            TimelinePhase::Paused | TimelinePhase::Finished => TimelinePhase::Paused,
             TimelinePhase::Playing { .. } => TimelinePhase::Playing {
                 start_ns: self.now(),
                 from_time: time,
@@ -926,7 +945,7 @@ impl TimelineCell {
             TimelinePhase::Driven => return,
         };
         self.apply(time);
-        self.phase.set(next);
+        self.set_phase(next);
         self.wake();
     }
 
@@ -939,7 +958,7 @@ impl TimelineCell {
         playback.rate = rate;
         self.playback.set(playback);
         if let TimelinePhase::Playing { .. } = self.phase.get_untracked() {
-            self.phase.set(TimelinePhase::Playing {
+            self.set_phase(TimelinePhase::Playing {
                 start_ns: self.now(),
                 from_time: time,
             });
@@ -965,8 +984,8 @@ impl Anim for TimelineCell {
     fn info(&self) -> AnimInfo {
         let status = match self.phase.get_untracked() {
             TimelinePhase::Playing { .. } => RunStatus::Running,
-            TimelinePhase::Paused { .. } => RunStatus::Paused,
-            TimelinePhase::Idle { .. } | TimelinePhase::Finished { .. } | TimelinePhase::Driven => {
+            TimelinePhase::Paused => RunStatus::Paused,
+            TimelinePhase::Idle | TimelinePhase::Finished | TimelinePhase::Driven => {
                 RunStatus::Idle
             }
         };
@@ -991,7 +1010,7 @@ impl Anim for TimelineCell {
             from_time,
         } = self.phase.get_untracked()
         {
-            self.phase.set(TimelinePhase::Playing {
+            self.set_phase(TimelinePhase::Playing {
                 start_ns: shift(start_ns, paused, now),
                 from_time,
             });

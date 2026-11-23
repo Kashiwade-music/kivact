@@ -1,32 +1,26 @@
-//! Role: Catalog page of Message Scroller: a long log and a conversation that grows.
+//! Catalog page of Message Scroller: a long log and a conversation that grows.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
+use kivact::view::Node;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "message-scroller",
-        name: "Message Scroller",
-        description: "メッセージが増えても最後の位置を表示し続ける、スクロールする領域です。上へスクロールすると追従をやめ、末尾が見えない間は「Jump to latest」のボタンが出ます。追従の状態は束縛で読み書きできます。",
-        usage: "use kivact::prelude::*;\nuse kivact::style::use_theme;\nuse kivact_ui_basic as basic;",
-        source: include_str!("message_scroller.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "chat_thread に内容を渡します。親に高さを持たせてください。最初から末尾が表示され、上へスクロールするとボタンが出ます。",
-                default,
-            ),
-            Example::new(
-                "follow",
-                "Conversation",
-                "末尾への追従はスクローラー自身の状態です。「Send」でメッセージを足すと、追従中は末尾が見え続け、上へ離れていると動かず、「Jump to latest」で末尾へ戻ると再び追従します。",
-                follow,
-            ),
-        ],
-    }
+    Page::new("message-scroller", "Message Scroller", "Components", include_str!("message_scroller.rs"))
+        .description("A scrolling area that keeps showing the latest position as messages are added. Scrolling up stops the following, and while the end is out of view a 'Jump to latest' button appears. The state of following can be read and written through a binding.")
+        .usage("use kivact::prelude::*;\nuse kivact::style::use_theme;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "Pass the content to chat_thread. Give the parent a height. It starts at the end, and scrolling up shows the button.",
+            default,
+        ))
+        .example(Example::new(
+            "follow",
+            "Conversation",
+            "Following the end is the scroller's own state. Adding a message with 'Send' keeps the end in view while it follows; if you scrolled away it stays put, and 'Jump to latest' brings it back to the end and follows again.",
+            follow,
+        ))
 }
 
 // example: default
@@ -39,7 +33,7 @@ fn default() -> impl IntoView {
                     .width(360)
                     .height(200)
                     .padding(12)
-                    .border(1, basic::ColorName::Border),
+                    .border(1, basic::BORDER),
             )
             .child(content)
     }
@@ -60,7 +54,7 @@ fn follow() -> impl IntoView {
                     .width(360)
                     .height(200)
                     .padding(12)
-                    .border(1, basic::ColorName::Border),
+                    .border(1, basic::BORDER),
             )
             .child(content)
     }
@@ -68,7 +62,7 @@ fn follow() -> impl IntoView {
     fn reply(line: String) -> impl IntoView {
         kivact::ui::chat_message("")
             .content(line)
-            .variant(basic::BubbleVariant::Secondary)
+            .variant(basic::ChatBubbleVariant::Secondary)
     }
     let log = signal(vec!["Hello!".to_string(), "How can I help?".to_string()]);
     let send = move || log.update(|log| log.push(format!("Reply number {}", log.len() + 1)));

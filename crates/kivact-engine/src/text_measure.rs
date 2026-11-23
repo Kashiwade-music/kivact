@@ -22,12 +22,15 @@ use kivact_types::{
 /// registered later are seen through the shared engine.
 #[derive(Clone)]
 pub struct TextMeasurer {
-    engine: Rc<RefCell<arvane::Engine>>,
+    engine: Rc<RefCell<arvane_text::TextEngine>>,
     inherited: ComputedTextStyle,
 }
 
 impl TextMeasurer {
-    pub(crate) fn new(engine: Rc<RefCell<arvane::Engine>>, inherited: ComputedTextStyle) -> Self {
+    pub(crate) fn new(
+        engine: Rc<RefCell<arvane_text::TextEngine>>,
+        inherited: ComputedTextStyle,
+    ) -> Self {
         Self { engine, inherited }
     }
 
@@ -101,7 +104,7 @@ impl TextShaper for TextMeasurer {
         )
     }
 
-    fn outline(&self, run: &kivact_types::render::GlyphRun) -> Vec<kivact_types::PathCmd> {
-        arvane::glyph_outline(run)
+    fn outline(&self, run: &kivact_types::shaped::GlyphRun) -> Vec<kivact_types::PathCmd> {
+        arvane_render::glyph_outline(run)
     }
 }

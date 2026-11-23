@@ -1,7 +1,7 @@
 //! Role: The groups one local scene lowering has open in the output.
 use crate::lower::SceneOut;
 use crate::lower::effects::Tint;
-use kivact_types::render::RenderCmd as D;
+use arvane_protocol::RenderCmd as D;
 use kivact_types::{ComputedTextStyle, Rect};
 /// A group a local scene opened in the output and has not closed yet.
 #[derive(Clone, Copy, Debug)]
@@ -18,7 +18,7 @@ pub(super) enum Frame {
 
 pub(super) struct State<'a> {
     pub(super) inherited: Option<&'a ComputedTextStyle>,
-    pub(super) engine: &'a mut arvane::Engine,
+    pub(super) engine: &'a mut arvane_text::TextEngine,
     pub(super) out: &'a mut SceneOut,
     pub(super) origin: Rect,
     pub(super) frames: Vec<Frame>,
@@ -27,7 +27,7 @@ pub(super) struct State<'a> {
 impl<'a> State<'a> {
     pub(super) fn new(
         inherited: Option<&'a ComputedTextStyle>,
-        engine: &'a mut arvane::Engine,
+        engine: &'a mut arvane_text::TextEngine,
         out: &'a mut SceneOut,
         origin: Rect,
         tint: Tint,

@@ -1,50 +1,6 @@
 //! Role: A locale (a BCP 47 language tag) and the regional conventions it carries.
 
-/// A day of the week ([`Locale::first_day_of_week`]).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Weekday {
-    /// Monday.
-    Monday,
-    /// Tuesday.
-    Tuesday,
-    /// Wednesday.
-    Wednesday,
-    /// Thursday.
-    Thursday,
-    /// Friday.
-    Friday,
-    /// Saturday.
-    Saturday,
-    /// Sunday.
-    Sunday,
-}
-
-impl Weekday {
-    const ORDER: [Weekday; 7] = [
-        Weekday::Monday,
-        Weekday::Tuesday,
-        Weekday::Wednesday,
-        Weekday::Thursday,
-        Weekday::Friday,
-        Weekday::Saturday,
-        Weekday::Sunday,
-    ];
-
-    fn index(self) -> usize {
-        Self::ORDER.iter().position(|day| *day == self).unwrap_or(0)
-    }
-
-    /// The day `days` after this one, wrapping around the week.
-    pub fn days_after(self, days: usize) -> Weekday {
-        Self::ORDER[(self.index() + days % 7) % 7]
-    }
-
-    /// How many days after `first` this day comes, 0 to 6: its column in a
-    /// week that starts on `first`.
-    pub fn days_since(self, first: Weekday) -> usize {
-        (self.index() + 7 - first.index()) % 7
-    }
-}
+use crate::shared::Weekday;
 
 /// The language and region an App speaks, as a BCP 47 language tag such as
 /// `"ja-JP"` or `"en-GB"`. It selects nothing by itself: components read
@@ -64,13 +20,15 @@ impl Weekday {
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Locale {
-    tag: String,
+    tag: std::sync::Arc<str>,
 }
 
 impl Locale {
     /// A locale named by the BCP 47 tag `tag`.
     pub fn new(tag: impl Into<String>) -> Self {
-        Locale { tag: tag.into() }
+        Locale {
+            tag: std::sync::Arc::from(tag.into()),
+        }
     }
 
     /// The tag as given, e.g. `"ja-JP"`.
@@ -83,18 +41,24 @@ impl Locale {
         self.tag.split(['-', '_']).next().unwrap_or_default()
     }
 
+    /// This locale's ICU objects on this thread.
+    pub(crate) fn cache(&self) -> std::rc::Rc<crate::cache::LocaleCache> {
+        crate::cache::locale_cache(&self.tag)
+    }
+
+    /// The parsed ICU locale.
     pub(crate) fn icu(&self) -> icu_locale_core::Locale {
-        self.tag
-            .replace('_', "-")
-            .parse()
-            .unwrap_or(icu_locale_core::Locale::UNKNOWN)
+        self.cache().icu().clone()
     }
 
     /// The locale's first weekday, including Unicode locale overrides.
     pub fn first_day_of_week(&self) -> Weekday {
-        let info = icu_calendar::week::WeekInformation::try_new(self.icu().into())
-            .expect("invariant: compiled ICU week data includes locale fallback");
-        Weekday::Monday.days_after((info.first_weekday as usize + 6) % 7)
+        let cache = self.cache();
+        *cache.first_day.get_or_init(|| {
+            let info = icu_calendar::week::WeekInformation::try_new(cache.icu().clone().into())
+                .expect("invariant: compiled ICU week data includes locale fallback");
+            Weekday::Monday.days_after((info.first_weekday as usize + 6) % 7)
+        })
     }
 }
 impl Default for Locale {
@@ -105,4 +69,4 @@ impl Default for Locale {
     }
 }
 
-kivact_runtime::constant_value!(Locale, Weekday);
+kivact_runtime::constant_value!(Locale);

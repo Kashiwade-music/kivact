@@ -89,7 +89,7 @@
 //! A window that cannot import (it draws on the CPU, or its GPU is not up
 //! yet) shows the frame as `Pixels`. That needs no shared pool: the engine
 //! draws into a texture of its own and reads it back with
-//! `vulkan::read_back` or `d3d12::read_back` (straight-alpha RGBA8).
+//! `vulkan::read_back` or `d3d12::read_back` (premultiplied RGBA8, as `Pixels`).
 //! A pool's texture reads back with the pools' `read_back`.
 //!
 //! # An engine on wgpu (feature `wgpu`)
@@ -97,14 +97,14 @@
 //! The dependency is pinned to wgpu `=29.0.4`, the version Kivact's
 //! window (arvane-render) uses; the two are raised together, since the
 //! module reaches below wgpu's safe API (`as_hal`, `open_with_callback`,
-//! `create_texture_from_hal`). `wgpu::request_device` opens a device on
+//! `create_texture_from_hal`). `device::request_device_for` opens a device on
 //! the window's adapter able to share; `wgpu::Pool` makes the pool and
 //! gives each frame's texture as a `wgpu::Texture`; the target's `submit`
 //! puts the engine's command buffers between the hand-off on wgpu's queue.
 //! A frame:
 //!
 //! ```ignore
-//! use kivact_gpu_share::{PoolConfig, wgpu as share};
+//! use kivact_gpu_share::{PoolConfig, device, wgpu as share};
 //! use std::time::Duration;
 //!
 //! // Once: a device on the adapter the window reported, and the pool.
@@ -113,7 +113,7 @@
 //!     flags: wgpu::InstanceFlags::empty().with_env(),
 //!     ..wgpu::InstanceDescriptor::new_without_display_handle()
 //! });
-//! let (_, device, queue) = share::request_device(&instance, &adapter, &Default::default())?;
+//! let (_, device, queue) = device::request_device_for(&instance, &adapter, &Default::default())?;
 //! let (mut pool, shared) = share::Pool::new(&device, &adapter, PoolConfig::new(1920, 1080))?;
 //! send_to_ui(shared); // the UI imports it (`ShareLink::provide`)
 //!
@@ -159,34 +159,22 @@
 
 #![deny(unsafe_code)]
 
+#[cfg(feature = "adapter")]
+pub mod adapter;
 mod common;
-#[cfg(all(feature = "export", windows))]
-pub mod d3d12;
 #[cfg(windows)]
-pub mod d3d12_contract;
+pub mod d3d12;
 #[cfg(feature = "export")]
 mod pool;
-#[cfg(all(feature = "export", any(windows, target_os = "linux")))]
-pub mod vulkan;
 #[cfg(any(windows, target_os = "linux"))]
-pub mod vulkan_contract;
-#[cfg(all(
-    any(feature = "import", feature = "export"),
-    any(windows, target_os = "linux")
-))]
-mod vulkan_raw;
+pub mod vulkan;
 #[cfg(all(feature = "wgpu", any(windows, target_os = "linux")))]
 pub mod wgpu;
-#[cfg(all(
-    any(feature = "import", feature = "wgpu"),
-    any(windows, target_os = "linux")
-))]
-mod wgpu_device;
 
 pub use common::Error;
 #[cfg(feature = "export")]
 pub use pool::{DEFAULT_SLOTS, FrameReady, PoolConfig};
-#[cfg(feature = "import")]
+#[cfg(any(feature = "import", feature = "wgpu"))]
 pub mod device;
 #[cfg(feature = "import")]
 pub mod import;

@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io::{BufWriter, Write as _};
 use std::path::{Path, PathBuf};
 
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_types::NodeId;
 
 use crate::view::state::ViewState;
@@ -18,20 +18,19 @@ pub(crate) struct Trace {
     sink: Option<RefCell<Sink>>,
 }
 
+// xtask-allow(state): independent: stage, semantics and host_events are the KIVACT_TRACE streams chosen once by Trace::new; flush and line write only file and previous, so any selection of streams stays valid
 struct Sink {
     file: BufWriter<File>,
-    // xtask-allow(state-fields): option: whether KIVACT_TRACE names the `stage` stream, read once by Trace::new; false means stage lines are not written (a sink always has at least one stream)
     stage: bool,
-    // xtask-allow(state-fields): option: whether KIVACT_TRACE names the `semantics` stream, read once by Trace::new; false means semantic diffs are not written (a sink always has at least one stream)
     semantics: bool,
-    // xtask-allow(state-fields): option: whether KIVACT_TRACE names the `host_events` stream, read once by Trace::new; false means host events are not written (a sink always has at least one stream)
     host_events: bool,
     previous: Vec<(NodeId, String)>,
 }
 
 impl Trace {
-    pub(crate) fn of(rt: &Runtime) -> &Self {
-        rt.ext::<Self>()
+    /// Whether this App writes a comparison trace.
+    pub(crate) fn is_on(&self) -> bool {
+        self.sink.is_some()
     }
 
     /// The trace of an App whose test is `name`; opens the file when
@@ -151,7 +150,7 @@ pub(crate) fn record(rt: &Runtime) {
         sink.flush();
         return;
     }
-    if let Some(record) = rt.turns().last() {
+    if let Some(record) = rt.last_turn() {
         sink.line(format_args!(
             "stage {:?} events={} causes={:?} writes={:?} reruns={:?} runs={} ops={} notes={:?}",
             record.turn,

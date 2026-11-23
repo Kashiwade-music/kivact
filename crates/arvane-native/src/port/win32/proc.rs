@@ -77,6 +77,7 @@ pub(super) unsafe extern "system" fn wndproc(
     };
     if message == WM_NCDESTROY {
         state.shared.window_gone();
+        state.session.stopped_outside_callback();
         detach(&state, hwnd);
         return original(&state, hwnd, message, w, l);
     }
@@ -147,6 +148,7 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
             super::a11y::disconnect(state);
             state.dispose();
             state.shared.window_gone();
+            state.session.stopped_outside_callback();
             original(state, hwnd, message, w, l)
         }
         // The tail of `wndproc` ends the child's life.
@@ -275,7 +277,7 @@ fn original_if_alive(state: &State, hwnd: HWND, message: u32, w: WPARAM, l: LPAR
 /// Close the child once it stopped, unless App code is on the stack (its
 /// caller stops it) or the shutdown already ran.
 fn stop_if_stopped(state: &Rc<State>) {
-    if state.shared.stopped() && !state.in_callback.get() && state.session.active() {
+    if state.shared.stopped() && !state.in_callback.get() && state.session.needs_cleanup() {
         state.stop();
     }
 }

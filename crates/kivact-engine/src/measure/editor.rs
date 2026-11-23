@@ -1,5 +1,6 @@
 //! Role: Optional native editor slot owned by Model, outside the structural tree.
-use kivact_editing::{EditState, Editor, Journal};
+use kivact_editing::EditState;
+use kivact_editing::host::{Editor, Journal};
 use std::cell::RefCell;
 use std::rc::Rc;
 #[derive(Clone, Debug)]
@@ -7,21 +8,20 @@ pub(crate) enum ControlledValue {
     InSync { at: u64 },
     HeldDuringComposition { value: Rc<str> },
 }
+// xtask-allow(state): cache: lines (paint width) and measure_lines (width probes) are separate shaping caches filled lazily by refresh_lines, each on its own path; sync empties both when fonts are added
 #[derive(Clone, Debug)]
 pub(crate) struct EditorNode {
-    /// Document and host-only journal/damage controls.
+    /// Document and host-only journal controls.
     pub(crate) editor: Editor,
-    // xtask-allow(state-fields): cache: the shaped lines of the input, built on its first layout
     /// Shaping cache (`None` until the input is first laid out), kept outside Editor to
-    /// preserve the future crate DAG.
-    pub(crate) lines: RefCell<Option<crate::text_input::EditLines>>,
-    // xtask-allow(state-fields): cache: the width-probe lines of the input, kept apart from its visible rows
+    /// preserve the future crate DAG. Shared, for one request, with an editing behavior's
+    /// context (`text_input::SharedLines`).
+    pub(crate) lines: Rc<RefCell<Option<crate::text_input::EditLines>>>,
     /// Width probes must not evict the geometry of the visible wrapped rows.
     pub(crate) measure_lines: RefCell<Option<crate::text_input::EditLines>>,
     /// A controlled value given while the IME composes, taken when the
     /// composition ends.
     pub(crate) controlled: ControlledValue,
-    // xtask-allow(state-fields): projection: the session last sent to the selection listener, written only by EditorNode::report_session
     /// Last session sent to the selection listener.
     reported_session: kivact_types::cell::Sent<kivact_editing::TextSession>,
     /// Horizontal text scroll, independent of container scrolling.
@@ -40,20 +40,12 @@ impl EditorNode {
     pub(crate) fn new(state: EditState) -> Self {
         Self {
             editor: Editor::new(state),
-            lines: RefCell::default(),
+            lines: Rc::default(),
             measure_lines: RefCell::default(),
             controlled: ControlledValue::InSync { at: 0 },
             reported_session: kivact_types::cell::Sent::new(),
             scroll_x: 0.0,
             scroll_y: 0.0,
-        }
-    }
-
-    pub(crate) fn flush_damage(&mut self) {
-        if let Some(damage) = self.editor.take_damage()
-            && let Some(lines) = self.lines.get_mut()
-        {
-            lines.hold_damage(damage);
         }
     }
 

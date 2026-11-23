@@ -6,7 +6,6 @@ use super::node::{drawable, structural};
 use crate::a11y::state::{Clipping, Dirt, Metadata, Payloads};
 use crate::model::Model;
 use crate::semantic_role;
-use arvane as a;
 use kivact_types as types;
 use std::collections::BTreeSet;
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -24,8 +23,15 @@ pub(in crate::a11y) enum MetadataUpdate {
 /// A semantics tree built for publication and what it changes in the
 /// accepted identity metadata.
 pub(in crate::a11y) struct Built {
-    pub(in crate::a11y) tree: kivact_types::render::SemanticsTree,
+    pub(in crate::a11y) tree: arvane_protocol::SemanticsTree,
     pub(in crate::a11y) metadata: MetadataUpdate,
+}
+
+/// The identity metadata one build enumerated, with the semantic order it
+/// walked.
+struct Enumerated<'a> {
+    metadata: &'a Metadata,
+    order: &'a [types::NodeId],
 }
 
 impl Model {
@@ -33,8 +39,8 @@ impl Model {
     #[cfg(all(debug_assertions, feature = "testing"))]
     pub(crate) fn build_semantics(
         &mut self,
-        engine: &mut a::Engine,
-    ) -> kivact_types::render::SemanticsTree {
+        engine: &mut arvane_text::TextEngine,
+    ) -> arvane_protocol::SemanticsTree {
         self.build_semantics_for(engine, &Dirt::Full).tree
     }
 
@@ -42,7 +48,7 @@ impl Model {
     /// accepted identity metadata.
     pub(in crate::a11y) fn build_semantics_for(
         &mut self,
-        engine: &mut a::Engine,
+        engine: &mut arvane_text::TextEngine,
         dirt: &Dirt,
     ) -> Built {
         let full = *dirt == Dirt::Full;
@@ -62,10 +68,7 @@ impl Model {
         };
         let subtree_roots = subtrees;
         let (metadata, order) = self.build_identity_metadata();
-        #[cfg(feature = "testing")]
-        {
-            self.a11y.enumerated += order.len() as u64;
-        }
+        self.a11y.enumerated += order.len() as u64;
         let mut dirty = own.clone();
         dirty.extend(removed.iter().copied());
         dirty.extend(
@@ -86,7 +89,11 @@ impl Model {
                 }
             }
         }
-        let tree = self.build_semantics_tail(root, full, &metadata, subtree_roots, dirty, engine);
+        let enumerated = Enumerated {
+            metadata: &metadata,
+            order: &order,
+        };
+        let tree = self.build_semantics_tail(root, full, enumerated, subtree_roots, dirty, engine);
         Built {
             tree,
             metadata: MetadataUpdate::Replace(metadata),
@@ -99,35 +106,39 @@ impl Model {
         &mut self,
         root: types::NodeId,
         full: bool,
-        metadata: &Metadata,
+        enumerated: Enumerated<'_>,
         subtree_roots: &BTreeSet<types::NodeId>,
         mut dirty: BTreeSet<types::NodeId>,
-        engine: &mut a::Engine,
-    ) -> kivact_types::render::SemanticsTree {
-        let order = self.semantic_order();
+        engine: &mut arvane_text::TextEngine,
+    ) -> arvane_protocol::SemanticsTree {
+        let Enumerated { metadata, order } = enumerated;
         let modal_changed = metadata.modal != self.a11y.metadata.modal;
+        // What a node inherits from its tree ancestors reaches the nodes below
+        // it through the node tree's children, so a fragment (not published)
+        // passes it on to its own children. Parents are visited before their
+        // children.
         let mut inherited = BTreeSet::new();
-        for &id in &order {
-            let parent_dirty = metadata
-                .parents
-                .get(&id)
-                .and_then(|p| *p)
-                .is_some_and(|p| inherited.contains(&p));
-            if modal_changed || parent_dirty || subtree_roots.contains(&id) {
+        let mut stack = vec![(root, false)];
+        while let Some((id, from_above)) = stack.pop() {
+            let inherits = modal_changed || from_above || subtree_roots.contains(&id);
+            if inherits {
                 inherited.insert(id);
                 dirty.insert(id);
             }
+            stack.extend(
+                self.tree()
+                    .logical_children(id)
+                    .into_iter()
+                    .map(|child| (child, inherits)),
+            );
         }
-        self.expand_overlay_dirt(&order, &inherited, &mut dirty);
+        self.expand_overlay_dirt(order, &inherited, &mut dirty);
         self.expand_relation_dirt(metadata, &mut dirty);
         self.invalidate_boxless_ancestors(&mut dirty);
         let nodes = self.build_dirty_nodes(root, full, &dirty, metadata, engine);
-        #[cfg(feature = "testing")]
-        {
-            self.a11y.constructed += nodes.len() as u64;
-        }
+        self.a11y.constructed += nodes.len() as u64;
         let focus = self.semantics_focus(metadata.clipping.rows());
-        kivact_types::render::SemanticsTree {
+        arvane_protocol::SemanticsTree {
             root: kivact_types::SemanticsId(root.0),
             focus,
             nodes,
@@ -149,15 +160,12 @@ impl Model {
                 height: self.viewport.height,
             }),
             kivact_types::Point::default(),
-            kivact_types::Transform::IDENTITY,
+            kivact_types::Affine::IDENTITY,
             false,
         );
-        #[cfg(feature = "testing")]
-        {
-            self.a11y.constructed += 1;
-        }
+        self.a11y.constructed += 1;
         Built {
-            tree: kivact_types::render::SemanticsTree {
+            tree: arvane_protocol::SemanticsTree {
                 root: kivact_types::SemanticsId(id),
                 focus: None,
                 nodes: vec![node],
@@ -173,17 +181,17 @@ impl Model {
     /// complete comparison because no writer's notice is trusted to keep the
     /// hierarchy right; payload-only dirt never runs it.
     fn build_identity_metadata(&mut self) -> (Metadata, Vec<types::NodeId>) {
-        self.prepare_region_ids();
-        let clipping = self.clipping_of_all();
+        let order = self.semantic_order();
+        self.prepare_region_ids(&order);
+        let clipping = self.clipping_of(&order);
         let mut metadata = Metadata {
             clipping,
             modal: self.modal(),
             ..Default::default()
         };
-        let order = self.semantic_order();
         for &id in &order {
             let Some(n) = self.node(id) else { continue };
-            metadata.parents.insert(id, self.tree().parent_id(n));
+            metadata.parents.insert(id, self.semantic_parent(id));
             let mut children = DefaultHasher::new();
             let mut count = 0usize;
             for child in self.semantic_children(id) {
@@ -211,7 +219,7 @@ impl Model {
                     metadata.reverse.entry(target.node).or_default().insert(id);
                 }
             }
-            if semantic_role(n, self.editors[n.index.0].is_some()).is_some() {
+            if semantic_role(n, self.slots.editors[n.index.0].is_some()).is_some() {
                 for r in n
                     .scenes()
                     .iter()
@@ -296,8 +304,8 @@ impl Model {
         full: bool,
         dirty: &BTreeSet<types::NodeId>,
         metadata: &Metadata,
-        engine: &mut a::Engine,
-    ) -> Vec<kivact_types::render::SemanticsNode> {
+        engine: &mut arvane_text::TextEngine,
+    ) -> Vec<arvane_protocol::SemanticsNode> {
         let mut nodes = Vec::new();
         let mut active = BTreeSet::new();
         let mut stack = vec![(root, types::Point::default())];
@@ -312,8 +320,8 @@ impl Model {
                     engine,
                 );
             }
-            if let Some(n) = self.node(id) {
-                let s = n.scroll();
+            if self.node(id).is_some() {
+                let s = self.tree().scroll_of(id);
                 let below = types::Point {
                     x: offset.x + s.x,
                     y: offset.y + s.y,

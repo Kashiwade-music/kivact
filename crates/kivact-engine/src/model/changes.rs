@@ -57,6 +57,10 @@ impl Dirty {
     pub(crate) const SCROLLED: Self = Self(1 << 5);
     /// Its sticky shift changed (it and its subtree moved).
     pub(crate) const STUCK: Self = Self(1 << 6);
+    /// A text input's caret, text, size or style changed: it is scrolled to keep the caret in view (`Model::scroll_inputs`). Kept by `dispatch` until taken.
+    pub(crate) const CARET: Self = Self(1 << 8);
+    /// The geometry reports at or below it are due (`Model::report_geometry`). Kept by `dispatch` until taken.
+    pub(crate) const REPORT: Self = Self(1 << 9);
 
     /// Whether every bit of `bits` is set.
     pub(crate) const fn contains(self, bits: Self) -> bool {
@@ -124,6 +128,7 @@ pub(crate) enum Geometry {
     LaidOut,
 }
 
+// xtask-allow(state): independent: paint (invalidate_paint, motion ticks), restack (tree edits and motion steps) and fonts (fonts_added) are separate pending flags that dispatch takes together
 /// Pending work; only sync dispatches visual invalidation.
 #[derive(Default)]
 pub(crate) struct Changes {
@@ -133,11 +138,8 @@ pub(crate) struct Changes {
     /// again).
     pub(super) geometry: Geometry,
     pub(super) layout: LayoutReasons,
-    // xtask-allow(state-fields): independent: raised by Model::invalidate_paint (host environment and asset events) and by image and layout-motion steps; restack and fonts are raised by other inputs (paint-order writes, a font registration), so any set can be pending at a sync
     pub(super) paint: bool,
-    // xtask-allow(state-fields): independent: raised by writes and motions that change paint order (Model::apply, state and layout motion, presence); paint and fonts are raised by other inputs (host repaints, a font registration), so any set can be pending at a sync
     pub(super) restack: bool,
-    // xtask-allow(state-fields): independent: raised only by Model::fonts_added when the app registers a font; paint and restack are raised by other inputs (host repaints, paint-order writes), so any set can be pending at a sync
     pub(super) fonts: bool,
 }
 
@@ -145,11 +147,8 @@ pub(crate) struct Changes {
 pub(crate) struct Dispatched {
     dirty: HashMap<NodeId, Dirty>,
     pub(crate) geometry: Geometry,
-    // xtask-allow(state-fields): independent: Changes::dispatch takes Changes::paint as raised by its own inputs (host repaints, images, layout motion); a font registration no longer raises it, so it pairs with any fonts and restack
     pub(crate) paint: bool,
-    // xtask-allow(state-fields): independent: Changes::dispatch takes Changes::restack (paint-order writes and motions) as is; paint and fonts come from other inputs, so any set occurs
     pub(crate) restack: bool,
-    // xtask-allow(state-fields): independent: Changes::dispatch takes Changes::fonts (Model::fonts_added) as is; sync no longer raises paint with it, so it pairs with any paint and restack
     pub(crate) fonts: bool,
 }
 
@@ -188,6 +187,17 @@ impl Changes {
         }
     }
 
+    /// Whether nothing is pending: no node is marked, no layout, paint,
+    /// restack or font work waits and no box moved.
+    pub(crate) fn is_clean(&self) -> bool {
+        self.dirty.is_empty()
+            && self.geometry == Geometry::Kept
+            && self.layout.bits() == 0
+            && !self.paint
+            && !self.restack
+            && !self.fonts
+    }
+
     /// Record `bits` for `id`.
     pub(super) fn mark(&mut self, id: NodeId, bits: Dirty) {
         self.dirty.entry(id).or_default().insert(bits);
@@ -196,6 +206,13 @@ impl Changes {
     /// Positions may have moved (no layout computation).
     pub(crate) fn moved(&mut self) {
         self.geometry = self.geometry.max(Geometry::Moved);
+    }
+
+    /// `id` moved without a layout computation (a transform, a placement,
+    /// a scroll offset): positions are redrawn and its reports are due.
+    pub(crate) fn moved_node(&mut self, id: NodeId) {
+        self.moved();
+        self.mark(id, Dirty::REPORT);
     }
 
     /// The list of children of `parent`, or how one of them is drawn among its
@@ -212,10 +229,12 @@ impl Changes {
     /// Take what one sync dispatches. Measurement bits and layout reasons stay.
     pub(super) fn dispatch(&mut self) -> Dispatched {
         let mut dirty = std::mem::take(&mut self.dirty);
+        let kept_bits = Dirty::MEASURE.union(Dirty::CARET).union(Dirty::REPORT);
         dirty.retain(|id, d| {
-            if d.contains(Dirty::MEASURE) {
-                self.dirty.insert(*id, Dirty::MEASURE);
-                d.remove(Dirty::MEASURE);
+            let kept = Dirty(d.0 & kept_bits.0);
+            if !kept.is_empty() {
+                self.dirty.insert(*id, kept);
+                d.remove(kept);
             }
             !d.is_empty()
         });
@@ -254,13 +273,17 @@ impl Changes {
         self.dirty.remove(&id);
     }
 
-    /// Start a layout pass: the nodes to measure again, or `None` when the
-    /// pass has nothing to do.
+    /// Start a layout pass: the nodes to measure again (their reports are
+    /// due), or `None` when the pass has nothing to do.
     pub(crate) fn begin_layout(&mut self) -> Option<Vec<NodeId>> {
         if !self.layout.take(LayoutReasons::PASS) {
             return None;
         }
-        Some(self.take(Dirty::MEASURE))
+        let measured = self.take(Dirty::MEASURE);
+        for id in &measured {
+            self.mark(*id, Dirty::REPORT);
+        }
+        Some(measured)
     }
 
     /// The layout pass computed the tree: any box may have moved.
@@ -274,8 +297,7 @@ impl Changes {
     /// The scroll container `id` moved its content.
     pub(crate) fn scrolled(&mut self, id: NodeId) {
         self.layout.insert(LayoutReasons::PASS);
-        self.moved();
-        self.mark(id, Dirty::SCROLLED);
+        self.mark(id, Dirty::SCROLLED.union(Dirty::REPORT));
     }
 
     /// Settling scroll offsets left nothing for another pass.
@@ -286,7 +308,7 @@ impl Changes {
     /// The sticky box `id` moved with its scrollport.
     pub(crate) fn stuck(&mut self, id: NodeId) {
         self.moved();
-        self.mark(id, Dirty::STUCK);
+        self.mark(id, Dirty::STUCK.union(Dirty::REPORT));
     }
 
     /// Whether the last layout pass computed the tree (read by the debug layout lint).

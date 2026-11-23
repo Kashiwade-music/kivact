@@ -1,7 +1,6 @@
 //! Role: Passive runtime state and handle identities.
 //!
-//! The handles (`Signal`, `Value`, `Var`, `Callback`, `Binding`, `Selector`,
-//! ...) are `(AppId, Key{slot, generation})` and `Copy + !Send + !Sync`
+//! The handles (`Signal`, `Value`, `Var`, `Callback`, `Selector`, ...) are `(AppId, Key{slot, generation})` and `Copy + !Send + !Sync`
 //! through the [`UiThreadOnly`] marker: moving one off the UI thread fails
 //! to compile. The App, the generation and the owner's lifetime are checked
 //! by the operations that actually reach the state (reading and writing a
@@ -25,8 +24,9 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use crate::reactive::arena::{Arena, Key};
-use crate::reactive::detail::DetailLog;
+use crate::reactive::detail::{RecordBits, Turn, TurnRecord};
 use crate::reactive::error::UiError;
+use crate::reactive::host_types::Stage;
 use crate::reactive::links::Links;
 
 /// Upper bound of effect runs per stabilisation and of user-effect rounds per turn.
@@ -37,6 +37,36 @@ pub(crate) const CYCLE_LIMIT: usize = 100;
 pub struct TurnGuard<'a> {
     pub(crate) rt: &'a Runtime,
     pub(crate) started: std::time::Instant,
+    /// The deferred, timer and task rounds this turn ran.
+    pub(crate) work_rounds: std::cell::Cell<u32>,
+}
+
+/// One value per type. It is filled when the App is created and never
+/// changed afterwards.
+#[derive(Default)]
+pub(crate) struct Extensions(Vec<(TypeId, Box<dyn Any>)>);
+
+impl Extensions {
+    /// No extension.
+    pub(crate) fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    /// With `value` installed, replacing an earlier value of its type.
+    pub(crate) fn with<T: 'static>(mut self, value: T) -> Self {
+        let id = TypeId::of::<T>();
+        self.0.retain(|(ty, _)| *ty != id);
+        self.0.push((id, Box::new(value)));
+        self
+    }
+
+    /// The extension of type `T`, if it was installed.
+    pub(crate) fn get<T: 'static>(&self) -> Option<&T> {
+        let id = TypeId::of::<T>();
+        let (_, value) = self.0.iter().find(|(ty, _)| *ty == id)?;
+        let value: &dyn Any = &**value;
+        value.downcast_ref::<T>()
+    }
 }
 
 /// Live-object counts (lifecycle leak checks).
@@ -54,6 +84,7 @@ pub struct LiveCounts {
     pub slots: usize,
 }
 
+// xtask-allow(state): record: graph, owners, objects and consts are the arenas; frames, collectors, sched, scratch, dep_pool and pass_touched are the stack, scheduler and scratch tables of stabilize; diag, later, graveyard, unsubscribed, unstamped and awaiting are separate queues and tables; deferred is the queue that Runtime::defer adds to and run_deferred takes from; seq and write_epoch only allocate creation and source-write identities; state (turn scheduling), exit (the exit drain) and clock (the latest host time) are independent facts; app is written once inside Runtime::new before it returns and only read afterwards
 /// The reactive runtime of one App: arenas, frame stack, scheduler, trace
 /// ring, its driver and the extensions of the higher crates.
 pub struct Runtime {
@@ -67,31 +98,37 @@ pub struct Runtime {
     pub(crate) collectors: RefCell<Vec<Collector>>,
     pub(crate) sched: RefCell<Sched>,
     pub(crate) scratch: RefCell<Vec<(Key, Staleness)>>,
-    // xtask-allow(state-fields): identity: allocates effect creation-order ids
+    /// Emptied dependency lists kept for the next collector.
+    pub(crate) dep_pool: RefCell<Vec<Vec<Key>>>,
+    /// The effects that ran in the current stabilize pass.
+    pub(crate) pass_touched: RefCell<Vec<Key>>,
     pub(crate) seq: Cell<u64>,
-    // xtask-allow(state-fields): identity: the write generation stamped on each notified source (SourceNode::changed_at) and compared by effects after their own writes
     pub(crate) write_epoch: Cell<kivact_types::cell::Generation>,
     pub(crate) root: Key,
-    // xtask-allow(state-fields): independent: ADR-17: filled by the constructor before it returns; never observed empty
-    #[expect(
-        clippy::disallowed_types,
-        reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
-    )]
-    pub(crate) ext: std::cell::OnceCell<Extensions>,
-    /// Last stamp remains meaningful after every acknowledged callback was removed.
-    pub(crate) mount_revision: Cell<kivact_types::Revision>,
     pub(crate) unstamped: RefCell<Vec<Mount>>,
     pub(crate) awaiting: RefCell<VecDeque<(kivact_types::Revision, Mount)>>,
     pub(crate) host: Rc<dyn crate::reactive::host_types::Host>,
     pub(crate) state: Cell<crate::reactive::host_types::TurnState>,
     pub(crate) exit: Cell<crate::reactive::host_types::ExitState>,
-    // xtask-allow(state-fields): independent: the App's monotonic time, written only by advance_clock from each turn's host time; timers and gestures read it, and every reading is valid in any turn or exit state
     pub(crate) clock: Cell<u64>,
     pub(crate) diag: RefCell<Diag>,
     /// Errors raised where no user code may run (inside the engine's
     /// layout), delivered at the start of the next turn
     /// ([`Runtime::report_later`]).
     pub(crate) later: RefCell<Vec<(Option<Key>, UiError)>>,
+    /// Handlers deferred until the running one returns (`Runtime::defer`),
+    /// each with the owner it runs for and where it was deferred.
+    pub(crate) deferred: RefCell<VecDeque<(Key, &'static Location<'static>, Box<dyn FnOnce()>)>>,
+    /// The state of the layers above the graph (tasks, motion), installed
+    /// when the App is created: see `extensions`.
+    pub(crate) extensions: Extensions,
+    /// What the host layer installs while `Runtime::new` runs: written once,
+    /// before `Runtime::new` returns, and only read afterwards.
+    pub(crate) app: kivact_types::cell::Deferred<AppSlot>,
+    pub(crate) graveyard: RefCell<Graveyard>,
+    /// What runs when a watched source loses its last subscriber (selector
+    /// key nodes): run once, then forgotten.
+    pub(crate) unsubscribed: RefCell<std::collections::HashMap<Key, Box<dyn FnOnce(&Runtime)>>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -157,6 +194,8 @@ pub enum Kind {
 /// Erased computation of a memo or effect. Returns whether the value changed.
 pub(crate) trait Compute {
     fn run(&self) -> bool;
+    /// The cell itself as `Any` (a memo's value is read through it).
+    fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
     /// The value is borrowed (a `with` closure is running), so it cannot be
     /// recomputed now (memos).
     fn busy(&self) -> bool {
@@ -170,11 +209,10 @@ pub(crate) struct SourceCell<T> {
     pub(crate) value: RefCell<T>,
 }
 
+// xtask-allow(state): cache: value is the memo's last computed value, written only by the memo's run (None until the first run); eq is the comparison fixed by create_memo
 pub(crate) struct MemoCell<T> {
-    // xtask-allow(state-fields): cache: the memo's last computed value; the graph state is CompState
     pub(crate) value: RefCell<Option<T>>,
     pub(crate) f: Box<dyn Fn(Option<&T>) -> T>,
-    // xtask-allow(state-fields): option: absent means every recomputation notifies (no equality check)
     pub(crate) eq: Option<fn(&T, &T) -> bool>,
 }
 
@@ -185,12 +223,15 @@ pub(crate) struct EffectCell {
 pub(crate) struct RNode {
     pub(crate) owner: Key,
     pub(crate) owner_index: u32,
-    pub(crate) cell: Rc<dyn Any>,
-    pub(crate) at: &'static Location<'static>,
-    /// Value type name (diagnostics; values themselves are never recorded).
-    pub(crate) ty: &'static str,
+    /// Where a memo or an effect stands; a source is always `Clean`.
+    pub(crate) state: CompState,
     pub(crate) data: NodeData,
 }
+
+const _: () = assert!(
+    std::mem::size_of::<RNode>() <= 96,
+    "RNode grew: diagnostics belong in Diag::node_meta, rare members in a box"
+);
 
 /// What a graph node is, with the data only that kind has.
 pub(crate) enum NodeData {
@@ -204,47 +245,34 @@ pub(crate) enum NodeData {
 }
 
 pub(crate) struct SourceNode {
+    /// The value (a `SourceCell<T>`).
+    pub(crate) cell: Rc<dyn Any>,
     /// (subscriber, index of this node in subscriber.deps).
     pub(crate) subs: Links,
-    // xtask-allow(state-fields): identity: the write epoch notify_subscribers stamps on every change or trigger; recheck_after_own_writes compares it with the epoch before an effect ran, and no running flag sits beside it
     /// Write generation of the last change.
     pub(crate) changed_at: kivact_types::cell::Generation,
-    // xtask-allow(state-fields): statistic: where and in which turn the last value-changing write happened; only the node diagnostics (why chains, DevTools) read it
-    /// Location and turn of the last value-changing write (why chains).
-    pub(crate) written: Option<(&'static Location<'static>, Turn)>,
 }
 
 pub(crate) struct MemoNode {
+    /// The memo (a `MemoCell<T>`; its value is read through `into_any`).
+    pub(crate) comp: Rc<dyn Compute>,
     /// (subscriber, index of this node in subscriber.deps).
     pub(crate) subs: Links,
-    pub(crate) run: Computation,
+    /// (source, index of this node in source.subs), in read order.
+    pub(crate) deps: Links,
 }
 
 pub(crate) struct EffectNode {
-    pub(crate) kind: EffectKind,
-    /// Creation order: queued effects run in it.
-    pub(crate) seq: u64,
-    pub(crate) run: Computation,
-    pub(crate) cleanups: Vec<Box<dyn FnOnce()>>,
-}
-
-/// The part of a memo or an effect that computes.
-pub(crate) struct Computation {
-    pub(crate) compute: Rc<dyn Compute>,
+    pub(crate) comp: Rc<dyn Compute>,
     /// (source, index of this node in source.subs), in read order.
     pub(crate) deps: Links,
-    pub(crate) state: CompState,
-}
-
-impl Computation {
-    /// A computation that has not run yet (dirty).
-    pub(crate) fn new(compute: Rc<dyn Compute>) -> Self {
-        Computation {
-            compute,
-            deps: Links::default(),
-            state: CompState::Stale(Staleness::Dirty),
-        }
-    }
+    pub(crate) kind: EffectKind,
+    /// Runs in the current stabilize pass (R03).
+    pub(crate) pass_runs: u8,
+    /// Creation order: queued effects run in it.
+    pub(crate) seq: u64,
+    /// Cleanups registered by the running effect (most effects have none).
+    pub(crate) cleanups: Option<Box<Vec<Box<dyn FnOnce()>>>>,
 }
 
 impl RNode {
@@ -255,6 +283,11 @@ impl RNode {
             NodeData::Memo(_) => Kind::Memo,
             NodeData::Effect(e) | NodeData::Watcher(e) => Kind::Effect(e.kind),
         }
+    }
+
+    /// Whether this node computes (a memo or an effect).
+    pub(crate) fn is_computation(&self) -> bool {
+        !matches!(self.data, NodeData::Source(_))
     }
 
     /// The readers of a source or a memo; nothing reads an effect.
@@ -275,29 +308,49 @@ impl RNode {
     }
 
     /// The computation of a memo or an effect.
-    pub(crate) fn computation(&self) -> Option<&Computation> {
+    pub(crate) fn comp(&self) -> Option<&Rc<dyn Compute>> {
         match &self.data {
             NodeData::Source(_) => None,
-            NodeData::Memo(m) => Some(&m.run),
-            NodeData::Effect(e) | NodeData::Watcher(e) => Some(&e.run),
-        }
-    }
-
-    pub(crate) fn computation_mut(&mut self) -> Option<&mut Computation> {
-        match &mut self.data {
-            NodeData::Source(_) => None,
-            NodeData::Memo(m) => Some(&mut m.run),
-            NodeData::Effect(e) | NodeData::Watcher(e) => Some(&mut e.run),
+            NodeData::Memo(m) => Some(&m.comp),
+            NodeData::Effect(e) | NodeData::Watcher(e) => Some(&e.comp),
         }
     }
 
     /// What a memo or an effect read during its last run (empty for a source).
     pub(crate) fn deps(&self) -> &[(Key, u32)] {
-        match self.computation() {
-            Some(c) => &c.deps,
-            None => &[],
+        match &self.data {
+            NodeData::Source(_) => &[],
+            NodeData::Memo(m) => &m.deps,
+            NodeData::Effect(e) | NodeData::Watcher(e) => &e.deps,
         }
     }
+
+    pub(crate) fn deps_mut(&mut self) -> Option<&mut Links> {
+        match &mut self.data {
+            NodeData::Source(_) => None,
+            NodeData::Memo(m) => Some(&mut m.deps),
+            NodeData::Effect(e) | NodeData::Watcher(e) => Some(&mut e.deps),
+        }
+    }
+
+    /// The cell a handle reads: a source's value or a memo's cell.
+    pub(crate) fn cell(&self) -> Rc<dyn Any> {
+        match &self.data {
+            NodeData::Source(s) => Rc::clone(&s.cell),
+            NodeData::Memo(m) => Rc::clone(&m.comp).into_any(),
+            NodeData::Effect(e) | NodeData::Watcher(e) => Rc::clone(&e.comp).into_any(),
+        }
+    }
+}
+
+/// The type and creation site of one graph node (`Diag::node_meta`):
+/// always kept in a build with the `devtools` feature (recording may
+/// start later, and `why` still names every node), else only for nodes
+/// created while a recorder is on. Never in the node itself.
+#[derive(Clone, Copy)]
+pub(crate) struct NodeMeta {
+    pub(crate) at: &'static Location<'static>,
+    pub(crate) ty: &'static str,
 }
 
 /// Read-only snapshot of one graph node, for diagnostics (`why` chains).
@@ -308,10 +361,8 @@ pub struct NodeInfo {
     /// Value type name.
     pub ty: &'static str,
     /// Where the node was created.
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     pub at: &'static Location<'static>,
     /// Location and turn of the last value-changing write (sources).
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     pub written: Option<(&'static Location<'static>, Turn)>,
     /// What the node read during its last run, in read order.
     pub deps: Vec<NodeId>,
@@ -328,13 +379,12 @@ pub(crate) struct OwnerExtra {
     pub(crate) on_error: Option<Rc<dyn Fn(UiError)>>,
 }
 
+// xtask-allow(state): independent: parent is the creating owner, written only by create_owner (None only for the root) and kept through disposal; extra holds the rare members, allocated on first use by extra_mut and emptied in place by dispose_one
 pub(crate) struct OwnerEntry {
-    // xtask-allow(state-fields): independent: the creating owner, set by create_owner and cleared only by detach_owner when this owner's disposal starts; the root is live without one, a detached disposal root is disposing without one, and children keep theirs
     pub(crate) parent: Option<Key>,
     pub(crate) parent_index: u32,
     pub(crate) children: Vec<Key>,
     pub(crate) nodes: Vec<Key>,
-    // xtask-allow(state-fields): independent: the box of the rare members, created by the first object, constant, cleanup, context or error handler registered on the owner and kept until the entry is removed; either phase holds it or not (disposal empties it, never drops it)
     pub(crate) extra: Option<Box<OwnerExtra>>,
     /// Where the boundary that created this owner was called (root, flow
     /// branch, list row, `provide`, `error_boundary`): how diagnostics name
@@ -384,14 +434,10 @@ pub(crate) struct Object {
 /// One execution context. Copies never own dependency storage.
 #[derive(Clone, Copy, Default)]
 pub(crate) struct Frame {
-    // xtask-allow(state-fields): independent: callback_frame and handler_frame replace the owner under any frame kind
     pub(crate) owner: Option<Key>,
     pub(crate) kind: FrameKind,
-    // xtask-allow(state-fields): independent: pure_section sets it under any frame kind and owner
     pub(crate) pure: bool,
-    // xtask-allow(state-fields): independent: inherited from the enclosing frame except in a non-user effect's own frame (tracking_frame)
     pub(crate) writer: Option<Key>,
-    // xtask-allow(state-fields): independent: untracked_frame and callback_frame clear it under any kind
     pub(crate) tracking: Option<CollectorSlot>,
 }
 
@@ -432,65 +478,9 @@ pub(crate) struct Sched {
     pub(crate) user: BTreeSet<(u64, Key)>,
 }
 
-/// A value-changing write during a turn.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct TraceWrite {
-    /// Type name of the written value.
-    pub ty: &'static str,
-    /// Where the signal was created.
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
-    pub created_at: &'static Location<'static>,
-    /// Where it was written.
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
-    pub at: &'static Location<'static>,
-}
-
-/// A memo or effect re-evaluated during a turn.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct TraceRun {
-    /// `"memo"`, `"render"`, `"internal"` or `"effect"`.
-    pub kind: &'static str,
-    /// Where the memo or effect was created.
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
-    pub at: &'static Location<'static>,
-}
-
-/// Which turn something happened in.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Turn {
-    /// While the App was set up (its first mount), before the first turn.
-    #[default]
-    Setup,
-    /// A turn, numbered from 1.
-    Number(u64),
-}
-
-/// One turn of the structured trace.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct TurnRecord {
-    /// Which turn: `Turn::Setup` for the notes recorded while the App was set
-    /// up, else the turn's number.
-    pub turn: Turn,
-    /// Host events delivered in this turn.
-    pub events: usize,
-    /// What started the work: host events (`"Activate n5"`), `"timer"`, `"task"`.
-    pub causes: Vec<String>,
-    /// Value-changing writes (first 64).
-    pub writes: Vec<TraceWrite>,
-    /// Re-evaluated memos and effects (first 64; `runs` counts all).
-    pub reruns: Vec<TraceRun>,
-    /// Number of memo and effect runs in this turn.
-    pub runs: usize,
-    /// Writes committed to the engine at the end of this turn.
-    pub ops: usize,
-    /// Time spent in the turn, in nanoseconds.
-    pub duration_ns: u64,
-    /// Notes recorded during the turn (stale events, duplicate styles, ...).
-    pub notes: Vec<String>,
-}
-
+// xtask-allow(state): independent: cause is the index of the last cause recorded in the current turn, written by cause() and cleared at turn boundaries; open_stage is the stage being timed, written by stage() and taken by end_turn; next_seq is the report sequence, written by record_error and record_diagnostic; no field's value decides another's
 /// Ring buffers of errors, diagnostics and turn records, plus the turn
-/// being recorded and the detailed trace the DevTools reads.
+/// being recorded.
 #[derive(Default)]
 pub(crate) struct Diag {
     /// Errors that reached the default sink, with their report sequence.
@@ -502,15 +492,33 @@ pub(crate) struct Diag {
     /// (what happens between two turns belongs to the next one).
     pub(crate) current: TurnRecord,
     pub(crate) total_errors: u64,
-    /// The detail of the turn being recorded: off unless the DevTools asked.
-    pub(crate) detail: DetailLog,
+    /// The recorders that are on (none: no turn trace is kept).
+    pub(crate) record: RecordBits,
+    /// The index of the last cause recorded in the current turn.
+    pub(crate) cause: Option<u32>,
+    /// The stage being timed and the turn-relative ns it started at.
+    pub(crate) open_stage: Option<(Stage, u64)>,
     /// The sequence number of the last error or diagnostic put in a ring.
     pub(crate) next_seq: u64,
+    /// The type and creation site of nodes (see `NodeMeta`).
+    pub(crate) node_meta: std::collections::HashMap<Key, NodeMeta>,
+    /// Location and turn of each source's last value-changing write while a
+    /// recorder is on (`why` chains).
+    pub(crate) node_written: std::collections::HashMap<Key, (&'static Location<'static>, Turn)>,
 }
 
-/// The per-App extension values, at most one per type.
+/// What an owner's disposal released, dropped after every borrow ends
+/// (user `Drop` code may run). Kept on the runtime to reuse its capacity.
 #[derive(Default)]
-pub struct Extensions(pub(crate) Vec<(TypeId, Box<dyn Any>)>);
+pub(crate) struct Graveyard {
+    pub(crate) nodes: Vec<RNode>,
+    pub(crate) data: Vec<Rc<dyn Any>>,
+}
+
+/// The host layer's part of the runtime (`AppParts`, stored).
+pub(crate) struct AppSlot {
+    pub(crate) state: Box<dyn Any>,
+}
 
 /// An `on_mount` callback waiting for the driver's acknowledgement.
 pub(crate) struct Mount {
@@ -525,12 +533,30 @@ pub(crate) struct Mount {
 #[derive(Clone, Copy, Debug)]
 pub struct UiThreadOnly(PhantomData<*const ()>);
 
-/// A writable reactive value. Writes change the value immediately and notify
-/// readers at the end of the turn.
+/// A writable reactive value: a signal (`signal`) or a two-way view of
+/// another value (`binding`, `bind!`, `optional`). Writes change the
+/// value immediately and notify readers at the end of the turn.
 pub struct Signal<T: 'static> {
     pub(crate) app: AppId,
-    pub(crate) key: Key,
+    pub(crate) repr: SignalRepr,
     pub(crate) _m: PhantomData<(fn() -> T, UiThreadOnly)>,
+}
+
+/// Where a [`Signal`] lives.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SignalRepr {
+    /// A source node of the graph.
+    Source(Key),
+    /// A lens: `read` is the value it shows, `write` the `LensCell` object that writes it.
+    Lens { read: ValueRepr, write: Key },
+}
+
+/// How a lens writes: replace the whole value, or edit the current one
+/// in place (both decide themselves whether readers are notified).
+pub(crate) struct LensCell<T> {
+    pub(crate) owner: Key,
+    pub(crate) set: Box<dyn Fn(T) -> Result<(), UiError>>,
+    pub(crate) edit: Box<dyn Fn(&mut dyn FnMut(&mut T)) -> Result<(), UiError>>,
 }
 
 /// Where a [`Value`] lives: a graph node (signal, memo) or a constant of the
@@ -568,11 +594,6 @@ pub struct Var<T: 'static> {
     pub(crate) _m: PhantomData<(fn() -> T, UiThreadOnly)>,
 }
 
-pub(crate) struct CallbackFn<E> {
-    pub(crate) owner: Key,
-    pub(crate) f: Box<dyn Fn(E) -> Result<(), UiError>>,
-}
-
 /// A Copy callback (child → parent), made by [`callback`](crate::reactive::callback).
 /// `call` routes failures to the error sink; `try_call` returns them.
 /// Equality identifies the same callback registration (App and registration key),
@@ -589,57 +610,14 @@ pub struct Callback<E: 'static> {
     pub(crate) _m: PhantomData<(fn(E), UiThreadOnly)>,
 }
 
-pub(crate) enum BindingRepr<T: 'static> {
-    Signal(Signal<T>),
-    Pair(Value<T>, Callback<T>),
-}
-
-/// A two-way input binding: a value and a setter.
-pub struct Binding<T: 'static> {
-    pub(crate) repr: BindingRepr<T>,
-}
-
-impl Extensions {
-    /// No extensions.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Add `value`. Panics (invariant) if a value of the same type is
-    /// already present: each type is installed by exactly one subsystem.
-    pub fn with<T: 'static>(mut self, value: T) -> Self {
-        let id = TypeId::of::<T>();
-        assert!(
-            self.0.iter().all(|(k, _)| *k != id),
-            "invariant: extension {} installed twice",
-            std::any::type_name::<T>()
-        );
-        self.0.push((id, Box::new(value)));
-        self
-    }
-
-    /// The value of type `T`, if installed.
-    #[inline]
-    pub(crate) fn get<T: 'static>(&self) -> Option<&T> {
-        let id = TypeId::of::<T>();
-        self.0
-            .iter()
-            .find(|(k, _)| *k == id)
-            .and_then(|(_, v)| v.downcast_ref::<T>())
-    }
-}
-
-impl<T: 'static> Clone for BindingRepr<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T: 'static> Copy for BindingRepr<T> {}
-
 impl<T: 'static> fmt::Debug for Signal<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Signal({}:{})", self.key.slot, self.key.generation)
+        match self.repr {
+            SignalRepr::Source(k) => write!(f, "Signal({}:{})", k.slot, k.generation),
+            SignalRepr::Lens { write, .. } => {
+                write!(f, "Signal(lens {}:{})", write.slot, write.generation)
+            }
+        }
     }
 }
 
@@ -685,5 +663,3 @@ impl<E: 'static> PartialEq for Callback<E> {
     }
 }
 impl<E: 'static> Eq for Callback<E> {}
-
-copy_handle!(Binding<T>);

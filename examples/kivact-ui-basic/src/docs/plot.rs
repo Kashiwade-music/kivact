@@ -1,32 +1,24 @@
-//! Role: Catalog page of Plot: lines, points, stems, histograms and heatmaps.
+//! Catalog page of Plot: lines, points, stems, histograms and heatmaps.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
-use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "plot",
-        name: "Plot",
-        description: "PlotModel の系列を、ズームとパンができる軸の上に描きます。ドラッグで移動、ホイールで x 軸を拡大・縮小（Ctrl で y 軸、横方向のホイールと Shift のホイールで移動）、+ と - と PageUp・PageDown と矢印キーで操作し、0 かダブルクリックで自動の範囲に戻ります。軸は線形か対数（Log10）を選べ、目盛りの書式も変えられます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("plot.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "frequency",
-                "Frequency Response",
-                "x 軸を対数、目盛りを SI の書式にした折れ線です。範囲は PlotRange::Auto から始まり、操作のたびに PlotRange::Manual になります。",
-                frequency,
-            ),
-            Example::new(
-                "heatmap",
-                "Heatmap",
-                "PlotSeries::heatmap は、行と列の境界（edges）と z の値の格子を色で描きます。z_range で色の範囲を決めなければ、z の有限な最小と最大を使います。ポインタを重ねると、そのセルの値を読めます。",
-                heatmap,
-            ),
-        ],
-    }
+    Page::new("plot", "Plot", "Components", include_str!("plot.rs"))
+        .description("Draws the series of a PlotModel on axes that can be zoomed and panned. Drag to move; the wheel zooms the x axis (with Ctrl, the y axis; the horizontal wheel and the wheel with Shift move it); + and -, PageUp, PageDown and the arrow keys work too; 0 or a double click returns to the automatic range. Each axis can be linear or logarithmic (Log10), and the tick format can be changed.")
+        .usage("use kivact::prelude::*;\nuse kivact_plot::{PlotAxis, PlotModel, PlotSeries, plot};")
+        .example(Example::new(
+            "frequency",
+            "Frequency Response",
+            "A line with a logarithmic x axis and SI tick labels. The range starts as PlotRange::Auto, and each change makes it PlotRange::Manual.",
+            frequency,
+        ))
+        .example(Example::new(
+            "heatmap",
+            "Heatmap",
+            "PlotSeries::heatmap draws a grid of z values, with the row and column edges, in colors. Unless z_range sets the color range, the finite minimum and maximum of z are used. Pointing at a cell shows its value.",
+            heatmap,
+        ))
 }
 
 // example: frequency
@@ -38,16 +30,16 @@ fn frequency() -> impl IntoView {
         .iter()
         .map(|f| 20.0 * (1.0 / (1.0 + (f / 200.0).powi(2)).sqrt()).log10())
         .collect();
-    let model = basic::PlotModel::new(
-        basic::PlotAxis::new("Frequency")
-            .scale(basic::AxisScale::Log10)
-            .format(basic::TickFormat::Si),
-        basic::PlotAxis::new("Gain").format(basic::TickFormat::Decibel),
+    let model = kivact_plot::PlotModel::new(
+        kivact_plot::PlotAxis::new("Frequency")
+            .scale(kivact_plot::AxisScale::Log10)
+            .format(kivact_plot::TickFormat::Si),
+        kivact_plot::PlotAxis::new("Gain").format(kivact_plot::TickFormat::Decibel),
     )
     .title("Low-pass response")
     .legend(false)
-    .series(basic::PlotSeries::line("Gain", frequencies, gain));
-    basic::plot("Low-pass response", model).style(style().width(560))
+    .series(kivact_plot::PlotSeries::line("Gain", frequencies, gain));
+    kivact_plot::plot(model).style(style().width(560))
 }
 // end example
 
@@ -64,10 +56,13 @@ fn heatmap() -> impl IntoView {
             })
         })
         .collect();
-    let model = basic::PlotModel::new(basic::PlotAxis::new("Column"), basic::PlotAxis::new("Row"))
-        .title("Cell values")
-        .legend(false)
-        .series(basic::PlotSeries::heatmap("Value", x_edges, y_edges, z).z_range(-2.0, 2.0));
-    basic::plot("Cell values", model).style(style().width(560))
+    let model = kivact_plot::PlotModel::new(
+        kivact_plot::PlotAxis::new("Column"),
+        kivact_plot::PlotAxis::new("Row"),
+    )
+    .title("Cell values")
+    .legend(false)
+    .series(kivact_plot::PlotSeries::heatmap("Value", x_edges, y_edges, z).z_range(-2.0, 2.0));
+    kivact_plot::plot(model).style(style().width(560))
 }
 // end example

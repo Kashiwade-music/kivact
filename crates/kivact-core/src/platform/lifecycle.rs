@@ -8,9 +8,12 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_runtime::{Callback, HandlerResult, Owner, Runtime};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Callback, HandlerResult, Owner};
 pub use kivact_types::LifecycleEvent;
 use kivact_types::cell::Registry;
+
+use crate::view::state::ViewState;
 
 #[derive(Default)]
 pub(crate) struct LifecycleState {
@@ -32,9 +35,9 @@ struct Registration {
 /// changes are observed through `surface_active`, not lifecycle transitions.
 #[track_caller]
 pub fn on_lifecycle<R: HandlerResult>(f: impl Fn(LifecycleEvent) -> R + 'static) {
-    let owner = Owner::current("on_lifecycle", Location::caller());
+    let owner = Owner::setup("on_lifecycle", Location::caller());
     let rt = owner.runtime();
-    let state = rt.ext::<LifecycleState>();
+    let state = LifecycleState::of(&rt);
     let registration = Rc::new(Registration {
         owner,
         callback: kivact_runtime::callback(f),
@@ -43,8 +46,17 @@ pub fn on_lifecycle<R: HandlerResult>(f: impl Fn(LifecycleEvent) -> R + 'static)
     owner.on_cleanup(move || drop(registration));
 }
 
+/// Start the App's exit: the runtime drains, and every foreign window's
+/// `open` binding is written false so its `on_destroy` runs while its
+/// child still exists. The one exit path of `AppHandle::close` and of a
+/// close request on the main window.
+pub(crate) fn begin_exit(rt: &Runtime) {
+    rt.request_exit();
+    ViewState::of(rt).close_foreign_for_exit();
+}
+
 pub(crate) fn dispatch(rt: &Runtime, event: LifecycleEvent) {
-    let registrations: Vec<_> = rt.ext::<LifecycleState>().registrations.borrow_mut().live();
+    let registrations: Vec<_> = LifecycleState::of(rt).registrations.borrow_mut().live();
     for registration in registrations {
         if registration.owner.is_alive() {
             registration.callback.call(event);

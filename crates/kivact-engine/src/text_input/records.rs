@@ -79,9 +79,7 @@ pub(crate) enum Run {
 /// What a line keeps of its colors and of assistive technology.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Kept {
-    // xtask-allow(state-fields): cache: the line's colors, kept until they are resolved again
     pub(crate) colors: Option<Colored>,
-    // xtask-allow(state-fields): cache: its glyphs shaped with its colors, over the text color they were shaped with
     /// Its glyphs shaped with its colors, over the text color they were
     /// shaped with.
     pub(crate) painted: Option<(kivact_types::Rgba, kivact_types::ShapedTextSnapshot)>,

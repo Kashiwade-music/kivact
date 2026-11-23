@@ -10,7 +10,7 @@
 //! `WM_DESTROY`) or the X11 UI thread ended. Cleanup of the App may still be
 //! deferred after that while an App callback is on the stack.
 use arvane_shell::{ChildStop, NoticeSink, PanicSlot, ShellChild, ShellError};
-use kivact_types::embed::Visibility;
+use kivact_types::embed::EmbedVisibility;
 use std::any::Any;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -26,7 +26,7 @@ pub(in crate::port) enum Command {
         generation: Option<u64>,
     },
     SetScale(f64),
-    SetVisibility(Visibility),
+    SetVisibility(EmbedVisibility),
 }
 pub(in crate::port) struct Shared {
     inner: Mutex<Inner>,
@@ -44,9 +44,7 @@ struct Inner {
 /// The last host size and the identity that advances with it.
 #[derive(Clone, Copy)]
 struct HostSize {
-    // xtask-allow(state-fields): identity: advanced by every host size; a negotiated size is accepted only at its generation
     generation: u64,
-    // xtask-allow(state-fields): option: absent until the host first chooses a size
     size: Option<(u32, u32)>,
 }
 /// The physical size, scale and visibility the child applied last, read together.
@@ -55,7 +53,7 @@ pub(in crate::port) struct Applied {
     pub(in crate::port) width: u32,
     pub(in crate::port) height: u32,
     pub(in crate::port) scale: f64,
-    pub(in crate::port) visibility: Visibility,
+    pub(in crate::port) visibility: EmbedVisibility,
 }
 enum ChildStatus {
     /// The App runs.
@@ -84,7 +82,7 @@ impl Shared {
         width: u32,
         height: u32,
         scale: f64,
-        visibility: Visibility,
+        visibility: EmbedVisibility,
         panic: PanicSlot,
         notices: NoticeSink,
     ) -> Self {
@@ -145,7 +143,8 @@ impl Shared {
             left_running
         };
         if left_running {
-            self.notices.stopped();
+            self.notices
+                .stopped(self.stop().expect("invariant: the child left running"));
         }
     }
     pub(in crate::port) fn panicked(&self) -> bool {
@@ -171,7 +170,8 @@ impl Shared {
             }
         };
         if left_running {
-            self.notices.stopped();
+            self.notices
+                .stopped(self.stop().expect("invariant: the child left running"));
         }
     }
     /// The native window is gone (Win32 `WM_DESTROY`; X11: the UI thread ended).
@@ -192,7 +192,8 @@ impl Shared {
             left_running
         };
         if left_running {
-            self.notices.stopped();
+            self.notices
+                .stopped(self.stop().expect("invariant: the child left running"));
         }
     }
     /// Record a failure and stop; the first failure wins.
@@ -226,7 +227,8 @@ impl Shared {
             left_running
         };
         if left_running {
-            self.notices.stopped();
+            self.notices
+                .stopped(self.stop().expect("invariant: the child left running"));
         }
     }
     /// Why the child stopped, or `None` while it runs.
@@ -337,7 +339,7 @@ impl Shared {
     }
     /// Record the applied visibility; whether it changed.
     #[cfg(windows)]
-    pub(in crate::port) fn set_visibility(&self, visibility: Visibility) -> bool {
+    pub(in crate::port) fn set_visibility(&self, visibility: EmbedVisibility) -> bool {
         let mut inner = self.lock();
         let changed = inner.applied.visibility != visibility;
         inner.applied.visibility = visibility;
@@ -355,7 +357,7 @@ impl Shared {
         width: u32,
         height: u32,
         scale: f64,
-        visibility: Visibility,
+        visibility: EmbedVisibility,
     ) {
         self.lock().applied = Applied {
             width,
@@ -447,7 +449,7 @@ impl<B: ChildPort> ShellChild for Handle<B> {
         self.backend.collect_panic(&self.shared);
         self.shared.scale()
     }
-    fn set_visibility(&self, visibility: Visibility) {
+    fn set_visibility(&self, visibility: EmbedVisibility) {
         self.backend.collect_panic(&self.shared);
         if self.shared.stopped() {
             return;
@@ -455,7 +457,7 @@ impl<B: ChildPort> ShellChild for Handle<B> {
         self.shared.queue(Command::SetVisibility(visibility));
         self.backend.wake();
     }
-    fn visibility(&self) -> Visibility {
+    fn visibility(&self) -> EmbedVisibility {
         self.backend.collect_panic(&self.shared);
         self.shared.applied().visibility
     }
@@ -476,7 +478,6 @@ mod tests {
     //! Role: Tests for host command coalescing, stop notices and panic messages.
     use super::*;
     use arvane_shell::EmbedNotice;
-    use std::sync::Mutex;
 
     fn size(width: u32, generation: Option<u64>) -> Command {
         Command::SetSize {
@@ -518,7 +519,7 @@ mod tests {
             1,
             1,
             1.0,
-            Visibility::Shown,
+            EmbedVisibility::Shown,
             PanicSlot::default(),
             NoticeSink::default(),
         );
@@ -539,7 +540,7 @@ mod tests {
             1,
             1,
             1.0,
-            Visibility::Shown,
+            EmbedVisibility::Shown,
             PanicSlot::default(),
             NoticeSink::default(),
         );
@@ -555,13 +556,13 @@ mod tests {
             1,
             1,
             1.0,
-            Visibility::Shown,
+            EmbedVisibility::Shown,
             PanicSlot::default(),
             NoticeSink::default(),
         );
-        shared.queue(Command::SetVisibility(Visibility::Hidden));
+        shared.queue(Command::SetVisibility(EmbedVisibility::Hidden));
         shared.queue(size(5, None));
-        shared.queue(Command::SetVisibility(Visibility::Shown));
+        shared.queue(Command::SetVisibility(EmbedVisibility::Shown));
         assert_eq!(queued(&shared), [(5, None)]);
     }
 
@@ -571,7 +572,7 @@ mod tests {
             1,
             1,
             1.0,
-            Visibility::Shown,
+            EmbedVisibility::Shown,
             PanicSlot::default(),
             NoticeSink::default(),
         );
@@ -579,14 +580,14 @@ mod tests {
         shared.request_close();
         shared.queue(size(2, None));
         shared.queue(Command::SetScale(2.0));
-        shared.queue(Command::SetVisibility(Visibility::Hidden));
+        shared.queue(Command::SetVisibility(EmbedVisibility::Hidden));
         assert_eq!(queued(&shared), [(1, None)]);
 
         let failed = Shared::new(
             1,
             1,
             1.0,
-            Visibility::Shown,
+            EmbedVisibility::Shown,
             PanicSlot::default(),
             NoticeSink::default(),
         );
@@ -601,14 +602,21 @@ mod tests {
     #[test]
     fn the_first_stop_notifies_the_host_once() {
         let (seen, sink) = notices();
-        let shared = Shared::new(1, 1, 1.0, Visibility::Shown, PanicSlot::default(), sink);
+        let shared = Shared::new(
+            1,
+            1,
+            1.0,
+            EmbedVisibility::Shown,
+            PanicSlot::default(),
+            sink,
+        );
         assert_eq!(shared.stop(), None);
         shared.request_close();
         shared.request_close();
         shared.fail(ShellError::new("late"));
         assert_eq!(
             *seen.lock().expect("test lock is not poisoned"),
-            [EmbedNotice::Stopped]
+            [EmbedNotice::Stopped(ChildStop::Closed)]
         );
         assert!(matches!(shared.stop(), Some(ChildStop::Failed(_))));
     }
@@ -616,14 +624,21 @@ mod tests {
     #[test]
     fn panics_keep_the_first_message_and_notify_once() {
         let (seen, sink) = notices();
-        let shared = Shared::new(1, 1, 1.0, Visibility::Shown, PanicSlot::default(), sink);
+        let shared = Shared::new(
+            1,
+            1,
+            1.0,
+            EmbedVisibility::Shown,
+            PanicSlot::default(),
+            sink,
+        );
         shared.keep_panic(Box::new("boom"));
         shared.keep_panic(Box::new("later"));
         assert_eq!(shared.stop(), Some(ChildStop::Panicked));
         assert_eq!(shared.panic.message().as_deref(), Some("boom"));
         assert_eq!(
             *seen.lock().expect("test lock is not poisoned"),
-            [EmbedNotice::Stopped]
+            [EmbedNotice::Stopped(ChildStop::Panicked)]
         );
     }
 }

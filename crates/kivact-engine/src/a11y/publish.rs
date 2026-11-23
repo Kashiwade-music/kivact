@@ -17,7 +17,7 @@ impl Model {
     pub(crate) fn accessibility(
         &mut self,
         window: &mut arvane::Window<'_>,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) {
         let (root, dirt) = match &mut self.a11y.publish {
             A11yPublish::Inactive
@@ -56,15 +56,12 @@ impl Model {
                 .nodes
                 .retain(|_| at.next().is_some_and(|(id, h)| accepted.get(id) != Some(h)));
         }
-        #[cfg(feature = "testing")]
-        {
-            self.a11y.published += candidate.nodes.len() as u64;
-        }
+        self.a11y.published += candidate.nodes.len() as u64;
         let (new_root, focus) = (candidate.root, candidate.focus);
         let accepted = if replace {
             window.replace_accessibility(&candidate)
         } else {
-            window.update_accessibility(&kivact_types::render::SemanticsUpdate {
+            window.update_accessibility(&arvane_protocol::SemanticsUpdate {
                 root: new_root,
                 focus,
                 nodes: candidate.nodes,

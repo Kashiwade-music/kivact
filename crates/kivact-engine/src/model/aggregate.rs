@@ -1,54 +1,95 @@
 //! Role: The Model aggregate: every passive state group, its creation and reads.
 
 use crate::a11y::state::A11yState;
-use crate::contract::{EngineEmulation, HostEvent};
+use crate::contract::HostEvent;
 use crate::model::events::EngineLog;
 use crate::paint::state::PaintState;
 use crate::tree::NodeTree;
 use crate::tree::node::HostNode;
-use kivact_types::{Modifiers, NodeId, PlatformRequest, RequestId, Size, WindowId};
-use std::cell::RefCell;
+use kivact_types::{Modifiers, NodeId, RequestId, Size, WindowId};
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-/// Requests that must wait until the current client turn has finished.
-pub(crate) enum DeferredRequest {
-    Platform(PlatformRequest),
-    ReducedMotion(Option<bool>),
-    Inject(Vec<arvane::InjectedInput>),
-    Emulate(EngineEmulation),
-    TimeScale(f64),
-    /// Start the model's window GPU device (nothing is answered).
-    DemandGpu,
-    /// Report a key press nobody handled at `window` (nothing is answered).
-    UnhandledKey(kivact_types::KeyCode),
+/// The window's per-slot columns, one entry per structural slot of the
+/// node store: pushed together when a slot is made, reset together when
+/// it is freed (`Model::create_slot`, `Model::remove_slots`). The tree's
+/// flat-children cache grows by itself (`NodeTree`), and the layout's
+/// columns grow to the store's slot count when a pass reads them
+/// (`kivact_layout::Layout`).
+#[derive(Default)]
+pub(crate) struct Slots {
+    /// What each slot measures and its resolved text style.
+    pub(crate) measure: crate::measure::state::MeasureColumns,
+    /// The native editor of each slot that edits text.
+    pub(crate) editors: Vec<Option<Box<crate::measure::editor::EditorNode>>>,
+    /// The ink each box last drew on (`paint::list::ink`).
+    pub(crate) ink: Vec<Cell<Option<crate::paint::state::Ink>>>,
+    /// The base paint's look of each node (`Model::derive`).
+    pub(crate) look: Vec<Option<crate::layer::LayerTraits>>,
+    /// The drawing each listed node made in the last frame (`paint::frame_scene`).
+    pub(crate) draws: Vec<Cell<Option<Box<crate::paint::state::NodeDraw>>>>,
 }
 
+impl Slots {
+    /// Append a fresh slot for a node of `kind`.
+    pub(crate) fn push(&mut self, kind: &crate::contract::NodeKind) {
+        self.measure.push(kind);
+        self.editors.push(None);
+        self.ink.push(Cell::new(None));
+        self.look.push(None);
+        self.draws.push(Cell::new(None));
+    }
+
+    /// Reset `slot` before it is freed; returns the editor and the
+    /// shaped text extents it held, for the caller to drop in order.
+    pub(crate) fn reset(
+        &mut self,
+        slot: usize,
+    ) -> (
+        Option<Box<crate::measure::editor::EditorNode>>,
+        Option<Box<crate::measure::state::TextExtents>>,
+    ) {
+        let editor = self.editors[slot].take();
+        let extents = self.measure.take_slot(slot);
+        self.ink[slot].set(None);
+        self.look[slot] = None;
+        self.draws[slot].set(None);
+        (editor, extents)
+    }
+}
+
+// xtask-allow(state): independent: assets is the App's shared store; origins caches window origins (filled by Model::rect, cleared by forget_origins); window_request is set by Writer::set_window and taken by the host when the window is finished
 /// The engine's state: the node tree and one field per state group.
 pub(crate) struct Model {
     /// This model's window.
     pub(crate) window: WindowId,
     pub(crate) tree: NodeTree,
+    pub(crate) slots: Slots,
     pub(crate) layout: kivact_layout::Layout,
     pub(crate) layout_motion: super::layout_motion::state::LayoutMotion,
     pub(crate) playback: super::playback::state::Playback,
     pub(crate) sources: super::frame::sources::MotionSources,
-    pub(crate) measure: crate::measure::state::MeasureColumns,
     /// The recent values of the shared node properties (`Model::set_shared_prop`).
     pub(crate) recent: super::recent::RecentProps,
-    pub(crate) editors: Vec<Option<Box<crate::measure::editor::EditorNode>>>,
     pub(crate) events: super::events::EventSink,
     pub(crate) changes: super::changes::Changes,
     pub(crate) viewport: Size,
+    /// The window origins `Model::rect` found since the geometry last
+    /// changed (forgotten by `Model::forget_origins`).
+    pub(crate) origins: std::cell::RefCell<kivact_types::IdMap<kivact_types::Point>>,
     pub(crate) focus: super::focus::state::Focus,
     pub(crate) pointer: super::pointer::state::Pointer,
     /// The drags admitted before a modal opened (`modal`).
     pub(crate) admission: super::modal::state::Admission,
-    // xtask-allow(state-fields): projection: the modifiers last reported to the client, written only by Model::report_modifiers
     /// The keyboard modifiers the shell reports held.
     pub(super) modifiers: kivact_types::cell::Sent<Modifiers>,
     pub(crate) key_down_targets: super::focus::state::KeyDownTargets,
     pub(crate) edits: super::edit::state::Edits,
     pub(crate) motion: super::state_motion::state::StateMotion,
+    /// The reported states last told to the client per node
+    /// (`HostEvent::StatesChanged`), the dedupe cache of S-9. A node is in
+    /// it only while the set told is not empty.
+    pub(crate) reported_states: std::collections::HashMap<NodeId, kivact_types::StateSet>,
     pub(crate) presence: super::presence::state::Presences,
     pub(crate) assets: Rc<RefCell<crate::lower::assets::ArvaneAssets>>,
     /// What the DevTools records, shared by every model and the host.
@@ -56,11 +97,8 @@ pub(crate) struct Model {
     pub(crate) paint: PaintState,
     pub(crate) a11y: A11yState,
     pub(crate) frame: super::frame::state::Frame,
-    // xtask-allow(state-fields): independent: the title, minimum size and resizable flag Writer::set_window queues and finish_window takes after the turn; the modifiers projection follows shell key input, so any of them is set without the others
     /// The window title, minimum size and resizable flag to set after the turn.
     pub(crate) window_request: Option<(String, Option<Size>, bool)>,
-    /// The platform effects to carry out after the turn.
-    pub(crate) effects: Vec<(RequestId, DeferredRequest)>,
     /// CPU captures awaiting the next settled host boundary.
     pub(crate) snapshots: Vec<(RequestId, NodeId)>,
     /// The imports and drops of shared textures to carry out after the
@@ -87,16 +125,16 @@ impl Model {
         Self {
             window,
             tree: NodeTree::default(),
+            slots: Slots::default(),
             layout: Default::default(),
             layout_motion: Default::default(),
             playback: Default::default(),
             sources: Default::default(),
-            measure: Default::default(),
             recent: Default::default(),
-            editors: Vec::new(),
             events: shared.events.clone(),
             changes: super::changes::Changes::initial(),
             viewport,
+            origins: Default::default(),
             focus: super::focus::state::Focus::default(),
             pointer: super::pointer::state::Pointer::default(),
             admission: super::modal::state::Admission::default(),
@@ -108,6 +146,7 @@ impl Model {
             key_down_targets: super::focus::state::KeyDownTargets::default(),
             edits: super::edit::state::Edits::default(),
             motion: super::state_motion::state::StateMotion::default(),
+            reported_states: std::collections::HashMap::new(),
             presence: super::presence::state::Presences::default(),
             assets: Rc::clone(&shared.assets),
             log: shared.log.clone(),
@@ -115,7 +154,6 @@ impl Model {
             a11y: A11yState::default(),
             frame: super::frame::state::Frame::default(),
             window_request: None,
-            effects: vec![],
             snapshots: Vec::new(),
             external_writes: Vec::new(),
             drawables: Default::default(),
@@ -134,6 +172,12 @@ impl Model {
     /// The node `id`.
     pub(crate) fn node(&self, id: NodeId) -> Option<&HostNode> {
         self.tree.get(id)
+    }
+
+    /// Positions moved (a layout pass, a scroll, a sticky shift, a resize or
+    /// a moved box): the remembered window origins are found again.
+    pub(crate) fn forget_origins(&mut self) {
+        self.origins.get_mut().clear();
     }
 
     /// Mark `id`'s subtree facts stale for the next paint list. A transparent
@@ -195,7 +239,10 @@ impl Model {
     pub(crate) fn repaint_text(&mut self, id: NodeId) {
         if self.tree.contains(id) {
             self.a11y.payload(id);
-            self.changes.mark(id, super::changes::Dirty::REDRAW);
+            self.changes.mark(
+                id,
+                super::changes::Dirty::REDRAW.union(super::changes::Dirty::CARET),
+            );
         }
     }
 

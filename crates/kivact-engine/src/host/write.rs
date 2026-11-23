@@ -40,6 +40,7 @@
 //!   measure function is lent lives during one layout pass only.
 
 mod reader;
+mod stats;
 pub(crate) mod typed;
 mod writer;
 

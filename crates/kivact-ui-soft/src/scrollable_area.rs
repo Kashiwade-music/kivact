@@ -1,15 +1,17 @@
 //! Role: Add a named, keyboard-accessible Neutral scroll viewport.
-use crate::stack::{ContainerInset, Padding, Space, padding_options};
+use crate::color as c;
+use crate::recipe_parts::ring;
+use crate::space::Space;
+use crate::stack::{ContainerInset, Padding};
 
-use kivact::state::IntoValue;
 use kivact::view::Element;
-use kivact::view::Node;
 use kivact::view::ScrollAxes;
 use kivact::view::column;
-use kivact::view::node;
+use kivact::view::node_ref;
 use kivact::view::scroll;
 
-use kivact::state::IntoText;
+use kivact::Prop;
+use kivact::component;
 use kivact::state::Value;
 use kivact::state::provide;
 use kivact::state::try_use_context;
@@ -17,12 +19,10 @@ use kivact::style::Color;
 use kivact::style::Length;
 use kivact::style::pct;
 use kivact::style::style;
-use kivact::view::IntoView;
 use kivact::view::Role;
 use kivact::view::View;
-use kivact::view::node_ref;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Scrollable directions supported by a viewport.
 pub enum ScrollAxis {
     /// Scroll horizontally.
@@ -45,135 +45,88 @@ impl ScrollAxis {
 }
 
 /// Named region with native scrolling and a tab stop when its content overflows.
-pub struct ScrollableArea {
-    root: Node,
+///
+/// `label` names the region; the viewport is vertical unless `axis` says otherwise.
+#[component]
+pub fn scrollable_area(
+    label: Value<String>,
     child: View,
-    axis: Value<ScrollAxis>,
-    padding: Padding,
-    full_bleed: Value<bool>,
-    bleed_top: Value<bool>,
-    bleed_bottom: Value<bool>,
+    #[prop(default = ScrollAxis::Block)] axis: Value<ScrollAxis>,
+    padding: Option<Space>,
+    padding_x: Option<Space>,
+    padding_y: Option<Space>,
+    padding_start: Option<Space>,
+    padding_end: Option<Space>,
+    padding_top: Option<Space>,
+    padding_bottom: Option<Space>,
+    #[prop(default = false)] full_bleed: Value<bool>,
+    #[prop(default = false)] bleed_top: Value<bool>,
+    #[prop(default = false)] bleed_bottom: Value<bool>,
     force_focusable: Option<Value<bool>>,
-}
-
-/// Create a named vertical viewport with zero padding and no bleed.
-pub fn scrollable_area(label: impl IntoText, child: impl IntoView) -> ScrollableArea {
-    ScrollableArea {
-        root: node()
-            .name(label)
-            .with_node(move |node| node.role(Role::Region)),
-        child: child.into_view(),
-        axis: (ScrollAxis::Block).into_value(),
-        padding: Padding::default(),
-        full_bleed: (false).into_value(),
-        bleed_top: (false).into_value(),
-        bleed_bottom: (false).into_value(),
-        force_focusable: None,
-    }
-}
-
-impl ScrollableArea {
-    padding_options!();
-    pub(crate) fn force_focusable(mut self, value: Value<bool>) -> Self {
-        self.force_focusable = Some(value);
-        self
-    }
-    /// Choose native scrolling axes at construction from a constant or reactive input.
-    pub fn axis(mut self, axis: impl IntoValue<ScrollAxis>) -> Self {
-        self.axis = axis.into_value();
-        self
-    }
-    /// Reactively cancel inherited inline insets and enable requested top/bottom bleed.
-    pub fn full_bleed(mut self, full_bleed: impl IntoValue<bool>) -> Self {
-        self.full_bleed = full_bleed.into_value();
-        self
-    }
-    /// Cancel the inherited top inset when full bleed is enabled; off by default.
-    pub fn bleed_top(mut self, bleed: impl IntoValue<bool>) -> Self {
-        self.bleed_top = bleed.into_value();
-        self
-    }
-    /// Cancel the inherited bottom inset when full bleed is enabled; off by default.
-    pub fn bleed_bottom(mut self, bleed: impl IntoValue<bool>) -> Self {
-        self.bleed_bottom = bleed.into_value();
-        self
-    }
-}
-
-impl Element for ScrollableArea {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for ScrollableArea {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            child,
-            axis,
-            padding,
-            full_bleed,
-            bleed_top,
-            bleed_bottom,
-            force_focusable,
-        } = self;
-        kivact::view::scope(move || {
-            let viewport = node_ref();
-            let content = node_ref();
-            let state = viewport.scroll_state();
-            let inset = padding.resolve(0.0);
-            let parent = try_use_context::<ContainerInset>()
-                .map(|value| value.get())
-                .unwrap_or_default();
-            let inner = column(provide(inset, move || child))
-                .node_ref(content)
-                .with_node(move |node| {
-                    node.base_style(move || {
-                        let base =
-                            inset.apply(style().min_width(pct(100)).min_height(pct(100)).shrink(0));
-                        if axis.get() == ScrollAxis::Block {
-                            base
-                        } else {
-                            base.width(Length::MaxContent)
-                        }
-                    })
-                });
-            let root = root.with_node(move |node| {
-                node.base_style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let mut base = style()
-                        .min_height(0)
-                        .min_width(0)
-                        .max_width(pct(100))
-                        .max_height(pct(100))
-                        .scrollbar_color(t.colors.neutral, Color::TRANSPARENT)
-                        .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
-                    if full_bleed.get() {
-                        let (left, right) = parent.sides();
-                        base = base
-                            .margin_left(-left)
-                            .margin_right(-right)
-                            .max_width(pct(100) + left + right);
-                        if bleed_top.get() {
-                            base = base.margin_top(-parent.top);
-                        }
-                        if bleed_bottom.get() {
-                            base = base.margin_bottom(-parent.bottom);
-                        }
-                    }
+) -> impl Element {
+    let padding = Padding {
+        all: padding,
+        x: padding_x,
+        y: padding_y,
+        start: padding_start,
+        end: padding_end,
+        top: padding_top,
+        bottom: padding_bottom,
+    };
+    let viewport = node_ref();
+    let content = node_ref();
+    let state = viewport.scroll_state();
+    let inset = padding.resolve(0.0);
+    let parent = try_use_context::<ContainerInset>().unwrap_or_default();
+    let inner = column(provide(inset, move || child))
+        .node_ref(content)
+        .with_node(move |node| {
+            node.base_style(move || {
+                let base = inset.apply(
+                    style()
+                        .min_width(pct(100))
+                        .min_height(pct(100))
+                        .flex_shrink(0),
+                );
+                if axis.get() == ScrollAxis::Block {
                     base
-                })
-            });
-            let mut viewport_node = scroll(inner).axes(axis.get().native());
-            *viewport_node.node_mut() = root;
-            viewport_node.node_ref(viewport).focusable(move || {
-                force_focusable.is_some_and(|force| force.get())
-                    || state.get() != kivact::view::ScrollState::NotScrollable
+                } else {
+                    base.width(Length::MaxContent)
+                }
+            })
+        });
+    scroll(inner)
+        .axes(axis.get().native())
+        .name(label)
+        .with_node(move |node| node.role(Role::Region))
+        .with_node(move |node| {
+            node.base_style(move || {
+                let mut base = style()
+                    .min_height(0)
+                    .min_width(0)
+                    .max_width(pct(100))
+                    .max_height(pct(100))
+                    .scrollbar_color(c::NEUTRAL, Color::TRANSPARENT)
+                    .focus_visible(ring(c::ACCENT));
+                if full_bleed.get() {
+                    let (left, right) = parent.sides();
+                    base = base
+                        .margin_left(-left)
+                        .margin_right(-right)
+                        .max_width(pct(100) + left + right);
+                    if bleed_top.get() {
+                        base = base.margin_top(-parent.top);
+                    }
+                    if bleed_bottom.get() {
+                        base = base.margin_bottom(-parent.bottom);
+                    }
+                }
+                base
             })
         })
-    }
+        .node_ref(viewport)
+        .focusable(move || {
+            force_focusable.is_some_and(|force| force.get())
+                || state.get() != kivact::view::ScrollState::NotScrollable
+        })
 }
-
-kivact::state::constant_value!(ScrollAxis);

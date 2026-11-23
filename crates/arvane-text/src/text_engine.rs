@@ -1,11 +1,13 @@
 //! Role: TextEngine: font registration, and cached measuring and shaping of text.
 
 use crate::cache::{Cache, TextKeyRef};
-use crate::error::TextError;
+use crate::error::{TextError, failure};
+use crate::families::{FamilyChoice, FamilyResolution};
 use crate::metrics::line_height;
 use crate::{build, layouts, output, transform};
-use kivact_types::render::FontSource;
-use kivact_types::render::{RichText, ShapedText};
+use arvane_protocol::RichText;
+use kivact_types::shaped::FontSource;
+use kivact_types::shaped::ShapedText;
 use kivact_types::{ComputedTextStyle, TextDecoration, TextWrap};
 use kivact_types::{Rect, TextAlign, TextCaret, TextMetrics, TextOverflow, TextTransform};
 use parley::{
@@ -16,20 +18,66 @@ use std::sync::Arc;
 /// Reusable font database and shaping scratch space, used on its owner's UI thread.
 ///
 /// Each application owns an engine; there is no mutable global font state.
-#[derive(Default)]
 pub struct TextEngine {
     pub(super) cache: Cache,
     pub(crate) fonts: FontContext,
     pub(crate) layouts: LayoutContext<u32>,
+    /// Whether the system fonts are joined into `fonts` yet.
+    system: SystemFonts,
+}
+
+/// Where the engine's system fonts are.
+enum SystemFonts {
+    /// The engine never sees system fonts (`TextEngine::isolated`).
+    Isolated,
+    /// The scan may still run; the fonts registered meanwhile are kept to
+    /// be registered again into the scanned collection.
+    Pending {
+        registered: Vec<parley::fontique::Blob<u8>>,
+    },
+    /// `fonts.collection` holds the system fonts.
+    Joined,
+}
+
+impl Default for TextEngine {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Ellipses kept before they are all forgotten.
 const ELLIPSES: usize = 64;
 
+/// The generic families an isolated engine maps to its own fonts.
+const ISOLATED_GENERICS: [GenericFamily; 5] = [
+    GenericFamily::SystemUi,
+    GenericFamily::UiSansSerif,
+    GenericFamily::SansSerif,
+    GenericFamily::Serif,
+    GenericFamily::Monospace,
+];
+
 impl TextEngine {
-    /// Creates an engine which discovers fonts installed on the system.
+    /// An engine that sees the system fonts. Their scan starts now on a
+    /// thread of its own; the first call that needs fonts waits for it.
     pub fn new() -> Self {
-        Self::default()
+        crate::system_fonts::start_system_font_scan();
+        Self {
+            cache: Cache::default(),
+            fonts: FontContext {
+                collection: parley::fontique::Collection::new(
+                    parley::fontique::CollectionOptions {
+                        shared: false,
+                        system_fonts: false,
+                    },
+                ),
+                source_cache: parley::fontique::SourceCache::default(),
+            },
+            layouts: LayoutContext::new(),
+            system: SystemFonts::Pending {
+                registered: Vec::new(),
+            },
+        }
     }
 
     /// Creates an engine that never sees system fonts: only `fonts` exist,
@@ -37,7 +85,7 @@ impl TextEngine {
     /// falls back to included), so shaping and measurement are the same on
     /// every machine. Text none of them covers draws the missing glyph of
     /// the first font. Fonts registered later join the collection as usual.
-    pub fn isolated(fonts: &[Arc<[u8]>]) -> Result<Self, TextError> {
+    pub fn isolated(fonts: &[Arc<[u8]>]) -> Result<Self, kivact_types::Failure> {
         use parley::fontique::{Collection, CollectionOptions, SourceCache};
         let mut engine = Self {
             cache: Cache::default(),
@@ -49,6 +97,7 @@ impl TextEngine {
                 source_cache: SourceCache::default(),
             },
             layouts: LayoutContext::new(),
+            system: SystemFonts::Isolated,
         };
         let mut families = Vec::new();
         for bytes in fonts {
@@ -57,7 +106,7 @@ impl TextEngine {
                 .collection
                 .register_fonts(parley::fontique::Blob::new(Arc::new(bytes.clone())), None);
             if faces.is_empty() {
-                return Err(TextError::InvalidFont);
+                return Err(failure(TextError::InvalidFont));
             }
             for (family, _) in faces {
                 if !families.contains(&family) {
@@ -65,13 +114,7 @@ impl TextEngine {
                 }
             }
         }
-        for generic in [
-            GenericFamily::SystemUi,
-            GenericFamily::UiSansSerif,
-            GenericFamily::SansSerif,
-            GenericFamily::Serif,
-            GenericFamily::Monospace,
-        ] {
+        for generic in ISOLATED_GENERICS {
             engine
                 .fonts
                 .collection
@@ -83,13 +126,33 @@ impl TextEngine {
     /// Registers a font file, sharing its bytes, and returns the discovered family names.
     ///
     /// Registration allows applications and headless tests to choose explicit fonts.
-    pub fn register_font(&mut self, font: FontSource) -> Result<Vec<String>, TextError> {
-        let faces = self
-            .fonts
-            .collection
-            .register_fonts(parley::fontique::Blob::new(Arc::clone(font.source())), None);
+    pub fn register_font(
+        &mut self,
+        font: FontSource,
+    ) -> Result<Vec<String>, kivact_types::Failure> {
+        let blob = parley::fontique::Blob::new(Arc::clone(font.source()));
+        let faces = self.fonts.collection.register_fonts(blob.clone(), None);
         if faces.is_empty() {
-            return Err(TextError::InvalidFont);
+            return Err(failure(TextError::InvalidFont));
+        }
+        if matches!(self.system, SystemFonts::Isolated) {
+            // An isolated engine has no system fallback: a font registered
+            // later falls back for the generic families too, like the fonts
+            // the engine started with.
+            let mut added = Vec::new();
+            for (family, _) in &faces {
+                if !added.contains(family) {
+                    added.push(*family);
+                }
+            }
+            for generic in ISOLATED_GENERICS {
+                let known: Vec<_> = self.fonts.collection.generic_families(generic).collect();
+                let new = added.iter().copied().filter(|f| !known.contains(f));
+                self.fonts.collection.append_generic_families(generic, new);
+            }
+        }
+        if let SystemFonts::Pending { registered } = &mut self.system {
+            registered.push(blob);
         }
         // A successful registration can change every answer computed from the fonts.
         self.cache = Cache::default();
@@ -102,6 +165,7 @@ impl TextEngine {
     /// Registered and system font family names, sorted and unique, preserving case.
     /// Enumerated lazily and retained across cache release until successful registration.
     pub fn family_names(&mut self) -> Vec<String> {
+        self.join_system_fonts();
         if let Some(names) = &self.cache.font_names {
             return names.clone();
         }
@@ -120,6 +184,7 @@ impl TextEngine {
     /// Whether a registered or system font has the family `name`, ignoring
     /// case. Answers remain cached until registration or cache release.
     pub fn has_family(&mut self, name: &str) -> bool {
+        self.join_system_fonts();
         let key = name.to_lowercase();
         if let Some(found) = self.cache.families.get(&key) {
             return *found;
@@ -127,6 +192,60 @@ impl TextEngine {
         let found = self.fonts.collection.family_id(name).is_some();
         self.cache.families.insert(key, found);
         found
+    }
+
+    /// Join the system fonts into the collection, waiting for their scan,
+    /// and register again the fonts registered before. The text caches go:
+    /// the answers may change with the system fonts.
+    pub(crate) fn join_system_fonts(&mut self) {
+        let SystemFonts::Pending { registered } = &mut self.system else {
+            return;
+        };
+        let registered = std::mem::take(registered);
+        let mut collection = crate::system_fonts::collection();
+        for blob in registered {
+            collection.register_fonts(blob, None);
+        }
+        self.fonts.collection = collection;
+        self.cache = Cache::default();
+        self.system = SystemFonts::Joined;
+    }
+
+    /// Resolve a CSS family name: a family list or a quoted name is kept as
+    /// written (shaping reads the list); `system-ui` and an empty name are
+    /// the system UI font; `sans-serif`, `serif` and `monospace` are the
+    /// first family of fontique's generic family, or the system UI font; any
+    /// other name is that family when installed, else the system UI font,
+    /// reported missing.
+    pub fn resolve_family(&mut self, name: &str) -> FamilyResolution {
+        self.join_system_fonts();
+        let source = name.trim();
+        let found = |choice| FamilyResolution {
+            choice,
+            missing: false,
+        };
+        if source.contains(',') || source.starts_with(['\'', '"']) {
+            return found(FamilyChoice::Family(source.to_owned()));
+        }
+        if source.is_empty() {
+            return found(FamilyChoice::SystemUi);
+        }
+        if let Some(generic) = crate::families::generic(source) {
+            if matches!(generic, GenericFamily::SystemUi) {
+                return found(FamilyChoice::SystemUi);
+            }
+            let collection = &mut self.fonts.collection;
+            let first = collection.generic_families(generic).next();
+            let name = first.and_then(|id| collection.family_name(id).map(str::to_owned));
+            return found(name.map_or(FamilyChoice::SystemUi, FamilyChoice::Family));
+        }
+        if self.has_family(source) {
+            return found(FamilyChoice::Family(source.to_owned()));
+        }
+        FamilyResolution {
+            choice: FamilyChoice::SystemUi,
+            missing: true,
+        }
     }
 
     /// Release cached layouts, ellipses, loaded system font sources and
@@ -150,21 +269,23 @@ impl TextEngine {
     /// for the first time): a text measured only once leaves nothing in this cache, so a caller
     /// that measures a text once keeps the answer itself. Drawing-only properties are excluded
     /// from the measurement key.
-    pub fn measure(
+    pub fn measure<'t>(
         &mut self,
-        text: RichText<'_>,
+        text: impl Into<RichText<'t>>,
         style: &ComputedTextStyle,
         max_width: Option<f64>,
-    ) -> Result<TextMetrics, TextError> {
+    ) -> Result<TextMetrics, kivact_types::Failure> {
+        let text = text.into();
+        self.join_system_fonts();
         let key = TextKeyRef::new(text, style, max_width, false);
         if let Some(result) = self.cache.measured.get(&key) {
-            return result;
+            return result.map_err(failure);
         }
         let (result, found) = self.measure_uncached(text, style, max_width);
         if found == layouts::Found::Kept {
             self.cache.measured.insert(key.to_owned(), result.clone());
         }
-        result
+        result.map_err(failure)
     }
 
     /// Measures the extent `shape` would produce without building glyph runs or carets.
@@ -228,27 +349,31 @@ impl TextEngine {
     /// Shapes, wraps, and aligns text in logical pixels using actual font glyphs.
     /// Successes and errors are cached; repeated calls share the same `Arc`.
     /// Cache keys include drawing properties, width and whether carets are needed.
-    pub fn shape(
+    pub fn shape<'t>(
         &mut self,
-        text: RichText<'_>,
+        text: impl Into<RichText<'t>>,
         style: &ComputedTextStyle,
         max_width: Option<f64>,
-    ) -> Result<kivact_types::ShapedTextSnapshot, TextError> {
-        self.shape_cached(text, style, max_width, true)
+    ) -> Result<kivact_types::ShapedTextSnapshot, kivact_types::Failure> {
+        self.join_system_fonts();
+        self.shape_cached(text.into(), style, max_width, true)
+            .map_err(failure)
     }
 
     /// [`TextEngine::shape`] for drawing only: the same size and glyph
     /// runs, without carets (`carets` is empty).
-    pub fn shape_glyphs(
+    pub fn shape_glyphs<'t>(
         &mut self,
-        text: RichText<'_>,
+        text: impl Into<RichText<'t>>,
         style: &ComputedTextStyle,
         max_width: Option<f64>,
-    ) -> Result<kivact_types::ShapedTextSnapshot, TextError> {
-        self.shape_cached(text, style, max_width, false)
+    ) -> Result<kivact_types::ShapedTextSnapshot, kivact_types::Failure> {
+        self.join_system_fonts();
+        self.shape_cached(text.into(), style, max_width, false)
+            .map_err(failure)
     }
 
-    fn shape_cached(
+    pub(crate) fn shape_cached(
         &mut self,
         text: RichText<'_>,
         style: &ComputedTextStyle,
@@ -504,8 +629,8 @@ pub(super) fn crlf_as_one_break(text: &str) -> std::borrow::Cow<'_, str> {
 /// are in `text`, the layout is built on the normalized text.
 pub(super) fn crlf_spans<'a>(
     text: &str,
-    spans: std::borrow::Cow<'a, [kivact_types::render::TextSpan]>,
-) -> std::borrow::Cow<'a, [kivact_types::render::TextSpan]> {
+    spans: std::borrow::Cow<'a, [arvane_protocol::ResolvedSpan]>,
+) -> std::borrow::Cow<'a, [arvane_protocol::ResolvedSpan]> {
     if spans.is_empty() || !text.contains("\r\n") {
         return spans;
     }
@@ -582,5 +707,55 @@ fn empty_text(
         carets: if with_carets { vec![caret] } else { Vec::new() },
         cluster_boundaries: vec![0],
         ..ShapedText::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of TextEngine font registration, measuring and shaping.
+
+    use super::*;
+
+    #[test]
+    fn generic_and_quoted_family_names_resolve_without_reporting() {
+        let font: Arc<[u8]> = Arc::from(&include_bytes!("../../arvane/assets/fonts/Tuffy.ttf")[..]);
+        let mut engine = TextEngine::isolated(&[font]).expect("the test font is usable");
+        assert_eq!(
+            engine.resolve_family("system-ui").choice,
+            FamilyChoice::SystemUi
+        );
+        assert!(!engine.resolve_family("\"Inter\", sans-serif").missing);
+        assert!(engine.resolve_family("No Such Family").missing);
+        assert!(matches!(
+            engine.resolve_family("serif").choice,
+            FamilyChoice::Family(_)
+        ));
+    }
+
+    #[test]
+    fn the_line_boxes_add_up_to_the_measured_height() {
+        let font: Arc<[u8]> = Arc::from(&include_bytes!("../../arvane/assets/fonts/Tuffy.ttf")[..]);
+        let mut engine = TextEngine::isolated(&[font]).expect("the test font is usable");
+        let text = "A paragraph of text that wraps over several lines because it is wide.";
+        for line_height in [
+            kivact_types::LineHeight::Normal,
+            kivact_types::LineHeight::Scale(0.95),
+            kivact_types::LineHeight::Px(40.0),
+        ] {
+            let style = ComputedTextStyle {
+                font_size: 34.0,
+                line_height,
+                ..ComputedTextStyle::default()
+            };
+            let shaped = engine.shape(text, &style, Some(200.0)).expect("shapes");
+            let measured = engine.measure(text, &style, Some(200.0)).expect("measures");
+            assert!(shaped.lines.len() > 1, "{line_height:?}");
+            let sum: f64 = shaped.lines.iter().map(|l| l.line_box.height).sum();
+            assert!(
+                (sum - measured.size.height).abs() < 0.01,
+                "{line_height:?}: {sum} != {}",
+                measured.size.height
+            );
+        }
     }
 }

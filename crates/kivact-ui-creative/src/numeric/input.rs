@@ -5,8 +5,8 @@ use kivact::view::{
     PointerPhase, WheelEvent,
 };
 
-use super::builder::NumericKind;
 use super::machine;
+use super::types::NumericKind;
 use super::view::NumericView;
 
 fn sane_factor(factor: f64) -> f64 {
@@ -61,7 +61,7 @@ impl NumericView {
         let factor = self.scrub_policy().factor(e.modifiers());
         match e.key() {
             Key::Enter if e.repeat() => {}
-            Key::Enter => typing.show(()),
+            Key::Enter => typing.edit(()),
             Key::ArrowRight | Key::ArrowUp => {
                 scalar.once(|| scalar.step_by(factor));
             }
@@ -160,7 +160,7 @@ impl NumericView {
             ) && text_entry
                 && matches!(kind, NumericKind::Number | NumericKind::Slider)
             {
-                typing.show(());
+                typing.edit(());
             }
             return Handled::Yes;
         }

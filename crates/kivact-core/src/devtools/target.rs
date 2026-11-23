@@ -2,7 +2,7 @@
 
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 
 use super::a11y;
 use super::console;
@@ -14,14 +14,13 @@ use super::overlay;
 use super::perf;
 use super::query;
 use super::review;
-use super::scripts;
 use super::styles;
 use super::tree;
 use super::updates;
 
 type Route = fn(&Runtime, p::Call, Responder) -> Option<(p::Call, Responder)>;
 
-const ROUTES: [Route; 14] = [
+const ROUTES: [Route; 13] = [
     tree::route,
     node::route,
     query::route,
@@ -35,7 +34,6 @@ const ROUTES: [Route; 14] = [
     console::route,
     emulation::route,
     review::route,
-    scripts::route,
 ];
 
 /// Answer one call: the first leaf that owns its method takes it.

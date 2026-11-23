@@ -1,15 +1,15 @@
 //! Role: The app, window and element tree methods of the DevTools target.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
-use kivact_engine::contract::NodeKind as EngineNodeKind;
-use kivact_runtime::Runtime;
+use kivact_engine::contract::{NodeKind as EngineNodeKind, TreeChanges};
+use kivact_runtime::driver::Runtime;
 use kivact_types::{NodeId, WindowId};
 
 use super::convert;
-use crate::view::devtools_state::DevtoolsState;
+use crate::devtools::state::DevtoolsState;
 use crate::view::state::{ViewState, current_window};
 
 /// One element of the retained tree as the wire sees it.
@@ -57,7 +57,7 @@ pub(crate) fn tree_node(rt: &Runtime, id: NodeId) -> Option<p::ElementInfo> {
 }
 
 pub(super) fn get_app_info(rt: &Runtime, _: p::Empty) -> Result<p::AppInfo, p::RpcError> {
-    let app = DevtoolsState::inspector(rt).agent.borrow().app().clone();
+    let app = DevtoolsState::inspector(rt).ready_agent().app().clone();
     Ok(app)
 }
 
@@ -76,7 +76,7 @@ pub(super) fn list_windows(rt: &Runtime, _: p::Empty) -> Result<p::WindowList, p
             (window != WindowId::MAIN).then(|| convert::window(current_window(record.declared_in)));
         windows.push(p::WindowInfo {
             id: convert::window(window),
-            title: record.title.get_untracked(),
+            title: record.decl.title.get_untracked(),
             bounds: p::Rect {
                 x: 0.0,
                 y: 0.0,
@@ -85,7 +85,7 @@ pub(super) fn list_windows(rt: &Runtime, _: p::Empty) -> Result<p::WindowList, p
             },
             scale: environment.scale_factor,
             focused: focused == Some(window),
-            mode: match record.mode {
+            mode: match record.decl.mode {
                 kivact_types::WindowMode::Normal => p::WindowMode::Normal,
                 kivact_types::WindowMode::Tool => p::WindowMode::Tool,
                 kivact_types::WindowMode::Modal => p::WindowMode::Modal,
@@ -148,48 +148,65 @@ fn window_not_found(raw: p::WindowId) -> p::RpcError {
     )
 }
 
-/// Notify the Windows subscribers when the open windows changed.
-pub(crate) fn notify_windows_changed(rt: &Runtime) {
+/// Compare the open windows with the last turn's and notify the Windows
+/// subscribers of a change. Returns the windows that closed.
+pub(crate) fn notify_windows_changed(rt: &Runtime) -> Vec<WindowId> {
     let i = DevtoolsState::inspector(rt);
+    let open = ViewState::tree(rt).reader().windows();
+    let closed = {
+        let mut sent = i.session.sent_windows.borrow_mut();
+        let closed = sent
+            .open
+            .iter()
+            .copied()
+            .filter(|window| !open.contains(window))
+            .collect();
+        sent.open = open;
+        closed
+    };
     if !i.wants(p::Topic::Windows) {
-        return;
+        return closed;
     }
     let Ok(list) = list_windows(rt, p::Empty {}) else {
-        return;
+        return closed;
     };
     let changed = {
         let mut sent = i.session.sent_windows.borrow_mut();
-        sent.update(list.windows.clone()).is_some()
+        let changed = sent.listed.as_ref() != Some(&list.windows);
+        if changed {
+            sent.listed = Some(list.windows.clone());
+        }
+        changed
     };
     if changed {
         i.notify(p::Notification::WindowsChanged(list));
     }
+    closed
 }
 
-/// Notify the Tree subscribers of the nodes added, changed or removed.
-pub(crate) fn notify_tree_changes(rt: &Runtime) {
+/// Notify the Tree subscribers of the nodes the turn created, changed or
+/// removed, from the engine's change records.
+pub(crate) fn notify_tree_changes(rt: &Runtime, changes: &TreeChanges) {
     let i = DevtoolsState::inspector(rt);
-    if !i.wants(p::Topic::Tree) {
-        i.session.sent_tree.borrow_mut().clear();
+    if !i.wants(p::Topic::Tree) || (changes.upserted.is_empty() && changes.removed.is_empty()) {
         return;
     }
-    let current = current_nodes(rt);
-    let mut changes: BTreeMap<p::WindowId, (Vec<p::ElementInfo>, Vec<p::NodeId>)> = BTreeMap::new();
-    {
-        let sent = i.session.sent_tree.borrow();
-        for (id, info) in &current {
-            if sent.get(id) != Some(info) {
-                changes.entry(info.window).or_default().0.push(info.clone());
-            }
-        }
-        for (id, old) in sent.iter() {
-            if !current.contains_key(id) {
-                changes.entry(old.window).or_default().1.push(id.0);
-            }
+    let mut by_window: BTreeMap<p::WindowId, (Vec<p::ElementInfo>, Vec<p::NodeId>)> =
+        BTreeMap::new();
+    for (_, id) in &changes.upserted {
+        if let Some(info) = tree_node(rt, *id) {
+            by_window.entry(info.window).or_default().0.push(info);
         }
     }
+    for (window, id) in &changes.removed {
+        by_window
+            .entry(convert::window(*window))
+            .or_default()
+            .1
+            .push(id.0);
+    }
     let revision = ViewState::tree(rt).reader().stats().revision;
-    for (window, (upserted, removed)) in changes {
+    for (window, (upserted, removed)) in by_window {
         i.notify(p::Notification::TreeChanged(p::TreeChanged {
             window,
             revision,
@@ -197,26 +214,6 @@ pub(crate) fn notify_tree_changes(rt: &Runtime) {
             removed,
         }));
     }
-    *i.session.sent_tree.borrow_mut() = current;
-}
-
-fn current_nodes(rt: &Runtime) -> HashMap<NodeId, p::ElementInfo> {
-    let mut nodes = HashMap::new();
-    let tree = ViewState::tree(rt);
-    let reader = tree.reader();
-    for window in reader.windows() {
-        let Some(root) = reader.root(window) else {
-            continue;
-        };
-        let mut stack = vec![root];
-        while let Some(id) = stack.pop() {
-            if let Some(info) = tree_node(rt, id) {
-                nodes.insert(id, info);
-            }
-            stack.extend(reader.children(id));
-        }
-    }
-    nodes
 }
 
 pub(super) fn route(rt: &Runtime, call: p::Call, reply: Responder) -> Option<(p::Call, Responder)> {

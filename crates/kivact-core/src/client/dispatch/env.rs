@@ -1,11 +1,11 @@
 //! Role: Window and environment events: the environment, the frame clock,
 //! close, and the geometry reports (`ScrollChanged`, `LayoutChanged`).
 
-use kivact_runtime::{ErrorKind, MotionState, Runtime, UiError};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{ErrorKind, UiError};
 use kivact_types::{DismissReason, Environment, MotionClock, NodeId, Point, Rect, Size, WindowId};
 
 use super::common::{handler, node_owner, run_handler, stale};
-use crate::platform::close_request;
 use crate::view::input::Handled;
 use crate::view::state::ViewState;
 use crate::view::tree::ScrollState;
@@ -21,16 +21,15 @@ pub(super) fn env_changed(rt: &Runtime, window: WindowId, env: &Environment, sur
     rt.enter(|| {
         state.set(env.clone());
         state.surface_active.set(surface_active);
-        let families = ViewState::tree(rt).reader().font_families();
-        ViewState::of(rt).fonts_value.set(families);
     });
+    ViewState::of(rt).refresh_fonts(rt);
     // Reduced motion ends the running decorative values in this turn, not
     // at the next tick: nothing needs another frame to see it. Turning it
     // off counts the decorative loops from now, as a resumed surface does.
     if env.reduced_motion {
-        MotionState::of(rt).reduce_motion(rt);
+        rt.motion().reduce_motion(rt);
     } else if was_reduced {
-        MotionState::of(rt).restore_motion(rt);
+        rt.motion().restore_motion(rt);
     }
 }
 
@@ -58,7 +57,8 @@ pub(super) fn frame_tick(
 ) {
     // The turn advanced the App's clock with host time; `now_ns` is the
     // frame (motion) clock and is not applied to the App's clock again.
-    MotionState::of(rt).on_frame_tick(rt, now_ns, estimated_present_ns, clock);
+    rt.motion()
+        .on_frame_tick(rt, now_ns, estimated_present_ns, clock);
 }
 
 pub(super) fn scroll_changed(
@@ -98,6 +98,20 @@ pub(super) fn scroll_changed(
     }
 }
 
+/// The engine reports a new visibility or live-region fact of a watched node.
+pub(super) fn node_flags_changed(
+    rt: &Runtime,
+    node: NodeId,
+    flags: kivact_engine::contract::NodeFlags,
+) {
+    let observation = ViewState::tree(rt)
+        .get(node)
+        .and_then(crate::view::tree::CoreNode::observation);
+    if let Some(observation) = observation {
+        rt.enter(|| observation.flags.set(flags));
+    }
+}
+
 pub(super) fn layout_changed(
     rt: &Runtime,
     node: NodeId,
@@ -107,28 +121,15 @@ pub(super) fn layout_changed(
     measured_layout: Option<Rect>,
 ) {
     let observation = {
-        let mut tree = ViewState::tree_mut(rt);
+        let tree = ViewState::tree(rt);
         match tree.get(node).map(crate::view::tree::CoreNode::observation) {
             None => {
                 drop(tree);
                 return stale(rt, "layout", node);
             }
             Some(Some(observation)) => Some(observation),
-            Some(None) => {
-                // No observation yet: a node a reference is bound to may get one
-                // later, so keep its report for `observe_node`, which seeds the
-                // observation with it (the report can come before it). A node
-                // without a reference never gets one: keep nothing.
-                if tree
-                    .get(node)
-                    .is_some_and(crate::view::tree::CoreNode::has_references)
-                {
-                    let measured = measured_layout
-                        .map(|layout_rect| crate::view::tree::Measured { rect, layout_rect });
-                    tree.note_layout(node, (measured, text_truncated));
-                }
-                None
-            }
+            // No observation yet: `observe_node` reads the engine's last report.
+            Some(None) => None,
         }
     };
     let layout_handler = handler(rt, node, |h| h.layout.clone());
@@ -150,18 +151,17 @@ pub(super) fn layout_changed(
 }
 
 pub(super) fn close_requested(rt: &Runtime, window: WindowId) {
-    if window == WindowId::MAIN {
-        if keeps_main_open(rt) {
-            return;
-        }
-        rt.request_exit();
-        crate::view::foreign::ForeignWindows::close_all_for_exit(rt);
-        return;
-    }
     let Some(record) = ViewState::of(rt).window_record(window) else {
         return;
     };
-    let close = match &record.dismiss {
+    if keeps_open(rt, &record) {
+        return;
+    }
+    if window == WindowId::MAIN {
+        crate::platform::lifecycle::begin_exit(rt);
+        return;
+    }
+    let close = match &record.decl.dismiss {
         None => true,
         Some(handler) => {
             run_handler(rt, Some(record.declared_in), || {
@@ -170,16 +170,17 @@ pub(super) fn close_requested(rt: &Runtime, window: WindowId) {
         }
     };
     if close {
-        record.open.set(false);
+        record.decl.open.set(false);
     }
 }
 
-/// Run every live `on_close_request` handler in registration order, each under
-/// its owner. `true` when one answers `Yes` or `PreventDefault`, or fails (its
-/// error is reported): the App keeps running. Every handler runs either way.
-fn keeps_main_open(rt: &Runtime) -> bool {
+/// Run every live close handler of `record`'s window in registration order,
+/// each under its owner. `true` when one answers `Yes` or `PreventDefault`,
+/// or fails (its error is reported). Every handler runs either way.
+fn keeps_open(rt: &Runtime, record: &crate::view::state::WindowRecord) -> bool {
+    let registrations = record.close_handlers.borrow_mut().live();
     let mut keeps_open = false;
-    for registration in close_request::registrations(rt) {
+    for registration in registrations {
         if !registration.owner.is_alive() {
             continue;
         }
@@ -205,5 +206,5 @@ pub(super) fn window_failed(rt: &Runtime, window: WindowId, reason: &str) {
             None,
         ),
     );
-    record.open.set(false);
+    record.decl.open.set(false);
 }

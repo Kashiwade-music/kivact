@@ -1,9 +1,9 @@
 //! Role: A node's look as the paint list compares it: paint props and stacking.
 
-use crate::paint::state::Look;
+use crate::paint::state::LayerTraits;
 use kivact_types::Rect;
 
-impl Look {
+impl LayerTraits {
     /// What of a paint the paint list is made of, so that a paint with the
     /// same facts lists the same steps and needs no new list: whether and
     /// how it is composited (opacity, which a listed step carries as its
@@ -19,26 +19,9 @@ impl Look {
             self.overflow,
             self.border,
             self.fx,
-            self.grouped,
             self.items,
-            self.rounded,
-            self.clip,
-            (
-                self.filtered,
-                self.masked,
-                self.backdropped,
-                self.blended,
-                self.isolated,
-                self.will_change,
-            ),
-            (
-                self.preserves,
-                self.flat,
-                self.transformed,
-                self.perspective,
-                self.backface_hidden,
-                self.shader,
-            ),
+            self.will_change,
+            self.flags,
         )
     }
 

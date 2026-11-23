@@ -21,15 +21,16 @@ pub struct WriteStats {
     pub last_ops: usize,
     pub touched_last: usize,
 }
+
 #[derive(Default)]
 pub(crate) struct Writes {
     pub(crate) stats: WriteStats,
+    /// The nodes created since the last commit (`Model::controlled_value` reads it).
     created: HashSet<NodeId>,
-    updated: HashSet<NodeId>,
-    touched: HashSet<NodeId>,
-    sparse_touched_revisions: u8,
-    commands: usize,
+    /// The writes since the last commit.
+    pending: u32,
 }
+
 impl Writes {
     pub(crate) fn created(&self, id: NodeId) -> bool {
         self.created.contains(&id)
@@ -37,170 +38,83 @@ impl Writes {
     pub(crate) fn create(&mut self, id: NodeId) {
         self.stats.creates += 1;
         self.created.insert(id);
-        self.touched.insert(id);
+        self.pending += 1;
     }
-    pub(crate) fn field(&mut self, id: NodeId) {
+    pub(crate) fn field(&mut self) {
         self.stats.set_props += 1;
-        if !self.created.contains(&id) {
-            self.updated.insert(id);
-        }
-        self.touched.insert(id);
+        self.pending += 1;
     }
-    pub(crate) fn scene(&mut self, id: NodeId) {
+    pub(crate) fn scene(&mut self) {
         self.stats.set_props += 1;
-        self.command(Some(id));
+        self.pending += 1;
     }
-    pub(crate) fn structural(&mut self, id: NodeId) {
+    pub(crate) fn structural(&mut self) {
         self.stats.structural += 1;
-        self.command(Some(id));
+        self.pending += 1;
     }
-    pub(crate) fn command(&mut self, id: Option<NodeId>) {
-        self.commands += 1;
-        if let Some(id) = id {
-            self.touched.insert(id);
-        }
+    pub(crate) fn command(&mut self) {
+        self.pending += 1;
     }
     pub(crate) fn pending(&self) -> usize {
-        self.created.len() + self.updated.len() + self.commands
+        self.pending as usize
     }
-    pub(crate) fn commit(&mut self, revision: Revision) {
+    /// Close the revision `revision`: `touched` nodes were written in it.
+    pub(crate) fn commit(&mut self, revision: Revision, touched: usize) {
         let ops = self.pending();
         self.stats.batches += 1;
         self.stats.ops += ops as u64;
         self.stats.revision = revision.0;
         self.stats.last_ops = ops;
-        self.stats.touched_last = self.touched.len();
+        self.stats.touched_last = touched;
         self.created.clear();
-        self.updated.clear();
-        // Clearing a large retained table costs more even for one touched node.
-        // Keep dense bursts reusable: shrink only after four revisions below
-        // one eighth of capacity, and leave small tables (up to 256 slots) alone.
-        let sparse = self.touched.capacity() > 256
-            && self.touched.capacity() > self.stats.touched_last.saturating_mul(8);
-        self.sparse_touched_revisions = if sparse {
-            self.sparse_touched_revisions + 1
-        } else {
-            0
-        };
-        if self.sparse_touched_revisions == 4 {
-            self.touched = HashSet::with_capacity(self.stats.touched_last);
-            self.sparse_touched_revisions = 0;
-        } else {
-            self.touched.clear();
-        }
-        self.commands = 0;
+        self.pending = 0;
     }
 }
 
+/// What a typed write outdates, one bit each.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Mutation {
-    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
+pub(crate) struct Mutation(u16);
+
+impl Mutation {
+    /// Only the node itself is redrawn and exposed again.
+    pub(crate) const NONE: Self = Self(0);
     /// The layout style is built again (and a layout pass runs).
-    pub(super) style: bool,
-    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
+    pub(crate) const STYLE: Self = Self(1);
     /// The node is measured again.
-    pub(super) measure: bool,
-    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
-    /// An inherited text style: the texts, text inputs and images below
-    /// are measured or drawn again.
-    pub(super) text: bool,
-    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
+    pub(crate) const MEASURE: Self = Self(1 << 1);
+    /// An inherited text style: the texts, text inputs and images below are measured or drawn again.
+    pub(crate) const TEXT: Self = Self(1 << 2);
     /// Its transform or z-index may have moved it without a layout.
-    pub(super) placed: bool,
-    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
+    pub(crate) const PLACED: Self = Self(1 << 3);
     /// The paint list is built again.
-    pub(super) restack: bool,
-    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
+    pub(crate) const RESTACK: Self = Self(1 << 4);
     /// Its base paint: a state transition is retargeted and its place read.
-    pub(super) paint: bool,
-    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
-    /// Its state styles: like `paint`.
-    pub(super) states: bool,
-    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
+    pub(crate) const PAINT: Self = Self(1 << 5);
+    /// Its state styles: like `PAINT`.
+    pub(crate) const STATES: Self = Self(1 << 6);
     /// A composition is committed under the old read-only policy first.
-    pub(super) read_only: bool,
-    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
+    pub(crate) const READ_ONLY: Self = Self(1 << 7);
     /// Inherited semantic state changes throughout the subtree.
-    pub(super) subtree: bool,
-    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
+    pub(crate) const SUBTREE: Self = Self(1 << 8);
     /// Only the node's own accessibility payload can change: its exposure,
     /// hierarchy, relations, regions and clipping stay (a text, a paint,
     /// state styles, a text style, an image, a placeholder).
-    pub(super) payload_only: bool,
-}
-impl Mutation {
-    /// Only the node itself is redrawn and exposed again.
-    pub(crate) const NONE: Self = Self {
-        style: false,
-        measure: false,
-        text: false,
-        placed: false,
-        restack: false,
-        paint: false,
-        states: false,
-        read_only: false,
-        subtree: false,
-        payload_only: false,
-    };
-    pub(crate) const PAYLOAD_ONLY: Self = Self {
-        payload_only: true,
-        ..Self::NONE
-    };
-    pub(crate) const SUBTREE: Self = Self {
-        subtree: true,
-        ..Self::NONE
-    };
-    pub(crate) const STYLE: Self = Self {
-        style: true,
-        ..Self::NONE
-    };
-    pub(crate) const MEASURE: Self = Self {
-        measure: true,
-        ..Self::NONE
-    };
-    pub(crate) const TEXT: Self = Self {
-        text: true,
-        ..Self::NONE
-    };
-    pub(crate) const PLACED: Self = Self {
-        placed: true,
-        ..Self::NONE
-    };
-    pub(crate) const RESTACK: Self = Self {
-        restack: true,
-        ..Self::NONE
-    };
-    pub(crate) const PAINT: Self = Self {
-        paint: true,
-        ..Self::NONE
-    };
-    pub(crate) const STATES: Self = Self {
-        states: true,
-        ..Self::NONE
-    };
-    pub(crate) const READ_ONLY: Self = Self {
-        read_only: true,
-        ..Self::NONE
-    };
+    pub(crate) const PAYLOAD_ONLY: Self = Self(1 << 9);
 
-    /// Both mutations' flags.
-    pub(crate) const fn and(self, other: Self) -> Self {
-        Self {
-            style: self.style || other.style,
-            measure: self.measure || other.measure,
-            text: self.text || other.text,
-            placed: self.placed || other.placed,
-            restack: self.restack || other.restack,
-            paint: self.paint || other.paint,
-            states: self.states || other.states,
-            read_only: self.read_only || other.read_only,
-            subtree: self.subtree || other.subtree,
-            payload_only: self.payload_only || other.payload_only,
-        }
+    /// Whether any bit of `bits` is set.
+    pub(crate) const fn has(self, bits: Self) -> bool {
+        self.0 & bits.0 != 0
     }
-
-    /// These flags when `on`, else none.
+    /// These bits and `other`'s.
+    pub(crate) const fn and(self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+    /// These bits when `on`, else none.
     pub(crate) const fn when(self, on: bool) -> Self {
         if on { self } else { Self::NONE }
+    }
+    /// Add `bits`.
+    pub(crate) fn insert(&mut self, bits: Self) {
+        self.0 |= bits.0;
     }
 }

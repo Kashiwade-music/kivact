@@ -16,7 +16,7 @@ use std::rc::Rc;
 
 /// What a node's leaf measures: one per node kind, which never changes.
 #[derive(Clone, Debug)]
-pub(crate) enum LeafMeasure {
+pub(crate) enum LeafCache {
     /// Neither an image nor a text: an intrinsic size or a leaf callback
     /// measures it.
     None,
@@ -28,8 +28,8 @@ pub(crate) enum LeafMeasure {
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct MeasureColumns {
-    /// What the node at each slot measures (see [`LeafMeasure`]).
-    pub(crate) leaf: Vec<LeafMeasure>,
+    /// What the node at each slot measures (see [`LeafCache`]).
+    pub(crate) leaf: Vec<LeafCache>,
     computed_text: Vec<RefCell<Option<Rc<ComputedTextStyle>>>>,
     /// The last distinct text styles resolved or measured in this window:
     /// the nodes with an equal style share one.
@@ -42,7 +42,7 @@ impl MeasureColumns {
     }
 
     /// Measure the node at `slot` one way only: an editor measures itself
-    /// (`LeafMeasure::None`), else the node's kind does.
+    /// (`LeafCache::None`), else the node's kind does.
     pub(crate) fn set_measure(
         &mut self,
         slot: usize,
@@ -50,23 +50,23 @@ impl MeasureColumns {
         editor: bool,
     ) {
         let leaf = if editor {
-            LeafMeasure::None
+            LeafCache::None
         } else {
             leaf_for(kind)
         };
         let same = matches!(
             (&self.leaf[slot], &leaf),
-            (LeafMeasure::None, LeafMeasure::None)
-                | (LeafMeasure::Natural(_), LeafMeasure::Natural(_))
-                | (LeafMeasure::Text(_), LeafMeasure::Text(_))
+            (LeafCache::None, LeafCache::None)
+                | (LeafCache::Natural(_), LeafCache::Natural(_))
+                | (LeafCache::Text(_), LeafCache::Text(_))
         );
         if !same {
             self.leaf[slot] = leaf;
         }
     }
     pub(crate) fn take_slot(&mut self, slot: usize) -> Option<Box<TextExtents>> {
-        let extents = match std::mem::replace(&mut self.leaf[slot], LeafMeasure::None) {
-            LeafMeasure::Text(extents) => extents.into_inner(),
+        let extents = match std::mem::replace(&mut self.leaf[slot], LeafCache::None) {
+            LeafCache::Text(extents) => extents.into_inner(),
             _ => None,
         };
         self.computed_text[slot].get_mut().take();
@@ -76,14 +76,14 @@ impl MeasureColumns {
     /// The natural size of the image at `slot`, once it is recorded.
     pub(crate) fn natural(&self, slot: usize) -> Option<Size> {
         match &self.leaf[slot] {
-            LeafMeasure::Natural(natural) => natural.get(),
+            LeafCache::Natural(natural) => natural.get(),
             _ => None,
         }
     }
 
     /// Keep `size` as the natural size of the image at `slot`.
     pub(crate) fn set_natural(&self, slot: usize, size: Option<Size>) {
-        if let LeafMeasure::Natural(natural) = &self.leaf[slot] {
+        if let LeafCache::Natural(natural) = &self.leaf[slot] {
             natural.set(size);
         }
     }
@@ -92,7 +92,7 @@ impl MeasureColumns {
     /// text; an image and a measured leaf keep none.
     pub(crate) fn extents(&self, slot: usize) -> Option<RefMut<'_, Option<Box<TextExtents>>>> {
         match &self.leaf[slot] {
-            LeafMeasure::Text(extents) => Some(extents.borrow_mut()),
+            LeafCache::Text(extents) => Some(extents.borrow_mut()),
             _ => None,
         }
     }
@@ -101,7 +101,7 @@ impl MeasureColumns {
     #[cfg(all(debug_assertions, feature = "testing"))]
     pub(crate) fn forget_extents(&self) {
         for leaf in &self.leaf {
-            if let LeafMeasure::Text(extents) = leaf {
+            if let LeafCache::Text(extents) = leaf {
                 *extents.borrow_mut() = None;
             }
         }
@@ -128,11 +128,11 @@ impl MeasureColumns {
     }
 }
 /// The leaf measure a node of `kind` needs.
-fn leaf_for(kind: &crate::contract::NodeKind) -> LeafMeasure {
+fn leaf_for(kind: &crate::contract::NodeKind) -> LeafCache {
     match kind {
-        crate::contract::NodeKind::Image(_) => LeafMeasure::Natural(Cell::new(None)),
-        crate::contract::NodeKind::Text(_) => LeafMeasure::Text(RefCell::default()),
-        _ => LeafMeasure::None,
+        crate::contract::NodeKind::Image(_) => LeafCache::Natural(Cell::new(None)),
+        crate::contract::NodeKind::Text(_) => LeafCache::Text(RefCell::default()),
+        _ => LeafCache::None,
     }
 }
 

@@ -1,38 +1,31 @@
-//! Role: Catalog page of Kbd: key caps, groups and use inside a button.
+//! Catalog page of Kbd: key caps, groups and use inside a button.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "kbd",
-        name: "Kbd",
-        description: "キーボードのキーやショートカットを表示する小さなキーキャップです。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("kbd.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "kivact::ui::kbd に文字を渡すと、一つのキーキャップになります。",
-                default,
-            ),
-            Example::new(
-                "group",
-                "Group",
-                "basic::kbd_group で複数のキーを組み合わせて、ショートカットを表します。",
-                group,
-            ),
-            Example::new(
-                "in-button",
-                "In a button",
-                "ボタンの子として並べると、操作に対応するショートカットを示せます。",
-                in_button,
-            ),
-        ],
-    }
+    Page::new("kbd", "Kbd", "Components", include_str!("kbd.rs"))
+        .description("A small key cap that shows a keyboard key or a shortcut.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "Pass text to kivact::ui::kbd and it is one key cap.",
+            default,
+        ))
+        .example(Example::new(
+            "group",
+            "Group",
+            "basic::kbd_group combines several keys to show a shortcut.",
+            group,
+        ))
+        .example(Example::new(
+            "in-button",
+            "In a button",
+            "Placed as the children of a button, the key caps show the shortcut of the action.",
+            in_button,
+        ))
 }
 
 // example: default

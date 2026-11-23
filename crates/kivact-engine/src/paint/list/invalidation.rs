@@ -1,7 +1,7 @@
 //! Role: Invalidate retained paint list entries and their recorded ink.
 
 use crate::model::changes::Dispatched;
-use crate::paint::state::{Ink, ListState, PaintList, PaintState, Redraw};
+use crate::paint::state::{Ink, ListState, NodeDraw, PaintList, PaintState, Redraw};
 use kivact_types::NodeId;
 
 impl PaintList {
@@ -86,6 +86,7 @@ impl PaintState {
         redraw: bool,
         fonts: bool,
         restack: bool,
+        ink: &[std::cell::Cell<Option<Ink>>],
     ) {
         if redraw {
             self.redraw = Redraw::Needed;
@@ -97,7 +98,32 @@ impl PaintState {
         if restack {
             list.state = ListState::Stale;
         }
-        list.invalidate(changes, tree, &self.ink);
+        list.invalidate(changes, tree, ink);
         self.list = list;
+    }
+
+    /// Forget the kept drawings the sync outdated: all of them when fonts
+    /// changed, else those of the redrawn nodes (`paint::frame_scene`).
+    pub(crate) fn outdate_draws(
+        &mut self,
+        tree: &crate::tree::NodeTree,
+        changes: &Dispatched,
+        fonts: bool,
+        draws: &[std::cell::Cell<Option<Box<NodeDraw>>>],
+    ) {
+        if fonts {
+            for (_, slot) in self.draw_owners.get_mut().drain() {
+                draws[slot].set(None);
+            }
+        }
+        for id in changes.redrawn() {
+            #[cfg(feature = "testing")]
+            if crate::paint::state::keep_stale_draw() == Some(id) {
+                continue;
+            }
+            if let Some(n) = tree.get(id) {
+                draws[n.index.0].set(None);
+            }
+        }
     }
 }

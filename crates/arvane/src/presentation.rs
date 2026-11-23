@@ -56,11 +56,9 @@ pub enum RendererChange {
         adapter: String,
         /// Creating the device.
         init: Duration,
-        // xtask-allow(state-fields): statistic: how long the first swapchain took when it was configured in the background, shown as `configure_ms`; absent when it was configured on the UI thread; nothing branches on it
         /// Configuring the window's first swapchain, when it was configured
         /// in the background.
         configure: Option<Duration>,
-        // xtask-allow(state-fields): independent: the adapter when the device can import shared textures (feature gpu-interop and an adapter that supports it), absent otherwise; it depends on the device alone, while configure depends on where the swapchain was configured, so all pairs occur
         /// The adapter, when the device can import textures an external
         /// render engine shares (feature `gpu-interop`): a new
         /// [`GpuAdapter::generation`] means the images imported before are
@@ -88,13 +86,8 @@ pub enum RendererChange {
         /// The driver's message.
         message: String,
     },
-    /// A frame went beyond the GPU renderer's limits or the compositor's
-    /// fixed bounds (`renderer=gpu limit_exceeded what=...`). Noted once per
-    /// kind of limit and window.
-    LimitExceeded {
-        /// Which limit was exceeded.
-        what: String,
-    },
+    /// A scene the GPU renderer could not draw (an atlas or texture limit) was drawn on the CPU, noted once per window.
+    GpuLimit,
 }
 
 impl fmt::Display for RendererChange {
@@ -131,13 +124,18 @@ impl fmt::Display for RendererChange {
                 frame.image.0, frame.slot, frame.value
             ),
             Self::ShaderFailed { message } => write!(f, "renderer=gpu shader_failed {message}"),
-            Self::LimitExceeded { what } => write!(f, "renderer=gpu limit_exceeded what={what}"),
+            Self::GpuLimit => f.write_str("renderer=gpu limit_exceeded what=gpu_limit"),
         }
     }
 }
 
 /// Observes the renderer changes of a window.
 pub type Observer = Rc<RefCell<dyn FnMut(WindowId, &RendererChange)>>;
+
+/// Make an [`Observer`] of `f`.
+pub fn observer(f: impl FnMut(WindowId, &RendererChange) + 'static) -> Observer {
+    Rc::new(RefCell::new(f))
+}
 
 /// Where a presenter notes its renderer changes.
 pub(crate) struct Notes {

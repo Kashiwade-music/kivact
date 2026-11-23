@@ -13,7 +13,8 @@ use crate::view::part_data::PartMount;
 use crate::view::{
     A11yAction, A11yEvent, ExitLayout, HandlerResult, LiveRegion, Orientation, Role, SortDirection,
 };
-use kivact_runtime::Callback;
+use kivact_runtime::IntoHandler;
+
 use kivact_style::Style;
 use kivact_style::draw::{Draw, IntrinsicSize, Size};
 use kivact_types::SemanticsText;
@@ -51,7 +52,7 @@ impl Node {
     /// written after it overrides only what it sets. A closure that
     /// reads [`use_theme`](crate::style::use_theme) is
     /// recomputed when the theme visible at the node changes:
-    /// `.style(move || { let t = &use_theme(); style().padding(t.space().md) })`.
+    /// `.style(move || { let t = &use_theme(); style().padding(t.get(&kivact::style::space::MD_VAR)) })`.
     #[track_caller]
     pub fn style(self, s: impl IntoValue<Style>) -> Self {
         Element::style(self, s)
@@ -103,7 +104,7 @@ impl Node {
     /// ancestor cuts the animation short. Create it outside the removed
     /// branch so its owner can still be alive when the exit finishes.
     #[track_caller]
-    pub fn on_exit_complete(self, callback: impl Into<Callback<()>>) -> Self {
+    pub fn on_exit_complete<M>(self, callback: impl IntoHandler<(), M>) -> Self {
         Element::on_exit_complete(self, callback)
     }
 
@@ -217,7 +218,7 @@ impl Node {
     /// This replaces the existing caller action.
     /// Attached part defaults continue to run after the caller action.
     #[track_caller]
-    pub fn on_press(self, f: impl Into<kivact_runtime::Callback<()>>) -> Self {
+    pub fn on_press<M>(self, f: impl kivact_runtime::IntoHandler<(), M>) -> Self {
         Element::on_press(self, f)
     }
 
@@ -297,7 +298,6 @@ impl Node {
     }
 
     /// Add a kit recipe's base style layer (DevTools shows its name).
-    // xtask-allow(internal-contract): kit recipes tag their style layers with the recipe's name for DevTools
     #[doc(hidden)]
     #[track_caller]
     pub fn base_recipe_style(
@@ -307,6 +307,45 @@ impl Node {
     ) -> Self {
         self.common
             .prepend_recipe_style(name, s.into_prop(), Location::caller());
+        self
+    }
+
+    /// Add a recipe style layer that reads the node's final variants (after the
+    /// caller's `.variant(..)`). DevTools shows `name`.
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn variant_style(
+        mut self,
+        name: crate::view::RecipeName,
+        f: impl Fn(&crate::view::Variants) -> Style + 'static,
+    ) -> Self {
+        self.common
+            .style
+            .push(crate::view::element_data::StyleLayer {
+                f: crate::view::element_data::LayerFn::Variants(Rc::new(f)),
+                at: Some(Location::caller()),
+                origin: crate::view::element_data::LayerOrigin::Recipe(name),
+            });
+        self
+    }
+
+    /// The base-layer form of [`Node::variant_style`]: before every caller style.
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn base_variant_style(
+        mut self,
+        name: crate::view::RecipeName,
+        f: impl Fn(&crate::view::Variants) -> Style + 'static,
+    ) -> Self {
+        let index = self.common.base_count();
+        self.common.style.insert(
+            index,
+            crate::view::element_data::StyleLayer {
+                f: crate::view::element_data::LayerFn::Variants(Rc::new(f)),
+                at: Some(Location::caller()),
+                origin: crate::view::element_data::LayerOrigin::BaseRecipe(name),
+            },
+        );
         self
     }
 
@@ -414,7 +453,6 @@ impl Node {
     /// named by its own call site rather than by a line inside the
     /// component.
     #[track_caller]
-    // xtask-allow(structural-options): Diagnostic construction metadata records the caller; it does not select mounted structure.
     pub fn located_at_caller(mut self) -> Self {
         let at = Location::caller();
         self.common.at = Some(at);
@@ -494,11 +532,10 @@ impl Node {
     /// other.
     #[track_caller]
     pub fn active_descendant(mut self, descendant: impl IntoValue<Option<NodeRef>>) -> Self {
-        let at = Location::caller();
         let source = descendant.into_prop();
         self.common.semantic(
             kivact_runtime::Prop::computed(Rc::new(move || {
-                source.get().and_then(|r| r.target_value(at))
+                source.get().and_then(|r| r.target_value())
             })),
             |s, value| s.active_descendant = value,
         );
@@ -803,19 +840,21 @@ impl Node {
             return self;
         }
         let final_caller = std::mem::take(&mut self.common);
-        let later_callers: Vec<_> = (0..modifiers.len())
-            .map(|index| {
-                modifiers[index + 1..]
-                    .iter()
-                    .filter_map(|m| match m {
-                        Modifier::Caller(c) => Some(c.semantics.iter().cloned()),
-                        _ => None,
-                    })
-                    .flatten()
-                    .chain(final_caller.semantics.iter().cloned())
-                    .collect::<Vec<_>>()
-            })
-            .collect();
+        // Built from the end: each step puts one caller's semantics in front of
+        // the suffix, so the pass visits each modifier once (no rescan of the
+        // later modifiers per part).
+        let mut later_callers: Vec<Vec<crate::view::semantics_data::SemanticsPatch>> =
+            vec![Vec::new(); modifiers.len()];
+        let mut suffix: Vec<crate::view::semantics_data::SemanticsPatch> =
+            final_caller.semantics.clone();
+        for index in (0..modifiers.len()).rev() {
+            later_callers[index] = suffix.clone();
+            if let Modifier::Caller(c) = &modifiers[index] {
+                let mut with_this: Vec<_> = c.semantics.clone();
+                with_this.extend(suffix);
+                suffix = with_this;
+            }
+        }
         let outer_reads = std::mem::take(&mut self.semantic_reads);
         for (index, modifier) in modifiers.into_iter().enumerate() {
             match modifier {

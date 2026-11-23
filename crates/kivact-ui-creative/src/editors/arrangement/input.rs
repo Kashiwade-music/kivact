@@ -138,6 +138,24 @@ pub(crate) fn drag(state: State) -> Gesture<Snapshot> {
             move |_| {},
             move |_| state.reset_fields(),
         ),
+        move || {
+            let clips = state.data.get_untracked();
+            let tracks = state.track_data.get_untracked();
+            state.initial().is_some_and(|v| match v {
+                super::gesture::Snapshot::Clips(initial) => initial.iter().any(|v| {
+                    !clips
+                        .iter()
+                        .any(|c| c.id == v.0 && tracks.iter().any(|t| t.id == c.lane))
+                }),
+                super::gesture::Snapshot::Automation(track, id, Some(_)) => !tracks
+                    .iter()
+                    .any(|t| t.id == track && t.automation.iter().any(|p| p.id == id)),
+                super::gesture::Snapshot::Automation(track, _, None) => {
+                    !tracks.iter().any(|t| t.id == track)
+                }
+                _ => false,
+            })
+        },
     )
 }
 
@@ -494,7 +512,7 @@ fn move_loop(state: State, mode: LoopPart, pos: Point, origin: Point, snapshot: 
 }
 
 fn move_pan(state: State, pos: Point, origin: Point, snapshot: &Snapshot) {
-    if let Some(Snapshot::View(kivact::interaction::ViewTransform { offset: p, .. })) =
+    if let Some(Snapshot::View(kivact::interaction::ZoomPan { offset: p, .. })) =
         Some(snapshot.clone())
     {
         let from = origin;

@@ -3,7 +3,7 @@
 //! Every function is a function of the entry and the host time, so the paint
 //! and the ticks agree on the frame without sharing a store.
 
-use arvane::asset::AnimationInfo;
+use arvane_asset::AnimationInfo;
 use kivact_types::motion::Repeat;
 
 use super::state::{Entry, PlaybackState};

@@ -1,23 +1,21 @@
 //! Role: CpuCompositor: runs a planned frame on the calling thread.
 
 use std::collections::HashMap;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 
-use arvane_render::{CpuRaster, RenderError};
+use arvane_protocol::{
+    Composition, CpuFrame, ExportMode, FrameReport, LayerFilter, LayerKey, PixelRect, RenderScene,
+};
+use arvane_render::{CpuFrameRaster, CpuRaster, RenderError};
+use kivact_types::Composite;
+use kivact_types::export::{ExportFrame, ExportedFrame, FrameStats};
 use kivact_types::gpu::ExternalFrame;
 use kivact_types::ids::DrawableId;
 use kivact_types::pixel::{BlendMode, Pixels};
-use kivact_types::render::{
-    Composite, Composition, CpuFrame, ExportFrame, ExportMode, ExportedFrame, FrameReport,
-    FrameStats, LayerFilter, LayerKey, PixelRect, RenderScene,
-};
 
 use super::draw::{self, Chunks};
 use super::filters;
 use super::mask;
 use super::surface::Pixmap;
-use crate::ComposeError;
 use crate::cache::{CacheIndex, ChunkKey, ChunkRecord, LayerRecord};
 use crate::plan::{self, ChunkTask, Damage, DrawOp, Op, Redraw, Sampling, Source, TargetKind};
 
@@ -54,8 +52,8 @@ struct ExportRecord {
     size: (u32, u32),
     /// Device px per logical px.
     scale: f64,
-    /// Hash of the frame's pixels.
-    content: u64,
+    /// The planned signature of the layer the frame was made from.
+    signature: u64,
 }
 
 /// The pixel stores kept between frames, next to the pure cache index.
@@ -116,6 +114,8 @@ pub struct CpuCompositor {
     output: Pixmap,
     /// The pixels the cache refers to.
     stores: Stores,
+    /// Temporary targets kept for reuse by size, at most POOL_BYTES in all.
+    pool: Vec<Pixmap>,
 }
 
 impl Default for CpuCompositor {
@@ -132,20 +132,25 @@ impl CpuCompositor {
             cache: CacheIndex::default(),
             output: Pixmap::default(),
             stores: Stores::default(),
+            pool: Vec::new(),
         }
     }
 
-    /// Release rebuildable raster metadata (font validation), keeping the frame state.
+    /// Release rebuildable raster metadata (font validation) and the pooled
+    /// targets, keeping the frame state.
     pub fn release_caches(&mut self) {
         self.raster.release_caches();
+        self.pool = Vec::new();
     }
 
     /// Whether the next frame must redraw everything (after a resize, a lost
-    /// buffer, or when the window has been idle).
+    /// buffer, or when the window has been idle). The pooled targets are freed
+    /// with the rest (architecture.md MEM-8).
     pub fn invalidate(&mut self) {
         self.cache.clear();
         self.stores = Stores::default();
         self.output = Pixmap::default();
+        self.pool = Vec::new();
         self.raster.forget_scratch();
     }
 
@@ -155,7 +160,7 @@ impl CpuCompositor {
         composition: &Composition,
         size: (u32, u32),
         scale: f64,
-    ) -> Result<CpuOutput<'_>, ComposeError> {
+    ) -> Result<CpuOutput<'_>, RenderError> {
         if self.output.size() != size {
             self.invalidate();
             self.output = Pixmap::new(size.0, size.1);
@@ -163,11 +168,11 @@ impl CpuCompositor {
         let output = self.output.take();
         let done = match run(
             &mut self.raster,
+            &mut self.pool,
             &self.cache,
             &mut self.stores,
             output,
             composition,
-            size,
             scale,
         ) {
             Ok(done) => done,
@@ -199,15 +204,16 @@ impl CpuCompositor {
         composition: &Composition,
         size: (u32, u32),
         scale: f64,
-    ) -> Result<Rendered, ComposeError> {
+    ) -> Result<Rendered, RenderError> {
         let mut stores = Stores::default();
+        let mut pool = Vec::new();
         let done = run(
             &mut self.raster,
+            &mut pool,
             &CacheIndex::default(),
             &mut stores,
             Pixmap::new(size.0, size.1),
             composition,
-            size,
             scale,
         )?;
         Ok(Rendered {
@@ -221,23 +227,26 @@ impl CpuCompositor {
     }
 }
 
-/// Plans and executes one frame; the caller stores the records of a successful frame.
+/// Plans and executes one frame of the output's size; the caller stores the records of a successful frame.
 fn run(
     raster: &mut CpuRaster,
+    pool: &mut Vec<Pixmap>,
     cache: &CacheIndex,
     stores: &mut Stores,
     output: Pixmap,
     composition: &Composition,
-    size: (u32, u32),
     scale: f64,
-) -> Result<Executed, ComposeError> {
-    let plan = plan::build(composition, size, scale, cache, false)
-        .map_err(|error| ComposeError::InvalidComposition(error.message))?;
+) -> Result<Executed, RenderError> {
+    let plan = plan::build(composition, output.size(), scale, cache, false)
+        .map_err(|error| RenderError::InvalidComposition(error.message))?;
     let mut counts = Counts::default();
-    for task in &plan.chunks {
-        raster_chunk(raster, task, &mut stores.chunks, &mut counts)?;
-    }
-    let mut targets = make_targets(&plan.targets, output, &mut stores.surfaces);
+    raster.frame(|frame| -> Result<(), RenderError> {
+        for task in &plan.chunks {
+            raster_chunk(frame, task, &mut stores.chunks, &mut counts)?;
+        }
+        Ok(())
+    })?;
+    let mut targets = make_targets(&plan.targets, output, &mut stores.surfaces, pool);
     let mut missed: Vec<ExternalFrame> = Vec::new();
     let mut shader_fallback = false;
     for op in &plan.ops {
@@ -254,6 +263,7 @@ fn run(
     let exports = export_frames(composition, &plan.exports, &targets, stores);
     keep_surfaces(&plan.targets, &mut targets, &mut stores.surfaces);
     let output = std::mem::take(&mut targets[0]);
+    give_back(&plan.targets, &mut targets, pool);
     let mut stats: FrameStats = plan.stats;
     stats.chunks_rastered = counts.chunks;
     stats.pixels_rastered = counts.pixels;
@@ -277,11 +287,11 @@ fn run(
 
 /// Rasters one chunk task into the chunk store: the whole chunk, or only its changed rectangles.
 fn raster_chunk(
-    raster: &mut CpuRaster,
+    raster: &mut CpuFrameRaster<'_>,
     task: &ChunkTask<'_>,
     chunks: &mut Chunks,
     counts: &mut Counts,
-) -> Result<(), ComposeError> {
+) -> Result<(), RenderError> {
     let (w, h) = task.size;
     let size = (
         u16::try_from(w).map_err(|_| RenderError::InvalidSize)?,
@@ -293,17 +303,8 @@ fn raster_chunk(
         && let Some(mut px) = chunks.remove(&task.key)
         && px.size() == task.size
     {
-        for rect in rects {
-            raster.raster(
-                scene,
-                task.origin,
-                task.scale,
-                size,
-                Some(*rect),
-                &mut px.data,
-            )?;
-            counts.pixels += area(rect);
-        }
+        raster.raster_rects(scene, task.origin, task.scale, size, rects, &mut px.data)?;
+        counts.pixels += rects.iter().map(area).sum::<u64>();
         chunks.insert(task.key, px);
         return Ok(());
     }
@@ -319,11 +320,36 @@ fn area(rect: &PixelRect) -> u64 {
     u64::from(rect.width) * u64::from(rect.height)
 }
 
-/// The targets of the frame: the output, kept surfaces that are reused, and new transparent pixmaps.
+/// The most bytes of temporary targets kept between frames.
+const POOL_BYTES: usize = 64 * 1024 * 1024;
+
+/// A cleared target of `size`, reused from the pool when one has that size.
+fn take_target(pool: &mut Vec<Pixmap>, size: (u32, u32)) -> Pixmap {
+    match pool.iter().position(|px| px.size() == size) {
+        Some(at) => {
+            let mut px = pool.swap_remove(at);
+            px.clear(None);
+            px
+        }
+        None => Pixmap::new(size.0, size.1),
+    }
+}
+
+/// Keep `px` for reuse while the pool stays within `POOL_BYTES`; a target
+/// that does not fit is freed (a large window's targets are not kept).
+fn give_target(pool: &mut Vec<Pixmap>, px: Pixmap) {
+    let kept: usize = pool.iter().map(|p| p.data.len()).sum();
+    if kept + px.data.len() <= POOL_BYTES {
+        pool.push(px);
+    }
+}
+
+/// The targets of the frame: the output, kept surfaces that are reused, and pooled or new transparent pixmaps.
 fn make_targets(
     specs: &[plan::TargetSpec],
     output: Pixmap,
     surfaces: &mut HashMap<LayerKey, Pixmap>,
+    pool: &mut Vec<Pixmap>,
 ) -> Vec<Pixmap> {
     let mut targets = Vec::with_capacity(specs.len());
     targets.push(output);
@@ -335,11 +361,21 @@ fn make_targets(
                 .remove(&key)
                 .filter(|px| px.size() == spec.size)
                 .unwrap_or_else(|| Pixmap::new(spec.size.0, spec.size.1)),
-            _ => Pixmap::new(spec.size.0, spec.size.1),
+            _ => take_target(pool, spec.size),
         };
         targets.push(px);
     }
     targets
+}
+
+/// Returns the scratch targets of the frame to the pool (the output and the
+/// kept surfaces are not scratch: their pixels were moved out).
+fn give_back(specs: &[plan::TargetSpec], targets: &mut [Pixmap], pool: &mut Vec<Pixmap>) {
+    for (spec, px) in specs.iter().zip(targets.iter_mut()).skip(1) {
+        if matches!(spec.kind, TargetKind::Temp) {
+            give_target(pool, std::mem::take(px));
+        }
+    }
 }
 
 /// Stores the kept surfaces of the frame for the next frame.
@@ -361,7 +397,7 @@ fn exec(
     targets: &mut [Pixmap],
     chunks: &Chunks,
     missed: &mut Vec<ExternalFrame>,
-) -> Result<(), ComposeError> {
+) -> Result<(), RenderError> {
     match op {
         Op::Clear { target, rect } => targets[*target as usize].clear(*rect),
         Op::Draw(draw_op) => draw::draw(draw_op, targets, chunks, missed)?,
@@ -373,8 +409,14 @@ fn exec(
             origin,
             ..
         } => {
-            let source = targets[*input as usize].clone();
-            targets[*output as usize] = filters::apply(filter, &source, *px_per_unit, *origin)?;
+            if input == output {
+                let source = targets[*input as usize].clone();
+                let out = &mut targets[*output as usize];
+                filters::apply(filter, &source, out, *px_per_unit, *origin)?;
+            } else {
+                let (source, out) = source_and_out(targets, *input as usize, *output as usize);
+                filters::apply(filter, source, out, *px_per_unit, *origin)?;
+            }
         }
         Op::Mask { target, masks } => {
             let mut layers = Vec::with_capacity(masks.len());
@@ -407,8 +449,19 @@ fn exec(
     Ok(())
 }
 
+/// The target `input` to read and the target `output` to write (`input != output`).
+fn source_and_out(targets: &mut [Pixmap], input: usize, output: usize) -> (&Pixmap, &mut Pixmap) {
+    if input < output {
+        let (low, high) = targets.split_at_mut(output);
+        (&low[input], &mut high[0])
+    } else {
+        let (low, high) = targets.split_at_mut(input);
+        (&high[0], &mut low[output])
+    }
+}
+
 /// The chunk `key` of this frame or a kept one.
-fn chunk<'a>(chunks: &'a Chunks, key: &ChunkKey) -> Result<&'a Pixmap, ComposeError> {
+fn chunk<'a>(chunks: &'a Chunks, key: &ChunkKey) -> Result<&'a Pixmap, RenderError> {
     chunks.get(key).ok_or_else(|| draw::missing_chunk(*key))
 }
 
@@ -443,7 +496,7 @@ fn export_frames(
             mode: export.mode,
             size: export.size,
             scale: export.scale,
-            content: content_hash(px),
+            signature: planned.signature,
         };
         if stores.exports.get(&sink) == Some(&record) {
             continue;
@@ -452,33 +505,92 @@ fn export_frames(
         outcome.frames.push(ExportedFrame {
             sink,
             generation: export.generation,
-            frame: ExportFrame::Pixels(unpremultiplied(px)),
+            frame: ExportFrame::Pixels(Pixels::new(px.size().0, px.size().1, px.data.clone())),
         });
     }
     outcome
 }
 
-/// A hash of a pixmap's bytes (deterministic within a process).
-fn content_hash(px: &Pixmap) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    px.data.hash(&mut hasher);
-    hasher.finish()
-}
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of the CPU compositor's frame composition.
+    use arvane_protocol::{CompositeLayer, LayerEffects, LayerItem, Plane, RasterGrid};
+    use kivact_types::geometry::Rect;
+    use kivact_types::geometry3d::Matrix4;
+    use kivact_types::ids::NodeId;
+    use kivact_types::paint::BackfaceVisibility;
 
-/// The straight-alpha RGBA8 pixels of a premultiplied pixmap.
-fn unpremultiplied(px: &Pixmap) -> Pixels {
-    let (w, h) = px.size();
-    let mut out = Vec::with_capacity(px.data.len());
-    for p in px.data.as_chunks::<4>().0 {
-        let a = f32::from(p[3]) / 255.0;
-        if a <= 0.0 {
-            out.extend_from_slice(&[0, 0, 0, 0]);
-            continue;
+    use super::*;
+
+    /// A 64 × 64 px window: a root that draws one blurred child layer, which
+    /// is drawn through a temporary target (its filter's input).
+    fn blurred_child() -> Composition {
+        let root = CompositeLayer {
+            key: LayerKey::Root,
+            transform: Matrix4::IDENTITY,
+            bounds: Rect::new(0.0, 0.0, 64.0, 64.0),
+            plane: Plane::Flat,
+            backface: BackfaceVisibility::Visible,
+            grid: RasterGrid::Target,
+            effects: LayerEffects::default(),
+            content_version: 1,
+            items: vec![LayerItem::Layer {
+                index: 1,
+                clips: Vec::new(),
+            }],
+        };
+        let child = CompositeLayer {
+            key: LayerKey::Node(NodeId(1)),
+            transform: Matrix4::IDENTITY,
+            bounds: Rect::new(8.0, 8.0, 32.0, 32.0),
+            plane: Plane::Flat,
+            backface: BackfaceVisibility::Visible,
+            grid: RasterGrid::Target,
+            effects: LayerEffects {
+                filters: vec![LayerFilter::Blur { std_dev: 2.0 }],
+                ..LayerEffects::default()
+            },
+            content_version: 1,
+            items: vec![LayerItem::Raster(RenderScene::default())],
+        };
+        Composition {
+            layers: vec![root, child],
+            exports: Vec::new(),
         }
-        for c in &p[..3] {
-            out.push((f32::from(*c) / a).round().min(255.0) as u8);
-        }
-        out.push(p[3]);
     }
-    Pixels::new(w, h, out)
+
+    #[test]
+    fn the_target_pool_keeps_at_most_64_mib() {
+        let size = (4096, 2048);
+        let mut pool = Vec::new();
+        for _ in 0..3 {
+            give_target(&mut pool, Pixmap::new(size.0, size.1));
+        }
+        assert_eq!(pool.len(), 2, "two targets of 32 MiB fit in 64 MiB");
+        let pooled: Vec<*const u8> = pool.iter().map(|px| px.data.as_ptr()).collect();
+        let first = take_target(&mut pool, size);
+        let second = take_target(&mut pool, size);
+        assert!(pool.is_empty(), "both pooled targets were taken");
+        assert!(pooled.contains(&first.data.as_ptr()));
+        assert!(pooled.contains(&second.data.as_ptr()));
+        let third = take_target(&mut pool, size);
+        assert_eq!(third.size(), size);
+        assert!(pool.is_empty(), "a third target is made, not pooled");
+        assert!(!pooled.contains(&third.data.as_ptr()));
+    }
+
+    #[test]
+    fn forget_frame_state_releases_every_pooled_target() {
+        let composition = blurred_child();
+        let mut compositor = CpuCompositor::new();
+        compositor
+            .frame(&composition, (64, 64), 1.0)
+            .expect("the blurred child draws");
+        assert!(
+            !compositor.pool.is_empty(),
+            "the child's temporary target is pooled after the frame"
+        );
+        compositor.invalidate();
+        assert!(compositor.pool.is_empty());
+    }
 }

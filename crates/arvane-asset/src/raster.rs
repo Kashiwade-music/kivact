@@ -1,7 +1,7 @@
-//! Role: Raster decoding of PNG, JPEG, GIF, WebP and APNG to straight-alpha RGBA8.
+//! Role: Raster decoding of PNG, JPEG, GIF, WebP and APNG to premultiplied RGBA8.
 //!
 //! Raster decoding with the `image` crate: PNG, JPEG, GIF, WebP and APNG
-//! to straight-alpha RGBA8. An animation (GIF, WebP, APNG) gives all its
+//! to premultiplied RGBA8. An animation (GIF, WebP, APNG) gives all its
 //! frames while they fit a share of the budget, else its first frame.
 //!
 //! Invariants:
@@ -153,7 +153,8 @@ fn decode_still(bytes: &[u8], format: Format, max_bytes: u64) -> Result<Pixels, 
     if width == 0 || height == 0 {
         return Err(RasterError::Decode("the image has no pixels".to_owned()));
     }
-    let pixels = rgba.into_raw();
+    let mut pixels = rgba.into_raw();
+    kivact_types::color::premultiply(&mut pixels);
     Ok(Pixels {
         width,
         height,
@@ -265,11 +266,13 @@ fn collect_frames(
         image.apply_orientation(orientation);
         let rgba = image.into_rgba8();
         let (width, height) = rgba.dimensions();
+        let mut pixels = rgba.into_raw();
+        kivact_types::color::premultiply(&mut pixels);
         kept.push((
             Pixels {
                 width,
                 height,
-                rgba: rgba.into_raw().into(),
+                rgba: pixels.into(),
             },
             delay,
         ));

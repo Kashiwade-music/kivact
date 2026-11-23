@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use kivact_runtime::Notifier;
+use kivact_runtime::Trigger;
 use kivact_types::DrawableId;
 
 use crate::sync::Inbox;
@@ -23,7 +23,7 @@ thread_local! {
 #[derive(Clone)]
 pub(super) struct Registered {
     pub(super) inbox: Arc<Inbox<ExportLink>>,
-    pub(super) changed: Notifier,
+    pub(super) changed: Trigger,
 }
 
 /// Register the live drawable `id`.
@@ -41,7 +41,7 @@ pub(super) fn remove(id: DrawableId) {
 }
 
 /// Run `f` on the link of the drawable `id` when it is alive on this thread.
-pub(super) fn with_link(id: DrawableId, f: impl FnOnce(&Inbox<ExportLink>, &Notifier)) {
+pub(super) fn with_link(id: DrawableId, f: impl FnOnce(&Inbox<ExportLink>, &Trigger)) {
     let registered = LIVE.with(|live| live.borrow().get(&id).cloned());
     if let Some(registered) = registered {
         f(&registered.inbox, &registered.changed);

@@ -7,7 +7,7 @@ use crate::policy::scalar_mapping::ScalarMapping;
 use crate::scalar::{Edit, Grip, ScalarApi, ScalarOps, ScalarState, Shared, follow_ranges};
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Value, binding, memo};
+use kivact_core::state::{Signal, Value, binding, memo};
 use kivact_core::view::EditPhase;
 use kivact_core::view::{HandlerResult, Orientation};
 
@@ -48,19 +48,9 @@ pub struct RangeScalarApi {
 /// stay ordered whatever order the thumbs were made in. Setup only.
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// # pub use kivact_core::{view, state, style};
-/// # pub mod prelude {
-/// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-/// # }
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::{RangeThumb, ScalarRange, use_range_scalar};
 /// use kivact::prelude::*;
+/// use kivact::view::Orientation;
 /// let (from, to) = (signal(20.0), signal(80.0));
 /// let price = use_range_scalar(from, to, ScalarRange::new(0.0, 100.0).unwrap());
 /// let view = node()
@@ -73,11 +63,11 @@ pub struct RangeScalarApi {
 /// ```
 #[track_caller]
 pub fn use_range_scalar(
-    low: impl kivact_core::state::IntoBinding<f64>,
-    high: impl kivact_core::state::IntoBinding<f64>,
+    low: kivact_core::state::Signal<f64>,
+    high: kivact_core::state::Signal<f64>,
     range: impl IntoValue<ScalarRange>,
 ) -> RangeScalarApi {
-    let (low, high) = (low.into_binding(), high.into_binding());
+    let (low, high) = (low, high);
     let range = range.into_value();
     let snapshot = memo(move || [low.get(), high.get()]);
     let shared = Shared::new(snapshot, move |[from, to]| {
@@ -88,7 +78,7 @@ pub fn use_range_scalar(
     // position distance under a non-linear curve.
     let mapping = OptionsCell::new(ScalarMapping::linear());
     let (low_value, high_value) = (low.into_value(), high.into_value());
-    let end = |index: usize, write: Binding<f64>, bounds: (Value<f64>, Value<f64>)| ScalarApi {
+    let end = |index: usize, write: Signal<f64>, bounds: (Value<f64>, Value<f64>)| ScalarApi {
         ops: ScalarOps {
             binding: write,
             range,
@@ -135,15 +125,6 @@ impl RangeScalarApi {
         Ok(self)
     }
 
-    /// Ignore input and assistive technology on both thumbs and the track
-    /// while true. Setup only.
-    #[track_caller]
-    pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
-        // Both ends share the setting.
-        self.low.disabled(disabled);
-        self
-    }
-
     /// Report the start and end of each edit of either end as an
     /// [`EditPhase`], with the rules of [`ScalarApi::on_edit`]. Setup only.
     pub fn on_edit<R: HandlerResult>(self, f: impl Fn(EditPhase) -> R + 'static) -> Self {
@@ -177,13 +158,6 @@ impl RangeScalarApi {
         self.low.range()
     }
 
-    /// The thumb of one end: [`ScalarApi::thumb`] with the other end as its
-    /// published bound. Setup only.
-    #[track_caller]
-    pub fn thumb_state(self, thumb: RangeThumb) -> Value<ScalarState> {
-        self.end(thumb).control_state()
-    }
-
     /// Attach one end's scalar semantics and input behavior.
     pub fn thumb(self, thumb: RangeThumb) -> Part<ScalarState> {
         self.end(thumb).thumb()
@@ -210,9 +184,16 @@ impl RangeScalarApi {
         let edit = self.low.edit;
         let input = part(|input| input);
         let part_state = input.state();
-        Part::new(part_state, move |host| {
+        Part::new(part_state, move |mut host| {
+            let disabled = host
+                .accessible_disabled()
+                .unwrap_or_else(|| false.into_value());
             edit.shared
-                .touch_source(host.part(input).focus_on_press(edit.thumb), Grip::Body)
+                .touch_source(
+                    host.part(input).focus_on_press(edit.thumb),
+                    Grip::Body,
+                    disabled,
+                )
                 .part(edit.shared.drag.source(Grip::Body))
         })
     }

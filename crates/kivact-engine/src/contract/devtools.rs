@@ -1,7 +1,7 @@
 //! Role: The engine's DevTools contracts: overlays, keys, pick phases and records.
-use kivact_types::render::FrameStats;
+use kivact_types::export::FrameStats;
 use kivact_types::{
-    InputPurpose, Key, Modifiers, NodeId, Point, Rect, Revision, Rgba, ThemeHint, WindowId,
+    InputPurpose, Key, Modifiers, NodeId, Point, Rect, Revision, Rgba, ThemeMode, WindowId,
 };
 
 /// What the DevTools draws over one window.
@@ -103,11 +103,8 @@ pub struct EngineRecords {
 /// The environment emulation the DevTools asks of every window.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct EngineEmulation {
-    // xtask-allow(state-fields): option: absent means the window's own theme
-    pub theme_hint: Option<ThemeHint>,
-    // xtask-allow(state-fields): option: absent means the window's own scale
+    pub theme_hint: Option<ThemeMode>,
     pub scale: Option<f64>,
-    // xtask-allow(state-fields): option: absent means the window's own touch support
     pub touch: Option<bool>,
 }
 
@@ -132,10 +129,8 @@ pub enum ImeStateInfo {
         node: NodeId,
         /// The software keyboard hint of the focused input.
         purpose: InputPurpose,
-        // xtask-allow(state-fields): option: absent means the window has no cursor area to report
         /// The area of the cursor, when the window has one.
         cursor_area: Option<Rect>,
-        // xtask-allow(state-fields): option: absent means no IME composition is in progress
         /// The text being composed (`composing` in the protocol means
         /// `composition.is_some()`).
         composition: Option<String>,
@@ -143,9 +138,20 @@ pub enum ImeStateInfo {
 }
 
 /// A change the host applies to `DevtoolsHost` after the turn.
+#[cfg(feature = "devtools")]
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum DevtoolsChange {
     Overlay(WindowId, DevtoolsOverlay),
     Pick(Option<WindowId>),
     Keys(DevtoolsKeys),
+}
+
+/// The nodes the client created or wrote (props, scenes, children) and
+/// the nodes destroyed since the last `Reader::take_tree_changes`, while
+/// `Reader::record_tree_changes` is on. Each list is in (window, id) order; a node
+/// destroyed after a write is only in `removed`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TreeChanges {
+    pub upserted: Vec<(WindowId, NodeId)>,
+    pub removed: Vec<(WindowId, NodeId)>,
 }

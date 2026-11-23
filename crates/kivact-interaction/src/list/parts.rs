@@ -1,8 +1,7 @@
 //! Role: ListApi parts bind and unregister exact mounted focus targets.
 
 use super::data::ListItemState;
-use super::machine;
-use super::state::{State, selected};
+use super::state::State;
 use crate::Selection;
 use crate::roving::Member;
 use kivact_core::ErrorKind;
@@ -16,7 +15,6 @@ pub(super) fn container<K: kivact_core::state::ItemKey>(state: Rc<State<K>>) -> 
     let policy = state.policy.value();
     let input = part(|input| input);
     let part_state = input.state();
-    crate::part_slot::attach_part_state(state.container_state, part_state);
     Part::new(part_state, move |host| {
         host.part(input)
             .role(Role::ListBox)
@@ -42,74 +40,51 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
     key: K,
     retain_disabled_focus: bool,
 ) -> (Part<ListItemState>, Signal<ItemMount>) {
+    let watch = state.membership.watch(key.clone());
     let key = var(key);
     let bound = signal(ItemMount::Unbound);
-    let selected_state = {
-        let state = state.clone();
-        memo(move || key.with(|key| selected(state.selection).contains(key)))
-    };
-    let active = {
-        let active = state.active;
-        memo(move || {
-            bound.get() == ItemMount::Admitted
-                && key.with(|key| active.with(|active| active.as_ref() == Some(key)))
-        })
-    };
-    let disabled = {
-        let order = state.order;
-        memo(move || {
-            bound.get() == ItemMount::Rejected
-                || key.with(|key| !order.with(|order| order.enabled(key)))
-        })
-    };
-    let name = {
-        let items = state.items;
-        memo(move || {
-            key.with(|key| {
-                items.with(|items| {
-                    items
-                        .iter()
-                        .find(|item| &item.key == key)
-                        .map(|item| item.label.get())
-                        .unwrap_or_default()
-                })
-            })
-        })
-    };
-    let order = state.order;
-    let set_size =
-        memo(move || order.with(|order| u32::try_from(order.keys().len()).unwrap_or(u32::MAX)));
-    let position = memo(move || {
-        key.with(|key| {
-            order.with(|order| {
-                order
-                    .position(key)
-                    .map_or(0, |index| u32::try_from(index + 1).unwrap_or(u32::MAX))
-            })
-        })
+    let (membership, active_key, index, items) =
+        (state.membership, state.active_key, state.index, state.items);
+    // The selection and the active key are read per key: a change notifies
+    // only the items whose answer changed.
+    let selected = move || key.with(|key| membership.contains(key, watch));
+    let active = move || bound.get() == ItemMount::Admitted && key.with(|key| active_key.is(key));
+    let name = memo(move || {
+        let at = key.with(|key| index.with(|index| index.source(key)));
+        at.and_then(|at| items.with(|items| items.get(at).map(|item| item.label.get())))
+            .unwrap_or_default()
     });
     let input = part(move |input| ListItemState {
         input,
-        selected: selected_state.get(),
-        active: active.get(),
+        selected: selected(),
+        active: active(),
     });
     let part_state = input.state();
-    observe_item(&state, key, part_state);
+    let set_size = state.set_size;
     let attachment = Part::new(part_state, move |host| {
         let attachment = host.part(input);
         let keys = state.clone();
         let pointers = state.clone();
-        let focus_mode = state.pending;
+        let retained = state.retained_focus;
         let attachment = attachment
             .role(Role::Option)
             .name(name)
-            .selected(selected_state)
+            .selected(selected)
             .set_size(set_size)
-            .pos_in_set(position)
-            .disabled(disabled)
-            .focusable(move || {
-                focus_mode.state().get().focus == machine::Focus::Physical && active.get()
+            .pos_in_set(move || {
+                key.with(|key| {
+                    index.with(|index| {
+                        index
+                            .position(key)
+                            .map_or(0, |at| u32::try_from(at + 1).unwrap_or(u32::MAX))
+                    })
+                })
             })
+            .disabled(move || {
+                bound.get() == ItemMount::Rejected
+                    || key.with(|key| !index.with(|index| index.enabled(key)))
+            })
+            .focusable(move || !retained.get() && active())
             .focusable_when_disabled(retain_disabled_focus)
             .on_key(move |event| super::input::key(&keys, &key.get(), event, None))
             .on_pointer(move |event| super::input::pointer(&pointers, &key.get(), event));
@@ -147,13 +122,7 @@ fn mount_item<K: kivact_core::state::ItemKey>(
         return;
     }
     // Resolve structural focus only after validating the mounting App.
-    let retained_focus = state.options.get().retained_focus.get_untracked();
-    let focus = if retained_focus {
-        machine::Focus::Retained
-    } else {
-        machine::Focus::Physical
-    };
-    state.pending.send(machine::Event::MountFocus(focus));
+    let retained_focus = state.retained_focus.get_untracked();
     state.roving.insert(
         item_key.clone(),
         Member {
@@ -187,25 +156,4 @@ fn mount_item<K: kivact_core::state::ItemKey>(
         }
     });
     state.pending_mounted(&key.get());
-}
-
-fn observe_item<K: kivact_core::state::ItemKey>(
-    state: &State<K>,
-    key: kivact_core::state::Var<K>,
-    part_state: kivact_core::state::Value<ListItemState>,
-) {
-    let observed = state.item_states;
-    observed.update(|states| {
-        states.insert(key.get(), part_state);
-    });
-    kivact_core::state::on_cleanup(move || {
-        if observed.try_get_untracked().is_some() {
-            observed.update(|states| {
-                let item_key = key.get();
-                if states.get(&item_key) == Some(&part_state) {
-                    states.remove(&item_key);
-                }
-            });
-        }
-    });
 }

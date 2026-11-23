@@ -1,7 +1,7 @@
-//! Role: Validate a sign-up form with memos and show messages with show_some.
-#![warn(redundant_imports)]
+//! Validate a sign-up form with memos and show messages with show_some.
 
 use kivact::prelude::*;
+use kivact::view::InputPurpose;
 
 fn app() -> impl IntoView {
     let email = signal(String::new());
@@ -17,9 +17,10 @@ fn app() -> impl IntoView {
     let valid = memo(move || email_error.get().is_none() && password_error.get().is_none());
 
     column((
-        text_input("Email", email).style(style().width(280)),
+        text_input(email).label("Email").style(style().width(280)),
         show_some(email_error, text),
-        text_input("Password", password)
+        text_input(password)
+            .label("Password")
             .purpose(InputPurpose::Password)
             .style(style().width(280)),
         show_some(password_error, text),
@@ -39,7 +40,7 @@ fn main() -> kivact::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    //! Role: Drive the sign-up form example in a test window.
+    //! Drive the sign-up form example in a test window.
 
     use super::*;
 

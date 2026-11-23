@@ -3,7 +3,6 @@ mod sync;
 pub(crate) mod visual;
 
 mod geometry;
-pub(crate) mod hit;
 mod sticky;
 pub(crate) mod text_geometry;
 

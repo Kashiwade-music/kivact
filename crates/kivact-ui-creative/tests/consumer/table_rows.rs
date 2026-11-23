@@ -1,7 +1,7 @@
 //! Role: The string rows the consumer tests give the generic table.
 
 use kivact::interaction::{ListMissingAnchor, ListOptions, ListRangeOptions, TableFocus};
-use kivact::prelude::*;
+use kivact::state::IntoValue;
 
 /// A row of the tests' string tables: an id and one text per column.
 #[derive(Clone, Debug, PartialEq)]
@@ -22,7 +22,7 @@ pub(super) fn line(id: u64, cells: impl IntoIterator<Item = impl Into<String>>) 
 pub(super) fn lines(
     headers: &[&str],
     rows: impl IntoValue<Vec<Line>>,
-    selected: impl kivact::state::IntoBinding<Vec<u64>>,
+    selected: kivact::state::Signal<Vec<u64>>,
 ) -> kivact::ui::DataTable<Line, u64> {
     let columns = headers
         .iter()

@@ -1,4 +1,4 @@
-# Set up the Pop theme and tokens
+# Set up the Pop theme and variables
 
 [日本語](../../../jp/pop/how-to-guide/theme-and-tokens.md)
 
@@ -47,7 +47,7 @@ are.
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::style::provide_theme;
+use kivact::style::{color, provide_theme};
 use kivact_ui_pop as pop;
 
 fn app() -> impl IntoView {
@@ -62,15 +62,15 @@ fn app() -> impl IntoView {
     provide_theme(theme, move || {
         column((
             checkbox("Dark mode", dark),
-            text_input("Search", signal(String::new())),
+            text_input(signal(String::new())).label("Search"),
         ))
         .style(
             style()
                 .gap(12)
                 .padding(24)
                 .height(pct(100))
-                .background(pop::ColorName::Background)
-                .color(pop::ColorName::Text),
+                .background(color::SURFACE)
+                .color(color::TEXT),
         )
     })
 }
@@ -81,30 +81,37 @@ fn main() -> kivact::Result<()> {
 ```
 
 `provide_theme` creates no node and paints nothing, so the top node of the
-subtree gives itself the page colors. `pop::ColorName` names the kit's colors
-(`Background`, `Surface`, `Line`, `Text`, `TextMuted` and more). A style takes
-one directly, and it is looked up in the theme the node is painted in, so it
-follows the switch without a closure.
+subtree gives itself the page colors. `color::SURFACE` and `color::TEXT` are
+the core color variables; the Pop look is drawn from them, so a style that
+takes one follows the switch without a closure.
 
 ## Change colors
 
-The kit's colors live in `pop::Tokens`, a plain struct with public fields:
-`blue`, `mint`, `yellow`, `pink`, `red`, `navy`, `surface`, `line`, `text` and
-more. Components read it from the theme, so changing it restyles them all.
-Copy the tokens, change a field and install them with `Theme::with`:
+Pop's colors are its own theme variables, exported from `kivact_ui_pop`. Each
+one has a variable to set on a theme (`BLUE_VAR`) and a constant to use in a
+style (`BLUE`):
+
+- `BLUE`: the accent of the kit's controls (primary buttons, checked boxes,
+  selected tabs and calendar days).
+- `RED`: the danger color, for destructive actions and errors.
+- `MINT` and `YELLOW`: the success and warning colors.
+- `SURFACE`: the cards and panels. `TEXT` and `TEXT_MUTED` are the body and
+  secondary text. `LINE` is the hairlines and borders.
+
+The kit sets them when the theme is built, so you change a color by setting its
+variable on the theme. Components read the variable in the theme in effect, so
+changing it restyles them all. The theme also sets the core variables of
+`kivact::style::color` (the accent, the danger, the success, the warning, the
+surfaces, the text and the border) from these, so the components of
+`kivact::ui` follow the same colors:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
+use kivact::style::{Theme, ThemeMode, rgb};
 use kivact_ui_pop as pop;
 
 fn brand_theme() -> Theme {
-    let theme = pop::theme(ThemeMode::Light);
-    let mut tokens = (*theme.ext::<pop::Tokens>()).clone();
-    tokens.blue = rgb(0x0f766e);
-    let mut colors = theme.colors().clone();
-    colors.accent = tokens.blue;
-    theme.with(tokens).with_colors(colors)
+    pop::theme(ThemeMode::Light).set(&pop::BLUE_VAR, rgb(0x0f766e))
 }
 
 fn main() -> kivact::Result<()> {
@@ -114,75 +121,56 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-Two tables are involved, which is why the example changes both. `Tokens` holds
-the kit's own colors (the blue of a primary button, the hue of a badge).
-`theme.colors()` is Kivact's shared palette that standard parts read, such as
-the accent of a slider track. `pop::theme` fills the palette from the tokens
-once, so a token you change later does not move the palette: set both, as
-above.
+Set the light and dark values separately when the app can switch: call `set` on
+the theme for the mode it is given, so each mode gets its own value.
 
-`Tokens::hue(hue)` returns the background and foreground colors of one of the
-six `pop::Hue` values (`Blue`, `Mint`, `Yellow`, `Pink`, `Red`, `Gray`), the
-colors badges, avatars and stat cards use.
+## Read the variables in your own components
 
-## Read the tokens in your own components
-
-Prefer `pop::ColorName::..` in a style, as above. Read the `Tokens` struct itself
-when you need to compute something from it, such as the two colors of a hue.
-Do it in a style closure, so the result follows theme switches:
+Use the constants in a style, as above. Read the variable itself when you need
+to compute something from it. Do it in a style closure, so the result follows
+theme switches:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::use_theme;
-use kivact_ui_pop as pop;
+use kivact::style::{color, radius, use_theme};
 
-fn highlight(content: impl IntoView) -> Node {
+#[component]
+fn highlight(content: View) -> impl IntoView {
     column(content).style(move || {
-        let theme = use_theme().get();
-        let tokens = theme.ext::<pop::Tokens>();
-        let (background, foreground) = tokens.hue(pop::Hue::Yellow);
+        let accent = use_theme().get().get(&color::ACCENT_VAR);
         style()
             .padding(12)
-            .radius(tokens.control_radius)
-            .background(background)
-            .color(foreground)
+            .border_radius(radius::MD)
+            .background(accent.with_alpha(0.15))
+            .color(color::TEXT)
     })
 }
-# fn main() {}
 ```
-
-For plain colors you do not need the kit at all: `ColorToken::Surface`,
-`Text`, `TextMuted`, `Border`, `Accent` and `Danger` come from the shared
-palette and work with any theme, so a component that uses only them also works
-in other kits.
 
 ## Fonts and type
 
-Fonts belong to the application. Register the files you ship with `App::font`
-and name the family in the theme's typography. The kit's catalog uses Inter
-for text and Noto Sans JP for Japanese; three Pop components (the
-`BadgeVariant::Slant` badge, avatars and the numbered `SectionNumber`) ask for the family
-`Barlow` and fall back to `sans-serif` when it is not registered.
+Fonts belong to the application. Name the family in the theme with
+`font::FAMILY_VAR`, and register the files you ship with `Theme::with_fonts`.
+The kit's catalog uses Inter for text and Noto Sans JP for Japanese; three Pop
+components (the `kivact::ui::Slant` badge, avatars and the numbered
+`SectionNumber`) ask for the family `Barlow` and fall back to `sans-serif` when
+it is not registered.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
-use kivact::style::theme::Typography;
+use kivact::style::{FontFamily, Theme, ThemeMode, font};
 use kivact_ui_pop as pop;
 
 fn themed() -> Theme {
-    let theme = pop::theme(ThemeMode::Light);
-    let text = Typography {
-        family: Some("Inter, 'Noto Sans JP', sans-serif".into()),
-        ..theme.text().clone()
-    };
-    theme.with_text(text)
+    // `Inter` and `Noto Sans JP` are the families the catalog uses.
+    pop::theme(ThemeMode::Light)
+        .set(&font::FAMILY_VAR, FontFamily::from("Inter, 'Noto Sans JP', sans-serif"))
 }
 
 /// `inter` and `noto` are font files you embed, for example
 /// `include_bytes!("../assets/Inter.ttf")`.
 fn application(inter: &'static [u8], noto: &'static [u8]) -> App {
-    App::new("Pop").font(inter).font(noto).theme(themed())
+    App::new("Pop").theme(themed().with_fonts([inter, noto]))
 }
 # fn main() {}
 ```
@@ -201,17 +189,18 @@ an example.
 
 - [Pick dates and ranges](dates-and-calendars.md)
 - [Show rows in a table](tables.md)
-- Full list of tokens and components: `cargo doc -p kivact-ui-pop --open`
+- Full list of components: `cargo doc -p kivact-ui-pop --open`
 
 Use the standard drop target with the Pop theme. Enable picking and multiple files explicitly; the decorative icon is a mounted slot.
 
 ```rust,no_run
 use kivact::prelude::*;
 
-fn upload() -> impl IntoView {
+#[component]
+fn upload() -> impl Element {
     kivact::ui::dropzone("Upload")
-        .multiple()
-        .pick_on_press()
+        .multiple(true)
+        .pick_on_press(true)
         .icon(icon("cloud-upload").style(style().size(24, 24)))
         .hint("PNG, PDF")
         .on_files(|files| {
@@ -221,5 +210,3 @@ fn upload() -> impl IntoView {
         })
 }
 ```
-
-Pop recipes use Core row layout for automatic RTL reversal. Set the application direction through Core; no Pop-specific direction provider is required.

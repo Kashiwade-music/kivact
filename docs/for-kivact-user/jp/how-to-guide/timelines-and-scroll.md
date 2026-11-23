@@ -19,17 +19,19 @@
 timeline は独自の時計を持ちます。セットアップで作り、駆動する値ごとに **track** を、track を目標へ動かす **segment** を加え、`on_mount` またはイベントハンドラーから開始します。track は signal と同じように読めるので、再生中は view が更新されます。
 
 ```rust,no_run
-use kivact::motion::{At, Stagger, Timeline};
+use kivact::motion::{At, Easing, Stagger, Timeline, Transition, timeline};
 use kivact::prelude::*;
 
-fn boot_line(tl: Timeline, delay_ms: f64, label: &'static str) -> impl IntoView {
+#[component]
+fn boot_line(tl: Timeline, delay_ms: f64, label: &'static str) -> impl Element {
     let shown = tl.track(0.0_f64);
     tl.to(shown, 1.0, Transition::tween(200, Easing::EaseOut))
         .at(At::Time(delay_ms));
     text(label).style(move || style().opacity(shown.get()))
 }
 
-fn boot_sequence() -> impl IntoView {
+#[component]
+fn boot_sequence() -> impl Element {
     let tl = timeline();
     let stagger = Stagger::new(180.0);
     on_mount(move || tl.play());
@@ -74,11 +76,13 @@ fn main() -> kivact::Result<()> {
 - `StaggerFrom::Index(i)` は項目 `i` から数えます。
 
 ```rust,no_run
-use kivact::motion::{Stagger, StaggerFrom};
+use kivact::motion::{Easing, Stagger, StaggerFrom, Transition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
+use kivact::view::Node;
 
-fn chips(labels: &'static [&'static str]) -> impl IntoView {
+#[component]
+fn chips(labels: &'static [&'static str]) -> impl Element {
     let stagger = Stagger::new(60.0)
         .from(StaggerFrom::Center)
         .easing(Easing::EaseOut);
@@ -92,7 +96,7 @@ fn chips(labels: &'static [&'static str]) -> impl IntoView {
             text(*label).style(
                 style()
                     .padding(8)
-                    .background(ColorToken::SurfaceAlt)
+                    .background(color::SURFACE_ALT)
                     .enter(style().opacity(0.0).translate_y(8))
                     .transition(
                         TransitionProp::All,
@@ -104,7 +108,7 @@ fn chips(labels: &'static [&'static str]) -> impl IntoView {
 
     row(items).style(style().gap(8).padding(12))
 }
-# fn main() -> kivact::Result<()> { App::new("Chips").run(|| chips(&["Ore", "Fuel", "Food"])) }
+# fn main() -> kivact::Result<()> { App::new("Chips").run(|| chips(&["Ore", "Fuel", "Food"][..])) }
 ```
 
 Stagger は遅延だけを与えます。各項目がどう動くかは項目の transition が決めるので、同じ遅延を `enter`、スタイルの transition、timeline の track のどれとも組み合わせられます。
@@ -124,9 +128,11 @@ Stagger は遅延だけを与えます。各項目がどう動くかは項目の
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::view::{ViewRange, scroll_progress, view_progress};
+use kivact::view::{Orientation, ViewRange, scroll_progress, view_progress};
+use kivact::view::Node;
 
-fn release_notes(lines: usize) -> impl IntoView {
+#[component]
+fn release_notes(lines: usize) -> impl Element {
     let scroller = node_ref();
     let card = node_ref();
     let header = scroll_progress(scroller, Orientation::Vertical);
@@ -136,7 +142,7 @@ fn release_notes(lines: usize) -> impl IntoView {
         .map(|i| {
             let entry = text(format!("Entry {i}")).style(style().padding(12));
             if i == 4 {
-                // この項目は、ビューポートに入るあいだに、フェードしながら上がってくる。
+                // This entry fades and rises while it enters the viewport.
                 entry.node_ref(card).style(move || {
                     let p = reveal.get();
                     style().padding(12).opacity(p).translate_y((1.0 - p) * 24.0)
@@ -148,7 +154,7 @@ fn release_notes(lines: usize) -> impl IntoView {
         .collect();
 
     column((
-        // リストが上端を過ぎるほど、見出しは薄くなる。
+        // The header fades as the list scrolls past the top.
         text("Release notes").style(move || {
             let p = header.get();
             style().opacity(1.0 - p * 0.6).translate_y(-p * 8.0)
@@ -157,7 +163,7 @@ fn release_notes(lines: usize) -> impl IntoView {
     ))
     .style(style().gap(8).padding(16))
 }
-# fn main() -> kivact::Result<()> { App::new("Notes").run(|| release_notes(40)) }
+# fn main() -> kivact::Result<()> { App::new("Notes").run(|| release_notes(40_usize)) }
 ```
 
 スクロールの値は、ホストが新しいスクロール位置やレイアウトを報告するたびに更新されます。マウントされていない要素や、スクロールできないスクローラーの値は 0 です。
@@ -168,16 +174,18 @@ timeline は、自分の時計ではなく進み具合の値から時間をも�
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::view::scroll_progress;
+use kivact::view::{Orientation, scroll_progress};
+use kivact::motion::{Easing, Transition, timeline};
 
-fn reading_progress(scroller: NodeRef) -> impl IntoView {
+#[component]
+fn reading_progress(scroller: NodeRef) -> impl Element {
     let tl = timeline();
     let width = tl.track(0.0_f64);
     tl.to(width, 100.0, Transition::tween(1000, Easing::Linear));
     tl.drive(scroll_progress(scroller, Orientation::Vertical));
 
     column((
-        node().style(move || style().height(4).width(pct(width.get())).background(ColorToken::Accent)),
+        node().style(move || style().height(4).width(pct(width.get())).background(color::ACCENT)),
         scroll(text("Long article")).node_ref(scroller).style(style().height(240)),
     ))
 }
@@ -198,18 +206,21 @@ fn reading_progress(scroller: NodeRef) -> impl IntoView {
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 use kivact::view::PresenceMode;
+use kivact::motion::{Easing, Transition};
+use kivact::view::Node;
 
 fn fading(label: &'static str) -> Node {
     text(label).style(
         style()
             .padding(12)
-            .background(ColorToken::SurfaceAlt)
+            .background(color::SURFACE_ALT)
             .exit(style().opacity(0.0))
             .transition(TransitionProp::All, Transition::tween(200, Easing::EaseOut)),
     )
 }
 
-fn play_pause(playing: Signal<bool>) -> impl IntoView {
+#[component]
+fn play_pause(playing: Signal<bool>) -> impl Element {
     column((
         button("Toggle").on_press(move || playing.update(|p| *p = !*p)),
         show(playing, || fading("Playing"))
@@ -227,27 +238,30 @@ fn play_pause(playing: Signal<bool>) -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::motion::{Spring, Transition};
 
-fn tabs() -> impl IntoView {
+#[component]
+fn tabs() -> impl Element {
     let selected = signal(0_usize);
     row((
-        tab("Home", selected, 0),
-        tab("Inbox", selected, 1),
-        tab("Settings", selected, 2),
+        tab("Home", selected, 0_usize),
+        tab("Inbox", selected, 1_usize),
+        tab("Settings", selected, 2_usize),
     ))
     .style(style().gap(16).padding(12))
 }
 
-fn tab(label: &'static str, selected: Signal<usize>, index: usize) -> impl IntoView {
+#[component]
+fn tab(label: &'static str, selected: Signal<usize>, index: usize) -> impl Element {
     column((
         button(label).on_press(move || selected.set(index)),
         show(move || selected.get() == index, move || {
-            // 1 本の目印が、タブのあいだを移動する。各タブは自分のボタンの下に
-            // 目印をマウントし、目印は直前の箱から滑る。
+            // One marker moves between the tabs: each tab mounts it
+            // under its own button, and it glides from the last box.
             node().layout_id("tab-marker").style(
                 style()
                     .height(3)
-                    .background(ColorToken::Accent)
+                    .background(color::ACCENT)
                     .layout_transition(Transition::spring(Spring::STIFF)),
             )
         }),

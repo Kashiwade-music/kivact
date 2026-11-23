@@ -8,7 +8,8 @@ window that read them. If you know React or SolidJS, the model will feel
 familiar, and your Rust domain logic lives in the same codebase.
 
 > **Early development.** Kivact has no release yet, and APIs change without
-> notice. Pin a commit if you need a stable build.
+> notice. Pin every repository that uses Kivact to one revision (the same `rev`)
+> if you need a stable build.
 
 Windows and Linux (Wayland and X11) are the target platforms. macOS is not
 tested.
@@ -16,7 +17,8 @@ tested.
 ```rust,no_run
 use kivact::prelude::*;
 
-fn counter() -> impl IntoView {
+#[component]
+fn counter() -> impl Element {
     let count = signal(0);
     column((
         text(move || format!("count: {}", count.get())),
@@ -42,6 +44,15 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact" }
 kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["test"] }
 ```
 
+Kivact's layout and drawing code is too slow without optimization, so
+optimize your dependencies in debug builds. Do not list Kivact's own crates
+one by one: they change between revisions.
+
+```toml
+[profile.dev.package."*"]
+opt-level = 3
+```
+
 The repository pins its toolchain to Rust 1.98.1 (edition 2024) in
 `rust-toolchain.toml`; use that version or newer.
 
@@ -49,8 +60,10 @@ By default Kivact draws frames on the CPU and starts the GPU device when the
 window needs it (a user shader drawn, or the App reading `gpu_interop::adapter()`
 to share GPU textures; CPU frames that keep missing half the display period start
 it too). Without a usable GPU it
-stays on the CPU. To force CPU rendering at run time, set the environment variable
-`ARVANE_RENDERER=cpu`; `ARVANE_RENDERER=gpu` starts the device with the window.
+stays on the CPU. The environment variable `ARVANE_RENDERER` chooses at run time:
+`cpu` never starts the GPU, `gpu` starts it with the window and `auto` starts it
+when needed, as by default. In code, `kivact::platform::GpuStart` (`Never`,
+`AtLaunch`, `OnDemand`) in `App::gpu_preference` makes the same choice.
 
 ### Ship a smaller binary
 
@@ -66,7 +79,7 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", default-features =
 ```
 
 Leave `gpu` out of the list too for a build with no GPU renderer.
-The `[profile.release]` of `templates/basic/Cargo.toml` (fat LTO, one codegen
+The `[profile.release]` of `templates/basic/README.md` (fat LTO, one codegen
 unit, `opt-level = "s"` with `3` for the drawing, shaping and layout crates and
 `"z"` for the third-party crates that run only on the asset worker,
 stripped symbols) is the other half: it makes the binary smaller and its hot
@@ -78,5 +91,6 @@ paths faster, and it makes the release build longer.
 | --- | --- |
 | [getting-started/](getting-started/README.md) | The tutorial. Build a small to-do app, one page at a time. Start here. |
 | [how-to-guide/](how-to-guide/README.md) | Guides for specific goals, such as validating a form or showing a dialog. |
+| [Migrating](how-to-guide/migrating-to-rework.md) | Old names and their replacements, for code written before the API rework. |
 | [UI kits](../../for-kivact-ui-user/en/README.md) | The five official component kits (`kivact-ui-basic`, `kivact-ui-pop`, `kivact-ui-game`, `kivact-ui-creative`, `kivact-ui-soft`) and their themes. |
 | API reference | Run `cargo doc -p kivact --open` in a project that depends on Kivact, or in a clone of the repository. |

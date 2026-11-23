@@ -2,30 +2,33 @@
 
 [English](../../en/getting-started/02-components-and-layout.md)
 
-このステップでは、`column` と `row` で画面を組み立て、ヘッダーと仮のタスク一覧を小さなコンポーネントに分けます。
+このステップでは、`column` と `row` で画面を組み、小さなコンポーネントに分けます。ヘッダーと、仮のタスク一覧です。
 
 ## ここまでのプログラム
 
 ```rust,no_run
 use kivact::prelude::*;
 
+#[component]
 fn header() -> impl Element {
     column((
-        text("タスク"),
-        text("今日やること"),
+        text("Tasks"),
+        text("Things to do today"),
     ))
     .style(style().gap(4))
 }
 
-fn task_row(title: impl IntoText) -> impl Element {
+#[component]
+fn task_row(title: Value<String>) -> impl Element {
     row((text("-"), text(title))).style(style().gap(8))
 }
 
+#[component]
 fn task_list() -> impl Element {
     column((
-        task_row("牛乳を買う"),
-        task_row("チュートリアルを書く"),
-        task_row("散歩に行く"),
+        task_row("Buy milk"),
+        task_row("Write the tutorial"),
+        task_row("Go for a walk"),
     ))
     .style(style().gap(8))
 }
@@ -35,68 +38,56 @@ fn app() -> impl IntoView {
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("タスク").run(app)
+    App::new("Tasks").run(app)
 }
 ```
 
-## 新しく出てきたもの
+## 新しいこと
 
-**view の helper は普通の関数です。** `header`、`task_row`、`task_list` は、呼び出し側が呼んだ時点で実行されます。`task_row` は `impl IntoText` を受け取るので、固定の文字列と、文字を返すリアクティブな値のどちらも渡せます。これらの helper は `impl Element` を返します。修飾できる単一のルートを持つ view なので、呼び出し側で `.style(..)`、`.name(..)` などの標準のノードの修飾を付けられます。分岐や fragment など、修飾できる単一のルートを持たない view を返す場合は `impl IntoView` を使います。
+**コンポーネントは `#[component]` を付けた関数です。** `header`、`task_row`、`task_list` がコンポーネントです。コンポーネントを書く方法はこれだけです。`button` などの標準のコンポーネントや、UI キットのコンポーネントも同じ書き方をします。コンポーネントは `impl Element` を返します。これは、呼び出し側が変更できる、ルートが 1 つの view です。`task_list().style(..)`、`.name(..)`、`.test_id(..)` は、その中の `column` に適用されます。
 
-**props を取る helper はコンポーネントにします。** helper が props を取るなら `#[component]` を付け、prop を `Value`、`View`、`Callback` などで宣言します。props のビルダーは Kivact が書くので、手で書く必要はありません（[再利用できるコンポーネントを書く](../how-to-guide/custom-components.md)）。props が無く、呼び出し側がノードの修飾を付け続ける helper は、普通の関数のままでかまいません。
+**props は引数です。** `task_row` は `title: Value<String>` を受け取ります。`Value` の prop は、固定の値（`"Buy milk"` や `String`）も、変わる値（シグナル、または次のステップから使うクロージャ）も受け取れるので、`task_row("Buy milk")` と書けます。引数は位置で対応します。順番はシグネチャの宣言の順です。`Option<..>` 型の引数は省略できる引数で、代わりに `.on_close(..)` のような setter になります。詳しくは [再利用できるコンポーネントを書く](../how-to-guide/custom-components.md) を参照してください。
+
+**本体は一度だけ実行されます。** Kivact は、コンポーネントが画面に現れたときに本体を一度だけ実行し、それ自身の寿命を与えます。本体の中で作った状態は、そのインスタンスだけのものになり、消えるときに後片付けされます。状態が変わると、それを読む小さなクロージャだけが再実行されます（次のステップで扱います）。本体が再実行されることはありません。これは React の render 関数の仕組みではなく、SolidJS の仕組みです。
 
 ```rust,no_run
 use kivact::prelude::*;
 
-/// タスクの 1 行。`#[component]` が props のビルダーを書きます。
 #[component]
-fn task_row(title: Value<String>) -> impl IntoView {
-    row((text("-"), text(title))).style(style().gap(8))
-}
-
-fn app() -> impl IntoView {
+fn click_counter() -> impl Element {
+    let count = signal(0);
     column((
-        task_row("牛乳を買う"),
-        task_row("チュートリアルを書く"),
-        task_row("散歩に行く"),
+        text(move || format!("Pressed {} times", count.get())),
+        button("Press me").on_press(move || count.update(|n| *n += 1)),
     ))
     .style(style().gap(8))
 }
-```
 
-`Value<String>` の prop は `&str` もシグナルも受け取るので、`task_row("牛乳を買う")` と書けます。`header` や `task_list` のように props を持たない helper は、普通の関数のままにします。
+fn app() -> impl IntoView {
+    row((click_counter(), click_counter())).style(style().gap(24).padding(24))
+}
 
-**セットアップの境界は明示します。** Rust の helper を呼んでも、その状態に新しいライフサイクルは作られません。`App::run(app)` はルートを一度だけセットアップします。状態が変わると、次のステップで扱うリアクティブなクロージャだけが再評価されます。React の render 関数のように、画面全体の関数を毎回呼び直す仕組みではありません。自分専用のシグナル、effect、後片付けを持つ再利用可能な view は `scope(move || { .. })` を返します。
-
-```rust,no_run
-use kivact::prelude::*;
-
-fn click_counter() -> impl IntoView {
-    scope(move || {
-        let count = signal(0);
-        column((
-            text(move || format!("{} 回押しました", count.get())),
-            button("押す").on_press(move || count.update(|n| *n += 1)),
-        ))
-        .style(style().gap(8))
-    })
+fn main() -> kivact::Result<()> {
+    App::new("Counters").run(app)
 }
 ```
 
-クロージャはこの view がマウントされた時に一度だけ実行されます。そこで作った状態は view がアンマウントされると破棄されます。`count` を変えるとセットアップを再実行せずに文字だけが更新されます。この境界は見えるレイアウトの箱を追加しません。返される `View` には修飾できる単一のルートがないため、スタイルは内側の `column` に付けます。シグナルとリアクティブなクロージャは次のステップで使います。
+それぞれの `click_counter` は、自分の `count` を持ちます。一方のボタンを押すと、その隣の文字だけが更新されます。シグナルとこれらのクロージャは、次のステップで使います。
 
-`signal` や `memo` は、App のルート、`scope`、`show`、`dynamic`、`for_each` が実行するセットアップで作ります。`text(move || ..)` や `style(move || ..)` のようなリアクティブなクロージャは変更のたびに再実行されるため、セットアップ済みの値を読みます。
+シグナルと memo は、セットアップのコードで作ります。セットアップのコードとは、コンポーネントの本体、ルートの関数、そして `show`、`dynamic`、`for_each` が実行するコードのことです。`text(move || ..)` のようなクロージャは変更のたびに再実行されるので、セットアップで作られた値を読みます。
+
+**ルートは普通の関数です。** `App::new("Tasks").run(app)` は、`app` を一度呼び、返された view を表示します。`run` には、view を返す関数であればどれでも渡せます。このチュートリアルのルートは `app` という普通の関数のままです。その下にあるものは、すべてコンポーネントです。
 
 **`column` と `row`** は、子を縦と横に並べます。子はタプルで渡します (`column((a, b, c))`)。括弧が二重になっているのは、内側がタプルだからで、`column(a, b)` とは書けません。子の型はバラバラでよく、タプルには最大 16 個まで入れられます。
 
-**`style()`** は、見た目とレイアウトを表します。`.style(..)` で view に付けます。
+**`style()`** は、view の見た目とレイアウトを表します。`.style(..)` で view に付けます。
 
 - `gap(8)` は、`column` や `row` の子どうしの間に 8 ピクセルの間隔を空けます。
 - `padding(24)` は、view の内側、子の周りに 24 ピクセルの余白を作ります。
 
-長さの単位は論理ピクセルなので、ディスプレイの拡大率に合わせて拡大されます。`style()` のメソッドは、どれも自分自身を返すので、続けて書けます。
+名前は CSS にならっています。`gap`、`padding`、`flex_grow`、`border_radius`、`font_weight` などです。長さの単位は論理ピクセルなので、ディスプレイの拡大率に合わせて拡大されます。`style()` のメソッドは、どれも自分自身を返すので、続けて書けます。
 
-`text` には、文字列リテラル、`&str`、`String` を渡せます。
+`text` には、文字列リテラル、`&str`、`String`、`Value<String>` を渡せます。
 
 ## 実行する
 
@@ -104,6 +95,6 @@ fn click_counter() -> impl IntoView {
 cargo run
 ```
 
-「タスク」というタイトルの下に「今日やること」、その下に、ハイフンで始まる 3 行が間隔を空けて表示されます。`gap(8)` を `gap(24)` に変えて実行すると、行の間隔が広がるのが分かります。
+「Tasks」というタイトルの下に「Things to do today」が表示され、その下に、ハイフンで始まる 3 行が間隔を空けて表示されます。`gap(8)` を `gap(24)` に変えて実行すると、行の間隔が広がるのが分かります。
 
 次へ: [ステップ 3: 状態](03-state.md)

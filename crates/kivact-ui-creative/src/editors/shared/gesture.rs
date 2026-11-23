@@ -3,6 +3,7 @@
 //! Interaction DragApi owns pointer identity, capture and edit commit/cancel. This
 //! state owns only the domain's press decision and opaque drag snapshot.
 use super::selection::merge_marquee;
+use kivact::custom::NodeRefExt;
 use kivact::geometry::{Point, Rect};
 use kivact::interaction::{DragApi, DragPhase, DragUpdate};
 use kivact::state::{Machine, MachineHandle, Step, Value, machine};
@@ -51,18 +52,9 @@ enum DecisionEvent<T, D> {
     Begin(Decision<T, D>),
     Payload(D),
     Pending(Option<u64>),
-    Motion {
-        current: Point,
-        moved: bool,
-    },
+    Motion { current: Point, moved: bool },
     Clear,
-    InputsChanged {
-        focused: bool,
-        visible: bool,
-        enabled: bool,
-        data_valid: bool,
-        rollback: Rc<dyn Fn()>,
-    },
+    Inputs { ok: bool, rollback: Rc<dyn Fn()> },
 }
 struct DecisionMachine<T, D>(std::marker::PhantomData<(T, D)>);
 impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static> Machine
@@ -79,17 +71,11 @@ impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static> Machine
         match event {
             DecisionEvent::Begin(decision) => Step::to(Press::Deciding(decision)),
             DecisionEvent::Clear => Step::to(Press::Idle),
-            DecisionEvent::InputsChanged {
-                focused,
-                visible,
-                enabled,
-                data_valid,
-                rollback,
-            } => {
-                if !focused || !visible || !enabled || !data_valid {
-                    Step::to(Press::Idle).with(rollback)
-                } else {
+            DecisionEvent::Inputs { ok, rollback } => {
+                if ok {
                     Step::stay()
+                } else {
+                    Step::to(Press::Idle).with(rollback)
                 }
             }
             DecisionEvent::Payload(payload) => match state {
@@ -207,20 +193,12 @@ impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static, S: Clone + P
         }));
     }
 
-    pub(crate) fn inputs_changed(
-        self,
-        focused: bool,
-        visible: bool,
-        enabled: bool,
-        data_valid: bool,
-        rollback: impl Fn() + 'static,
-    ) {
-        self.controller.send(DecisionEvent::InputsChanged {
-            focused,
-            visible,
-            enabled,
-            data_valid,
-            rollback: Rc::new(rollback),
+    /// Cancel the press whenever `ok` turns false (focus left, hidden or disabled).
+    pub(crate) fn watch_inputs(self, ok: Value<bool>, rollback: impl Fn() + 'static) {
+        let rollback: Rc<dyn Fn()> = Rc::new(rollback);
+        self.controller.feed(ok, move |ok| DecisionEvent::Inputs {
+            ok,
+            rollback: rollback.clone(),
         });
     }
     pub(crate) fn with_payload<R>(self, read: impl FnOnce(&D) -> R) -> Option<R> {
@@ -340,13 +318,22 @@ impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static, S: Clone + P
             impl Fn(T) + 'static,
             impl Fn(bool) + 'static,
         ),
+        stale: impl Fn() -> bool + 'static,
     ) -> DragApi<S> {
-        let hooks = Rc::new((marquee, selection, callbacks));
+        let hooks = Rc::new((marquee, selection, callbacks, stale));
         let updates = hooks.clone();
         drag.on_update(move |update: DragUpdate<S>| {
+            if (updates.3)() {
+                self.cancel(|| updates.2.3(false));
+                return;
+            }
             self.update(update.pos, update.start_pos, &update.payload, &updates.2.0)
         })
         .on_end(move |update: DragUpdate<S>| {
+            if update.phase == DragPhase::End && (hooks.3)() {
+                self.cancel(|| hooks.2.3(false));
+                return;
+            }
             if update.phase == DragPhase::End {
                 self.finish(&update, &hooks.0, &hooks.1, &hooks.2);
             } else {
@@ -354,4 +341,16 @@ impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static, S: Clone + P
             }
         })
     }
+}
+
+/// Whether a canvas editor takes input: focused inside, visible and enabled.
+pub(crate) fn inputs_ok(
+    reference: kivact::view::NodeRef,
+    availability: Value<kivact::custom::PartState>,
+) -> Value<bool> {
+    let focus = reference.focus_within();
+    kivact::state::memo(move || {
+        let input = availability.get();
+        focus.get() && reference.is_visible() && !input.is_hidden() && !input.is_disabled()
+    })
 }

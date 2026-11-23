@@ -1,0 +1,48 @@
+//! Role: The catalog's pages: one module per page, and the helper modules they share.
+
+mod animation_model;
+mod areas_docking;
+mod arrange;
+mod arrange_timeline;
+mod arrangement_model;
+mod audio;
+mod audio_samples;
+mod audio_values;
+mod buttons;
+mod chrome;
+mod color_grading_scopes;
+mod color_picker;
+mod common;
+mod controls;
+mod dialogs_popovers;
+mod dope_sheet_graph;
+mod editor_images;
+mod editors;
+mod feedback;
+mod indicators;
+mod indicators_labels;
+mod jobs;
+mod jobs_log;
+mod knobs_faders;
+mod layer_stack;
+mod layout;
+mod layout_reducers;
+mod list;
+mod media_pool;
+mod media_pool_data_table;
+mod menus;
+mod meters;
+mod mixer_console;
+mod node_editor;
+mod node_model;
+mod numeric_fields;
+mod numeric_samples;
+mod outliner;
+mod overview;
+mod property_editor;
+mod selection_input;
+mod transport;
+mod txn;
+mod viewport_3d;
+
+pub use list::pages;

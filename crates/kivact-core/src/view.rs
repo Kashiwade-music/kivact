@@ -12,26 +12,25 @@
     reason = "handler and effect closures are stored as boxed trait objects throughout"
 )]
 
+mod authored;
 pub(crate) mod boundary;
 pub(crate) mod descriptor;
-#[cfg(feature = "devtools")]
-pub(crate) mod devtools_apply;
+pub(crate) mod devtools_hook_traits;
 pub(crate) mod devtools_hooks;
-#[cfg(feature = "devtools")]
-pub(crate) mod devtools_state;
 pub(crate) mod drawable;
 mod drawable_share;
 pub(crate) mod element_data;
 mod exit_layout;
 pub(crate) mod flow;
 pub(crate) mod focus;
+mod focus_commit;
 pub(crate) mod foreign;
 pub(crate) mod foreign_window;
 pub(crate) mod handler_layers;
 pub(crate) mod hover;
 pub(crate) mod input;
-#[cfg(feature = "devtools")]
-pub(crate) mod inspect_mode;
+pub(crate) mod measured_leaf;
+pub(crate) mod measurement;
 pub(crate) mod modifier_keys;
 pub(crate) mod modifiers;
 pub(crate) mod mount;
@@ -39,6 +38,8 @@ mod mounted;
 mod node_draw;
 mod node_modifiers;
 pub(crate) mod node_ref;
+mod node_ref_visibility;
+pub(crate) mod node_states;
 mod node_status;
 pub(crate) mod node_status_data;
 pub(crate) mod overlays;
@@ -56,9 +57,9 @@ pub(crate) mod span;
 pub(crate) mod state;
 mod style_layer;
 pub(crate) mod sync_hook;
-pub(crate) mod text_edits;
 pub(crate) mod tree;
-mod window_view;
+mod variant;
+pub(crate) mod window_view;
 
 #[doc(inline)]
 pub use crate::view::flow::{
@@ -66,7 +67,7 @@ pub use crate::view::flow::{
     dynamic, error_boundary, for_each, for_index, show, show_some, virtual_list,
 };
 #[doc(inline)]
-pub use boundary::{ReadingDirection, provide_direction, scope, use_direction};
+pub use boundary::{ReadingDirection, provide_direction, use_direction};
 #[doc(inline)]
 pub use descriptor::{IntoView, IntoViewFn, View, ViewFn};
 #[doc(inline)]
@@ -78,6 +79,7 @@ pub use drawable_share::DrawableTextures;
 pub use drawable_share::{DrawableFrame, DrawableShare, ShareUpdate};
 pub use element_data::Element;
 #[doc(inline)]
+pub use focus_commit::commit_focused_edit;
 pub use hover::pointer_position;
 #[doc(inline)]
 pub use input::{
@@ -102,6 +104,7 @@ pub use share_error::ShareError;
 #[doc(inline)]
 pub use exit_layout::ExitLayout;
 pub use kivact_types::ImageStatus;
+pub use kivact_types::IntrinsicSize;
 #[doc(inline)]
 pub use kivact_types::{
     A11yAction, A11yRequest, CheckedState, CurrentItem, LiveRegion, Orientation, PopupKind, Role,
@@ -111,7 +114,7 @@ pub use kivact_types::{
 pub use node_ref::{NodeRef, ScrollBehavior, node_ref};
 pub use node_status_data::ScrollState;
 #[doc(inline)]
-pub use overlays::{Overlay, OverlayAlign, Placement, overlay, overlay_at};
+pub use overlays::{Overlay, OverlayAlign, Placement, SurfacePlacement, overlay, overlay_at};
 
 #[doc(inline)]
 pub use foreign::ForeignChild;
@@ -128,7 +131,7 @@ mod children;
 mod edit_phase;
 pub(crate) mod elements;
 
-pub use children::IntoChildren;
+pub use children::{Children, IntoChildren};
 pub use edit_phase::EditPhase;
 pub use elements::{
     ImageFit, Node, Scroll, ScrollAxes, Span, SurfaceSize, Viewport, canvas, column, grid, icon,
@@ -143,3 +146,8 @@ pub use style_layer::RecipeName;
 
 #[doc(hidden)]
 pub use elements::ViewportTransform;
+
+// xtask-allow(internal-contract): the public path of Variant and Variants is kivact::ui::theme (annex U re-exports them)
+pub use authored::Authored;
+#[doc(hidden)]
+pub use variant::{Variant, Variants};

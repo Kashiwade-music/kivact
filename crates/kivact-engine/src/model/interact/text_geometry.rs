@@ -43,6 +43,7 @@
 use std::ops::Range;
 
 use crate::model::Model;
+use crate::model::changes::Dirty;
 use kivact_types::{NodeId, Point, Rect};
 
 use crate::model::interact::visual;
@@ -54,7 +55,7 @@ use crate::text_input::{line_height, line_offset};
 pub(crate) fn shape_static_text(
     host: &Model,
     id: NodeId,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     area_width: f64,
 ) -> Option<kivact_types::ShapedTextSnapshot> {
     let node = host.node(id)?;
@@ -67,7 +68,7 @@ pub(crate) fn shape_static_text(
         engine.shape_glyphs(content, &style, width).ok()
     } else {
         let spans = crate::measure::leaf::rich_spans(engine, node.spans(), &style);
-        let text = kivact_types::render::RichText {
+        let text = arvane_protocol::RichText {
             text: content,
             spans: &spans,
         };
@@ -76,7 +77,11 @@ pub(crate) fn shape_static_text(
 }
 
 /// Whether native shaping cut any displayed line of an observed text node.
-pub(crate) fn text_truncated(host: &Model, engine: &mut arvane::Engine, id: NodeId) -> bool {
+pub(crate) fn text_truncated(
+    host: &Model,
+    engine: &mut arvane_text::TextEngine,
+    id: NodeId,
+) -> bool {
     if !host
         .node(id)
         .is_some_and(|node| node.kind() == crate::contract::NodeType::Text)
@@ -99,12 +104,12 @@ pub(crate) fn input_scroll(host: &Model, id: NodeId) -> f64 {
 
 /// The caret of the text input `id` relative to its unscrolled text
 /// origin (the start of its box and its first line's top).
-fn caret_local(host: &Model, id: NodeId, engine: &mut arvane::Engine) -> Rect {
+fn caret_local(host: &Model, id: NodeId, engine: &mut arvane_text::TextEngine) -> Rect {
     let width = visual::text_box(host, id).width;
     let caret = host
         .node(id)
         .and_then(|n| {
-            host.editors[n.index.0]
+            host.slots.editors[n.index.0]
                 .as_deref()
                 .map(|editor| editor.editor.state())
         })
@@ -127,7 +132,12 @@ fn caret_local(host: &Model, id: NodeId, engine: &mut arvane::Engine) -> Rect {
 /// drawn at `area`: `area` itself for a multiline input, else the box of one
 /// line (the shaper's line height) centered vertically in `area`. A content
 /// box lower than the line overflows it evenly on both sides.
-pub(crate) fn line_box(host: &Model, id: NodeId, engine: &mut arvane::Engine, area: Rect) -> Rect {
+pub(crate) fn line_box(
+    host: &Model,
+    id: NodeId,
+    engine: &mut arvane_text::TextEngine,
+    area: Rect,
+) -> Rect {
     if host.node(id).is_none_or(|n| n.multiline()) {
         let scroll_y = host.editor_node(id).map_or(0.0, |editor| editor.scroll_y);
         return Rect {
@@ -146,19 +156,24 @@ pub(crate) fn line_box(host: &Model, id: NodeId, engine: &mut arvane::Engine, ar
 
 /// Where the text of the text input `id` starts in its own space
 /// (`line_box` of its content box).
-pub(crate) fn text_line(host: &Model, id: NodeId, engine: &mut arvane::Engine) -> Rect {
+pub(crate) fn text_line(host: &Model, id: NodeId, engine: &mut arvane_text::TextEngine) -> Rect {
     line_box(host, id, engine, visual::text_box(host, id))
 }
 
 /// The caret of the text input `id` in its own space, as painted.
-pub(crate) fn caret_rect(host: &Model, id: NodeId, engine: &mut arvane::Engine) -> Rect {
+pub(crate) fn caret_rect(host: &Model, id: NodeId, engine: &mut arvane_text::TextEngine) -> Rect {
     let line = text_line(host, id, engine);
     caret_in(host, id, engine, line)
 }
 
 /// The caret of the text input `id` whose text starts at the `line` box
 /// (`line_box`).
-pub(crate) fn caret_in(host: &Model, id: NodeId, engine: &mut arvane::Engine, line: Rect) -> Rect {
+pub(crate) fn caret_in(
+    host: &Model,
+    id: NodeId,
+    engine: &mut arvane_text::TextEngine,
+    line: Rect,
+) -> Rect {
     let local = caret_local(host, id, engine);
     Rect {
         x: line.x + local.x - input_scroll(host, id),
@@ -174,7 +189,7 @@ pub(crate) fn offset_at(
     host: &Model,
     id: NodeId,
     at: Point,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
 ) -> Option<usize> {
     let origin = host.rect(id)?;
     let local = host.to_local(id, at)?;
@@ -197,14 +212,14 @@ pub(crate) fn offset_at(
 /// at in the value (`None`: no text input has the focus).
 pub(crate) fn ime_text(
     host: &Model,
-    engine: &mut arvane::Engine,
-) -> Option<(arvane::ShellImeText, usize)> {
+    engine: &mut arvane_text::TextEngine,
+) -> Option<(arvane_shell::ShellImeText, usize)> {
     let id = host.focused_input()?;
     let node = host.node(id)?;
     if node.read_only() {
         return None;
     }
-    let edit = host.editors[node.index.0]
+    let edit = host.slots.editors[node.index.0]
         .as_deref()
         .map(|editor| editor.editor.state())?;
     let value = edit.value();
@@ -243,7 +258,7 @@ pub(crate) fn ime_text(
     }
     let area = host.drawn_rect(id, area);
     if node.password() {
-        let text = arvane::ShellImeText {
+        let text = arvane_shell::ShellImeText {
             text: String::new(),
             text_start: 0,
             selection: (0, 0),
@@ -260,7 +275,7 @@ pub(crate) fn ime_text(
     let units =
         |byte: usize| lines.utf16_of_byte(value, byte.clamp(excerpt.start, excerpt.end)) - start;
     let selection = edit.selection();
-    let text = arvane::ShellImeText {
+    let text = arvane_shell::ShellImeText {
         text: value[excerpt.clone()].to_string(),
         text_start: start,
         selection: (units(selection.start), units(selection.end)),
@@ -294,10 +309,15 @@ fn caret_scroll(previous: f64, caret_x: f64, extent_x: f64, width: f64) -> f64 {
 }
 
 impl Model {
-    /// Scroll every text input so its caret stays inside
-    /// the field: past the right edge less 2 px, or at the left edge.
-    pub(crate) fn scroll_inputs(&mut self, engine: &mut arvane::Engine) {
-        for id in self.input_ids() {
+    /// Scroll the text inputs whose caret, text or box changed
+    /// (`Dirty::CARET`) so the caret stays inside the field: past the
+    /// right edge less 2 px, or at the left edge.
+    pub(crate) fn scroll_inputs(&mut self, engine: &mut arvane_text::TextEngine) {
+        let mut moved = false;
+        for id in self.changes.take(Dirty::CARET) {
+            if !self.edits_input(id) {
+                continue;
+            }
             let area = visual::text_box(self, id);
             let width = area.width;
             // Hidden or zero-width fields have no viewport to scroll into.
@@ -331,11 +351,21 @@ impl Model {
                 if x.scroll_x != scroll || x.scroll_y != scroll_y {
                     x.scroll_x = scroll;
                     x.scroll_y = scroll_y;
-                    self.invalidate_paint();
+                    self.changes.mark(id, Dirty::REDRAW);
+                    moved = true;
                 }
             }
         }
-        self.sync();
+        if moved {
+            self.sync();
+        }
+    }
+
+    /// Whether `id` is a live text input with an editing state.
+    pub(crate) fn edits_input(&self, id: NodeId) -> bool {
+        self.tree
+            .get(id)
+            .is_some_and(|n| self.slots.editors[n.index.0].is_some())
     }
 }
 
@@ -347,7 +377,7 @@ pub(crate) fn text_layout(
     host: &Model,
     id: NodeId,
     rows: Range<usize>,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
 ) -> Option<kivact_editing::TextLayout> {
     layout_snapshot(host, id, rows, engine, false)
 }
@@ -356,7 +386,7 @@ pub(crate) fn layout_snapshot(
     host: &Model,
     id: NodeId,
     rows: Range<usize>,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     canvas_coordinates: bool,
 ) -> Option<kivact_editing::TextLayout> {
     use kivact_editing::{EditCaret, EditLine, TextLayout};
@@ -441,7 +471,7 @@ pub(crate) fn layout_snapshot(
 
 fn append_snapshot_carets(
     out: &mut kivact_editing::TextLayout,
-    shaped: &kivact_types::render::ShapedText,
+    shaped: &kivact_types::shaped::ShapedText,
     shift: impl Fn(Rect) -> Rect,
     offset: u32,
     crlf: bool,

@@ -8,23 +8,34 @@
 //!   extended theme shares it.
 //! - A theme switches through the tracking of `use_theme()` in
 //!   `.style(..)` closures and of `provide_theme`, without remounting.
-//! - `Color::components_in(theme)` and `mix_in(other, amount, theme)`
-//!   resolve tokens in the given theme; `components` and `mix` use the
-//!   default theme. Mixing interpolates alpha-premultiplied Oklab, and the
-//!   result stays in its space until it is painted.
+//! - `Color::components(theme)` and `mix(other, amount, theme)` resolve
+//!   variables in the given theme; animation and luminance resolve them in
+//!   the theme in effect (`try_use_theme`). Mixing interpolates
+//!   alpha-premultiplied Oklab, and the result stays in its space until it
+//!   is painted.
 
-use super::{Palette, Radii, Spacing, Typography};
-use crate::color::{Color, ColorToken, Repr, rgb, rgba};
+use super::vars::{ThemeValue, VarSlot, VarTable, next_of};
+use crate::color::{
+    ACCENT_TEXT_VAR, ACCENT_VAR, BORDER_VAR, DANGER_VAR, FOCUS_VAR, HOVER_VAR, OVERLAY_VAR,
+    PRESSED_VAR, RAISED_VAR, SELECTION_VAR, SHADOW_VAR, SUCCESS_VAR, SURFACE_ALT_VAR, SURFACE_VAR,
+    TEXT_MUTED_VAR, TEXT_VAR, WARNING_VAR,
+};
+use crate::color_value::{Color, Repr, rgb, rgba};
 use crate::icon::IconSet;
-use kivact_runtime::{Owner, Value};
-use kivact_types::{ColorInterpolation, ColorSpace, LineHeight, Rgba, SpaceColor, interpolate};
+use kivact_runtime::driver::EffectKind;
+use kivact_runtime::{ErrorKind, Owner, UiError, Value};
+use kivact_types::cell::{ReportOnceSet, SharedDeferred};
+use kivact_types::{
+    ColorInterpolation, ColorSpace, Rgba, SharedTypeMap, SpaceColor, ThemeVar, ThemeVarId,
+    VarValue, interpolate,
+};
 use std::any::{Any, TypeId};
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
-/// A value a component library adds to a [`Theme`]: its own colors, sizes
-/// and fonts beside the core's palette and scales (tokens), or a table of
-/// style functions for its components (recipes).
+/// A value a component library adds to a [`Theme`]: its own tables beside
+/// the theme's variables (recipes, policies), or a table of style functions
+/// for its components (recipes).
 ///
 /// A library defines one type for each, installs a value with
 /// [`Theme::with`] in its theme constructor, and reads it with
@@ -34,8 +45,9 @@ use std::sync::{Arc, Mutex};
 /// installed value and copies nothing. Two themes are equal when their
 /// installed extensions are equal.
 ///
-/// The standard components read `kivact::ui::UiRecipes`, a table of style
-/// functions with [`Default`] as its fallback; a component library may
+/// The standard components read their component themes (`kivact::ui::theme::ButtonTheme`
+/// and the other `<Name>Theme` tables), each a table of style functions with
+/// [`Default`] as its fallback; a component library may
 /// define a table for its own components the same way. To change part of a
 /// table a theme already has (a kit's look), clone the value that
 /// [`Theme::ext`] returns, change it and install it again.
@@ -45,8 +57,8 @@ use std::sync::{Arc, Mutex};
 /// different table even when it holds the same functions. Build a kit's
 /// table once and share it (a `static` [`OnceLock`](std::sync::OnceLock)
 /// that the theme constructor clones). A theme built in a closure that
-/// builds its table each time (`move || Theme::light().with(UiRecipes::default()
-/// .button(..))`) restyles every component under it on each run of the
+/// builds its table each time (`move || Theme::light().with(ButtonTheme::default()
+/// .root(..))`) restyles every component under it on each run of the
 /// closure. An [`IconSet`] built anew is compared name by name instead:
 /// no restyle, but a comparison of every entry.
 ///
@@ -92,254 +104,230 @@ impl<T: Clone> ThemeRef<T> {
         (*self.0).clone()
     }
 }
-impl From<kivact_types::ThemeHint> for ThemeMode {
-    fn from(value: kivact_types::ThemeHint) -> Self {
-        match value {
-            kivact_types::ThemeHint::Light => Self::Light,
-            kivact_types::ThemeHint::Dark => Self::Dark,
-        }
-    }
-}
-/// The current theme's installed extension.
-#[track_caller]
-pub fn use_tokens<T: ThemeExtension>() -> ThemeRef<T> {
-    use_theme().with(Theme::ext::<T>)
-}
+pub use kivact_types::ThemeMode;
 
-/// One installed extension, keyed by its type.
-#[derive(Clone)]
-struct Entry {
-    id: TypeId,
-    value: Arc<dyn Any + Send + Sync>,
-    eq: fn(&dyn Any, &dyn Any) -> bool,
-    debug: fn(&dyn Any, &mut std::fmt::Formatter<'_>) -> std::fmt::Result,
-}
-
-impl Entry {
-    fn new<T: PartialEq + std::fmt::Debug + Send + Sync + 'static>(value: T) -> Self {
-        fn eq<T: PartialEq + 'static>(a: &dyn Any, b: &dyn Any) -> bool {
-            a.downcast_ref::<T>() == b.downcast_ref::<T>()
-        }
-        fn debug<T: std::fmt::Debug + 'static>(
-            value: &dyn Any,
-            f: &mut std::fmt::Formatter<'_>,
-        ) -> std::fmt::Result {
-            match value.downcast_ref::<T>() {
-                Some(value) => value.fmt(f),
-                None => Ok(()),
-            }
-        }
-        Entry {
-            id: TypeId::of::<T>(),
-            value: Arc::new(value),
-            eq: eq::<T>,
-            debug: debug::<T>,
-        }
-    }
-}
-
-impl std::fmt::Debug for Entry {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        (self.debug)(self.value.as_ref(), f)
-    }
-}
-
-/// The installed extensions; a theme without any allocates
-/// nothing, and clones share the table.
-#[derive(Clone, Debug, Default)]
-struct Extensions(Option<Arc<Vec<Entry>>>);
-
-impl PartialEq for Extensions {
-    fn eq(&self, other: &Self) -> bool {
-        let a = self.0.as_deref().map_or(&[][..], Vec::as_slice);
-        let b = other.0.as_deref().map_or(&[][..], Vec::as_slice);
-        a.len() == b.len()
-            && a.iter().all(|entry| {
-                b.iter()
-                    .find(|other| other.id == entry.id)
-                    .is_some_and(|other| {
-                        Arc::ptr_eq(&entry.value, &other.value)
-                            || (entry.eq)(entry.value.as_ref(), other.value.as_ref())
-                    })
-            })
-    }
-}
-
-impl Extensions {
-    fn insert(&mut self, entry: Entry) {
-        let entries = Arc::make_mut(self.0.get_or_insert_with(|| Arc::new(Vec::new())));
-        match entries.iter_mut().find(|e| e.id == entry.id) {
-            Some(slot) => *slot = entry,
-            None => entries.push(entry),
-        }
-    }
-
-    fn get<T: Send + Sync + 'static>(&self) -> Option<Arc<T>> {
-        let entry = self
-            .0
-            .as_ref()?
-            .iter()
-            .find(|e| e.id == TypeId::of::<T>())?;
-        Arc::downcast::<T>(entry.value.clone()).ok()
-    }
-}
-
-/// Whether a theme is light or dark. Every kit's theme constructor takes
-/// it first (`theme(ThemeMode::Dark, ..)`), and a kit's tokens fall back to
-/// the values of a theme's mode. Which mode to show (the system's, a
-/// setting) is the application's choice.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum ThemeMode {
-    #[default]
-    Light,
-    Dark,
+/// The values of a [`Theme`], shared by its clones.
+#[derive(Clone, Debug, PartialEq)]
+struct ThemeData {
+    extensions: SharedTypeMap,
+    mode: ThemeMode,
+    vars: VarTable,
+    focus_ring: f64,
+    focus_ring_offset: f64,
+    icons: IconSet,
+    fonts: FontFiles,
+    fallbacks: Fallbacks,
 }
 
 /// A complete theme. Replace with `App::theme` or `kivact::style::provide_theme`.
 ///
-/// Read its values with the accessors (`theme.space().md`) and change them
-/// with the `with_*` builders, which keep everything else:
-/// `Theme::light().with_focus_ring(3.0)`. A part of a table changes by
-/// copying it: `theme.with_colors(Palette { accent, ..theme.colors().clone() })`.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Theme {
-    extensions: Extensions,
-    mode: ThemeMode,
-    colors: Palette,
-    space: Spacing,
-    radius: Radii,
-    text: Typography,
-    focus_ring: f64,
-    focus_ring_offset: f64,
-    disabled_opacity: f64,
-    control_height: f64,
-    overlay_margin: f64,
-    icons: IconSet,
+/// Read its theme variables with [`get`](Self::get) (`theme.get(&space::MD_VAR)`)
+/// and set them with [`set`](Self::set), which keeps everything else:
+/// `Theme::light().set(&color::ACCENT_VAR, rgb(0xff0000))`. The `with_*`
+/// builders change the other fields: `Theme::light().with_focus_ring(3.0)`.
+///
+/// A theme is a shared value: a clone costs a reference count, and two
+/// clones compare equal at once.
+#[derive(Clone, Debug)]
+pub struct Theme(Arc<ThemeData>);
+
+impl PartialEq for Theme {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0) || self.0 == other.0
+    }
+}
+
+// A theme is a `static` (`Theme::light`) and crosses to embed threads.
+const _: () = {
+    const fn shared<T: Send + Sync>() {}
+    shared::<Theme>();
+};
+
+/// Font files a theme registers, as assets (a path, embedded bytes, owned
+/// or shared bytes). `Asset` compares embedded and shared bytes by identity
+/// (address and allocation), never byte by byte; the host registers each
+/// asset once by that identity.
+#[derive(Clone, Debug, Default, PartialEq)]
+struct FontFiles(Vec<crate::asset::Asset>);
+
+/// The fallback values of the extensions this theme lacks, built once per
+/// theme value on the first read. A cache: it is not part of the
+/// theme's equality, and a changed copy of the theme starts empty.
+#[derive(Default)]
+struct Fallbacks(Mutex<Vec<(TypeId, Arc<dyn Any + Send + Sync>)>>);
+
+impl Clone for Fallbacks {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl PartialEq for Fallbacks {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+
+impl fmt::Debug for Fallbacks {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Fallbacks")
+    }
+}
+
+impl Fallbacks {
+    fn get<T: Send + Sync + 'static>(&self) -> Option<Arc<T>> {
+        let list = self
+            .0
+            .lock()
+            .expect("invariant: the theme fallback lock is not poisoned");
+        let found = list
+            .iter()
+            .find(|(id, _)| *id == TypeId::of::<T>())
+            .map(|(_, value)| Arc::clone(value));
+        drop(list);
+        found.and_then(|value| Arc::downcast::<T>(value).ok())
+    }
+
+    /// Keep `value` unless another reader stored one first; the one kept.
+    fn insert<T: Send + Sync + 'static>(&self, value: Arc<T>) -> Arc<T> {
+        let mut list = self
+            .0
+            .lock()
+            .expect("invariant: the theme fallback lock is not poisoned");
+        if let Some((_, kept)) = list.iter().find(|(id, _)| *id == TypeId::of::<T>())
+            && let Ok(kept) = Arc::downcast::<T>(Arc::clone(kept))
+        {
+            return kept;
+        }
+        list.push((
+            TypeId::of::<T>(),
+            Arc::clone(&value) as Arc<dyn Any + Send + Sync>,
+        ));
+        value
+    }
 }
 
 impl Theme {
+    /// The theme's values to change. Every write goes through here: it
+    /// copies shared values (`Arc::make_mut`) and empties the fallback
+    /// cache, so a fallback that reads what changes is built again,
+    /// whether this theme shared its values or not.
+    fn edit(&mut self) -> &mut ThemeData {
+        let data = Arc::make_mut(&mut self.0);
+        data.fallbacks = Fallbacks::default();
+        data
+    }
+
     /// Install an extension, replacing an earlier value of the same type.
     /// See [`ThemeExtension`].
     pub fn with<T: ThemeExtension>(mut self, value: T) -> Self {
-        self.extensions.insert(Entry::new(value));
+        let data = self.edit();
+        data.extensions = std::mem::take(&mut data.extensions).with(value);
         self
     }
 
     /// The extension of type `T` installed in this theme, or
     /// [`ThemeExtension::fallback`] when there is none. The installed value
-    /// is shared, not copied.
+    /// is shared, not copied; a fallback is built once per theme value.
     pub fn ext<T: ThemeExtension>(&self) -> ThemeRef<T> {
-        ThemeRef(
-            self.extensions
-                .get::<T>()
-                .unwrap_or_else(|| Arc::new(T::fallback(self))),
-        )
+        if let Some(value) = self.0.extensions.get_shared::<T>() {
+            return ThemeRef(value);
+        }
+        if let Some(value) = self.0.fallbacks.get::<T>() {
+            return ThemeRef(value);
+        }
+        // Built outside the lock: a fallback may read other extensions.
+        let built = Arc::new(T::fallback(self));
+        ThemeRef(self.0.fallbacks.insert(built))
     }
 
     /// Whether the palette is light or dark.
     pub fn mode(&self) -> ThemeMode {
-        self.mode
+        self.0.mode
     }
 
-    /// The color table (the value of each [`ColorToken`](crate::ColorToken)).
-    pub fn colors(&self) -> &Palette {
-        &self.colors
+    /// The value of `var` in this theme: the value it sets, else the
+    /// variable's fallback, aliases followed.
+    pub fn get<T: ThemeValue>(&self, var: &'static ThemeVar<T>) -> T {
+        lookup(self, var)
     }
 
-    /// The spacing scale.
-    pub fn space(&self) -> &Spacing {
-        &self.space
+    /// The theme with `var` set to `value`: a value, or another variable
+    /// of the same type (an alias, CSS `--accent: var(--primary)`:
+    /// `.set(&color::ACCENT_VAR, &PRIMARY_VAR)`, `.set(&FIELD_RADIUS_VAR, &radius::MD_VAR)`),
+    /// followed up to 8 steps; a cycle uses the fallback and is reported
+    /// once (`ErrorKind::Unsupported`) where the theme is provided.
+    #[must_use]
+    pub fn set<T: ThemeValue>(
+        mut self,
+        var: &'static ThemeVar<T>,
+        value: impl Into<VarValue<T>>,
+    ) -> Theme {
+        self.edit()
+            .vars
+            .insert(ThemeVarId::of(var), var.name(), T::into_slot(value.into()));
+        self
     }
 
-    /// The corner radii.
-    pub fn radius(&self) -> &Radii {
-        &self.radius
+    /// The variable's slot in this theme, if the theme sets it.
+    pub(crate) fn slot(&self, id: ThemeVarId) -> Option<&VarSlot> {
+        self.0.vars.get(id)
     }
 
-    /// The base type settings.
-    pub fn text(&self) -> &Typography {
-        &self.text
+    /// The names of the variables of this theme whose aliases do not
+    /// end (reported by `install_theme`).
+    #[doc(hidden)]
+    pub fn var_problems(&self) -> Vec<&'static str> {
+        self.0.vars.problems(self)
     }
 
     /// The width (px) of the ring a focusable element draws in
-    /// [`ColorToken::Focus`](crate::ColorToken::Focus) while it has
+    /// [`color::FOCUS`](crate::color::FOCUS) while it has
     /// visible focus, unless its style has a focus look of its own (a
     /// `focus` or `focus_visible` state;
-    /// `style().focus_visible(style().ring_none())` draws none).
+    /// `style().focus_visible(style().outline_none())` draws none).
     pub fn focus_ring(&self) -> f64 {
-        self.focus_ring
+        self.0.focus_ring
     }
 
     /// The gap in logical pixels between the border box and the theme focus ring.
     pub fn focus_ring_offset(&self) -> f64 {
-        self.focus_ring_offset
-    }
-
-    /// The opacity a disabled focusable element is drawn with, unless its
-    /// style's `disabled` state sets an opacity of its own. Every element
-    /// with an interaction part counts, so an item of a roving list that is
-    /// not the tab stop (a disabled one never is) is dimmed too
-    /// (`style().disabled(style().opacity(1.0))` keeps it opaque). A disabled
-    /// focusable element also drops its hover and pressed looks.
-    pub fn disabled_opacity(&self) -> f64 {
-        self.disabled_opacity
-    }
-
-    /// Minimum height of interactive controls (px).
-    pub fn control_height(&self) -> f64 {
-        self.control_height
-    }
-    /// Viewport inset used to fit overlays, in logical pixels.
-    pub fn overlay_margin(&self) -> f64 {
-        self.overlay_margin
-    }
-    /// Set the viewport inset used to fit overlays, in logical pixels.
-    #[must_use]
-    pub fn with_overlay_margin(mut self, margin: f64) -> Self {
-        self.overlay_margin = margin;
-        self
+        self.0.focus_ring_offset
     }
 
     /// The images an [`Icon`](crate::Icon) name resolves to. The
     /// core's set has the marks the standard components draw; a component
     /// library adds or replaces names with [`Theme::with_icon`].
     pub fn icons(&self) -> &IconSet {
-        &self.icons
+        &self.0.icons
+    }
+
+    /// The font files the theme registers, in the order added.
+    pub fn fonts(&self) -> &[crate::asset::Asset] {
+        &self.0.fonts.0
+    }
+
+    /// The theme with these font files added to the ones it has (a family
+    /// in them is then usable by name in `font_family`). `App::theme` and
+    /// `kivact::test::RenderOptions::with_theme` register them; a theme
+    /// switched to later registers its own too.
+    /// Any asset is a font file: `include_bytes!(..)`, a path, a `Vec<u8>`
+    /// read at run time, shared bytes.
+    #[must_use]
+    pub fn with_fonts(
+        mut self,
+        fonts: impl IntoIterator<Item = impl Into<crate::asset::Asset>>,
+    ) -> Theme {
+        let added: Vec<crate::asset::Asset> = fonts.into_iter().map(Into::into).collect();
+        self.edit().fonts.0.extend(added);
+        self
     }
 
     /// The theme with `mode`. Only the label changes: the palette stays as it
     /// is (a kit's constructor sets both).
     #[must_use]
     pub fn with_mode(mut self, mode: ThemeMode) -> Self {
-        self.mode = mode;
-        self
-    }
-
-    /// The theme with the color table `colors`.
-    #[must_use]
-    pub fn with_colors(mut self, colors: Palette) -> Self {
-        self.colors = colors;
-        self
-    }
-
-    /// The theme with the spacing scale `space`.
-    #[must_use]
-    pub fn with_space(mut self, space: Spacing) -> Self {
-        self.space = space;
-        self
-    }
-
-    /// The theme with the corner radii `radius`.
-    #[must_use]
-    pub fn with_radius(mut self, radius: Radii) -> Self {
-        self.radius = radius;
-        self
-    }
-
-    /// The theme with the type settings `text`.
-    #[must_use]
-    pub fn with_text(mut self, text: Typography) -> Self {
-        self.text = text;
+        self.edit().mode = mode;
         self
     }
 
@@ -347,35 +335,20 @@ impl Theme {
     /// [`focus_ring`](Self::focus_ring).
     #[must_use]
     pub fn with_focus_ring(mut self, focus_ring: impl Into<f64>) -> Self {
-        self.focus_ring = focus_ring.into();
+        self.edit().focus_ring = focus_ring.into();
         self
     }
 
     /// Set the gap in logical pixels before the theme focus ring.
     pub fn with_focus_ring_offset(mut self, offset: impl Into<f64>) -> Self {
-        self.focus_ring_offset = offset.into();
-        self
-    }
-
-    /// The theme with the disabled opacity `disabled_opacity`; see
-    /// [`disabled_opacity`](Self::disabled_opacity).
-    #[must_use]
-    pub fn with_disabled_opacity(mut self, disabled_opacity: impl Into<f64>) -> Self {
-        self.disabled_opacity = disabled_opacity.into();
-        self
-    }
-
-    /// The theme with the minimum control height `control_height` (px).
-    #[must_use]
-    pub fn with_control_height(mut self, control_height: impl Into<f64>) -> Self {
-        self.control_height = control_height.into();
+        self.edit().focus_ring_offset = offset.into();
         self
     }
 
     /// The theme with the icon set `icons`, replacing the whole set.
     #[must_use]
     pub fn with_icons(mut self, icons: IconSet) -> Self {
-        self.icons = icons;
+        self.edit().icons = icons;
         self
     }
 
@@ -388,91 +361,58 @@ impl Theme {
         image: impl Into<crate::asset::Asset>,
     ) -> Self {
         let name: String = name.into();
-        self.icons = self.icons.with(name, image);
+        let icons = self.0.icons.clone().with(name, image);
+        self.edit().icons = icons;
         self
     }
 
-    /// Light business-tool theme.
+    /// Light business-tool theme. A clone of one shared value.
     pub fn light() -> Theme {
-        Theme {
-            extensions: Extensions::default(),
-            mode: ThemeMode::Light,
-            colors: Palette {
-                surface: rgb(0xffffff),
-                surface_alt: rgb(0xf3f4f6),
-                text: rgb(0x111827),
-                text_muted: rgb(0x6b7280),
-                accent: rgb(0x2563eb),
-                accent_text: rgb(0xffffff),
-                border: rgb(0xd1d5db),
-                focus: rgb(0x2563eb),
-                danger: rgb(0xdc2626),
-                success: rgb(0x16a34a),
-                warning: rgb(0xd97706),
-                overlay: rgba(0x000000, 0.35),
-                shadow: rgba(0x000000, 0.2),
-                selection: rgba(0x2563eb, 0.15),
-                // Text at 5% over Surface is close to SurfaceAlt; a press doubles it.
-                hover: rgba(0x111827, 0.05),
-                pressed: rgba(0x111827, 0.10),
-                // A shadow lifts a menu off a light page; no tint needed.
-                raised: rgb(0xffffff),
-            },
-            space: Spacing {
-                xs: 2.0,
-                sm: 4.0,
-                md: 8.0,
-                lg: 12.0,
-                xl: 16.0,
-            },
-            radius: Radii {
-                sm: 3.0,
-                md: 6.0,
-                lg: 10.0,
-            },
-            text: Typography {
-                family: None,
-                size: 14.0,
-                size_small: 12.0,
-                size_large: 18.0,
-                weight: 400,
-                weight_strong: 600,
-                line_height: LineHeight::Scale(1.35),
-            },
-            focus_ring: 2.0,
-            focus_ring_offset: 0.0,
-            disabled_opacity: 0.5,
-            control_height: 28.0,
-            overlay_margin: 0.0,
-            icons: IconSet::standard(),
-        }
+        static LIGHT: SharedDeferred<Theme> = SharedDeferred::new();
+        LIGHT.get_or_init(Theme::light_theme).clone()
     }
 
-    /// Dark theme with the same metrics.
+    /// Dark theme with the same metrics. A clone of one shared value.
     pub fn dark() -> Theme {
+        static DARK: SharedDeferred<Theme> = SharedDeferred::new();
+        DARK.get_or_init(Theme::dark_theme).clone()
+    }
+
+    fn light_theme() -> Theme {
+        Theme(Arc::new(ThemeData {
+            extensions: SharedTypeMap::new(),
+            mode: ThemeMode::Light,
+            vars: VarTable::default(),
+            focus_ring: 2.0,
+            focus_ring_offset: 0.0,
+            icons: IconSet::standard(),
+            fonts: FontFiles::default(),
+            fallbacks: Fallbacks::default(),
+        }))
+    }
+
+    fn dark_theme() -> Theme {
         Theme::light()
             .with_mode(ThemeMode::Dark)
-            .with_colors(Palette {
-                surface: rgb(0x111827),
-                surface_alt: rgb(0x1f2937),
-                text: rgb(0xf9fafb),
-                text_muted: rgb(0x9ca3af),
-                accent: rgb(0x3b82f6),
-                accent_text: rgb(0xffffff),
-                border: rgb(0x374151),
-                focus: rgb(0x60a5fa),
-                danger: rgb(0xf87171),
-                success: rgb(0x4ade80),
-                warning: rgb(0xfbbf24),
-                overlay: rgba(0x000000, 0.5),
-                shadow: rgba(0x000000, 0.5),
-                selection: rgba(0x3b82f6, 0.3),
-                // Text at 7.5% over Surface is close to SurfaceAlt; a press doubles it.
-                hover: rgba(0xf9fafb, 0.075),
-                pressed: rgba(0xf9fafb, 0.15),
-                // Shadows vanish on a dark page, so a floating surface is lighter.
-                raised: rgb(0x1f2937),
-            })
+            .set(&SURFACE_VAR, rgb(0x111827))
+            .set(&SURFACE_ALT_VAR, rgb(0x1f2937))
+            .set(&TEXT_VAR, rgb(0xf9fafb))
+            .set(&TEXT_MUTED_VAR, rgb(0x9ca3af))
+            .set(&ACCENT_VAR, rgb(0x3b82f6))
+            .set(&ACCENT_TEXT_VAR, rgb(0xffffff))
+            .set(&BORDER_VAR, rgb(0x374151))
+            .set(&FOCUS_VAR, rgb(0x60a5fa))
+            .set(&DANGER_VAR, rgb(0xf87171))
+            .set(&SUCCESS_VAR, rgb(0x4ade80))
+            .set(&WARNING_VAR, rgb(0xfbbf24))
+            .set(&OVERLAY_VAR, rgba(0x000000, 0.5))
+            .set(&SHADOW_VAR, rgba(0x000000, 0.5))
+            .set(&SELECTION_VAR, rgba(0x3b82f6, 0.3))
+            // Text at 7.5% over Surface is close to SurfaceAlt; a press doubles it.
+            .set(&HOVER_VAR, rgba(0xf9fafb, 0.075))
+            .set(&PRESSED_VAR, rgba(0xf9fafb, 0.15))
+            // Shadows vanish on a dark page, so a floating surface is lighter.
+            .set(&RAISED_VAR, rgb(0x1f2937))
     }
 }
 
@@ -495,8 +435,28 @@ kivact_runtime::constant_value!(Theme);
 /// The App's root and `kivact::style::provide_theme` use it;
 /// [`use_theme`] and [`theme_of`] read the nearest one above the
 /// caller.
+#[track_caller]
 pub fn install_theme(owner: Owner, theme: Value<Theme>) {
     owner.provide(ThemeCtx(theme));
+    let at = std::panic::Location::caller();
+    let reported = ReportOnceSet::new();
+    owner.effect(
+        EffectKind::Render,
+        move || {
+            for name in theme.with(Theme::var_problems) {
+                if reported.note(name) {
+                    owner.report(UiError::new(
+                        ErrorKind::Unsupported,
+                        format!(
+                            "theme variable `{name}` is an alias that does not end within 8 steps (a cycle?); its fallback is used"
+                        ),
+                        Some(at),
+                    ));
+                }
+            }
+        },
+        at,
+    );
 }
 
 /// The theme provided to `owner`'s subtree by the nearest [`install_theme`]
@@ -507,186 +467,63 @@ pub fn theme_of(owner: Owner) -> Option<Value<Theme>> {
     owner.context::<ThemeCtx>().map(|c| c.0)
 }
 
+/// The theme in effect for the current owner, if there is one: like
+/// [`crate::use_theme`] but never a misuse and untracked (animation and
+/// luminance read it outside setup).
+pub fn try_use_theme() -> Option<Theme> {
+    let owner = Owner::try_ambient()?;
+    theme_of(owner).map(|theme| kivact_runtime::untrack(|| theme.get()))
+}
+
 /// The theme in effect for the nearest owner (setup, handler, task or
 /// effect): the one provided above it, else the default. Tracked when the
 /// provided theme is reactive. A located `SetupOnly` misuse outside every
 /// owner.
 #[track_caller]
 pub fn use_theme() -> Value<Theme> {
-    let owner = Owner::ambient("use_theme", std::panic::Location::caller());
+    let owner = Owner::running("use_theme", std::panic::Location::caller());
     match theme_of(owner) {
         Some(s) => s,
         None => owner.constant(Theme::default(), std::panic::Location::caller()),
     }
 }
 
-/// A color that resolves against the theme it is painted in: what every
-/// color input of a style, a gradient or a [`Draw`](crate::draw::Draw) accepts.
-///
-/// [`Color`] is the identity and [`ColorToken`] reads the theme's
-/// [`Palette`](crate::theme::Palette). A component kit names its own colors
-/// with a `Color` enum that implements this trait by reading its tokens
-/// (`theme.ext::<Tokens>().border`), so `style().background(basic::ColorName::Border)`
-/// follows a theme switch without a closure around it.
-///
-/// The returned [`Color`] may itself be a token or carry an alpha; it is
-/// resolved against the same theme. An implementor is a small value type
-/// (a field-less enum): the process keeps one shared copy of each distinct
-/// value, so a value that is built from a number (`Gray(f64)`) would grow
-/// that table without bound.
-pub trait ThemeColor: Copy + PartialEq + fmt::Debug + Send + Sync + 'static {
-    /// The color this value stands for in `theme`.
-    fn resolve(self, theme: &Theme) -> Color;
-}
-
-impl ThemeColor for Color {
-    fn resolve(self, _: &Theme) -> Color {
-        self
-    }
-}
-
-impl ThemeColor for ColorToken {
-    fn resolve(self, theme: &Theme) -> Color {
-        theme.colors().get(self)
-    }
-}
-
-/// A [`ThemeColor`] value behind a shared reference, so a [`Color`] stays
-/// `Copy`: [`Color::of`] stores one per distinct value and the color holds
-/// its index.
-trait Themed: Send + Sync {
-    fn resolve(&self, theme: &Theme) -> Color;
-    fn value(&self) -> &dyn Any;
-}
-
-impl<T: ThemeColor> Themed for T {
-    fn resolve(&self, theme: &Theme) -> Color {
-        ThemeColor::resolve(*self, theme)
-    }
-    fn value(&self) -> &dyn Any {
-        self
-    }
-}
-
-/// A non-shrinking interning table with one entry per distinct `ThemeColor`
-/// value. A Copy `Color` indexes it without carrying a theme.
-static THEMED: Mutex<Vec<&'static dyn Themed>> = Mutex::new(Vec::new());
-
-fn themed_index<T: ThemeColor>(value: T) -> u32 {
-    let mut table = THEMED
-        .lock()
-        .expect("invariant: the THEMED interning lock is not poisoned");
-    let known = table
-        .iter()
-        .position(|v| v.value().downcast_ref::<T>() == Some(&value));
-    known.unwrap_or_else(|| {
-        table.push(Box::leak(Box::new(value)));
-        table.len() - 1
-    }) as u32
-}
-
-fn themed_value(index: u32) -> &'static dyn Themed {
-    let table = THEMED
-        .lock()
-        .expect("invariant: the THEMED interning lock is not poisoned");
-    table[index as usize]
-}
-
 impl Color {
     /// The color as the engine paints it: a literal as it is, a token looked
     /// up in `theme`, with the color's alpha applied. A color in a CSS color
     /// space is gamut mapped into sRGB here, once.
-    pub fn resolve(self, theme: &Theme) -> Rgba {
+    pub(crate) fn resolve(self, theme: &Theme) -> Rgba {
         match self.0 {
             Repr::Rgba(r, g, b, a) => Rgba { r, g, b, a },
             Repr::Space(c) => c.to_srgb(),
-            Repr::Token(t, a) => theme.colors.get(t).resolve_concrete().with_alpha_mul(a),
-            Repr::Themed(i, a) => themed_value(i)
-                .resolve(theme)
-                .resolve(theme)
-                .with_alpha_mul(a),
+            Repr::Var(v, a) => theme.get(v).resolve(theme).with_alpha_mul(a),
         }
     }
 
     /// The color in the space it was authored in (before gamut mapping), as
     /// gradient stops and interpolation take it.
-    pub fn resolve_space(self, theme: &Theme) -> SpaceColor {
+    pub(crate) fn resolve_space(self, theme: &Theme) -> SpaceColor {
         match self.0 {
             Repr::Rgba(r, g, b, a) => SpaceColor::from_rgba(Rgba { r, g, b, a }),
             Repr::Space(c) => c,
-            Repr::Token(t, a) => {
-                let mut c = theme.colors.get(t).resolve_space_concrete();
-                c.alpha *= a;
-                c
-            }
-            Repr::Themed(i, a) => {
-                let mut c = themed_value(i).resolve(theme).resolve_space(theme);
+            Repr::Var(v, a) => {
+                let mut c = theme.get(v).resolve_space(theme);
                 c.alpha *= a;
                 c
             }
         }
-    }
-
-    fn resolve_concrete(self) -> Rgba {
-        match self.0 {
-            Repr::Rgba(r, g, b, a) => Rgba { r, g, b, a },
-            Repr::Space(c) => c.to_srgb(),
-            Repr::Token(..) | Repr::Themed(..) => Rgba {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 1.0,
-            },
-        }
-    }
-
-    /// A palette entry without a theme: a literal, or opaque black.
-    fn resolve_space_concrete(self) -> SpaceColor {
-        match self.0 {
-            Repr::Rgba(r, g, b, a) => SpaceColor::from_rgba(Rgba { r, g, b, a }),
-            Repr::Space(c) => c,
-            Repr::Token(..) | Repr::Themed(..) => SpaceColor::from_rgba(Rgba {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 1.0,
-            }),
-        }
-    }
-
-    /// The color of any [`ThemeColor`]: resolved against the theme when it
-    /// is painted. A [`Color`] and a [`ColorToken`] are themselves.
-    pub fn of<C: ThemeColor>(color: C) -> Color {
-        let any: &dyn Any = &color;
-        if let Some(c) = any.downcast_ref::<Color>() {
-            *c
-        } else if let Some(t) = any.downcast_ref::<ColorToken>() {
-            Color::token(*t)
-        } else {
-            Color(Repr::Themed(themed_index(color), 1.0))
-        }
-    }
-
-    /// Concrete components (tokens resolved against the default theme).
-    pub fn components(self) -> [f64; 4] {
-        self.components_in(&Theme::default())
     }
 
     /// Components resolved against the supplied theme, in sRGB.
-    pub fn components_in(self, theme: &Theme) -> [f64; 4] {
+    pub fn components(self, theme: &Theme) -> [f64; 4] {
         let c = self.resolve(theme);
         [c.r, c.g, c.b, c.a]
     }
 
-    /// Mix in Oklab (premultiplied); `amount = 0` is self, `1` is other.
-    /// Theme tokens resolve against the default theme. Use `mix_in` in a theme style.
-    /// The result keeps its space: gamut mapping happens when it is painted.
-    pub fn mix(self, other: Color, amount: impl Into<f64>) -> Color {
-        self.mix_in(other, amount, &Theme::default())
-    }
-
-    /// Mix after resolving both colors against the supplied theme.
-    pub fn mix_in(self, other: Color, amount: impl Into<f64>, theme: &Theme) -> Color {
+    /// Mix in Oklab (premultiplied) after resolving both colors in `theme`;
+    /// `amount = 0` is self, `1` is other. The result keeps its space until
+    /// it is painted.
+    pub fn mix(self, other: Color, amount: impl Into<f64>, theme: &Theme) -> Color {
         let t = (amount.into()).clamp(0.0, 1.0);
         let a = self.resolve_space(theme);
         let b = other.resolve_space(theme);
@@ -697,6 +534,34 @@ impl Color {
             ColorInterpolation::DEFAULT,
         )))
     }
+
+    /// The WCAG relative luminance of the color, from 0 (black) to 1
+    /// (white). A theme token resolves in the theme in effect; the alpha
+    /// is ignored.
+    pub fn relative_luminance(self) -> f64 {
+        let c = self.resolve(&ambient_theme()).sanitize();
+        let linear = |v: f64| {
+            if v <= 0.04045 {
+                v / 12.92
+            } else {
+                ((v + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * linear(c.r) + 0.7152 * linear(c.g) + 0.0722 * linear(c.b)
+    }
+
+    /// The WCAG contrast ratio of two colors, from 1 to 21.
+    pub fn contrast_ratio(self, other: Color) -> f64 {
+        let (a, b) = (self.relative_luminance(), other.relative_luminance());
+        let (high, low) = if a >= b { (a, b) } else { (b, a) };
+        (high + 0.05) / (low + 0.05)
+    }
+}
+
+/// The theme a color resolves in where no theme is passed: the theme in
+/// effect, else the light theme.
+fn ambient_theme() -> Theme {
+    try_use_theme().unwrap_or_else(Theme::light)
 }
 
 /// The Oklab premultiplied components of a color (L·α, a·α, b·α, α) that
@@ -711,7 +576,7 @@ fn premultiplied_oklab(c: SpaceColor) -> [f64; 4] {
 impl kivact_runtime::Animatable for Color {
     const COMPONENTS: usize = 4;
     fn to_components(&self, out: &mut Vec<f64>) {
-        let c = self.resolve_space(&Theme::default());
+        let c = self.resolve_space(&ambient_theme());
         out.extend_from_slice(&premultiplied_oklab(c));
     }
     fn from_components(c: &[f64]) -> Self {
@@ -726,82 +591,257 @@ impl kivact_runtime::Animatable for Color {
     }
 }
 
+/// How many aliases a lookup follows.
+const MAX_ALIASES: usize = 8;
+
+/// What `var` holds in `theme`: the value it sets, else its fallback.
+fn held<T: ThemeValue>(theme: &Theme, var: &'static ThemeVar<T>) -> VarValue<T> {
+    theme
+        .slot(ThemeVarId::of(var))
+        .and_then(T::from_slot)
+        .unwrap_or_else(|| var.fallback().clone())
+}
+
+/// The value of `var` in `theme`, aliases followed up to `MAX_ALIASES`. A
+/// chain that does not end takes the first variable's fallback when that
+/// is a plain value, else `T::on_cycle()`; `Theme::var_problems` names it.
+pub(crate) fn lookup<T: ThemeValue>(theme: &Theme, var: &'static ThemeVar<T>) -> T {
+    let mut at = var;
+    let mut alpha = 1.0;
+    for _ in 0..=MAX_ALIASES {
+        let value = held(theme, at);
+        match next_of(&value) {
+            Some((next, a)) => {
+                alpha *= a;
+                at = next;
+            }
+            None => match value {
+                VarValue::Value(v) => return v.with_alias_alpha(alpha),
+                VarValue::Var(_) => unreachable!("invariant: next_of follows every Var"),
+            },
+        }
+    }
+    match var.fallback() {
+        VarValue::Value(v) if v.as_alias().is_none() => v.clone(),
+        _ => T::on_cycle(),
+    }
+}
+
+/// Whether the chain starting at `start` reaches a plain value within
+/// `MAX_ALIASES` steps.
+fn ends<T: ThemeValue>(theme: &Theme, start: &VarValue<T>) -> bool {
+    let mut value = start.clone();
+    for _ in 0..=MAX_ALIASES {
+        let Some((next, _)) = next_of(&value) else {
+            return true;
+        };
+        value = held(theme, next);
+    }
+    false
+}
+
+impl VarTable {
+    /// The names of the variables (of every type) whose aliases do not
+    /// end within `MAX_ALIASES` steps (a cycle or too long a chain).
+    pub(crate) fn problems(&self, theme: &Theme) -> Vec<&'static str> {
+        self.0
+            .iter()
+            .filter(|(_, _, slot)| match slot {
+                VarSlot::Color(v) => !ends(theme, v),
+                VarSlot::Number(v) => !ends(theme, v),
+                VarSlot::Weight(v) => !ends(theme, v),
+                VarSlot::LineHeight(v) => !ends(theme, v),
+                VarSlot::Family(v) => !ends(theme, v),
+            })
+            .map(|(_, name, _)| *name)
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     //! Role: Tests for theme-resolved colors.
     use super::*;
 
-    #[derive(Clone, Copy, Debug, PartialEq)]
-    enum Kit {
-        Edge,
-        Fill,
+    use crate::color::ACCENT;
+    use crate::font;
+    use crate::radius;
+    use crate::theme::FontFamily;
+    use kivact_types::LineHeight;
+
+    static PRIMARY_VAR: ThemeVar<Color> = ThemeVar::new("test.primary", rgb(0x00ff00));
+    static A_VAR: ThemeVar<Color> = ThemeVar::new("test.a", rgb(0x010203));
+    static B_VAR: ThemeVar<Color> = ThemeVar::new("test.b", rgb(0x040506));
+    static NA: ThemeVar<f64> = ThemeVar::new("test.na", 7.0);
+    static NB: ThemeVar<f64> = ThemeVar::alias("test.nb", &NA);
+    static FIELD_VAR: ThemeVar<f64> = ThemeVar::alias("test.field", &radius::MD_VAR);
+    static WEIGHT_ALIAS_VAR: ThemeVar<u16> =
+        ThemeVar::alias("test.weight", &font::WEIGHT_STRONG_VAR);
+    static FAMILY_ALIAS_VAR: ThemeVar<FontFamily> =
+        ThemeVar::new("test.family", FontFamily::SYSTEM);
+    static LINE_HEIGHT_ALIAS_VAR: ThemeVar<LineHeight> =
+        ThemeVar::new("test.line_height", LineHeight::Normal);
+
+    #[test]
+    fn a_variable_takes_the_theme_value_or_its_fallback() {
+        assert_eq!(Theme::light().get(&ACCENT_VAR), rgb(0x2563eb));
+        let theme = Theme::light().set(&ACCENT_VAR, rgb(0xff0000));
+        assert_eq!(theme.get(&ACCENT_VAR), rgb(0xff0000));
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq)]
-    enum Other {
-        Edge,
+    #[test]
+    fn an_alias_resolves_through_another_variable() {
+        let theme = Theme::light().set(&ACCENT_VAR, Color::var(&PRIMARY_VAR));
+        assert_eq!(
+            theme.get(&ACCENT_VAR).resolve(&theme),
+            rgb(0x00ff00).resolve(&theme)
+        );
     }
 
-    impl ThemeColor for Kit {
-        fn resolve(self, theme: &Theme) -> Color {
-            match self {
-                Kit::Edge => ColorToken::Border.resolve(theme),
-                Kit::Fill => rgb(0x102030),
+    #[test]
+    fn alpha_multiplies_through_an_alias() {
+        let theme = Theme::light().set(&ACCENT_VAR, Color::var(&PRIMARY_VAR).with_alpha(0.5));
+        assert_eq!(theme.get(&ACCENT_VAR).resolve(&theme).a, 0.5);
+        assert_eq!(ACCENT.resolve(&theme).a, 0.5);
+    }
+
+    #[test]
+    fn a_cycle_takes_the_fallback_and_is_named() {
+        let theme = Theme::light().set(&A_VAR, &B_VAR).set(&B_VAR, &A_VAR);
+        assert_eq!(theme.get(&A_VAR), rgb(0x010203));
+        let problems = theme.var_problems();
+        assert!(problems.contains(&"test.a"));
+        assert!(problems.contains(&"test.b"));
+    }
+
+    #[test]
+    fn a_number_cycle_takes_the_fallback_and_is_named() {
+        let theme = Theme::light().set(&NA, &NB).set(&NB, &NA);
+        assert_eq!(theme.get(&NA), 7.0);
+        let problems = theme.var_problems();
+        assert!(problems.contains(&"test.na"));
+        assert!(problems.contains(&"test.nb"));
+    }
+
+    #[test]
+    fn every_type_aliases_as_a_value_and_as_a_fallback() {
+        assert_eq!(Theme::light().get(&FIELD_VAR), 6.0);
+        let theme = Theme::light().set(&radius::MD_VAR, 20);
+        assert_eq!(theme.get(&FIELD_VAR), 20.0);
+        assert_eq!(theme.set(&FIELD_VAR, 4).get(&FIELD_VAR), 4.0);
+        assert_eq!(Theme::light().get(&WEIGHT_ALIAS_VAR), 600);
+        let theme = Theme::light()
+            .set(&FAMILY_ALIAS_VAR, &font::FAMILY_VAR)
+            .set(&font::FAMILY_VAR, FontFamily::from("Inter"));
+        assert_eq!(theme.get(&FAMILY_ALIAS_VAR).as_str(), Some("Inter"));
+        let theme = Theme::light().set(&LINE_HEIGHT_ALIAS_VAR, &font::LINE_HEIGHT_VAR);
+        assert_eq!(theme.get(&LINE_HEIGHT_ALIAS_VAR), LineHeight::Scale(1.35));
+    }
+
+    #[test]
+    fn dark_sets_the_core_colors() {
+        assert_eq!(Theme::dark().get(&crate::color::SURFACE_VAR), rgb(0x111827));
+    }
+
+    #[test]
+    fn components_and_mix_resolve_in_the_given_theme() {
+        let dark = Theme::dark();
+        let surface = crate::color::SURFACE.components(&dark);
+        assert_eq!(surface, rgb(0x111827).components(&dark));
+        // Mixing goes through Oklab and back, so the components agree to
+        // float rounding only.
+        let mixed = crate::color::SURFACE.mix(crate::color::TEXT, 0.0, &dark);
+        for (got, want) in mixed.components(&dark).into_iter().zip(surface) {
+            assert!((got - want).abs() < 1e-9, "{got} != {want}");
+        }
+    }
+
+    #[derive(Debug, PartialEq)]
+    struct Height(f64);
+
+    impl ThemeExtension for Height {
+        fn fallback(theme: &Theme) -> Self {
+            Height(theme.get(&crate::control::HEIGHT_VAR))
+        }
+    }
+
+    #[test]
+    fn clones_share_one_value_and_compare_at_once() {
+        let a = Theme::light();
+        let b = Theme::light();
+        assert!(a == b);
+        assert!(Arc::ptr_eq(&a.0, &b.0));
+    }
+
+    #[test]
+    fn a_missing_extension_falls_back_once_per_theme() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static BUILT: AtomicU32 = AtomicU32::new(0);
+        #[derive(Debug, PartialEq)]
+        struct Probe(u32);
+        impl ThemeExtension for Probe {
+            fn fallback(_: &Theme) -> Self {
+                BUILT.fetch_add(1, Ordering::Relaxed);
+                Probe(1)
             }
         }
-    }
-
-    impl ThemeColor for Other {
-        fn resolve(self, _: &Theme) -> Color {
-            Color::WHITE
-        }
-    }
-
-    #[test]
-    fn color_and_token_stay_themselves() {
-        assert_eq!(Color::of(Color::BLACK), Color::BLACK);
-        assert_eq!(
-            Color::of(ColorToken::Accent),
-            Color::token(ColorToken::Accent)
-        );
-    }
-
-    #[test]
-    fn a_theme_color_resolves_against_the_theme_it_is_painted_in() {
-        let light = Theme::light();
-        let dark = Theme::dark();
-        let edge = Color::of(Kit::Edge);
-        assert_eq!(
-            edge.resolve(&light),
-            Color::token(ColorToken::Border).resolve(&light)
-        );
-        assert_eq!(
-            edge.resolve(&dark),
-            Color::token(ColorToken::Border).resolve(&dark)
-        );
-        assert_ne!(edge.resolve(&light), edge.resolve(&dark));
-        assert_eq!(
-            Color::of(Kit::Fill).resolve(&dark),
-            rgb(0x102030).resolve(&dark)
-        );
-    }
-
-    #[test]
-    fn equal_values_are_one_color_and_other_values_differ() {
-        assert_eq!(Color::of(Kit::Edge), Color::of(Kit::Edge));
-        assert_ne!(Color::of(Kit::Edge), Color::of(Kit::Fill));
-        assert_ne!(Color::of(Kit::Edge), Color::of(Other::Edge));
-    }
-
-    #[test]
-    fn alpha_multiplies_what_the_value_resolves_to() {
         let theme = Theme::light();
-        let half = Color::of(Kit::Fill).with_alpha(0.5);
-        assert_eq!(half.resolve(&theme).a, 0.5);
-        assert_eq!(half.with_alpha(0.5).resolve(&theme).a, 0.25);
-        assert_eq!(
-            Color::of(Kit::Edge).with_alpha(0.5).resolve(&theme).a,
-            0.5 * Color::token(ColorToken::Border).resolve(&theme).a
+        assert_eq!((*theme.ext::<Probe>()).0, 1);
+        assert_eq!((*theme.ext::<Probe>()).0, 1);
+        assert_eq!(BUILT.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn a_builder_on_a_unique_theme_rebuilds_the_fallback() {
+        let t = Theme::light().set(&crate::control::HEIGHT_VAR, 30);
+        assert_eq!((*t.ext::<Height>()).0, 30.0);
+        let t = t.set(&crate::control::HEIGHT_VAR, 40);
+        assert_eq!((*t.ext::<Height>()).0, 40.0);
+    }
+
+    #[test]
+    fn a_builder_on_a_shared_theme_rebuilds_the_fallback_and_keeps_the_clone() {
+        let a = Theme::light().set(&crate::control::HEIGHT_VAR, 30);
+        let _ = a.ext::<Height>();
+        let b = a.clone().set(&crate::control::HEIGHT_VAR, 40);
+        assert_eq!((*b.ext::<Height>()).0, 40.0);
+        assert_eq!((*a.ext::<Height>()).0, 30.0);
+    }
+
+    #[test]
+    fn installing_an_extension_rebuilds_a_fallback_that_reads_it() {
+        #[derive(Debug, PartialEq)]
+        struct Base(u32);
+        impl ThemeExtension for Base {
+            fn fallback(_: &Theme) -> Self {
+                Base(1)
+            }
+        }
+        #[derive(Debug, PartialEq)]
+        struct Twice(u32);
+        impl ThemeExtension for Twice {
+            fn fallback(t: &Theme) -> Self {
+                Twice((*t.ext::<Base>()).0 * 2)
+            }
+        }
+        let t = Theme::light();
+        assert_eq!((*t.ext::<Twice>()).0, 2);
+        let t = t.with(Base(5));
+        assert_eq!((*t.ext::<Twice>()).0, 10);
+    }
+
+    #[test]
+    fn fonts_take_any_asset() {
+        use crate::asset::Asset;
+        let two = Theme::light()
+            .with_fonts([Asset::from(&b"x"[..])])
+            .with_fonts(vec![Asset::from(vec![1u8, 2])]);
+        assert_eq!(two.fonts().len(), 2);
+        assert!(
+            Theme::light()
+                .with_fonts(Vec::<Asset>::new())
+                .fonts()
+                .is_empty()
         );
     }
 }

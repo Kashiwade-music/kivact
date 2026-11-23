@@ -1,43 +1,37 @@
-//! Role: Catalog page of Radio Group: basic, descriptions, horizontal and in a field.
+//! Catalog page of Radio Group: basic, descriptions, horizontal and in a field.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
+use kivact::view::Orientation;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "radio-group",
-        name: "Radio Group",
-        description: "複数の選択肢から一つを選ぶ部品です。標準の radio_group を Lyra の見た目で描きます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("radio_group.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "basic",
-                "Basic",
-                "選択肢と binding を渡します。矢印キーでフォーカスを動かすと同時に選択され、無効な項目は飛ばします。",
-                basic,
-            ),
-            Example::new(
-                "description",
-                "Description",
-                "ListItem の description で各項目に説明を添えます。",
-                description,
-            ),
-            Example::new(
-                "horizontal",
-                "Horizontal",
-                "orientation を Horizontal にすると横に並べます。",
-                horizontal,
-            ),
-            Example::new(
-                "field",
-                "In a field",
-                "field で包み、ラベルと説明を付けます。",
-                in_field,
-            ),
-        ],
-    }
+    Page::new("radio-group", "Radio Group", "Components", include_str!("radio_group.rs"))
+        .description("A component that chooses one of several options. It is the standard radio_group drawn in the Lyra look.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "basic",
+            "Basic",
+            "Pass the options and a binding. Moving focus with the arrow keys also selects, and disabled items are skipped.",
+            basic,
+        ))
+        .example(Example::new(
+            "description",
+            "Description",
+            "The description of each ListItem adds a note to the item.",
+            description,
+        ))
+        .example(Example::new(
+            "horizontal",
+            "Horizontal",
+            "With orientation set to Horizontal the items sit side by side.",
+            horizontal,
+        ))
+        .example(Example::new(
+            "field",
+            "In a field",
+            "Wrap it in field to give it a label and a description.",
+            in_field,
+        ))
 }
 
 // example: basic

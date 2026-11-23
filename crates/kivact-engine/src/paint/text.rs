@@ -46,7 +46,7 @@ impl Model {
         scene: &std::sync::Arc<DrawList>,
         origin: Rect,
         tint: &Tint,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut crate::lower::SceneOut,
         pass: PaintPass,
     ) {
@@ -88,7 +88,7 @@ impl Model {
         id: NodeId,
         area: Rect,
         tint: &Tint,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Option<kivact_types::ShapedTextSnapshot> {
         let n = self.node(id)?;
         let props = self.text_props(id);
@@ -113,7 +113,7 @@ impl Model {
                 |c| tint.color(c),
                 |f| crate::lower::assets::family(engine, Some(f)),
             );
-            let text = kivact_types::render::RichText {
+            let text = arvane_protocol::RichText {
                 text: content,
                 spans: &rich,
             };
@@ -130,7 +130,7 @@ impl Model {
         area: Rect,
         tint: &Tint,
         pass: PaintPass,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut crate::lower::SceneOut,
     ) {
         let Some(n) = self.node(id) else {
@@ -149,7 +149,7 @@ impl Model {
                 None => color,
             };
             Colors {
-                glyphs: Some(kivact_types::render::Paint::Solid(color)),
+                glyphs: Some(arvane_protocol::RasterPaint::Solid(color)),
                 decorations: Some(deco),
                 ..Default::default()
             }
@@ -162,10 +162,7 @@ impl Model {
             y: area.y,
         };
         for band in &shaped.highlights {
-            if let Some(fill) = spans
-                .get(band.span)
-                .and_then(|s| s.style.background.as_ref())
-            {
+            if let Some(fill) = spans.get(band.span).and_then(|s| s.background.as_ref()) {
                 let rect = Rect {
                     x: band.rect.x + origin.x,
                     y: band.rect.y + origin.y,

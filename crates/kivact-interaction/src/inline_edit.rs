@@ -2,8 +2,8 @@
 
 use crate::{EditSession, TextEditApi, use_text_edit};
 use kivact_core::state::{
-    IntoBinding, IntoText, IntoValue, ItemKey, Machine, MachineHandle, Step, binding, callback,
-    machine, on_cleanup,
+    IntoText, IntoValue, ItemKey, Machine, MachineHandle, Signal, Step, Value, binding, callback,
+    machine, memo, on_cleanup,
 };
 
 // A request precedes the conditional field's construction: its draft does not
@@ -158,6 +158,7 @@ impl<K: ItemKey> Machine for Rename<K> {
 /// Tracks the item being renamed without drawing a field.
 pub struct InlineEditApi<K: ItemKey> {
     rename: MachineHandle<Rename<K>>,
+    editing: Value<Option<K>>,
 }
 impl<K: ItemKey> Clone for InlineEditApi<K> {
     fn clone(&self) -> Self {
@@ -168,8 +169,7 @@ impl<K: ItemKey> Copy for InlineEditApi<K> {}
 
 /// Track the caller-owned key of the item being renamed.
 #[track_caller]
-pub fn use_inline_edit<K: ItemKey>(editing: impl IntoBinding<Option<K>>) -> InlineEditApi<K> {
-    let editing = editing.into_binding();
+pub fn use_inline_edit<K: ItemKey>(editing: Signal<Option<K>>) -> InlineEditApi<K> {
     let initial = editing.get_untracked();
     let rename = machine(
         InlineEdit {
@@ -186,27 +186,29 @@ pub fn use_inline_edit<K: ItemKey>(editing: impl IntoBinding<Option<K>>) -> Inli
         },
     );
     rename.feed(editing.into_value(), Event::Request);
-    InlineEditApi { rename }
+    let current = memo(move || rename.get().key());
+    InlineEditApi {
+        rename,
+        editing: current,
+    }
 }
 impl<K: ItemKey> InlineEditApi<K> {
     /// Request renaming this key; the conditional field supplies its draft on mount.
-    pub fn show(self, key: K) {
+    pub fn edit(self, key: K) {
         self.rename.send(Event::Request(Some(key)));
     }
-    /// Read whether this key is requested or being renamed.
-    pub fn is_open(self, key: &K) -> bool {
-        self.rename.get().key().as_ref() == Some(key)
+    /// The key being renamed, or requested for renaming.
+    pub fn editing(self) -> Value<Option<K>> {
+        self.editing
     }
-    /// Create a headless editor; attach `.on_draft_commit(..).control()` to the drawn node.
+    /// End the rename without committing.
+    pub fn cancel(self) {
+        self.rename.send(Event::Request(None));
+    }
+    /// Create a headless editor; attach `.on_commit(..).control()` to the drawn node.
     /// Mounting focuses and selects the text. Commit, cancel and removal end the rename.
     #[track_caller]
-    pub fn field(
-        self,
-        key: K,
-        label: impl IntoText,
-        draft: impl IntoBinding<String>,
-    ) -> TextEditApi {
-        let draft = draft.into_binding();
+    pub fn field(self, key: K, label: impl IntoText, draft: Signal<String>) -> TextEditApi {
         let restore_key = key.clone();
         let session = EditSession::new(move |text: String| {
             self.rename.send(Event::Typed {

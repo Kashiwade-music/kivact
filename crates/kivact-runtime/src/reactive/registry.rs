@@ -21,7 +21,7 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use crate::reactive::data::Runtime;
+use crate::reactive::data::{Extensions, Runtime};
 use crate::reactive::error::{ErrorKind, misuse_at};
 use crate::reactive::execution::executing_app;
 use crate::reactive::host_types::Host;
@@ -46,11 +46,15 @@ pub(crate) fn check_not_foreign(app: AppId, at: &'static Location<'static>) {
 impl Runtime {
     /// Create and register a new runtime (App) with its extensions. Ids are
     /// never reused.
-    pub(crate) fn register(host: Rc<dyn Host>, start_ns: u64) -> Rc<Runtime> {
+    pub(crate) fn register(
+        host: Rc<dyn Host>,
+        start_ns: u64,
+        extensions: Extensions,
+    ) -> Rc<Runtime> {
         REGISTRY.with(|r| {
             let mut reg = r.borrow_mut();
             let id = AppId(reg.len() as u32 + 1);
-            let rt = Rc::new(Runtime::with_id(id, host, start_ns));
+            let rt = Rc::new(Runtime::with_id(id, host, start_ns, extensions));
             reg.push(Some(rt.clone()));
             rt
         })
@@ -68,10 +72,40 @@ impl Runtime {
 
 /// Look up a live runtime (internal: no foreign-App check).
 pub(crate) fn try_runtime(app: AppId) -> Option<Rc<Runtime>> {
+    // When the thread ends, the registry drops its runtimes, and what they
+    // hold (a frame loop's token) asks for its runtime: there is none then.
+    REGISTRY
+        .try_with(|r| {
+            r.borrow()
+                .get((app.0 as usize).wrapping_sub(1))
+                .and_then(|s| s.clone())
+        })
+        .ok()
+        .flatten()
+}
+
+/// Run `f` with the registered runtime of `app` without cloning its `Rc`.
+/// `f` must not register or unregister an App (the registry stays
+/// borrowed); only handle reads that run no user code use it.
+pub(crate) fn with_runtime<R>(
+    app: AppId,
+    at: &'static Location<'static>,
+    f: impl FnOnce(&Runtime) -> R,
+) -> R {
+    check_not_foreign(app, at);
     REGISTRY.with(|r| {
-        r.borrow()
+        let reg = r.borrow();
+        match reg
             .get((app.0 as usize).wrapping_sub(1))
-            .and_then(|s| s.clone())
+            .and_then(Option::as_ref)
+        {
+            Some(rt) => f(rt),
+            None => misuse_at(
+                ErrorKind::WrongApp,
+                "handle belongs to an App that no longer exists",
+                at,
+            ),
+        }
     })
 }
 

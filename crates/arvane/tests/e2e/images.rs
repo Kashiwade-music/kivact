@@ -7,15 +7,16 @@
 
 use std::sync::Arc;
 
+use arvane_protocol::{
+    BoxShadow, CompositeLayer, Composition, GradientShape, LayerEffects, LayerFilter, LayerItem,
+    Pattern, PatternSource, RasterGradient, RasterPaint, RenderBackdrop, RenderCmd, RenderMask,
+    RenderScene,
+};
 use kivact_types::AssetBytes;
 use kivact_types::paint::{MaskComposite, MaskMode};
-use kivact_types::render::{
-    BoxShadow, CompositeLayer, Composition, Gradient, GradientShape, LayerEffects, LayerFilter,
-    LayerItem, Paint, Pattern, PatternSource, RenderBackdrop, RenderCmd, RenderMask, RenderScene,
-};
-use kivact_types::scene::{PathCmd, Radius, RoundedRect, Shape};
+use kivact_types::scene::{Outline, PathCmd, Radius, RoundedRect};
 use kivact_types::{
-    BlendMode, ColorMatrix, Extend, FillRule, LineCap, Pixels, Rect, Size, Stroke, Transform,
+    Affine, BlendMode, ColorMatrix, Extend, FillRule, LineCap, Pixels, Rect, Size, Stroke,
 };
 
 use crate::support::{
@@ -97,8 +98,8 @@ fn vocabulary_root(checker: &Pixels) -> CompositeLayer {
                 clips: Vec::new(),
             },
             raster(vec![RenderCmd::FillShape {
-                shape: Shape::RoundedRect(RoundedRect::new(rect(10.0, 150.0, 70.0, 40.0), 12.0)),
-                paint: Paint::Solid(color_alpha(WHITE, 0.3)),
+                shape: Outline::RoundedRect(RoundedRect::new(rect(10.0, 150.0, 70.0, 40.0), 12.0)),
+                paint: RasterPaint::Solid(color_alpha(WHITE, 0.3)),
             }]),
             LayerItem::Layer {
                 index: 5,
@@ -119,7 +120,7 @@ fn masked_group() -> CompositeLayer {
         LayerEffects {
             opacity: 0.8,
             blend: BlendMode::Multiply,
-            clip: Some(Shape::Polygon {
+            clip: Some(Outline::Polygon {
                 points: vec![
                     pt(160.0, 10.0),
                     pt(230.0, 10.0),
@@ -131,8 +132,8 @@ fn masked_group() -> CompositeLayer {
             masks: vec![RenderMask {
                 scene: RenderScene {
                     commands: vec![RenderCmd::FillShape {
-                        shape: Shape::Rect(rect(160.0, 10.0, 70.0, 50.0)),
-                        paint: Paint::Gradient(Gradient {
+                        shape: Outline::Rect(rect(160.0, 10.0, 70.0, 50.0)),
+                        paint: RasterPaint::Gradient(RasterGradient {
                             shape: GradientShape::Linear {
                                 start: pt(160.0, 35.0),
                                 end: pt(230.0, 35.0),
@@ -166,8 +167,8 @@ fn shadow_group() -> CompositeLayer {
             ..LayerEffects::default()
         },
         vec![raster(vec![RenderCmd::FillShape {
-            shape: Shape::Rect(rect(10.0, 80.0, 50.0, 30.0)),
-            paint: Paint::Gradient(Gradient {
+            shape: Outline::Rect(rect(10.0, 80.0, 50.0, 30.0)),
+            paint: RasterPaint::Gradient(RasterGradient {
                 shape: GradientShape::Radial {
                     center: pt(35.0, 95.0),
                     radius_x: 25.0,
@@ -201,7 +202,7 @@ fn backdrop_group() -> CompositeLayer {
         rect(10.0, 150.0, 70.0, 40.0),
         LayerEffects {
             backdrop: Some(RenderBackdrop {
-                shape: Shape::RoundedRect(RoundedRect::new(rect(10.0, 150.0, 70.0, 40.0), 12.0)),
+                shape: Outline::RoundedRect(RoundedRect::new(rect(10.0, 150.0, 70.0, 40.0), 12.0)),
                 filters: vec![
                     LayerFilter::Blur { std_dev: 4.0 },
                     LayerFilter::ColorMatrix(ColorMatrix::saturate(1.6)),
@@ -239,9 +240,8 @@ fn scaled_vocabulary() -> Composition {
         }
     }
     vocab.key = node_key(6);
-    vocab.transform = kivact_types::geometry3d::Matrix4::from_affine(
-        Transform::scale(0.75).about(pt(120.0, 100.0)),
-    );
+    vocab.transform =
+        kivact_types::geometry3d::Matrix4::from_affine(Affine::scale(0.75).about(pt(120.0, 100.0)));
     let root = root_layer(
         SIZE,
         vec![LayerItem::Layer {
@@ -272,7 +272,7 @@ fn the_gpu_draws_the_whole_vocabulary_as_the_cpu_does() {
 fn transformed_scene() -> Vec<RenderCmd> {
     let mut commands = Vec::new();
     commands.extend([
-        RenderCmd::PushTransform(Transform::rotate_deg(20.0).about(pt(40.0, 30.0))),
+        RenderCmd::PushTransform(Affine::rotate_deg(20.0).about(pt(40.0, 30.0))),
         RenderCmd::BoxShadow(BoxShadow {
             shape: RoundedRect::new(rect(10.0, 10.0, 60.0, 40.0), 6.0),
             offset: pt(0.0, 4.0),
@@ -283,11 +283,11 @@ fn transformed_scene() -> Vec<RenderCmd> {
             knockout: false,
         }),
         RenderCmd::FillShape {
-            shape: Shape::RoundedRect(RoundedRect {
+            shape: Outline::RoundedRect(RoundedRect {
                 rect: rect(10.0, 10.0, 60.0, 40.0),
                 radii: [Radius { x: 20.0, y: 10.0 }; 4],
             }),
-            paint: Paint::Gradient(Gradient {
+            paint: RasterPaint::Gradient(RasterGradient {
                 shape: GradientShape::Radial {
                     center: pt(40.0, 30.0),
                     radius_x: 30.0,
@@ -306,7 +306,7 @@ fn transformed_scene() -> Vec<RenderCmd> {
     commands.extend(text_runs("Turn", 14.0, pt(20.0, 50.0)));
     commands.push(RenderCmd::PopTransform);
     commands.push(RenderCmd::PushTransform(
-        Transform::skew_deg(-15.0, 0.0).about(pt(120.0, 30.0)),
+        Affine::skew_deg(-15.0, 0.0).about(pt(120.0, 30.0)),
     ));
     commands.extend(text_runs("Skew", 14.0, pt(90.0, 20.0)));
     commands.push(RenderCmd::PopTransform);
@@ -318,8 +318,8 @@ fn tiled_scene(checker: Pixels) -> Vec<RenderCmd> {
     vec![
         // A tile larger than the atlas takes: drawn copy by copy.
         RenderCmd::FillShape {
-            shape: Shape::Rect(rect(90.0, 180.0, 150.0, 20.0)),
-            paint: Paint::Pattern(Pattern {
+            shape: Outline::Rect(rect(90.0, 180.0, 150.0, 20.0)),
+            paint: RasterPaint::Pattern(Pattern {
                 source: PatternSource::Image { image: checker },
                 tile: rect(0.0, 0.0, 300.0, 300.0),
                 repeat_x: true,
@@ -332,8 +332,8 @@ fn tiled_scene(checker: Pixels) -> Vec<RenderCmd> {
 fn stroke_scene(checker: Pixels) -> Vec<RenderCmd> {
     vec![
         RenderCmd::FillShape {
-            shape: Shape::Rect(rect(120.0, 80.0, 50.0, 30.0)),
-            paint: Paint::Pattern(Pattern {
+            shape: Outline::Rect(rect(120.0, 80.0, 50.0, 30.0)),
+            paint: RasterPaint::Pattern(Pattern {
                 source: PatternSource::Image {
                     image: checker.clone(),
                 },
@@ -343,7 +343,7 @@ fn stroke_scene(checker: Pixels) -> Vec<RenderCmd> {
             }),
         },
         RenderCmd::StrokeShape {
-            shape: Shape::RoundedRect(RoundedRect::new(rect(180.0, 80.0, 50.0, 30.0), 8.0)),
+            shape: Outline::RoundedRect(RoundedRect::new(rect(180.0, 80.0, 50.0, 30.0), 8.0)),
             stroke: Stroke {
                 cap: LineCap::Round,
                 dash: vec![6.0, 4.0],
@@ -352,7 +352,7 @@ fn stroke_scene(checker: Pixels) -> Vec<RenderCmd> {
             paint: solid(0x102030),
         },
         RenderCmd::StrokeShape {
-            shape: Shape::Path {
+            shape: Outline::Path {
                 cmds: vec![
                     PathCmd::MoveTo(pt(10.0, 130.0)),
                     PathCmd::ArcTo {
@@ -399,7 +399,7 @@ fn shadow_scene(checker: Pixels) -> Vec<RenderCmd> {
         }),
         // Strokes painted with a gradient and with a pattern.
         RenderCmd::StrokeShape {
-            shape: Shape::Path {
+            shape: Outline::Path {
                 cmds: vec![
                     PathCmd::MoveTo(pt(150.0, 66.0)),
                     PathCmd::LineTo(pt(230.0, 66.0)),
@@ -407,7 +407,7 @@ fn shadow_scene(checker: Pixels) -> Vec<RenderCmd> {
                 rule: FillRule::NonZero,
             },
             stroke: Stroke::new(5.0),
-            paint: Paint::Gradient(Gradient {
+            paint: RasterPaint::Gradient(RasterGradient {
                 shape: GradientShape::Linear {
                     start: pt(150.0, 66.0),
                     end: pt(230.0, 66.0),
@@ -417,7 +417,7 @@ fn shadow_scene(checker: Pixels) -> Vec<RenderCmd> {
             }),
         },
         RenderCmd::StrokeShape {
-            shape: Shape::Path {
+            shape: Outline::Path {
                 cmds: vec![
                     PathCmd::MoveTo(pt(150.0, 74.0)),
                     PathCmd::LineTo(pt(230.0, 74.0)),
@@ -428,7 +428,7 @@ fn shadow_scene(checker: Pixels) -> Vec<RenderCmd> {
                 cap: LineCap::Square,
                 ..Stroke::new(5.0)
             },
-            paint: Paint::Pattern(Pattern {
+            paint: RasterPaint::Pattern(Pattern {
                 source: PatternSource::Image { image: checker },
                 tile: rect(0.0, 0.0, 4.0, 4.0),
                 repeat_x: true,

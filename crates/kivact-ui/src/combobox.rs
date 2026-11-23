@@ -1,11 +1,9 @@
-//! Role: Expose the themed combobox family and its visual tokens.
+//! Role: Expose the themed combobox family and its theme variables.
 mod data;
 mod handle;
 mod labels;
 pub(crate) mod look;
 mod notices;
 mod render;
-mod tokens;
-pub use data::Combobox;
+pub use data::{Combobox, ComboboxMode};
 pub use handle::combobox;
-pub use tokens::ComboboxTokens;

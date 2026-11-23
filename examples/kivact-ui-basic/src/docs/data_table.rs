@@ -1,33 +1,28 @@
-//! Role: Catalog page of Data Table: `kivact::ui::data_table` in the Lyra theme.
+//! Catalog page of Data Table: `kivact::ui::data_table` in the Lyra theme.
 use kivact::ui::Paging;
+use kivact::ui::{DataColumn, data_table};
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "data-table",
-        name: "Data Table",
-        description: "標準の kivact::ui::data_table を Lyra の theme で描いた表です。行は任意の型で、key で識別します。絞り込み・選択・並べ替え・ページは、それぞれの状態をアプリの signal で渡したときだけ付きます。Columns メニューのような部品は toolbar の slot で作ります。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::Paging;\nuse kivact_ui_basic as basic;",
-        source: include_str!("data_table.rs"),
-        align: PreviewAlign::Start,
-        examples: vec![
-            Example::new(
-                "payments",
-                "Payments",
-                "selection、sort、page、row_actions と、toolbar の slot で作った絞り込み欄と Columns メニュー（列の visible を同じ signal で切り替えます）を組み合わせた shadcn の例です。",
-                payments,
-            ),
-            Example::new(
-                "simple",
-                "Simple",
-                "selection と sort だけを渡すと、絞り込みとページ送りのない小さな表になります。",
-                simple,
-            ),
-        ],
-    }
+    Page::new("data-table", "Data Table", "Components", include_str!("data_table.rs"))
+        .description("The standard kivact::ui::data_table drawn in the Lyra theme. Rows can be of any type and are identified by a key. Filtering, selection, sorting and paging appear only when the app passes their state as signals. Parts such as the Columns menu are built in the toolbar slot.")
+        .usage("use kivact::prelude::*;\nuse kivact::ui::Paging;\nuse kivact_ui_basic as basic;")
+        .align(PreviewAlign::Start)
+        .example(Example::new(
+            "payments",
+            "Payments",
+            "The shadcn example, combining selection, sort, page, row_actions, a filter field and a Columns menu built in the toolbar slot (it switches the visible columns with the same signal).",
+            payments,
+        ))
+        .example(Example::new(
+            "simple",
+            "Simple",
+            "Pass only selection and sort for a small table with no filter and no paging.",
+            simple,
+        ))
 }
 
 // example: payments
@@ -57,13 +52,12 @@ fn payment_rows() -> Vec<Payment> {
     ]
 }
 
+// xtask-allow(state): independent: sort is written by the column headers through the data table's sort binding, which also resets page to 0; page is then moved only by the pager, so every sort can be shown on every page
 fn payments() -> impl IntoView {
     let data = payment_rows();
     let query = signal(String::new());
     let selected = signal(Vec::<u32>::new());
-    // xtask-allow(state-fields): independent: the table's sort binding, written by the data_table column headers; any sort can be shown on any page, since sorting only reorders the filtered rows
     let sort = signal(None);
-    // xtask-allow(state-fields): independent: the table's page binding, moved by the pager and reset to 0 by a new sort or filter text; every page is reachable afterwards under any sort
     let page = signal(0_usize);
     let visible = signal(vec![true; 3]);
     let copied = signal(String::new());
@@ -93,15 +87,13 @@ fn payments() -> impl IntoView {
                 Paging::Remote { page, .. } => Some(page),
                 Paging::Off => None,
             };
-            let filter = text_input(
-                "Filter emails...",
-                binding(query, move |text: String| {
-                    query.set(text);
-                    if let Some(page) = first_page {
-                        page.set(0);
-                    }
-                }),
-            )
+            let filter = text_input(binding(query, move |text: String| {
+                query.set(text);
+                if let Some(page) = first_page {
+                    page.set(0);
+                }
+            }))
+            .label("Filter emails...")
             .placeholder("Filter emails...")
             .style(style().max_width(384).width(pct(100)));
             let titles = ["Status", "Email", "Amount"];
@@ -122,7 +114,7 @@ fn payments() -> impl IntoView {
                         .variant(ButtonVariant::Outline)
                         .trailing(icon("chevron-down")),
                 );
-            row((filter, node().style(style().grow(1)), columns_menu))
+            row((filter, node().style(style().flex_grow(1)), columns_menu))
                 .style(style().align_items(Align::Center).gap(8).padding_y(16))
         })
         .row_actions(40.0, move |row: Value<Payment>| {

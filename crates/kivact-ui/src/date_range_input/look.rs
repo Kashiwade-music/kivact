@@ -1,0 +1,8 @@
+//! Role: The date range input recipe state, recipe table and default looks.
+
+use crate::recipe::recipe_table;
+use kivact_core::custom::PartState;
+recipe_table! {
+    /// The parts of a date-range field.
+    DateRangeInputTheme { root(root_recipe): PartState = crate::date_parts::look::input, }
+}

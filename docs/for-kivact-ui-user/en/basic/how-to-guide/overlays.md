@@ -4,7 +4,7 @@
 
 This guide shows how to put something above the page: a dialog, a confirmation, a side sheet, a bottom drawer, a popover, a hover card, a menu and a toast. It assumes you have done the [tutorial](../getting-started/README.md) and that the app uses `basic::theme`.
 
-Most of these are not kit components. Dialogs, alert dialogs, sheets and popovers are the standard `dialog(title, open)` with a different `.mode(..)`, menus are the standard `menu(..)`, and toasts are the standard `toast_region`/`toaster`. The theme draws them in the Lyra look. Swipe drawers also use this standard dialog; hover previews use standard `kivact::ui::hover_card` with the Basic surface recipe.
+Most of these are not kit components. Dialogs, alert dialogs and sheets are the standard `dialog(title, open)` with a different `.mode(..)`, and a popover is a `use_popup` surface, menus are the standard `menu(..)`, and toasts are the standard `toast_region` and `use_toaster`. The theme draws them in the Lyra look. Swipe drawers also use this standard dialog; hover previews use standard `kivact::ui::hover_card` with the Basic surface recipe.
 
 Two rules hold for all of them:
 
@@ -16,7 +16,8 @@ Two rules hold for all of them:
 ```rust,no_run
 use kivact::prelude::*;
 
-fn edit_profile() -> impl IntoView {
+#[component]
+fn edit_profile() -> impl Element {
     let open = signal(false);
     let name = signal(String::from("Ada"));
     column((
@@ -25,7 +26,7 @@ fn edit_profile() -> impl IntoView {
             .on_press(move || open.set(true)),
         dialog("Edit profile", open)
             .description("Make changes to your profile here.")
-            .content(move || text_input("Name", name))
+            .content(move || text_input(name).label("Name"))
             .footer(move || button("Save changes").on_press(move || open.set(false))),
     ))
 }
@@ -39,10 +40,11 @@ An alert dialog is a dialog of kind `AlertModal`. A click outside it does not cl
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::interaction::DialogMode;
+use kivact::ui::DialogKind;
 use kivact_ui_basic as basic;
 
-fn delete_chat() -> impl IntoView {
+#[component]
+fn delete_chat() -> impl Element {
     let open = signal(false);
     let deleted = signal(false);
     column((
@@ -51,7 +53,7 @@ fn delete_chat() -> impl IntoView {
             .on_press(move || open.set(true)),
         basic::muted(move || if deleted.get() { "Chat deleted." } else { "Chat kept." }),
         dialog("Delete chat?", open)
-            .mode(DialogMode::AlertModal)
+            .mode(DialogKind::AlertModal)
             .closable(false)
             .description("This will permanently delete this conversation.")
             .footer(move || {
@@ -74,7 +76,7 @@ fn delete_chat() -> impl IntoView {
 
 The footer returns a tuple of buttons. The focus starts on the first one, so put the safe choice (Cancel) first. Variants of the alert dialog:
 
-- `.variant(basic::AlertDialogSize::Sm)` makes it a narrow, centered 320 px dialog. Give both footer buttons `style().grow(1).basis(0)` to share the width.
+- `.variant(basic::AlertDialogSize::Sm)` makes it a narrow, centered 320 px dialog. Give both footer buttons `style().flex_grow(1).flex_basis(0)` to share the width.
 - `.media(|| icon("trash-2").style(style().size(24, 24)))` shows an icon beside the title.
 
 ## Open a sheet from the edge
@@ -83,18 +85,19 @@ A sheet is a dialog of kind `Drawer(side)`:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::interaction::{DialogMode};
+use kivact::ui::DialogKind;
 use kivact::geometry::{Edge};
 use kivact_ui_basic as basic;
 
-fn notifications() -> impl IntoView {
+#[component]
+fn notifications() -> impl Element {
     let open = signal(false);
     column((
         button("Notifications")
             .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         dialog("Notifications", open)
-            .mode(DialogMode::Drawer(Edge::Right))
+            .mode(DialogKind::Drawer(Edge::Right))
             .description("Choose what you want to hear about.")
             .content(|| basic::muted("No new notifications."))
             .footer(move || button("Close").on_press(move || open.set(false))),
@@ -102,13 +105,14 @@ fn notifications() -> impl IntoView {
 }
 ```
 
-`Side` is `Left`, `Right`, `Top` or `Bottom`. For a bottom panel that the user can swipe away, use the kit's `kivact::ui::dialog(title, open).mode(DialogMode::Drawer(Edge::Bottom))` instead. It takes the same `.description(..)`, `.content(..)` and `.footer(..)` and `.mode(DialogMode::Drawer(Edge::..))` (bottom by default):
+`Edge` is `Left`, `Right`, `Top` or `Bottom`. For a bottom panel that the user can swipe away, use the kit's `kivact::ui::dialog(title, open).mode(DialogKind::Drawer(Edge::Bottom))` instead. It takes the same `.description(..)`, `.content(..)` and `.footer(..)` and `.mode(DialogKind::Drawer(Edge::..))` (bottom by default):
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn move_goal() -> impl IntoView {
+#[component]
+fn move_goal() -> impl Element {
     let open = signal(false);
     let goal = signal(350);
     column((
@@ -116,7 +120,7 @@ fn move_goal() -> impl IntoView {
             .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         kivact::ui::dialog("Move goal", open)
-            .mode(kivact::interaction::DialogMode::Drawer(kivact::geometry::Edge::Bottom))
+            .mode(kivact::ui::DialogKind::Drawer(kivact::geometry::Edge::Bottom))
             .variant(basic::DrawerVariant::Drawer)
             .closable(false)
             .description("Set your daily activity goal.")
@@ -137,30 +141,37 @@ fn move_goal() -> impl IntoView {
 
 ## Anchor a popover to a button
 
-A popover is a dialog of kind `Popover`, and `.attach(trigger)` both places it at the trigger and makes the trigger open it. The result is the trigger together with the popover, so you place it where the button should be:
+A popover is a surface anchored to a node of the page. `use_popup(open)` opens and closes it with the `open` signal, `.anchor(node)` names the node it hangs from, and `surface(placement, content)` builds it. Bind the node to the trigger with `.node_ref(..)`:
 
 ```rust,no_run
+use kivact::interaction::use_popup;
 use kivact::prelude::*;
-use kivact::interaction::DialogMode;
-use kivact::view::{OverlayAlign, Placement};
+use kivact::view::Placement;
 
-fn dimensions() -> impl IntoView {
+#[component]
+fn dimensions() -> impl Element {
     let open = signal(false);
     let width = signal(String::from("100%"));
-    dialog("Dimensions", open)
-        .mode(DialogMode::Popover)
-        .description("Set the dimensions for the layer.")
-        .placement(Placement::Below)
-        .align(OverlayAlign::Start)
-        .content(move || text_input("Width", width))
-        .attach(button("Open popover").variant(kivact::ui::ButtonVariant::Outline))
+    let anchor = node_ref();
+    let popup = use_popup(open).anchor(anchor);
+    column((
+        button("Open popover")
+            .variant(kivact::ui::ButtonVariant::Outline)
+            .node_ref(anchor)
+            .on_press(move || open.set(true)),
+        popup.surface(Placement::Below, move || {
+            column((
+                kivact::ui::heading("Dimensions", 4),
+                text_input(width).label("Width"),
+            ))
+            .style(style().gap(8).width(240))
+        }),
+    ))
 }
 ```
 
-- `.placement(..)` picks the side of the trigger (`Above`, `Below`, `Start`, `End`) and `.align(..)` the alignment (`Start`, `Center`, `End`). If the popover does not fit in the window it flips to the other side.
+- The `Placement` you pass to `surface` (`Above`, `Below`, `Start`, `End`) picks the side of the anchor. If the popover does not fit in the window it flips to the other side.
 - A popover is not modal. It closes on Escape, on a click outside, and when the focus leaves both it and the trigger.
-- `.hide_title(true)` suits a popover that is just a little text; the title stays its accessible name.
-- Modifiers for the trigger (`.style(..)`, `.test_id(..)`) go on the button you pass to `attach`, not on the result.
 
 ## Preview something on hover
 
@@ -170,10 +181,11 @@ fn dimensions() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
+#[component]
 fn mention() -> impl IntoView {
     kivact::ui::hover_card(|| {
         column((
-            text("@kivact").style(style().weight(600)),
+            text("@kivact").style(style().font_weight(600)),
             basic::muted("A native GUI framework for Rust."),
         ))
         .style(style().gap(8))
@@ -192,7 +204,8 @@ A menu is the standard `menu(label, entries).on_activate(choose)`. `entries` is 
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn account_menu() -> impl IntoView {
+#[component]
+fn account_menu() -> impl Element {
     let picked = signal(String::from("Nothing chosen yet."));
     let entries = vec![
         MenuEntry::heading("My account"),
@@ -212,12 +225,13 @@ fn account_menu() -> impl IntoView {
     .style(style().gap(12))
 }
 
+#[component]
 fn context_menu() -> impl IntoView {
     let area = node()
         .role(Role::Group)
         .name("Notes")
         .focusable(true)
-        .style(style().width(240).height(96).border(1, basic::ColorName::Border))
+        .style(style().width(240).height(96).border(1, basic::BORDER))
         .child(text("Right click here"));
     menu("Notes menu", vec![MenuEntry::item("copy", "Copy"), MenuEntry::item("paste", "Paste")]).on_activate(|_key: &'static str| {})
     .attach_context(area)
@@ -230,6 +244,7 @@ fn context_menu() -> impl IntoView {
 ```rust,no_run
 use kivact::prelude::*;
 
+#[component]
 fn view_menu() -> impl IntoView {
     let status = signal(true);
     let position = signal("bottom");
@@ -258,27 +273,28 @@ Mount the toast region once, near the root of the app. Then any handler can push
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::interaction::{Toast, Tone, toaster};
+use kivact::interaction::{Toast, Tone, use_toaster};
 use kivact::ui::{toast_region};
 
-fn root() -> impl IntoView {
+#[component]
+fn root() -> impl Element {
     column((
         button("Create event")
             .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(|| {
-                toaster().push(
+                use_toaster().push(
                     Toast::new("Event has been created")
                         .tone(Tone::Success)
                         .body("Sunday, December 03, 2023 at 9:00 AM"),
                 );
             }),
-        toast_region(toaster()).hold_all_on_hover(true),
+        toast_region(use_toaster()).hold_all_on_hover(true),
     ))
 }
 ```
 
 - `.tone(..)` is `Neutral` (no icon), `Success`, `Info`, `Warning` or `Danger`. The theme draws the icon of the tone, and `Warning` and `Danger` are announced more urgently to screen readers.
-- A toast closes after five seconds. `.duration(Some(Duration::from_secs(2)))` changes that and `.duration(None)` keeps it until it is dismissed. `push` returns an id: `toaster().dismiss(id)` removes the toast.
+- A toast closes after five seconds. `.duration(Some(Duration::from_secs(2)))` changes that and `.duration(None)` keeps it until it is dismissed. `push` returns an id: `use_toaster().dismiss(id)` removes the toast.
 - `.action("Undo", move || ..)` adds a button. Pressing it runs the closure and dismisses the toast. The closure belongs to the toast, so a press handler can build and push one.
 - For a toast that shows work in progress, use `.icon(|| kivact::ui::spinner())` with `.duration(None)`, then dismiss it when the work finishes.
 - Several toasts stack behind the newest, up to three. They open into a list while the pointer is over them or focus is inside, and with `hold_all_on_hover(true)` the time of every toast pauses while they are open.

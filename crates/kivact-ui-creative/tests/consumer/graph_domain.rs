@@ -1,11 +1,10 @@
 //! Role: Public graph domain editing, view geometry and selective rollback contracts.
 use crate::graph_support::{app_graph, graph_edits};
 use crate::support::near;
-use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::view::EditPhase;
-use kivact::view::{A11yAction, KeyCode, Modifiers};
+use kivact::view::{A11yAction, KeyCode};
+use kivact::view::{EditPhase, Modifiers};
 use kivact_ui_creative as ui;
 #[derive(Clone, Copy)]
 struct Model {
@@ -57,14 +56,15 @@ fn fixture() -> (Screen, Model) {
                     app_graph(
                         model.curves,
                         ui::GraphState {
-                            view: model.view.into_binding(),
-                            selection: model.selection.into_binding(),
-                            playhead: model.frame.into_binding(),
+                            view: model.view,
+                            selection: model.selection,
+                            playhead: model.frame,
                         },
                     )
                     .lanes(model.lanes)
                     .snap(model.snap)
-                    .step(0.5, 0.25)
+                    .time_step(0.5)
+                    .value_step(0.25)
                     .on_edit(graph_edits(model.curves, move |phase| {
                         model.phases.update(|p| p.push(phase))
                     }))
@@ -181,12 +181,11 @@ fn graph_tangents_are_draggable_and_keyboard_editable() {
             app_graph(
                 data,
                 ui::GraphState {
-                    selection: (signal(vec![1])).into_binding(),
+                    selection: (signal(vec![1])),
                     view: (signal(ui::GraphView {
                         time: (0.0, 400.0),
                         value: (0.0, 278.0),
-                    }))
-                    .into_binding(),
+                    })),
                     ..ui::GraphState::new()
                 },
             )

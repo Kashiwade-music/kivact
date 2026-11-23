@@ -1,6 +1,8 @@
 //! Role: Public color field model value.
+use kivact::Prop;
+
 /// The channels displayed below a color wheel. Model selection is UI state.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum ColorModel {
     /// Normalized red, green and blue channels.
     #[default]
@@ -10,4 +12,3 @@ pub enum ColorModel {
     /// A hexadecimal RGB or RGBA draft.
     Hex,
 }
-kivact::state::constant_value!(ColorModel);

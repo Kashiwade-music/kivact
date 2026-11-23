@@ -7,7 +7,7 @@
 //! - A drawing in a node other than a drawable's host is reported once per
 //!   node and drawable.
 
-use kivact_types::render::{CompositeLayer, LayerKey};
+use arvane_protocol::{CompositeLayer, LayerKey};
 use kivact_types::{DrawableId, NodeId, Rect, Size};
 
 use crate::contract::{DrawableMode, HostEvent, SceneLayer};
@@ -19,7 +19,7 @@ use crate::paint::state::PaintPass;
 impl Model {
     /// Build the frame's plan of the canvas drawables: each one's host, the
     /// drawing that places it and its composed layers.
-    pub(super) fn prepare_canvas(&self, engine: &mut arvane::Engine) {
+    pub(super) fn prepare_canvas(&self, engine: &mut arvane_text::TextEngine) {
         let mut plan = DrawablePlan::default();
         for (id, entry) in self.drawables.iter() {
             if entry.mode != DrawableMode::Canvas {
@@ -61,7 +61,7 @@ impl Model {
     /// drawable, and the layer indices are local to the list.
     pub(super) fn subtree_layers(
         &self,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         id: DrawableId,
         root: NodeId,
         scale: f64,
@@ -78,8 +78,11 @@ impl Model {
         let pass = PaintPass {
             scale,
             size: Size::new(bounds.width, bounds.height),
+            cache: false,
         };
-        let mut layers = self.compose_list(engine, &list, pass).layers;
+        let (mut composition, _) = self.compose_list(engine, &list, pass);
+        crate::lower::content_versions::stamp_fresh(&mut composition);
+        let mut layers = composition.layers;
         if let Some(first) = layers.first_mut() {
             first.key = LayerKey::Drawable(id);
         }

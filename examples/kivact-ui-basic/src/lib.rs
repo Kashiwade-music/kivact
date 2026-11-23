@@ -1,17 +1,12 @@
-//! Role: Document-style component catalog for kivact-ui-basic.
+//! Role: The Basic kit catalog: one documentation page per component.
 //!
-//! A top bar with the theme toggle_button, a searchable component list and one
-//! documentation page per component. Every code block shows the source of
-//! the demo above it.
-#![warn(redundant_imports)]
-mod docs;
-mod fonts;
-mod look;
-mod model;
-mod page;
-mod pages;
-mod shell;
+//! [`pages`] lists the pages and [`THEME`] is the kit's theme with the catalog's fonts; the
+//! shared shell of `catalog-shell` draws them with a searchable list and a theme toggle.
 
-pub use fonts::fonts;
-pub use pages::{ExampleInfo, PageInfo, pages};
-pub use shell::{catalog, catalog_with_mode};
+mod consts;
+mod docs;
+mod theme;
+
+pub use consts::START;
+pub use docs::pages;
+pub use theme::{THEME, theme};

@@ -1,44 +1,38 @@
-//! Role: Catalog page of Carousel: default, several per view, vertical and loop.
+//! Catalog page of Carousel: default, several per view, vertical and loop.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
+use kivact::view::{Node, Orientation};
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "carousel",
-        name: "Carousel",
-        description: "スライドを 1 枚ずつ（または複数枚ずつ）切り替える部品です。表示中の位置は束縛で渡し、前へ・次へのボタンと左右の矢印キー（縦は上下）で動きます。ボタンは枠の外 48 px にあります。",
-        usage: "use kivact::prelude::*;\nuse kivact::style::use_theme;\nuse kivact_ui_basic as basic;",
-        source: include_str!("carousel.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "スライドの view の並びと、位置の束縛を渡します。端ではボタンが無効になります。枠に Tab でフォーカスして矢印キーでも動かせます。",
-                default,
-            ),
-            Example::new(
-                "per-view",
-                "Items per view",
-                "items_per_view で同時に見せる枚数を指定します。最後の位置は、まだ全部の枚数が見える所です。",
-                per_view,
-            ),
-            Example::new(
-                "vertical",
-                "Vertical",
-                "orientation に Orientation::Vertical を渡すと縦に並び、ボタンは上下に付きます。高さを指定してください。",
-                vertical,
-            ),
-            Example::new(
-                "loop",
-                "Loop",
-                "looping(true) で、最後から最初へ、最初から最後へ戻ります。",
-                looped,
-            ),
-        ],
-    }
+    Page::new("carousel", "Carousel", "Components", include_str!("carousel.rs"))
+        .description("A component that moves through the slides one at a time (or several at a time). The current position is passed as a binding; the previous and next buttons and the left and right arrow keys (up and down when vertical) move it. The buttons sit 48 px outside the box.")
+        .usage("use kivact::prelude::*;\nuse kivact::style::use_theme;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "Pass the view of the slides and a binding for the position. The buttons are disabled at the ends. Tab focuses the box, and the arrow keys move it too.",
+            default,
+        ))
+        .example(Example::new(
+            "per-view",
+            "Items per view",
+            "items_per_view sets how many slides show at once. The last position is the one where all the slides still show.",
+            per_view,
+        ))
+        .example(Example::new(
+            "vertical",
+            "Vertical",
+            "Pass Orientation::Vertical to orientation to stack the slides; the buttons go above and below. Give it a height.",
+            vertical,
+        ))
+        .example(Example::new(
+            "loop",
+            "Loop",
+            "looping(true) wraps from the last slide back to the first, and from the first back to the last.",
+            looped,
+        ))
 }
 
 // example: default
@@ -51,9 +45,9 @@ fn default() -> impl IntoView {
                     .height(120)
                     .align_items(Align::Center)
                     .justify_content(Justify::Center)
-                    .border(1, basic::ColorName::Border)
+                    .border(1, basic::BORDER)
                     .font_size(30)
-                    .weight(600),
+                    .font_weight(600),
             )
             .child(text(number.to_string()))
     }
@@ -73,9 +67,9 @@ fn per_view() -> impl IntoView {
                     .height(120)
                     .align_items(Align::Center)
                     .justify_content(Justify::Center)
-                    .border(1, basic::ColorName::Border)
+                    .border(1, basic::BORDER)
                     .font_size(30)
-                    .weight(600),
+                    .font_weight(600),
             )
             .child(text(number.to_string()))
     }
@@ -96,9 +90,9 @@ fn vertical() -> impl IntoView {
                     .height(120)
                     .align_items(Align::Center)
                     .justify_content(Justify::Center)
-                    .border(1, basic::ColorName::Border)
+                    .border(1, basic::BORDER)
                     .font_size(30)
-                    .weight(600),
+                    .font_weight(600),
             )
             .child(text(number.to_string()))
     }
@@ -119,15 +113,15 @@ fn looped() -> impl IntoView {
                     .height(120)
                     .align_items(Align::Center)
                     .justify_content(Justify::Center)
-                    .border(1, basic::ColorName::Border)
+                    .border(1, basic::BORDER)
                     .font_size(30)
-                    .weight(600),
+                    .font_weight(600),
             )
             .child(text(number.to_string()))
     }
     let index = signal(0usize);
     kivact::ui::carousel(index, (1..=3).map(slide).collect::<Vec<_>>())
-        .looping()
+        .looping(true)
         .style(style().width(240).margin_x(48))
 }
 // end example

@@ -1,6 +1,7 @@
 //! Role: The Styles tab of the Elements panel.
 
 use kivact::prelude::*;
+use kivact::ui::toggle_group;
 use kivact_devtools_protocol as p;
 
 use crate::state::{Inspected, Session};
@@ -28,17 +29,17 @@ const EDITABLE: &[&str] = &[
     "gap",
     "row_gap",
     "column_gap",
-    "grow",
-    "shrink",
+    "flex_grow",
+    "flex_shrink",
     "opacity",
     "background",
     "color",
     "border_color",
     "border_width",
-    "radius",
+    "border_radius",
     "font_size",
     "line_height",
-    "weight",
+    "font_weight",
     "text_align",
     "display",
 ];
@@ -176,16 +177,18 @@ fn styles_body(
     column((
         row((
             text("Override scope").style(style().font_size(12.0)),
-            select("Override scope", scope_items(), scope_signal).style(style().width(230)),
+            select(scope_items(), scope_signal)
+                .label("Override scope")
+                .style(style().width(230)),
             button("Record change to review")
                 .disabled(move || session.inspected.with(Inspected::selected).is_none())
                 .on_press(move || record_change(session)),
         ))
         .style(style().gap(8).align_items(Align::Center)),
         toggle_group("Forced states", state_items(), forced).style(style().min_width(0)),
-        scroll(column(sections)).style(style().grow(1).min_height(0)),
+        scroll(column(sections)).style(style().flex_grow(1).min_height(0)),
     ))
-    .style(style().grow(1).min_height(0).gap(8).padding(8))
+    .style(style().flex_grow(1).min_height(0).gap(8).padding(8))
 }
 
 /// One style layer with a heading and one row per property.
@@ -221,7 +224,7 @@ fn layer_section(
         );
     }
     column((
-        text(layer_title(layer)).style(style().font_size(12.0).weight(600).padding_y(2)),
+        text(layer_title(layer)).style(style().font_size(12.0).font_weight(600).padding_y(2)),
         column(rows),
     ))
     .style(style().gap(4).padding_y(4))

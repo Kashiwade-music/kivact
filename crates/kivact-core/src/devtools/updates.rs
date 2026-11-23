@@ -7,11 +7,12 @@ use std::time::Duration;
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
 use kivact_engine::contract::{EngineRecords, FrameRecord, SyncRecord};
-use kivact_runtime::{CauseEntry, CauseTag, DetailEdge, DetailRun, DetailWrite, Runtime};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Cause, CauseTag, TraceEdge, TraceRun, TraceWrite, Turn};
 use kivact_types::Revision;
 
 use super::{convert, lifecycle};
-use crate::view::devtools_state::{
+use crate::devtools::state::{
     DevtoolsState, Inspector, Pending, PendingGraph, PropWrite, recording_off,
 };
 use crate::view::state::ViewState;
@@ -79,7 +80,7 @@ pub(super) fn list_turns(rt: &Runtime, params: p::ListTurnsParams, reply: Respon
         deadline_ns,
         reply,
     });
-    let _ = kivact_runtime::spawn_in(
+    let _ = kivact_runtime::driver::spawn_in(
         rt.root(),
         async move {
             kivact_runtime::sleep(Duration::from_millis(u64::from(wait_ms))).await;
@@ -130,11 +131,11 @@ pub(super) fn stop(rt: &Runtime) {
 
 /// Turn the detailed trace of this turn into a graph waiting for its frame.
 fn record_turn(rt: &Runtime, i: &Inspector) {
-    let detail = rt.take_turn_details().pop();
+    let detail = rt.last_turn();
     let writes = std::mem::take(&mut *i.hooks.prop_writes.borrow_mut());
     // A recording started in the middle of a turn leaves a partial record with
     // no turn number; the next turn's record is the first one with a number.
-    let Some(detail) = detail.filter(|detail| detail.turn != 0) else {
+    let Some(detail) = detail.filter(|detail| matches!(detail.turn, Turn::Number(_))) else {
         return;
     };
     let revision = Revision(ViewState::tree(rt).engine().stats().revision);
@@ -162,13 +163,13 @@ fn queue_pending(i: &Inspector, item: PendingGraph) {
 fn build_graph(
     rt: &Runtime,
     i: &Inspector,
-    detail: &kivact_runtime::TurnDetail,
+    detail: &kivact_runtime::TurnRecord,
     writes: &[PropWrite],
 ) -> p::TurnGraph {
     let mut graph = GraphBuilder::new();
     graph.add_causes(&detail.causes);
     graph.add_writes(i, &detail.writes);
-    graph.add_runs(i, &detail.runs);
+    graph.add_runs(i, &detail.reruns);
     graph.add_prop_changes(rt, i, writes);
     graph.add_runtime_edges(&detail.edges);
     let started_ns = detail
@@ -186,7 +187,10 @@ fn build_graph(
         .collect();
     let finished = graph.finish(detail.dropped);
     p::TurnGraph {
-        turn: detail.turn,
+        turn: match detail.turn {
+            Turn::Number(n) => n,
+            Turn::Setup => 0,
+        },
         started_ns,
         duration_ns: detail.duration_ns,
         stages,
@@ -202,7 +206,7 @@ fn build_graph(
 
 /// The agent's name hint for a source location.
 fn hint(i: &Inspector, at: &'static Location<'static>) -> Option<String> {
-    i.agent.borrow_mut().name_hint(&convert::location(at))
+    i.ready_agent().name_hint(&convert::location(at))
 }
 
 /// One cause graph while it is assembled.
@@ -211,7 +215,7 @@ struct GraphBuilder {
     edges: Vec<p::CauseEdge>,
     /// The graph node of each runtime node written or run in this turn.
     by_runtime: HashMap<kivact_runtime::NodeId, u32>,
-    /// The graph node of each cause, by `TurnDetail.causes` index.
+    /// The graph node of each cause, by `TurnRecord.causes` index.
     causes: Vec<u32>,
     wasted: p::WastedWork,
     changed: BTreeSet<u64>,
@@ -241,12 +245,12 @@ impl GraphBuilder {
         id
     }
 
-    fn add_causes(&mut self, causes: &[CauseEntry]) {
+    fn add_causes(&mut self, causes: &[Cause]) {
         for cause in causes {
             let id = self.push_node(p::CauseNode {
                 id: 0,
                 kind: cause_kind(cause.tag),
-                label: cause.label.clone(),
+                label: cause.to_string(),
                 ty: None,
                 name_hint: None,
                 source: None,
@@ -260,7 +264,7 @@ impl GraphBuilder {
         }
     }
 
-    fn add_writes(&mut self, i: &Inspector, writes: &[DetailWrite]) {
+    fn add_writes(&mut self, i: &Inspector, writes: &[TraceWrite]) {
         for write in writes {
             let id = self.push_node(p::CauseNode {
                 id: 0,
@@ -283,7 +287,7 @@ impl GraphBuilder {
         }
     }
 
-    fn add_runs(&mut self, i: &Inspector, runs: &[DetailRun]) {
+    fn add_runs(&mut self, i: &Inspector, runs: &[TraceRun]) {
         for run in runs {
             let kind = if run.kind == "memo" {
                 p::CauseKind::MemoRun
@@ -349,7 +353,7 @@ impl GraphBuilder {
         }
     }
 
-    fn add_runtime_edges(&mut self, edges: &[DetailEdge]) {
+    fn add_runtime_edges(&mut self, edges: &[TraceEdge]) {
         for edge in edges {
             let Some(source) = self.by_runtime.get(&edge.source).copied() else {
                 continue;

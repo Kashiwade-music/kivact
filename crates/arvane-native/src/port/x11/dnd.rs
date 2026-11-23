@@ -45,9 +45,7 @@ enum Drag {
     /// XdndPosition (`None` before the first one, so no status was sent yet).
     Hovering {
         source: NonZeroU32,
-        // xtask-allow(state-fields): independent: decided once at XdndEnter from the protocol version and the offered types; point is filled by every XdndPosition whether or not we accept (a refusing status is still sent), so all four pairs occur
         accepts: bool,
-        // xtask-allow(state-fields): independent: the last XdndPosition, absent until the first one arrives (no status sent yet); it is filled whatever accepts says, and drop takes the URIs only for accepts with a point, so all four pairs occur
         point: Option<Point>,
     },
     /// `source` dropped at `point`; its selection is being converted, given up at `deadline`.
@@ -490,11 +488,8 @@ impl Dnd {
 /// This machine's name, which a source may put in a `file://` host.
 #[allow(unsafe_code, reason = "gethostname fills a caller-owned buffer")]
 fn host_name() -> Option<&'static [u8]> {
-    #[expect(
-        clippy::disallowed_types,
-        reason = "process-wide hostname snapshot initialized once"
-    )]
-    static NAME: std::sync::OnceLock<Option<Vec<u8>>> = std::sync::OnceLock::new();
+    static NAME: kivact_types::cell::SharedDeferred<Option<Vec<u8>>> =
+        kivact_types::cell::SharedDeferred::new();
     NAME.get_or_init(|| {
         let mut buffer = [0_u8; 256];
         // SAFETY: the buffer is writable for its whole length.

@@ -6,13 +6,13 @@
 //! readback and scene validation belong to the caller, not this interface.
 
 use crate::events::ShellEvent;
-use crate::ime::ShellImeText;
+use crate::ime::ImeRequest;
 use crate::input::InjectedInput;
+use crate::target::GpuTarget;
 use crate::types::{ShellControl, ShellError, ShellWaker};
-use kivact_types::render::PixelRect;
-use kivact_types::{
-    Cursor as ShellCursor, KeyCode, Rect, RequestId, Size, WindowId, WindowRequest,
-};
+use arvane_protocol::PixelRect;
+use kivact_types::{Cursor as ShellCursor, KeyCode, RequestId, Size, WindowId, WindowRequest};
+use std::time::Duration;
 
 /// The answer to [`ShellWindow::request_size`].
 #[derive(Clone, Debug, PartialEq)]
@@ -23,10 +23,21 @@ pub enum SizeReply {
     Later,
 }
 
-/// Pixel layout accepted by a CPU presentation surface.
+/// Whether a window can show a frame now.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CpuFormat {
-    Xrgb8888,
+pub enum Drawable {
+    /// Yes, on the surface of `generation` (a new surface, a new generation).
+    Yes {
+        /// The surface's generation; the first surface is 1.
+        generation: std::num::NonZeroU64,
+    },
+    /// The window is hidden by its host (an embedded editor); its
+    /// surface is kept.
+    Hidden,
+    /// The platform destroyed the window's surface (a mobile suspension).
+    NoSurface,
+    /// The window has no pixels (minimized, or sized 0).
+    NoPixels,
 }
 
 /// Whether an offered buffer still holds the frame presented last time.
@@ -44,59 +55,34 @@ pub trait ShellWindow {
     /// Execute a platform request synchronously on this window's UI thread.
     fn perform(&mut self, request: kivact_types::PlatformRequest) -> kivact_types::PlatformResult;
 
-    /// Bring the window to the front and give it the keyboard focus. Best effort:
-    /// `Ok` also when the platform only flashes the taskbar entry.
-    /// `ShellError::unsupported` where a window cannot be raised (an embedded editor).
-    fn focus(&mut self) -> Result<(), ShellError>;
-
-    /// Pixel format accepted by the CPU surface.
-    fn cpu_format(&self) -> CpuFormat;
-
-    /// Whether the backend retains presented frames for inspection.
-    fn keeps_frames(&self) -> bool;
-
-    /// Retain a frame read back by the presenter.
-    fn keep_frame(&mut self, frame: kivact_types::render::CpuFrame);
-
-    /// Wait for UI-thread work to finish, up to `limit`. Windows backends
-    /// dispatch only sent messages while waiting, never input or posted
-    /// messages; other backends sleep for one millisecond between polls.
-    fn wait_until(&mut self, done: &mut dyn FnMut() -> bool, limit: std::time::Duration) -> bool;
-
-    /// Recover after a presentation failure; the next presentation may recreate resources.
-    fn recover_surface(&mut self) -> Result<(), ShellError>;
-
-    /// Whether the most recently committed presentation used the CPU surface. An offer that was declined
-    /// or failed does not change it.
-    fn shows_cpu_frame(&self) -> bool;
-
-    /// Release CPU presentation resources before another presenter takes ownership.
-    fn release_cpu_surface(&mut self);
-
     /// Validate and replace the accepted semantics tree transactionally. Rejection retains the old tree.
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::render::SemanticsTree,
+        tree: &arvane_protocol::SemanticsTree,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
 
     /// Validate and apply a semantics update transactionally. A new root requires a complete tree.
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::render::SemanticsUpdate,
+        update: &arvane_protocol::SemanticsUpdate,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
+
+    /// Resolve an assistive-technology request against the window's
+    /// accepted tree, as the platform's own request would be.
+    fn request_accessibility_action(
+        &self,
+        node: u64,
+        request: kivact_types::A11yRequest,
+    ) -> Option<ShellEvent>;
 
     /// Current logical content extent in pixels.
     fn size(&self) -> Size;
 
     /// Request logical content dimensions from the platform, as one effect of
-    /// `request`. Most windows answer at once with the result of
-    /// [`ShellWindow::perform`]. A window that must ask its host (an embedded
-    /// editor) may answer `Later`; it then sends `ShellEvent::PlatformAnswer`
-    /// with the same `request` on this window.
-    fn request_size(&mut self, size: Size, request: RequestId) -> SizeReply {
-        let _ = request;
-        SizeReply::Now(self.perform(kivact_types::PlatformRequest::RequestWindowSize(size)))
-    }
+    /// `request`. Most windows answer at once. A window that must ask its host
+    /// (an embedded editor) may answer `Later`; it then sends
+    /// `ShellEvent::PlatformAnswer` with the same `request` on this window.
+    fn request_size(&mut self, size: Size, request: RequestId) -> SizeReply;
 
     /// The App did not handle the last press of `code`. Desktop windows ignore
     /// it; an embedded editor may give it back to its host
@@ -117,8 +103,8 @@ pub trait ShellWindow {
     /// Backend-supported input, environment and service capabilities for this window.
     fn capabilities(&self) -> kivact_types::Capabilities;
 
-    /// Current surface generation, or `None` while unavailable. Re-creation uses a new generation.
-    fn surface_generation(&self) -> Option<u64>;
+    /// Whether the window can show a frame now, and on which surface generation.
+    fn drawable(&self) -> Drawable;
 
     /// Request a future redraw event; repeated requests may be coalesced.
     fn request_redraw(&self);
@@ -132,9 +118,6 @@ pub trait ShellWindow {
     /// Whether the user can resize the window.
     fn set_resizable(&self, resizable: bool);
 
-    /// Current reduced-motion preference, consistent with `environment`.
-    fn reduced_motion(&self) -> bool;
-
     /// Current scale, refresh period, preferences, safe area, mouse settings and locale.
     fn environment(&self) -> kivact_types::Environment;
 
@@ -144,23 +127,22 @@ pub trait ShellWindow {
     /// Set the cursor shown over the content.
     fn set_cursor(&self, cursor: ShellCursor);
 
-    /// Set the focused editor's content purpose and keyboard hint.
-    fn set_ime_purpose(&self, purpose: kivact_types::InputPurpose);
-    /// Allow IME input for the focused editor; disabling releases its caret area.
-    fn set_ime_allowed(&self, allowed: bool);
+    /// Set the focused editor's IME state: `Some` enables IME input and
+    /// positions it as the request asks, `None` disables IME input.
+    fn set_ime(&self, ime: Option<ImeRequest>);
 
-    /// Request software keyboard visibility where the backend supports it.
-    fn set_soft_keyboard(&self, shown: bool);
+    /// The native child window of a foreign-content window, made when the
+    /// window opened; `None` for any other window.
+    fn foreign_child(&self) -> Option<kivact_types::NativeWindow> {
+        None
+    }
 
-    /// Position IME UI at this logical caret rectangle.
-    fn set_ime_cursor_area(&self, area: Rect);
+    /// The window's presentation surface (the presenter's only).
+    fn surface(&mut self) -> &mut dyn WindowSurface;
+}
 
-    /// Publish surrounding text and UTF-16 selection with logical character bounds; `None` clears it.
-    fn set_ime_text(&self, text: Option<ShellImeText>);
-
-    /// Current display period in nanoseconds, consistent with `environment`.
-    fn frame_period_ns(&self) -> u64;
-
+/// The presentation side of a window, used by the presenter only.
+pub trait WindowSurface {
     /// Offer exactly `width * height` row-major 0x00RRGGBB pixels to `draw`.
     /// `damage` lists the device pixels that changed since the last frame, or
     /// `None` for the whole frame. The callback receives the buffer's
@@ -190,10 +172,32 @@ pub trait ShellWindow {
     /// a native target returns `ShellError::unsupported` without invoking it.
     /// Targets retain native lifetime, not permission to access handles from
     /// arbitrary worker threads. This operation exists without a GPU feature.
-    fn with_gpu_target(
-        &self,
-        make: Box<dyn FnOnce(crate::target::GpuTarget) + Send>,
-    ) -> Result<(), ShellError>;
+    fn with_gpu_target(&self, make: Box<dyn FnOnce(GpuTarget) + Send>) -> Result<(), ShellError>;
+
+    /// Recover after a presentation failure; the next presentation may recreate resources.
+    fn recover_surface(&mut self) -> Result<(), ShellError>;
+
+    /// Whether the most recently committed presentation used the CPU surface. An offer that was declined
+    /// or failed does not change it.
+    fn shows_cpu_frame(&self) -> bool;
+
+    /// Release CPU presentation resources before another presenter takes ownership.
+    fn release_cpu_surface(&mut self);
+
+    /// Wait for UI-thread work to finish, up to `limit`. Windows backends
+    /// dispatch only sent messages while waiting, never input or posted
+    /// messages; other backends sleep for one millisecond between polls.
+    fn wait_until(&mut self, done: &mut dyn FnMut() -> bool, limit: Duration) -> bool;
+
+    /// Where the presenter hands frames it read back for inspection;
+    /// `None` for windows that keep none (every native window).
+    fn frame_sink(&mut self) -> Option<&mut dyn FrameSink>;
+}
+
+/// A keeper of read-back frames (test windows).
+pub trait FrameSink {
+    /// Keep `frame`, a frame the presenter read back after showing it.
+    fn keep(&mut self, frame: arvane_protocol::CpuFrame);
 }
 
 /// What one backend event is about.
@@ -302,12 +306,9 @@ pub enum Step {
 #[derive(Clone, Debug)]
 pub enum StepOutcome {
     Idle {
-        // xtask-allow(state-fields): independent: the loop control's earliest timer deadline when the turn ends; timers come from the handler, apart from window redraw flags and wakes, so it is present or absent with any mix of them
         next_deadline: Option<u64>,
-        // xtask-allow(state-fields): independent: whether any window's redraw flag is still set when the turn ends; windows set it from their own requests, apart from the timer deadline and pending wakes, so a turn may end with any mix
         /// Whether a window's redraw is still pending when the turn ends (asked and not delivered yet).
         redraw_requested: bool,
-        // xtask-allow(state-fields): independent: whether a wake is still pending when the turn ends (`WakePending::pending`); wakers set it from any thread, apart from the timer deadline and redraw flags, so a turn may end with any mix
         woken: bool,
     },
     Exited,

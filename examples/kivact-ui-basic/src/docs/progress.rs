@@ -1,39 +1,32 @@
-//! Role: Catalog page of Progress: static, label with value and interactive.
+//! Catalog page of Progress: static, label with value and interactive.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
-use kivact::ui::{ControlSize, progress};
+use kivact::ui::progress;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "progress",
-        name: "Progress",
-        description: "処理の進み具合を示すバーです。kivact::ui::progress に 0 から 1 の値を Some で渡し、範囲外は丸められます。None は不定の進み方で、動く区間を描きます。Role::ProgressBar として公開されます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::{ControlSize, progress};\nuse kivact_ui_basic as basic;",
-        source: include_str!("progress.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "値を Some で渡すだけのバーです。名前は name で付けます。",
-                default,
-            ),
-            Example::new(
-                "label",
-                "Label",
-                "見出しと割合は呼び出し側の text で添えます。",
-                label,
-            ),
-            Example::new(
-                "interactive",
-                "Interactive",
-                "値はシグナルに追従します。ボタンで増減させます。",
-                interactive,
-            ),
-        ],
-    }
+    Page::new("progress", "Progress", "Components", include_str!("progress.rs"))
+        .description("A bar that shows the progress of work. Pass a value from 0 to 1 as Some to kivact::ui::progress; values out of range are clamped. None is an indeterminate progress that draws a moving segment. It is published as Role::ProgressBar.")
+        .usage("use kivact::prelude::*;\nuse kivact::ui::{ControlSize, progress};\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "A bar with a value given as Some. Its name is set with name.",
+            default,
+        ))
+        .example(Example::new(
+            "label",
+            "Label",
+            "Add a heading and the percentage as text from the caller.",
+            label,
+        ))
+        .example(Example::new(
+            "interactive",
+            "Interactive",
+            "The value follows a signal. Buttons raise and lower it.",
+            interactive,
+        ))
 }
 
 // example: default

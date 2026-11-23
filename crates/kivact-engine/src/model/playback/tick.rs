@@ -36,7 +36,7 @@ impl Model {
             };
             settle(&mut entry, now);
             if let Some(at) = next_switch(&entry, now) {
-                self.frame.request(at);
+                self.frame.request(self.frame.deadline_after(at));
             }
             self.playback.0.insert(key, entry);
         }
@@ -81,7 +81,7 @@ impl Model {
             }
             repaint.push(id);
             if let Some(at) = next_switch(entry, now) {
-                self.frame.request(at);
+                self.frame.request(self.frame.deadline_after(at));
             }
         }
         for id in repaint {

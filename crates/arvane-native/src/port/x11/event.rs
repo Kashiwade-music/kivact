@@ -41,7 +41,10 @@ impl Input {
         window: &mut Window,
     ) -> Result<Vec<ShellEvent>, ShellError> {
         let mut out = Vec::new();
-        for raw in window.dnd.event(&window.native, &event, window.scale)? {
+        for raw in window
+            .dnd
+            .event(&window.native, &event, window.shared.scale())?
+        {
             // Xdnd supplies paths only after conversion; only its completed drop is delivered.
             let _ = self.dnd.input(raw);
         }
@@ -80,7 +83,7 @@ impl Input {
         window: &mut Window,
         out: &mut Vec<ShellEvent>,
     ) -> Result<(), ShellError> {
-        let scale = window.scale;
+        let scale = window.shared.scale();
         let point = |x: i16, y: i16| {
             Some(Point {
                 x: x as f64 / scale,
@@ -91,7 +94,7 @@ impl Input {
             Event::Expose(_) => window.redraw.set(ChildRedraw::Needed),
             Event::ConfigureNotify(e) if e.window == window.native.id.get() => {
                 // Only confirmed native geometry changes notify the handler.
-                if (u32::from(e.width), u32::from(e.height)) != (window.width, window.height) {
+                if (u32::from(e.width), u32::from(e.height)) != window.shared.size() {
                     window.resized(e.width.into(), e.height.into());
                     out.push(ShellEvent::Resized);
                 }
@@ -169,7 +172,7 @@ impl Input {
         window: &mut Window,
         out: &mut Vec<ShellEvent>,
     ) -> Result<(), ShellError> {
-        let scale = window.scale;
+        let scale = window.shared.scale();
         let point = |x: i16, y: i16| {
             Some(Point {
                 x: f64::from(x) / scale,

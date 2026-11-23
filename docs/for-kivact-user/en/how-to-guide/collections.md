@@ -7,8 +7,10 @@ Use `ui::table` for a static table and `ui::data_table` when cells need grid nav
 ```no_run
 use kivact::prelude::*;
 use kivact::style::TextAlign;
+use kivact::ui::{table, table_body, table_cell, table_footer, table_head, table_header, table_row};
 
-fn invoices() -> impl IntoView {
+#[component]
+fn invoices() -> impl Element {
     table((
         table_header((table_row((table_head("Invoice"), table_head("Amount"))),)),
         table_body((table_row((
@@ -26,8 +28,10 @@ Cells share a row's available width. Set the same `.width(..)` for a column in e
 
 ```no_run
 use kivact::prelude::*;
+use kivact::ui::{item_list, item_row};
 
-fn documents() -> impl IntoView {
+#[component]
+fn documents() -> impl Element {
     item_list((
         item_row("Quarterly report")
             .description("Updated today")
@@ -42,4 +46,4 @@ fn documents() -> impl IntoView {
 
 For a hierarchy, `ui::tree(label, items, selected).expanded(expanded)` uses shared tree navigation and publishes expansion only for branches. `.item(..)` supplies row content, `.header(..)` precedes the rows, and `.reveal(gap, transition)` uses retained presence for branch reveals. The selected keys and focused row are separate states. The application owns the expansion and selection bindings.
 
-Install `UiTokens` to adjust `table`, `item_list`, and `tree` metrics. Override `UiRecipes::table`, `item_list`, or `tree` to style individual parts; each builder accepts kit variants with `.variant(..)`. Density, dividers, stripes, media frames, and typography belong to recipes and styles. Caller styles take precedence over default recipes.
+Set the theme variables of the `table`, `item_list` and `tree` components (in `kivact::ui::theme`) to adjust their metrics, and wrap `TableTheme`, `ItemListTheme` or `TreeTheme` to style individual parts; each component accepts kit variants with `.variant(..)`. Density, dividers, stripes, media frames, and typography belong to recipes and styles. Caller styles take precedence over default recipes.

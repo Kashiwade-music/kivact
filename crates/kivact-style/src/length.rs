@@ -1,192 +1,70 @@
-//! Role: Layout units: pixels, percentages, fractions.
-//!
-//! Lengths: numbers are logical px; `pct(50)` and `auto()`; `pct(100) - 20`
-//! is a calc length.
+//! Role: Theme-aware length resolution: `em` and theme variables become px.
 
-use std::ops::{Add, Sub};
+use kivact_types as p;
+use kivact_types::Length;
 
-/// A length: logical px, a percentage of a reference length, or both.
-///
-/// `pct(100) - 20` is CSS `calc(100% - 20px)`, accepted wherever a length
-/// is: in layout (sizes, minimums and maximums, padding, margins, insets,
-/// gaps, the flex basis, grid tracks; the percentage is of what a
-/// percentage there is of, and with an indefinite reference the length is
-/// `auto` like a percentage's) and in paint positions (background sizes
-/// and positions, gradient centers and stops, corner radii, clip path
-/// points, masks).
-///
-/// ```
-/// use kivact::prelude::*;
-/// use kivact::style::{pct};
-/// use kivact::style::Length;
-/// assert_eq!(pct(100) - 20, Length::Calc { percent: 100.0, px: -20.0 });
-/// assert_eq!(Length::from(4) + 6, Length::Px(10.0));
-/// ```
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
-pub enum Length {
-    #[default]
-    Auto,
-    Px(f64),
-    Percent(f64),
-    /// `percent`% of the reference plus `px` (CSS `calc(p% + npx)`).
-    Calc {
-        percent: f64,
-        px: f64,
-    },
-    /// As wide (or high) as the content laid out at its narrowest: every
-    /// line broken (CSS `min-content`). For `width`, `height` and `basis`,
-    /// and grid tracks; elsewhere it is `auto` and reported as unsupported.
-    /// As the width of a column's child, the child's height is still
-    /// measured from its unwrapped content (taffy): size such boxes in a row
-    /// or a grid.
-    MinContent,
-    /// As wide (or high) as the content laid out without breaking lines
-    /// (CSS `max-content`): `width(Length::MaxContent)`. For `width`,
-    /// `height` and `basis`, and grid tracks; elsewhere it is `auto` and
-    /// reported as unsupported (CSS `min-width: max-content` on a box that
-    /// otherwise fills its parent is
-    /// `width(Length::MaxContent).min_width(pct(100))`, with `.shrink(0)` in
-    /// a row).
-    MaxContent,
-    /// The content's width, at most the available width (CSS
-    /// `fit-content`). For `width`, `height` and `basis`, and grid tracks;
-    /// elsewhere it is `auto` and reported as unsupported. In a column,
-    /// `align_self(Align::Start)` sizes a child the same way (and measures a
-    /// wrapping child's height).
-    FitContent,
-}
+use crate::theme::value::Theme;
 
-/// Percentage of the containing box.
-pub fn pct(v: impl Into<f64>) -> Length {
-    Length::Percent(v.into())
-}
-
-pub fn auto() -> Length {
-    Length::Auto
-}
-
-impl From<i32> for Length {
-    fn from(v: i32) -> Self {
-        Length::Px(v as f64)
+/// `l` with its theme variables and `em` resolved (`em_px` is the font
+/// size `em` is of); an `Invalid` sum counts in `misplaced` and is `Auto`.
+pub(crate) fn resolved(l: Length, theme: &Theme, em_px: f64, misplaced: &mut u32) -> Length {
+    match l {
+        Length::Var(v) => Length::Px(theme.get(v)),
+        Length::Em(e) => Length::Px(e * em_px),
+        Length::Calc {
+            percent,
+            px,
+            em,
+            var,
+        } => {
+            let px = px + em * em_px + var.map_or(0.0, |(v, k)| k * theme.get(v));
+            if percent == 0.0 {
+                Length::Px(px)
+            } else {
+                Length::Calc {
+                    percent,
+                    px,
+                    em: 0.0,
+                    var: None,
+                }
+            }
+        }
+        Length::Invalid => {
+            *misplaced += 1;
+            Length::Auto
+        }
+        other => other,
     }
 }
 
-impl From<u32> for Length {
-    fn from(v: u32) -> Self {
-        Length::Px(v as f64)
-    }
+/// What a compile resolves the lengths of a style with: the theme, the
+/// font size `em` is of (the style's font size, else the theme's base size)
+/// and the count of sums the host cannot take.
+pub(crate) struct Resolve<'a> {
+    pub(crate) theme: &'a Theme,
+    pub(crate) em_px: f64,
+    pub(crate) misplaced: &'a mut u32,
 }
 
-impl From<f32> for Length {
-    fn from(value: f32) -> Self {
-        Self::Px(f64::from(value))
-    }
-}
-
-impl From<f64> for Length {
-    fn from(v: f64) -> Self {
-        Length::Px(v)
-    }
-}
-
-impl Length {
-    /// `(percent, px)`, or `None` for `Auto` and the content sizes.
-    fn parts(self) -> Option<(f64, f64)> {
-        match self {
-            Length::Auto | Length::MinContent | Length::MaxContent | Length::FitContent => None,
-            Length::Px(v) => Some((0.0, v)),
-            Length::Percent(p) => Some((p, 0.0)),
-            Length::Calc { percent, px } => Some((percent, px)),
+impl<'a> Resolve<'a> {
+    /// The resolve of a drawing that has no style: `em` is of the theme's
+    /// base size.
+    pub(crate) fn of_theme(theme: &'a Theme, misplaced: &'a mut u32) -> Self {
+        Resolve {
+            theme,
+            em_px: theme.get(&crate::font::SIZE_VAR),
+            misplaced,
         }
     }
 
-    fn from_parts(percent: f64, px: f64) -> Length {
-        if percent == 0.0 {
-            Length::Px(px)
-        } else if px == 0.0 {
-            Length::Percent(percent)
-        } else {
-            Length::Calc { percent, px }
-        }
+    /// `l` with its theme variables and `em` resolved.
+    pub(crate) fn len(&mut self, l: Length) -> Length {
+        resolved(l, self.theme, self.em_px, self.misplaced)
     }
 
-    /// The layout form.
-    pub(crate) fn to_wire(self) -> kivact_types::Dimension {
-        use kivact_types::Dimension as D;
-        match self {
-            Length::Auto => D::Auto,
-            Length::Px(v) => D::Px(v),
-            Length::Percent(v) => D::Percent(v),
-            Length::Calc { percent, px } => D::Calc { percent, px },
-            Length::MinContent => D::MinContent,
-            Length::MaxContent => D::MaxContent,
-            Length::FitContent => D::FitContent,
-        }
-    }
-
-    /// A content size (`min_content()`, `max_content()`, `fit_content()`).
-    pub(crate) fn is_content(self) -> bool {
-        matches!(
-            self,
-            Length::MinContent | Length::MaxContent | Length::FitContent
-        )
-    }
-
-    /// The paint form (`Auto` and the content sizes are zero).
-    pub(crate) fn to_len(self) -> kivact_types::Len {
-        let (pct, px) = self.parts().unwrap_or((0.0, 0.0));
-        kivact_types::Len { px, pct }
-    }
-}
-
-impl<T: Into<Length>> Add<T> for Length {
-    type Output = Length;
-
-    /// The sum; `Auto` (or a content size) gives `Auto`.
-    fn add(self, rhs: T) -> Length {
-        match (self.parts(), rhs.into().parts()) {
-            (Some((p1, x1)), Some((p2, x2))) => Length::from_parts(p1 + p2, x1 + x2),
-            _ => Length::Auto,
-        }
-    }
-}
-
-impl<T: Into<Length>> Sub<T> for Length {
-    type Output = Length;
-
-    /// The difference; `Auto` (or a content size) gives `Auto`.
-    fn sub(self, rhs: T) -> Length {
-        match (self.parts(), rhs.into().parts()) {
-            (Some((p1, x1)), Some((p2, x2))) => Length::from_parts(p1 - p2, x1 - x2),
-            _ => Length::Auto,
-        }
-    }
-}
-
-kivact_runtime::constant_value!(Length);
-
-// A number is a constant length in logical px wherever a reactive length
-// is taken (`dialog(..).width(640)`), as it is in `style()`.
-impl kivact_runtime::IntoValue<Length> for i32 {
-    fn into_prop(self) -> kivact_runtime::Prop<Length> {
-        kivact_runtime::Prop::constant(Length::from(self))
-    }
-}
-
-impl kivact_runtime::IntoValue<Length> for u32 {
-    fn into_prop(self) -> kivact_runtime::Prop<Length> {
-        kivact_runtime::Prop::constant(Length::from(self))
-    }
-}
-
-impl kivact_runtime::IntoValue<Length> for f64 {
-    fn into_prop(self) -> kivact_runtime::Prop<Length> {
-        kivact_runtime::Prop::constant(Length::from(self))
-    }
-}
-
-impl kivact_runtime::IntoValue<Length> for f32 {
-    fn into_prop(self) -> kivact_runtime::Prop<Length> {
-        kivact_runtime::Prop::constant(Length::from(self))
+    /// `l` in its paint form: resolved, and counted in the misplaced lengths
+    /// when a paint position cannot take it (`auto`, a content size).
+    pub(crate) fn paint_len(&mut self, l: Length) -> p::Len {
+        resolved(l, self.theme, self.em_px, &mut 0).to_len(self.misplaced)
     }
 }

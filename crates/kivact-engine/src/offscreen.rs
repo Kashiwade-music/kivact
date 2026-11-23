@@ -7,8 +7,8 @@
 //! theme's, as a window's root does), and it shares the output's text
 //! engine, so a font registered later is seen. It is drawn by Arvane's
 //! CPU rasterizer alone, at a raster scale of 1, from a transparent start;
-//! the rasterizer's premultiplied pixels are turned back into straight
-//! alpha. The size limit is the rasterizer's frame budget, the one windows
+//! the rasterizer's premultiplied pixels are the output as they are. The
+//! size limit is the rasterizer's frame budget, the one windows
 //! are held to ([`OffscreenRenderer::accepts_size`]); the caller checks it before it
 //! draws anything. Encoding, the timing of frames and cancelling between
 //! them are the caller's.
@@ -24,7 +24,7 @@
 //!   ([`OffscreenRenderer::font`]).
 //! - Resources complete inside the call (the asset store is inline), and an
 //!   error leaves the output usable for the next frame.
-//! - The output is straight-alpha RGBA8 in its own allocation; the output
+//! - The output is premultiplied RGBA8 in its own allocation; the output
 //!   owns the assets and the text engine, which its thread keeps. An
 //!   [`OffscreenRenderer`] is not `Send`; dropping it releases its caches.
 
@@ -35,16 +35,17 @@ use crate::lower::assets::ArvaneAssets;
 use crate::lower::context::Context;
 use crate::lower::effects::Tint;
 use crate::text_measure::TextMeasurer;
-use kivact_types::render::LayerItem;
+use arvane_protocol::LayerItem;
 use kivact_types::{Asset, ComputedTextStyle, DrawList, PlatformResult, Rect, Size};
 
+// xtask-allow(state): independent: assets, scene_cache and engine are the output's own stores, made by Default; render and font use them, release_caches clears them, and engine is shared with TextMeasurer
 /// Resources and rasterizer of window-independent drawing, confined to the
 /// thread that made them.
 pub struct OffscreenRenderer {
     assets: RefCell<ArvaneAssets>,
     scene_cache: RefCell<crate::lower::SceneCache>,
-    engine: Rc<RefCell<arvane::Engine>>,
-    rasterizer: arvane::Rasterizer,
+    engine: Rc<RefCell<arvane_text::TextEngine>>,
+    compositor: arvane_compose::CpuCompositor,
 }
 
 /// Why an image was not rendered.
@@ -57,7 +58,7 @@ pub enum OffscreenError {
     Failed(kivact_types::Failure),
 }
 
-/// A rendered image: tightly packed straight-alpha RGBA8, top row first, in
+/// A rendered image: tightly packed premultiplied RGBA8, top row first, in
 /// an allocation of its own.
 pub struct OffscreenImage {
     pub width: u32,
@@ -68,10 +69,10 @@ pub struct OffscreenImage {
 impl Default for OffscreenRenderer {
     fn default() -> Self {
         Self {
-            assets: RefCell::new(ArvaneAssets::new(arvane::asset::AssetStore::inline())),
+            assets: RefCell::new(ArvaneAssets::new(arvane_asset::AssetStore::inline())),
             scene_cache: RefCell::default(),
-            engine: Rc::new(RefCell::new(arvane::Engine::new())),
-            rasterizer: arvane::Rasterizer::new(),
+            engine: Rc::new(RefCell::new(arvane_text::TextEngine::new())),
+            compositor: arvane_compose::CpuCompositor::new(),
         }
     }
 }
@@ -84,7 +85,7 @@ impl OffscreenRenderer {
         self.scene_cache.get_mut().clear();
         self.assets.get_mut().release_caches();
         self.engine.borrow_mut().release_caches();
-        self.rasterizer.release_caches();
+        self.compositor.release_caches();
     }
 
     pub fn new() -> Self {
@@ -94,7 +95,14 @@ impl OffscreenRenderer {
     /// Whether an image of this size is rendered: the rasterizer's frame
     /// budget, the same one windows are held to.
     pub fn accepts_size(width: u32, height: u32) -> bool {
-        arvane::Rasterizer::check_size(width, height).is_ok()
+        arvane_render::dimensions(
+            kivact_types::Size {
+                width: f64::from(width),
+                height: f64::from(height),
+            },
+            1.0,
+        )
+        .is_ok()
     }
 
     /// Text measurement for a drawing callback whose runs inherit
@@ -155,10 +163,11 @@ impl OffscreenRenderer {
         }
         // The failures the store kept are the ones the context reported.
         self.assets.get_mut().discard_failures();
-        let composition = lowered.into_composition(Size {
+        let (mut composition, _) = lowered.into_composition(Size {
             width: size.0 as f64,
             height: size.1 as f64,
         });
+        crate::lower::content_versions::stamp_fresh(&mut composition);
         self.render_composition(&composition, size)
     }
 
@@ -167,7 +176,7 @@ impl OffscreenRenderer {
     /// an error rather than an omission.
     pub(crate) fn render_composition(
         &mut self,
-        composition: &kivact_types::render::Composition,
+        composition: &arvane_protocol::Composition,
         size: (u32, u32),
     ) -> Result<OffscreenImage, OffscreenError> {
         let undrawn = composition
@@ -179,13 +188,11 @@ impl OffscreenRenderer {
         if undrawn > 0 {
             return Err(OffscreenError::Dropped(undrawn as u32));
         }
-        let mut frame = self
-            .rasterizer
-            .render(composition, size.0, size.1)
-            .map_err(OffscreenError::Failed)?;
-        // PNG and Draw::pixels are straight alpha; Arvane's frame is
-        // premultiplied.
-        kivact_types::color::unpremultiply(&mut frame.rgba);
+        let frame = self
+            .compositor
+            .render(composition, (size.0, size.1), 1.0)
+            .map(|rendered| rendered.image)
+            .map_err(|error| OffscreenError::Failed(kivact_types::Failure::from(error)))?;
         Ok(OffscreenImage {
             width: frame.width,
             height: frame.height,

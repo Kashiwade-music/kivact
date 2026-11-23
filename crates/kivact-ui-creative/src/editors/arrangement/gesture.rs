@@ -9,7 +9,7 @@ use crate::editors::shared::metrics::ARRANGEMENT_SIDEBAR;
 use kivact::geometry::{Point, Size};
 use kivact::interaction::EditSession;
 use kivact::interaction::{ListApi, ListGesture};
-use kivact::state::{Binding, Callback, Value};
+use kivact::state::{Callback, Signal, Value};
 #[derive(Clone, PartialEq)]
 pub(crate) enum Snapshot {
     Clips(Vec<(u64, f64, f64)>),
@@ -17,7 +17,7 @@ pub(crate) enum Snapshot {
     Playhead(f64),
     Loop((f64, f64)),
     Cycle(bool),
-    View(kivact::interaction::ViewTransform),
+    View(kivact::interaction::ZoomPan),
 }
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Drag {
@@ -37,6 +37,7 @@ pub(crate) enum LoopPart {
     Body,
     Create,
 }
+// xtask-allow(state): independent: selected, playhead, loop_range, cycling, transform and tool_binding are the caller's bindings, each written by its own gesture or command; active_auto is the automation point under a press, set on press and cleared on release
 #[derive(Clone, Copy)]
 pub(crate) struct State {
     pub(crate) size: Value<Size>,
@@ -53,23 +54,23 @@ pub(crate) struct State {
         >,
     >,
     pub(crate) track_data: Value<Vec<TimelineTrack>>,
-    pub(crate) selected: Binding<Vec<u64>>,
+    pub(crate) selected: Signal<Vec<u64>>,
     pub(crate) selection: Value<Vec<u64>>,
-    pub(crate) playhead: Binding<f64>,
+    pub(crate) playhead: Signal<f64>,
     pub(crate) frame: Value<f64>,
-    pub(crate) loop_range: Binding<(f64, f64)>,
+    pub(crate) loop_range: Signal<(f64, f64)>,
     pub(crate) range: Value<(f64, f64)>,
     pub(crate) cycle: Value<bool>,
-    pub(crate) cycling: Binding<bool>,
-    pub(crate) transform: Binding<kivact::interaction::ViewTransform>,
+    pub(crate) cycling: Signal<bool>,
+    pub(crate) transform: Signal<kivact::interaction::ZoomPan>,
     pub(crate) pixels: Value<f64>,
     pub(crate) offset: Value<Point>,
-    pub(crate) tool_binding: Binding<TimelineTool>,
+    pub(crate) tool_binding: Signal<TimelineTool>,
     pub(crate) tool: Value<TimelineTool>,
     pub(crate) markers: Value<Vec<TimelineMarker>>,
     pub(crate) snap: Value<bool>,
     pub(crate) step: Value<f64>,
-    pub(crate) active_auto: kivact::state::Binding<Option<(u64, u64)>>,
+    pub(crate) active_auto: kivact::state::Signal<Option<(u64, u64)>>,
     pub(crate) press: crate::editors::shared::gesture::CanvasGesture<
         crate::editors::arrangement::a11y::targets::Target,
         Option<Drag>,

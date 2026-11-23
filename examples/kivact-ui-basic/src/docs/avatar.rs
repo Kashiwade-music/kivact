@@ -1,44 +1,37 @@
-//! Role: Catalog page of Avatar: picture, fallback, sizes, badge and group.
+//! Catalog page of Avatar: picture, fallback, sizes, badge and group.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "avatar",
-        name: "Avatar",
-        description: "ユーザーを表す画像。画像がないときは fallback の文字（頭文字）を表示します。画像を渡すと Role::Image になり、fallback の文字がその名前になります。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("avatar.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "image に PNG などの画像（Asset）を渡すと、fallback の文字の上に画像が重なります。画像を渡さないアバターは、頭文字のままです。",
-                default,
-            ),
-            Example::new(
-                "sizes",
-                "Sizes",
-                "AvatarSize の Sm、Default、Lg が 24、32、40 px です。",
-                sizes,
-            ),
-            Example::new(
-                "badge",
-                "Badge",
-                "badge で右下に状態を示す印を置けます。",
-                with_badge,
-            ),
-            Example::new(
-                "group",
-                "Group",
-                "avatar_group は 8 px ずつ重ねます。子を 1 つずつ包むため、view の tuple（種類が違ってもよい）か Vec で渡します。max と total から残りの人数を表示します。",
-                group,
-            ),
-        ],
-    }
+    Page::new("avatar", "Avatar", "Components", include_str!("avatar.rs"))
+        .description("An image that represents a user. Without an image it shows the fallback text (the initials). With an image it is a Role::Image, and the fallback text becomes its name.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "Pass a PNG or another image (Asset) as image and it covers the fallback text. An avatar without an image keeps the initials.",
+            default,
+        ))
+        .example(Example::new(
+            "sizes",
+            "Sizes",
+            "The AvatarSize values Sm, Default and Lg are 24, 32 and 40 px.",
+            sizes,
+        ))
+        .example(Example::new(
+            "badge",
+            "Badge",
+            "badge puts a status mark at the bottom right.",
+            with_badge,
+        ))
+        .example(Example::new(
+            "group",
+            "Group",
+            "avatar_group overlaps the avatars by 8 px. It wraps each child, so pass a tuple of views (the kinds may differ) or a Vec. The remaining people are shown from max and total.",
+            group,
+        ))
 }
 
 // example: default
@@ -92,10 +85,10 @@ fn with_badge() -> impl IntoView {
                             .right(0)
                             .bottom(0)
                             .size(12, 12)
-                            .radius(999)
-                            .background(basic::ColorName::Primary)
-                            .color(basic::ColorName::PrimaryForeground)
-                            .ring(2, basic::ColorName::Background)
+                            .border_radius(999)
+                            .background(basic::PRIMARY)
+                            .color(basic::PRIMARY_FOREGROUND)
+                            .outline(2, basic::BACKGROUND)
                             .z_index(10),
                     )
                     .child(icon("plus").style(style().size(12, 12))),

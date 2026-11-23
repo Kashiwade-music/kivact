@@ -51,8 +51,15 @@ impl Model {
             axes.1 && content.height > size.height,
         );
         [
-            make_bar(false, enabled, size, content, width, n.scroll()),
-            make_bar(true, enabled, size, content, width, n.scroll()),
+            make_bar(
+                false,
+                enabled,
+                size,
+                content,
+                width,
+                self.tree.scroll_of(id),
+            ),
+            make_bar(true, enabled, size, content, width, self.tree.scroll_of(id)),
         ]
     }
     pub(crate) fn scrollbar_at(&self, id: NodeId, point: Point) -> Option<Bar> {
@@ -62,7 +69,7 @@ impl Model {
             .find(|bar| bar.track.contains(point))
     }
     pub(crate) fn scrollbar_style(&self, id: NodeId) -> ScrollbarProps {
-        self.effective_paint(id)
+        self.paint_now(id)
             .scrollbar
             .as_deref()
             .copied()

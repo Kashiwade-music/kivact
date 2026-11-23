@@ -3,15 +3,14 @@
 
 /// Straight-alpha color, components in `0.0..=1.0`.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
-/// Rgba.
 pub struct Rgba {
-    /// R.
+    /// Red in 0..=1, straight alpha.
     pub r: f64,
-    /// G.
+    /// Green in 0..=1, straight alpha.
     pub g: f64,
-    /// B.
+    /// Blue in 0..=1, straight alpha.
     pub b: f64,
-    /// A.
+    /// Opacity in 0..=1.
     pub a: f64,
 }
 
@@ -25,7 +24,7 @@ impl Rgba {
     };
 
     /// An RGB hex color and an alpha clamped to `0..=1`.
-    pub fn from_hex(hex: u32, alpha: f64) -> Self {
+    pub const fn from_hex(hex: u32, alpha: f64) -> Self {
         Self {
             r: ((hex >> 16) & 0xff) as f64 / 255.0,
             g: ((hex >> 8) & 0xff) as f64 / 255.0,
@@ -34,7 +33,7 @@ impl Rgba {
         }
     }
 
-    /// With alpha mul.
+    /// The color with its alpha multiplied by `factor` (clamped to 0..=1).
     pub fn with_alpha_mul(self, factor: f64) -> Self {
         Rgba {
             a: (self.a * factor).clamp(0.0, 1.0),
@@ -59,6 +58,17 @@ pub fn unpremultiply(rgba: &mut [u8]) {
                     *channel = ((u32::from(*channel) * 255 + alpha / 2) / alpha).min(255) as u8;
                 }
             }
+        }
+    }
+}
+
+/// Convert straight-alpha RGBA8 pixels to premultiplied alpha in place
+/// (each color channel times alpha / 255, rounded).
+pub fn premultiply(rgba: &mut [u8]) {
+    for px in rgba.as_chunks_mut::<4>().0 {
+        let a = u16::from(px[3]);
+        for c in &mut px[..3] {
+            *c = ((u16::from(*c) * a + 127) / 255) as u8;
         }
     }
 }

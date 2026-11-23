@@ -6,11 +6,11 @@ use super::pass::{CLEAR, FrameTextures, blur_sigmas, copy, size_f, view, with_pa
 use super::pipelines::{Words, buffer};
 use super::state::GpuContext;
 use super::targets;
-use crate::ComposeError;
+use crate::RenderError;
+use arvane_protocol::LayerFilter;
 use kivact_types::Rgba;
 use kivact_types::geometry::{Point, Size};
 use kivact_types::pixel::ColorMatrix;
-use kivact_types::render::LayerFilter;
 
 /// The `mode` values of the filter shader (`fs_filter`).
 const MODE_SHRINK_X: u32 = 1;
@@ -69,7 +69,7 @@ impl GpuContext {
         filter: &LayerFilter,
         geometry: FilterGeometry,
         frame: &FrameTextures<'_>,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let FilterGeometry {
             px_per_unit,
             origin,
@@ -78,7 +78,7 @@ impl GpuContext {
         let source = frame.target(input)?;
         let dest = frame.target(output)?;
         if (source.width(), source.height()) != (dest.width(), dest.height()) {
-            return Err(ComposeError::InvalidComposition(
+            return Err(RenderError::InvalidComposition(
                 "a filter's input and output differ in size".into(),
             ));
         }
@@ -137,7 +137,7 @@ impl GpuContext {
         src: &wgpu::Texture,
         aux: Option<&wgpu::Texture>,
         args: Pass,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         self.filter_pass_with(encoder, out, src, aux, args, None)
     }
 
@@ -150,7 +150,7 @@ impl GpuContext {
         aux: Option<&wgpu::Texture>,
         mut args: Pass,
         weights: Option<&wgpu::Buffer>,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         // The sizes come from the textures, so every mode samples the right extent.
         args.out = size_f(out);
         args.src = size_f(src);
@@ -168,39 +168,42 @@ impl GpuContext {
         for row in args.matrix.as_chunks::<4>().0 {
             words.v4([row[0], row[1], row[2], row[3]]);
         }
-        let params = super::pass::uniform(&self.device, &self.queue, words.bytes());
+        let params = super::pass::uniform(&self.gpu.device, &self.gpu.queue, words.bytes());
         let src_view = view(src);
         let aux_view = aux.map(view);
-        let aux_ref = aux_view.as_ref().unwrap_or(&self.pipelines.dummy);
+        let aux_ref = aux_view.as_ref().unwrap_or(&self.gpu.pipelines.dummy);
         let storage = match weights {
             Some(buffer) => buffer.as_entire_binding(),
-            None => self.pipelines.dummy_buffer.as_entire_binding(),
+            None => self.gpu.pipelines.dummy_buffer.as_entire_binding(),
         };
-        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Arvane filter"),
-            layout: &self.pipelines.filter_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: params.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&src_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(aux_ref),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: storage,
-                },
-            ],
-        });
+        let group = self
+            .gpu
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Arvane filter"),
+                layout: &self.gpu.pipelines.filter_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: params.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(&src_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(aux_ref),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: storage,
+                    },
+                ],
+            });
         let out_view = view(out);
         with_pass(encoder, &out_view, CLEAR, |pass| {
-            pass.set_pipeline(&self.pipelines.filter);
+            pass.set_pipeline(self.gpu.pipelines.filter(&self.gpu.device));
             pass.set_bind_group(0, &group, &[]);
             pass.draw(0..3, 0..1);
         });
@@ -213,8 +216,8 @@ impl GpuContext {
         encoder: &mut wgpu::CommandEncoder,
         source: &wgpu::Texture,
         color: Rgba,
-    ) -> Result<wgpu::Texture, ComposeError> {
-        let shadow = targets::target(&self.device, (source.width(), source.height()));
+    ) -> Result<wgpu::Texture, RenderError> {
+        let shadow = targets::target(&self.gpu.device, (source.width(), source.height()));
         let args = Pass {
             out: size_f(&shadow),
             src: size_f(source),
@@ -239,7 +242,7 @@ impl GpuContext {
         input: &wgpu::Texture,
         shadow: &wgpu::Texture,
         offset: (f32, f32),
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let args = Pass {
             mode: MODE_SHADOW_OVER,
             offset,
@@ -255,7 +258,7 @@ impl GpuContext {
         out: &wgpu::Texture,
         src: &wgpu::Texture,
         matrix: &ColorMatrix,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let mut coefficients = [0.0_f32; 20];
         for (c, v) in coefficients.iter_mut().zip(matrix.0) {
             *c = v as f32;
@@ -276,7 +279,7 @@ impl GpuContext {
         src: &wgpu::Texture,
         sigma_x: f64,
         sigma_y: f64,
-    ) -> Result<wgpu::Texture, ComposeError> {
+    ) -> Result<wgpu::Texture, RenderError> {
         let (kx, ky) = (levels(sigma_x), levels(sigma_y));
         let mut current = src.clone();
         let mut widths = Vec::with_capacity(kx as usize);
@@ -314,7 +317,7 @@ impl GpuContext {
         encoder: &mut wgpu::CommandEncoder,
         src: &wgpu::Texture,
         mode: u32,
-    ) -> Result<wgpu::Texture, ComposeError> {
+    ) -> Result<wgpu::Texture, RenderError> {
         let (w, h) = (src.width(), src.height());
         let size = if mode == MODE_SHRINK_X {
             (w.div_ceil(2), h)
@@ -331,8 +334,8 @@ impl GpuContext {
         src: &wgpu::Texture,
         size: (u32, u32),
         mode: u32,
-    ) -> Result<wgpu::Texture, ComposeError> {
-        let out = targets::target(&self.device, size);
+    ) -> Result<wgpu::Texture, RenderError> {
+        let out = targets::target(&self.gpu.device, size);
         let args = Pass {
             mode,
             ..Pass::default()
@@ -348,15 +351,15 @@ impl GpuContext {
         src: &wgpu::Texture,
         sigma: f64,
         dir: (f32, f32),
-    ) -> Result<wgpu::Texture, ComposeError> {
+    ) -> Result<wgpu::Texture, RenderError> {
         let (radius, weights) = gaussian(sigma);
         let weight_buffer = buffer(
-            &self.device,
-            &self.queue,
+            &self.gpu.device,
+            &self.gpu.queue,
             wgpu::BufferUsages::STORAGE,
             &weights,
         );
-        let out = targets::target(&self.device, (src.width(), src.height()));
+        let out = targets::target(&self.gpu.device, (src.width(), src.height()));
         let args = Pass {
             dir,
             radius,

@@ -20,8 +20,8 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use kivact_types::render::SpanStyle;
-use kivact_types::render::TextSpan;
+use arvane_protocol::ResolvedSpan;
+use arvane_protocol::ResolvedSpanStyle;
 use kivact_types::{ComputedTextStyle, FontFeature, FontVariation, TextWrap};
 use kivact_types::{FontKerning, TextTransform};
 
@@ -45,31 +45,21 @@ pub(crate) fn variation_bits(variations: &[FontVariation]) -> Vec<VariationBits>
 struct SpanKey {
     start: usize,
     end: usize,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     font_size: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     weight: Option<u16>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     family: Option<String>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     italic: Option<bool>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     letter_spacing: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     word_spacing: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     kerning: Option<FontKerning>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     features: Option<Vec<FontFeature>>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     variations: Option<Vec<VariationBits>>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     font_width: Option<u64>,
 }
 
 impl SpanKey {
-    fn new(span: &TextSpan) -> Self {
-        let SpanStyle {
+    fn new(span: &ResolvedSpan) -> Self {
+        let ResolvedSpanStyle {
             font_size,
             weight,
             family,
@@ -121,17 +111,12 @@ pub(crate) struct Key {
     font_size: u64,
     weight: u16,
     line_height: u64,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     wrap: bool,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     family: Option<String>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     italic: bool,
     variations: Vec<VariationBits>,
     font_width: u64,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     optical_sizing: bool,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     rich: Option<Box<RichKey>>,
 }
 
@@ -140,7 +125,7 @@ impl Key {
     /// apart (the text before its case conversion).
     pub(crate) fn new(
         text: &str,
-        spans: &[TextSpan],
+        spans: &[ResolvedSpan],
         style: &ComputedTextStyle,
         line_height: f64,
     ) -> Self {
@@ -272,7 +257,7 @@ mod tests {
     use super::*;
     use crate::TextEngine;
     use crate::cache::TextKeyRef;
-    use kivact_types::render::RichText;
+    use arvane_protocol::RichText;
     use std::sync::Arc;
 
     /// The bundled test font (Tuffy; a copy of the `arvane` crate's file, so
@@ -293,12 +278,8 @@ mod tests {
     fn texts_measured_once_each_keep_no_paragraph() {
         let mut engine = engine();
         let style = ComputedTextStyle::default();
-        engine
-            .measure("first".into(), &style, None)
-            .expect("measures");
-        engine
-            .measure("second".into(), &style, None)
-            .expect("measures");
+        engine.measure("first", &style, None).expect("measures");
+        engine.measure("second", &style, None).expect("measures");
         assert_eq!(engine.cache.paragraphs.current.len(), 0);
     }
 
@@ -306,15 +287,9 @@ mod tests {
     fn a_paragraph_is_kept_from_its_second_shaping() {
         let mut engine = engine();
         let style = ComputedTextStyle::default();
-        engine
-            .measure("again".into(), &style, None)
-            .expect("measures");
-        engine
-            .measure("other".into(), &style, None)
-            .expect("measures");
-        engine
-            .measure("again".into(), &style, None)
-            .expect("measures");
+        engine.measure("again", &style, None).expect("measures");
+        engine.measure("other", &style, None).expect("measures");
+        engine.measure("again", &style, None).expect("measures");
         assert_eq!(engine.cache.paragraphs.current.len(), 1);
     }
 
@@ -322,12 +297,10 @@ mod tests {
     fn a_measurement_is_kept_from_its_second_call_with_equal_metrics() {
         let mut engine = engine();
         let style = ComputedTextStyle::default();
-        let first = engine.measure("again".into(), &style, None);
+        let first = engine.measure("again", &style, None);
         assert!(!measured_kept(&mut engine, "again", &style));
-        engine
-            .measure("other".into(), &style, None)
-            .expect("measures");
-        let second = engine.measure("again".into(), &style, None);
+        engine.measure("other", &style, None).expect("measures");
+        let second = engine.measure("again", &style, None);
         assert!(measured_kept(&mut engine, "again", &style));
         assert!(!measured_kept(&mut engine, "other", &style));
         assert_eq!(first, second);

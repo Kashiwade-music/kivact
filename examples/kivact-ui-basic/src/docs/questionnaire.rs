@@ -1,32 +1,26 @@
-//! Role: Catalog page of Questionnaire: choices, input, optional steps and submit.
+//! Catalog page of Questionnaire: choices, input, optional steps and submit.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "questionnaire",
-        name: "Questionnaire",
-        description: "複数の質問を順に答えていく部品です。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("questionnaire.rs"),
-        align: PreviewAlign::End,
-        examples: vec![
-            Example::new(
-                "basic",
-                "Basic",
-                "steps と現在の位置を渡します。必須の質問は答えるまで Next を押せません。",
-                basic,
-            ),
-            Example::new(
-                "answers",
-                "Answers and submit",
-                "三つ目の引数の answers が回答を持つ binding です。on_submit で最後に受け取ります。",
-                answers,
-            ),
-        ],
-    }
+    Page::new("questionnaire", "Questionnaire", "Components", include_str!("questionnaire.rs"))
+        .description("A component for answering several questions in turn.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .align(PreviewAlign::End)
+        .example(Example::new(
+            "basic",
+            "Basic",
+            "Pass the steps and the current position. A required question keeps Next disabled until it is answered.",
+            basic,
+        ))
+        .example(Example::new(
+            "answers",
+            "Answers and submit",
+            "The third argument, answers, is the binding that holds the answers. It is received at the end through on_submit.",
+            answers,
+        ))
 }
 
 // example: basic

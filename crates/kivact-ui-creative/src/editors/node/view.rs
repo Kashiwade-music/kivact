@@ -1,100 +1,84 @@
-//! Role: The NodeEditor builder and the node canvas view it builds.
+//! Role: The node editor component and the node canvas view it builds.
 
 use super::a11y::{semantic, targets};
-use crate::editors::node::gesture::{ConnectGuard, NodeMode, State};
+use crate::editors::node::gesture::{ConnectGuard, State};
 use crate::editors::node::gesture::{ControlKind, Target};
 use crate::editors::node::input::{key, pointer};
 use crate::editors::node::model::{NodeData, NodeLink, NodeRequest};
+use crate::editors::shared::model::EditorEvent;
 use crate::editors::shared::selection;
 use crate::editors::shared::targets::{self};
+use kivact::component;
 use kivact::custom::NodeRefExt;
 use kivact::custom::part;
 use kivact::interaction::ListItem;
 use kivact::interaction::{DragCoordinates, EditSession, use_drag, use_zoom_pan};
-use kivact::state::{Callback, Value, effect, memo, signal};
+use kivact::state::{Callback, Value, memo, signal};
 use kivact::state::{IntoValue, callback};
-use kivact::style::{ColorToken, Overflow, style};
+use kivact::style::{Overflow, style};
 use kivact::view::EditPhase;
-use kivact::view::HandlerResult;
-use kivact::view::{A11yAction, A11yRequest, Handled, IntoView, Role, View, node_ref};
-use kivact::view::{Element, Node, node};
+use kivact::view::{A11yAction, A11yRequest, Handled, Role, node_ref};
+use kivact::view::{Node, node};
+use std::rc::Rc;
 
 /// An editor for typed nodes, sockets, controls and links.
-pub struct NodeEditor {
-    root: Node,
+///
+/// Display application-owned nodes and links without mutating either collection.
+/// Apply proposals from `on_edit` to make edits visible. `state` holds the
+/// selected nodes, the selected link and the canvas's pan and zoom.
+/// `on_edit` reports absolute proposals and gesture phases; the application
+/// applies requests and restores its own items on Cancel, and pan/zoom forwards
+/// shared phases. `can_connect` guards connection highlighting and Connect
+/// reports; it defaults to accepting all links. `snap` rounds the distance a
+/// drag moves the selected nodes to multiples of 10 px on both axes, off by default.
+#[component]
+pub fn node_editor(
+    nodes: Value<Vec<NodeData>>,
+    links: Value<Vec<NodeLink>>,
+    state: crate::NodeState,
+    #[prop(default = false)] snap: Value<bool>,
+    can_connect: Option<Rc<dyn Fn(&NodeLink) -> bool>>,
+    on_edit: Option<Callback<EditorEvent<NodeRequest>>>,
+) -> impl kivact::view::Element {
+    let can_connect: ConnectGuard = match can_connect {
+        Some(guard) => signal(guard).into_value(),
+        None => signal(Rc::new(|_: &NodeLink| true) as Rc<dyn Fn(&NodeLink) -> bool>).into_value(),
+    };
+    NodeCanvas {
+        nodes,
+        links,
+        state,
+        snap,
+        can_connect,
+        edit: on_edit,
+    }
+    .into_node()
+}
+
+/// The settings a component collects, which build the node canvas.
+struct NodeCanvas {
     nodes: Value<Vec<NodeData>>,
     links: Value<Vec<NodeLink>>,
     state: crate::NodeState,
     snap: Value<bool>,
     can_connect: ConnectGuard,
-    edit: Option<Callback<crate::editors::shared::model::EditorEvent<NodeRequest>>>,
+    edit: Option<Callback<EditorEvent<NodeRequest>>>,
 }
 
-/// Display application-owned nodes and links without mutating either collection.
-/// Apply proposals from [`NodeEditor::on_edit`] to make edits visible.
-/// `state` holds the selected nodes, the selected link and the canvas's pan
-/// and zoom.
-#[track_caller]
-pub fn node_editor(
-    nodes: impl IntoValue<Vec<NodeData>>,
-    links: impl IntoValue<Vec<NodeLink>>,
-    state: crate::NodeState,
-) -> NodeEditor {
-    NodeEditor {
-        root: node().role(Role::Canvas).focusable(true).style(
-            style()
-                .height(280)
-                .overflow(Overflow::Hidden)
-                .background(ColorToken::Surface),
-        ),
-        nodes: nodes.into_value(),
-        links: links.into_value(),
-        state,
-        snap: false.into_value(),
-        edit: None,
-        can_connect: signal(
-            std::rc::Rc::new(|_: &NodeLink| true) as std::rc::Rc<dyn Fn(&NodeLink) -> bool>
-        )
-        .into_value(),
-    }
+/// The focusable canvas that the nodes, the pointer and the keys attach to.
+fn canvas_root() -> Node {
+    node().role(Role::Canvas).focusable(true).style(
+        style()
+            .height(280)
+            .overflow(Overflow::Hidden)
+            .background(crate::color::ISLAND),
+    )
 }
 
-impl NodeEditor {
-    /// Report absolute proposals and gesture phases. The application applies requests
-    /// and restores its own items on Cancel. Pan/zoom forwards shared phases.
-    pub fn on_edit<R: HandlerResult>(
-        mut self,
-        edit: impl Fn(crate::editors::shared::model::EditorEvent<NodeRequest>) -> R + 'static,
-    ) -> Self {
-        self.edit = Some(callback(edit));
-        self
-    }
-
-    /// Guard connection highlighting and Connect reports. Defaults to accepting all links.
-    pub fn can_connect(mut self, can_connect: impl Fn(&NodeLink) -> bool + 'static) -> Self {
-        self.can_connect =
-            signal(std::rc::Rc::new(can_connect) as std::rc::Rc<dyn Fn(&NodeLink) -> bool>)
-                .into_value();
-        self
-    }
-    /// Round the distance a drag moves the selected nodes to multiples of
-    /// 10 px on both axes. Off by default.
-    pub fn snap(mut self, snap: impl IntoValue<bool>) -> Self {
-        self.snap = snap.into_value();
-        self
-    }
-}
-
-impl Element for NodeEditor {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for NodeEditor {
-    fn into_view(self) -> View {
-        let (root, state, root_part) = self.prepare();
+impl NodeCanvas {
+    fn into_node(self) -> Node {
+        let root = canvas_root();
+        let (state, root_part) = self.prepare();
         let data = state.nodes;
         let edges = state.links;
         let selected = state.selected;
@@ -114,7 +98,9 @@ impl IntoView for NodeEditor {
                 state.texts,
             )
         });
-        observe_inputs(state);
+        let focus = state.reference.focus_within();
+        let ok = kivact::state::memo(move || focus.get() && !state.blocked.get());
+        state.press.watch_inputs(ok, move || state.cancel());
         let root = root
             .value_text(move || {
                 format!(
@@ -153,14 +139,12 @@ impl IntoView for NodeEditor {
             })
             .part(zoom.viewport())
             .child(crate::editors::node::parameters::popup(state))
-            .into_view()
     }
 }
 
-impl NodeEditor {
-    fn prepare(self) -> (Node, State, kivact::custom::Part<kivact::custom::PartState>) {
+impl NodeCanvas {
+    fn prepare(self) -> (State, kivact::custom::Part<kivact::custom::PartState>) {
         let Self {
-            root,
             nodes,
             links,
             state:
@@ -239,7 +223,7 @@ impl NodeEditor {
             blocked: blocked.into_value(),
             zoom,
         };
-        (root, state, root_part)
+        (state, root_part)
     }
 }
 fn phase_observer(
@@ -254,55 +238,6 @@ fn phase_observer(
             });
         }
     })
-}
-fn observe_inputs(state: State) {
-    let focus = state.reference.focus_within();
-    effect(move || {
-        let nodes = state.nodes.get();
-        let slot_valid =
-            kivact::state::untrack(|| state.held_slot()).is_none_or(|(id, index, original)| {
-                nodes
-                    .iter()
-                    .find(|node| node.id == id)
-                    .and_then(|node| node.controls.get(index))
-                    .is_some_and(|control| {
-                        crate::editors::node::edit::same_slot(&original, control)
-                    })
-            });
-        let connection_valid = state.mode.with_untracked(|mode| match mode {
-            NodeMode::Connecting { from, output } => nodes
-                .iter()
-                .find(|node| node.id == *from)
-                .is_some_and(|node| *output < node.outputs.len()),
-            _ => true,
-        });
-        let drag_valid =
-            kivact::state::untrack(|| state.drag_state()).is_none_or(|drag| match drag {
-                crate::editors::node::gesture::DragMode::Items { ids } => {
-                    ids.iter().all(|id| nodes.iter().any(|node| node.id == *id))
-                }
-                crate::editors::node::gesture::DragMode::Link { source, .. } => {
-                    let (from, output) = source.output();
-                    nodes
-                        .iter()
-                        .find(|node| node.id == from)
-                        .is_some_and(|node| output < node.outputs.len())
-                }
-                _ => true,
-            });
-        state.mode.inputs(
-            focus.get(),
-            state.blocked.get(),
-            slot_valid && connection_valid && drag_valid,
-            kivact::state::untrack(|| state.edit.is_active()),
-            kivact::state::untrack(|| state.drag_state().is_some()),
-            move || {
-                state
-                    .press
-                    .inputs_changed(true, true, false, true, move || state.cancel());
-            },
-        );
-    });
 }
 fn region_control(
     state: State,

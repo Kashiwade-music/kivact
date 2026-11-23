@@ -74,6 +74,11 @@ pub enum HostRequest {
         window: kivact_types::WindowId,
         request: PlatformRequest,
     },
+    /// Ask for window `window`'s content size: `size` logical px, answered like a platform request.
+    RequestWindowSize {
+        window: kivact_types::WindowId,
+        size: kivact_types::Size,
+    },
     /// Register a font before the next layout measures text.
     RegisterFont(Asset),
     /// Override reduced motion, or follow the system preference.
@@ -111,19 +116,15 @@ pub enum HostRequest {
     /// follows the window's scale.
     DrawableExport {
         id: kivact_types::DrawableId,
-        // xtask-allow(state-fields): identity: the export request's generation; the window answers with it and stale answers are dropped
         generation: u64,
         mode: ExportRequestMode,
-        // xtask-allow(state-fields): option: absent follows the window's scale
         scale: Option<f64>,
     },
     /// Where the app shows a drawable (drawable box → the viewport's local
     /// logical px), for the request of `generation`; `None` hides it.
     SetDrawableGeometry {
         id: kivact_types::DrawableId,
-        // xtask-allow(state-fields): identity: the placement request's generation; the window answers with it and stale answers are dropped
         generation: u64,
-        // xtask-allow(state-fields): option: absent hides the drawable
         geometry: Option<kivact_types::geometry3d::Matrix4>,
     },
 }
@@ -142,7 +143,7 @@ pub enum ExportRequestMode {
 /// The settled host's answer to a subtree CPU capture request.
 #[derive(Clone, Debug, PartialEq)]
 pub enum SnapshotResult {
-    /// Straight-alpha RGBA pixels at logical scale 1.
+    /// Premultiplied RGBA pixels at logical scale 1.
     Pixels(kivact_types::Pixels),
     /// The target no longer has mounted layout.
     Unmounted,

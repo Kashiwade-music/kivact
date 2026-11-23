@@ -12,17 +12,18 @@ Replace `src/main.rs` with:
 ```rust,no_run
 use kivact::interaction::Tone;
 use kivact::prelude::*;
-use kivact::style::Align;
-use kivact::style::ThemeMode;
-use kivact::ui::progress;
+use kivact::style::{Align, FontStyle, ThemeMode};
+use kivact::ui::{ButtonVariant, progress};
 use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 /// A monospaced caption over a meter.
-fn labeled(label: &'static str, meter: impl IntoView) -> Node {
+#[component]
+fn labeled(label: Value<String>, meter: View) -> impl Element {
     column((game::mono(label), meter)).style(style().gap(6))
 }
 
-fn loadout() -> impl IntoView {
+#[component]
+fn loadout() -> impl Element {
     let armor = signal(4_usize);
     let energy = signal(76.0_f64);
 
@@ -32,22 +33,22 @@ fn loadout() -> impl IntoView {
                 text("01").style(move || {
                     let t = kivact::style::use_theme().get();
                     style()
-                        .font_family(t.ext::<game::Tokens>().display_family.as_str())
+                        .font_family(t.get(&game::fonts::DISPLAY_FAMILY_VAR).as_str().unwrap_or_default())
                         .font_size(34)
                         .line_height(0.9)
-                        .weight(800)
-                        .italic(true)
-                        .color(ColorToken::Accent)
+                        .font_weight(800)
+                        .font_style(FontStyle::Italic)
+                        .color(kivact::style::color::ACCENT)
                 }),
                 kivact::ui::heading("LOADOUT", 2).variant(game::HeadingVariant::Section),
-                text("Squad 04").style(style().font_size(12).color(ColorToken::TextMuted)),
+                text("Squad 04").style(style().font_size(12).color(kivact::style::color::TEXT_MUTED)),
             ))
             .style(
                 style()
                     .gap(14)
                     .align_items(Align::End)
                     .padding_bottom(10)
-                    .border_bottom(2, ColorToken::Text),
+                    .border_bottom(2, kivact::style::color::TEXT),
             )
             .draw_over(|d, s| {
                 d.fill_path(
@@ -57,7 +58,7 @@ fn loadout() -> impl IntoView {
                         .line_to(kivact::geometry::Point::new(s.width - 2., s.height + 6.))
                         .line_to(kivact::geometry::Point::new(s.width - 46., s.height + 6.))
                         .close(),
-                    d.theme().ext::<game::Tokens>().yellow,
+                    game::color::YELLOW,
                 )
             }),
             row((
@@ -66,27 +67,17 @@ fn loadout() -> impl IntoView {
             ))
             .style(style().gap(12).align_items(Align::Center)),
             row((
-                labeled("ARMOR", {
-                    let total: kivact::state::Value<usize> =
-                        kivact::state::IntoValue::into_value(10);
-                    let value: kivact::state::Value<usize> =
-                        kivact::state::IntoValue::into_value(armor);
-                    kivact::ui::progress(move || {
-                        Some(if total.get() == 0 {
-                            0.0
-                        } else {
-                            value.get() as f64 / total.get() as f64
-                        })
-                    })
-                    .name("Armor")
-                    .variant(kivact::ui::ProgressVariant::Gauge)
-                    .variant(game::GaugeSegments(total))
-                    .variant(Tone::Info)
-                }),
-                {
-                    let value: kivact::state::Value<f64> =
-                        kivact::state::IntoValue::into_value(energy);
-                    kivact::ui::progress(move || Some(value.get() / 100.0))
+                labeled(
+                    "ARMOR",
+                    kivact::ui::progress(move || Some(armor.get() as f64 / 10.0))
+                        .name("Armor")
+                        .variant(kivact::ui::ProgressVariant::Gauge)
+                        .variant(game::GaugeSegments(10))
+                        .variant(Tone::Info),
+                ),
+                labeled(
+                    "ENERGY",
+                    kivact::ui::progress(move || Some(energy.get() / 100.0))
                         .name("ENERGY")
                         .variant(kivact::ui::ProgressVariant::Ring)
                         .variant(kivact::ui::ProgressMotion {
@@ -96,30 +87,24 @@ fn loadout() -> impl IntoView {
                             ),
                             ..Default::default()
                         })
-                        .variant(Tone::Warning)
-                        .with_node(|node| {
-                            node.child(
-                                game::mono("ENERGY")
-                                    .style(style().font_size(9).color(ColorToken::TextMuted)),
-                            )
-                        })
-                },
+                        .variant(Tone::Warning),
+                ),
             ))
             .style(style().gap(32).align_items(Align::Center)),
             labeled(
                 "EXPERIENCE",
                 progress(Some(0.62))
                     .name("Experience")
-                    .variant(game::Striped)
+                    .variant(kivact::ui::Striped)
                     .moving(true),
             ),
             row((
                 button("Upgrade armor")
-                    .variant(game::Slant)
+                    .variant(kivact::ui::Slant)
                     .disabled(move || armor.get() >= 10)
                     .on_press(move || armor.update(|a| *a += 1)),
                 button("Recharge")
-                    .variant(game::ButtonTone::Dark)
+                    .variant(ButtonVariant::Secondary)
                     .on_press(move || energy.update(|e| *e = (*e + 10.0).min(100.0))),
             ))
             .style(style().gap(10)),
@@ -135,6 +120,7 @@ fn main() -> kivact::Result<()> {
             ThemeMode::Dark,
             ThemeOptions {
                 density: Density::Comfortable,
+                ..Default::default()
             },
         ))
         .run(loadout)
@@ -159,16 +145,19 @@ A row of a section number, `kivact::ui::heading(title, 2).variant(game::HeadingV
 `Warning`, `Danger` and `Accent`. You say what the status means and the
 theme picks the color.
 
-**`progress(..).variant(ProgressVariant::Gauge)`** draws slanted bars. Normalize the application value by its total, returning zero when the total is zero. `game::GaugeSegments(total)` supplies the same reactive segment count. Give the meter its accessible name with `.name(..)` and draw a caption beside it.
-**`ProgressVariant::Ring`** draws a segmented circular meter from the same normalized fraction. Add the small center caption through the ordinary child slot. The standard progress owner animates its arc.
+**`labeled(label, meter)`** is a small component of this program: it stacks a
+monospaced caption over a meter. Its `meter` is a `View`, so any meter fits.
+
+**`progress(..).variant(ProgressVariant::Gauge)`** draws slanted bars. Normalize the application value by its total: `armor.get() as f64 / 10.0` is the fraction of the ten bars. `game::GaugeSegments(10)` sets the number of segments. Give the meter its accessible name with `.name(..)` and draw a caption beside it.
+**`ProgressVariant::Ring`** draws a segmented circular meter from the same kind of fraction. The standard progress owner animates its arc.
 
 **`progress(Some(value))`** is the standard progress bar, with a value from 0
-to 1. The Game theme draws it flat. `.variant(game::Striped)` and
+to 1. The Game theme draws it flat. `.variant(kivact::ui::Striped)` and
 `.moving(true)` add moving diagonal stripes. A bar has no visible or
 accessible label of its own, so give it one with `.name(..)`.
 
-**Buttons.** `.variant(game::Slant)` slants a button; `game::ButtonTone::Dark`
-makes it the navy console button. The standard `ButtonVariant` values still
+**Buttons.** `.variant(kivact::ui::Slant)` slants a button; `.variant(ButtonVariant::Secondary)`
+makes it the console's navy secondary button. The standard `ButtonVariant` values still
 work, and you can combine them: a variant of a different type adds to the
 earlier ones.
 

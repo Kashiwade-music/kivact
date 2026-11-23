@@ -1,9 +1,9 @@
 //! Role: A headless row model: filter, sort and page the caller's rows by column.
 
 use super::data::{Header, SortOrder};
-use kivact_core::custom::Reactive;
-use kivact_core::state::{Binding, Signal, Value, Var, memo, signal, var};
+use kivact_core::custom::Prop;
 use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::state::{Signal, Value, Var, memo, signal, var};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -61,18 +61,13 @@ impl FilterValue {
 /// [`filter`](Self::filter) does not take part in filtering.
 pub struct ColumnDef<R, C> {
     key: C,
-    label: Reactive<String>,
-    // xtask-allow(state-fields): option: the caller's starting width from with_width; absent leaves the column width to layout
+    label: Prop<String>,
     width: Option<f64>,
-    // xtask-allow(state-fields): option: the caller's resize lower bound from min_width, finite and non-negative only; absent keeps the resize range's own minimum
     pub(super) min_width: Option<f64>,
-    // xtask-allow(state-fields): option: the caller's row ordering from compare; absent (or without_ordering) makes the column unsortable
     compare: Option<Compare<R>>,
-    // xtask-allow(state-fields): option: the caller's text matcher from filter; absent leaves the column out of text filtering
     matches: Option<Matches<R>>,
-    // xtask-allow(state-fields): option: the caller's typed-filter matcher from filter_value; absent leaves the column out of typed filtering
     matches_value: Option<MatchesValue<R>>,
-    visible: Reactive<bool>,
+    visible: Prop<bool>,
 }
 
 impl<R, C: Clone> Clone for ColumnDef<R, C> {
@@ -95,13 +90,13 @@ impl<R, C> ColumnDef<R, C> {
     pub fn new(key: C, label: impl IntoText) -> Self {
         Self {
             key,
-            label: Reactive::new(label.into_text()),
+            label: Prop::new(label.into_text()),
             width: None,
             min_width: None,
             compare: None,
             matches: None,
             matches_value: None,
-            visible: Reactive::new(true),
+            visible: Prop::new(true),
         }
     }
 
@@ -129,12 +124,12 @@ impl<R, C> ColumnDef<R, C> {
     /// Show the column while true (a constant or a reactive value). A hidden
     /// column is left out of [`DataTableModelApi::columns`] and of filtering.
     pub fn visible(mut self, visible: impl IntoValue<bool>) -> Self {
-        self.visible = Reactive::new(visible);
+        self.visible = Prop::new(visible);
         self
     }
 
     /// The starting width in the caller's unit; `None` leaves it to layout.
-    pub fn with_width(mut self, width: impl Into<Option<f64>>) -> Self {
+    pub fn width(mut self, width: impl Into<Option<f64>>) -> Self {
         self.width = width.into();
         self
     }
@@ -174,7 +169,7 @@ impl<R, C> ColumnDef<R, C> {
     /// The reactive label text of the current owner.
     #[track_caller]
     pub fn label(&self) -> Value<String> {
-        self.label.clone().into_value()
+        IntoValue::into_value(self.label.clone())
     }
 
     /// Whether a header activation sorts by the column (it has a
@@ -188,8 +183,8 @@ impl<R, C> ColumnDef<R, C> {
         self.matches.is_some() || self.matches_value.is_some()
     }
 
-    /// The starting width ([`width`](Self::width)).
-    pub fn width(&self) -> Option<f64> {
+    /// The width the column asked for ([`width`](Self::width)), before the user resizes it.
+    pub fn preferred_width(&self) -> Option<f64> {
         self.width
     }
 }
@@ -233,7 +228,7 @@ impl<R, C: PartialEq> PartialEq for ColumnDef<R, C> {
 /// The page a model shows: its number (from 0) and its size in rows.
 #[derive(Clone, Copy)]
 struct Paging {
-    index: Binding<usize>,
+    index: Signal<usize>,
     size: Value<usize>,
 }
 
@@ -249,17 +244,6 @@ struct Paging {
 /// model:
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// # pub use kivact_core::{view, state, style};
-/// # pub mod prelude {
-/// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-/// # }
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::{ColumnDef, TableFocus, use_data_table, use_data_table_model};
 /// use kivact::prelude::*;
 /// use kivact::interaction::SortOrder;
@@ -297,17 +281,11 @@ pub struct DataTableModelApi<R: 'static, K: 'static, C: 'static> {
     columns: Value<Vec<ColumnDef<R, C>>>,
     count: Value<usize>,
     pages: Value<usize>,
-    // xtask-allow(state-fields): option: the sort order a setter supplied, absent until set
     sort: Signal<Option<Sort<C>>>,
-    // xtask-allow(state-fields): option: the text query a setter supplied, absent until set
     query: Signal<Option<Value<String>>>,
-    // xtask-allow(state-fields): option: the column queries a setter supplied, absent until set
     column_queries: Signal<Option<ColumnQueries<C>>>,
-    // xtask-allow(state-fields): option: the row arrangement a setter supplied, absent until set
     arrangement: Signal<Option<RowArrangement<R>>>,
-    // xtask-allow(state-fields): option: the typed queries a setter supplied, absent until set
     typed_queries: Signal<Option<TypedQueries<C>>>,
-    // xtask-allow(state-fields): option: the paging a setter supplied, absent until set
     paging: Signal<Option<Paging>>,
 }
 
@@ -319,6 +297,7 @@ impl<R: 'static, K: 'static, C: 'static> Clone for DataTableModelApi<R, K, C> {
 
 impl<R: 'static, K: 'static, C: 'static> Copy for DataTableModelApi<R, K, C> {}
 
+// xtask-allow(state): independent: six optional model settings, each set only by its own by-value builder (multi_sort or sort, filter, column_filters, arrange_rows, typed_column_filters, page); None skips that stage of ordered_rows, so every combination is valid
 /// Create a row model over `rows`, identified by `key`, with `columns` in
 /// display order. Without [`sort`](DataTableModelApi::sort),
 /// [`filter`](DataTableModelApi::filter) and [`page`](DataTableModelApi::page) it shows
@@ -338,17 +317,11 @@ where
     let key: KeyOf<R, K> = Rc::new(key);
     let key_of = key.clone();
     let columns: Rc<[ColumnDef<R, C>]> = columns.into();
-    // xtask-allow(state-fields): option: the sort order a setter supplies; absent keeps the caller's order
     let sort = signal(None::<Sort<C>>);
-    // xtask-allow(state-fields): option: the text query a setter supplies; absent shows every row
     let query = signal(None::<Value<String>>);
-    // xtask-allow(state-fields): option: the per-column queries a setter supplies; absent shows every row
     let column_queries = signal(None::<Value<Vec<(C, String)>>>);
-    // xtask-allow(state-fields): option: the row arrangement a setter supplies; absent keeps the caller's rows
     let arrangement = signal(None::<RowArrangement<R>>);
-    // xtask-allow(state-fields): option: the typed column filters a setter supplies; absent applies no typed filter
     let typed_queries = signal(None::<TypedQueries<C>>);
-    // xtask-allow(state-fields): option: the paging a setter supplies; absent shows every row
     let paging = signal(None::<Paging>);
     let shown = {
         let columns = columns.clone();
@@ -433,8 +406,7 @@ impl<
     /// column without a compare function keeps the caller's order. Give the same binding to
     /// [`DataTableApi::sort`](crate::DataTableApi::sort). Setup only.
     #[track_caller]
-    pub fn sort(self, sort: impl kivact_core::state::IntoBinding<Option<(C, SortOrder)>>) -> Self {
-        let sort = sort.into_binding();
+    pub fn sort(self, sort: kivact_core::state::Signal<Option<(C, SortOrder)>>) -> Self {
         self.multi_sort(move || sort.get().into_iter().collect())
     }
 
@@ -488,11 +460,11 @@ impl<
     #[track_caller]
     pub fn page(
         self,
-        index: impl kivact_core::state::IntoBinding<usize>,
+        index: kivact_core::state::Signal<usize>,
         size: impl IntoValue<usize>,
     ) -> Self {
         let paging = Paging {
-            index: index.into_binding(),
+            index,
             size: size.into_value(),
         };
         self.paging.update(|current| *current = Some(paging));

@@ -4,11 +4,12 @@ use super::rows::{self, Grid};
 use super::types::{
     DataTable, DataTableContext, PagePlan, PageSetting, Paging, RowName, SortSetting,
 };
+use crate::data_table::look::DataTableTheme;
 use kivact_core::i18n::message;
-use kivact_core::state::{IntoBinding, IntoValue};
+use kivact_core::state::{IntoValue, Signal};
 use kivact_core::view::Element;
 
-use kivact_core::state::{Binding, binding, memo, signal};
+use kivact_core::state::{binding, memo, signal};
 use kivact_core::style::{Length, pct, style};
 use kivact_core::view::{IntoView, Role, View, for_each, show};
 use kivact_core::view::{column, scroll, text};
@@ -40,13 +41,13 @@ enum PagingPlan {
     /// when written, or else a read-only view of the size `page` gave.
     Local {
         page: PagePlan,
-        size: Binding<usize>,
+        size: Signal<usize>,
     },
     /// The caller's rows are the page. `size` is the writable size, as for
     /// `Local`.
     Remote {
         page: PagePlan,
-        size: Binding<usize>,
+        size: Signal<usize>,
         has_more: kivact_core::state::Value<bool>,
     },
 }
@@ -93,10 +94,8 @@ struct GroupingPlan<R: 'static> {
 
 struct ModelPlan<R: 'static, K: 'static> {
     model: kivact_interaction::DataTableModelApi<R, K, usize>,
-    // xtask-allow(state-fields): option: the tree arrangement made from DataTable::tree; absent keeps the model's rows flat in sorted order
     tree: Option<super::tree::Plan<K>>,
     paging: PagingPlan,
-    // xtask-allow(state-fields): option: DataTable::group_by, as the page's groups and their key together; absent shows the page's rows ungrouped
     grouping: Option<GroupingPlan<R>>,
     display: kivact_core::state::Value<Vec<R>>,
     page_rows: kivact_core::state::Value<Vec<R>>,
@@ -116,6 +115,7 @@ where
     R: kivact_core::state::PropValue,
     K: kivact_core::state::ItemKey,
 {
+    let variants = table.root.authored().variants();
     let plan = model_plan(&mut table);
     let navigation = navigation_plan(&table, &plan);
     let paging = plan.paging.public();
@@ -129,7 +129,7 @@ where
         paging,
     };
     let toolbar = table.toolbar.take().map_or_else(
-        || super::chrome::toolbar(context, &table.variants),
+        || super::chrome::toolbar(context, &variants),
         |slot| Some(slot(context)),
     );
     let footer = table.footer.take().map_or_else(
@@ -137,7 +137,7 @@ where
             super::chrome::footer(
                 context,
                 table.page_sizes.map(|(_, options)| options),
-                &table.variants,
+                &variants,
             )
         },
         |slot| Some(slot(context)),
@@ -146,8 +146,8 @@ where
     regions(
         crate::layer::with_base_recipe_style(
             table.root,
-            |r| r.data_table_recipes().frame_recipe(),
-            &table.variants,
+            |r: &DataTableTheme| r.frame_recipe(),
+            &variants,
             kivact_core::custom::PartState::default,
         ),
         toolbar,
@@ -266,10 +266,10 @@ where
 /// the `page_sizes` binding (writing it shows the first page), or else a
 /// read-only view of `size`.
 fn page_size(
-    chosen: Option<Binding<usize>>,
-    index: Binding<usize>,
+    chosen: Option<Signal<usize>>,
+    index: Signal<usize>,
     size: kivact_core::state::Value<usize>,
-) -> (kivact_core::state::Value<usize>, Binding<usize>) {
+) -> (kivact_core::state::Value<usize>, Signal<usize>) {
     let picked = chosen.map(|chosen| {
         binding(chosen, move |next: usize| {
             chosen.set(next.max(1));
@@ -493,7 +493,7 @@ where
     // The model sorts by the table's sort: the caller's, or the table's own,
     // which the headers write. A new sort shows the first page.
     let single = match table.sort {
-        SortSetting::Own => signal(None).into_binding(),
+        SortSetting::Own => signal(None),
         SortSetting::Single(sort) => sort,
         SortSetting::Multi(multi_sort) => {
             return multi_sorting(multi_sort, model, page, behavior);
@@ -623,7 +623,7 @@ where
         row_height: table.row_height,
         row_status: table.row_status.take(),
         row_color: table.row_color.take(),
-        variants: table.variants.clone(),
+        variants: table.root.authored().variants(),
     }
 }
 fn regions<R, K>(
@@ -671,7 +671,7 @@ where
                         .style(
                             style()
                                 .padding(24)
-                                .color(kivact_core::style::ColorToken::TextMuted),
+                                .color(kivact_core::style::color::TEXT_MUTED),
                         )
                         .into_view()
                 },
@@ -688,7 +688,7 @@ where
             style()
                 .width(Length::MaxContent)
                 .min_width(pct(100))
-                .shrink(0),
+                .flex_shrink(0),
         );
     if let Some(sticky) = &sticky {
         grid = grid.node_ref(sticky.content);
@@ -697,7 +697,7 @@ where
         .axes(kivact_core::view::ScrollAxes::Horizontal)
         // The rows keep their height in a bounded parent: the caller's own
         // scroll view carries them.
-        .style(style().shrink(0));
+        .style(style().flex_shrink(0));
     if let Some(sticky) = &sticky {
         scroller = scroller.node_ref(sticky.viewport);
     }
@@ -710,7 +710,7 @@ where
 /// and bound a resize handle's writes.
 fn share_widths<K: kivact_core::state::ItemKey>(
     behavior: kivact_interaction::DataTableApi<K, usize>,
-    sizes: Binding<Vec<f64>>,
+    sizes: Signal<Vec<f64>>,
     count: usize,
     range: ScalarRange,
 ) -> kivact_interaction::DataTableApi<K, usize> {

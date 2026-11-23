@@ -53,7 +53,6 @@ pub struct InlineParagraph {
 
 impl InlineParagraph {
     /// Convert a host shaping snapshot into a drawable paragraph and object positions.
-    // xtask-allow(internal-contract): Core text shapers adapt engine output; applications use shape_paragraph or Draw layout.
     #[doc(hidden)]
     pub fn from_shaped(text: &str, shaped: p::ShapedInlineText, max_width: Option<f64>) -> Self {
         Self {
@@ -83,6 +82,7 @@ impl InlineParagraph {
 ///
 /// ```no_run
 /// use kivact::prelude::*;
+/// use kivact::style::Color;
 /// use kivact::draw::{Draw, TextFormat};
 /// use kivact::geometry::{Point, Rect, Size};
 ///
@@ -90,9 +90,9 @@ impl InlineParagraph {
 /// fn selected(d: &mut Draw, text: &str, range: std::ops::Range<usize>) {
 ///     let paragraph = d.layout_paragraph(text, &TextFormat::default(), None);
 ///     for band in paragraph.rects(range) {
-///         d.fill_rect(band, ColorToken::Selection);
+///         d.fill_rect(band, kivact::style::color::SELECTION);
 ///     }
-///     d.paragraph(&paragraph, Point::new(0.0, 0.0), ColorToken::Text);
+///     d.paragraph(&paragraph, Point::new(0.0, 0.0), kivact::style::color::TEXT);
 /// }
 /// # let _ = selected;
 /// ```
@@ -131,7 +131,6 @@ impl TextParagraph {
     ///
     /// An empty `cluster_boundaries` list in `shaped` means every grapheme
     /// boundary is a stop for hits and movement.
-    // xtask-allow(internal-contract): Core text shapers adapt engine output; applications use shape_paragraph or Draw layout.
     #[doc(hidden)]
     pub fn from_shaped(
         text: impl Into<Rc<str>>,
@@ -303,12 +302,16 @@ impl Draw {
         max_width: Option<f64>,
     ) -> TextParagraph {
         let origin = p::Point { x: 0.0, y: 0.0 };
-        let run = super::text_run(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
-        let shaped = self
-            .measurer
-            .as_ref()
-            .and_then(|shaper| shaper.shape(&run, max_width))
-            .unwrap_or_default();
+        let run = super::text_run(
+            text,
+            origin,
+            style,
+            1.0,
+            p::Rgba::TRANSPARENT,
+            &self.theme,
+            &mut 0,
+        );
+        let shaped = self.measurer.shape(&run, max_width).unwrap_or_default();
         TextParagraph::from_shaped(text, shaped, max_width)
     }
 
@@ -327,12 +330,10 @@ impl Draw {
             style,
             1.0,
             p::Rgba::TRANSPARENT,
-            None,
+            &self.theme,
+            &mut 0,
         );
-        let shaped = self
-            .measurer
-            .as_ref()?
-            .shape_inline(&run, max_width, boxes)?;
+        let shaped = self.measurer.shape_inline(&run, max_width, boxes)?;
         Some(InlineParagraph::from_shaped(text, shaped, max_width))
     }
 
@@ -370,10 +371,7 @@ impl Draw {
     /// The outline of `paragraph` at `origin` as a path (Canvas has none;
     /// SVG does): its glyphs, shaped as drawn.
     pub fn paragraph_path(&self, paragraph: &TextParagraph, origin: Point) -> Path {
-        let Some(m) = &self.measurer else {
-            return Path::new();
-        };
-        let cmds = outline_runs(m.as_ref(), &paragraph.shaped());
+        let cmds = outline_runs(self.measurer.as_ref(), &paragraph.shaped());
         Path::from_cmds(cmds).transformed(Transform::new().translate(origin.x, origin.y))
     }
 }

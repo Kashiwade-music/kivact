@@ -1,8 +1,8 @@
 //! Role: The flame chart of recorded turns and frames.
 
-use kivact::draw::{Draw, Stroke, TextBaseline, TextFormat};
-use kivact::geometry::Rect;
+use kivact::draw::{TextBaseline, TextFormat};
 use kivact::prelude::*;
+use kivact::view::Node;
 use kivact_devtools_protocol as p;
 
 /// The height of one row, band and label.
@@ -27,7 +27,7 @@ pub(crate) fn flame_chart(
         style()
             .width(pct(100))
             .height(220)
-            .background(Color::token(ColorToken::SurfaceAlt)),
+            .background(kivact::style::color::SURFACE_ALT),
     )
 }
 
@@ -38,7 +38,7 @@ fn paint(draw: &mut Draw, size: Size, turns: &[p::TurnGraph], frames: &[p::Frame
         draw.text(
             "No turns or frames recorded",
             Point::new(8.0, 8.0),
-            text_style(12.0, ColorToken::TextMuted),
+            text_style(12.0, kivact::style::color::TEXT_MUTED),
         );
         return;
     }
@@ -47,7 +47,7 @@ fn paint(draw: &mut Draw, size: Size, turns: &[p::TurnGraph], frames: &[p::Frame
         draw.text(
             "Turns",
             Point::new(3.0, 3.0),
-            text_style(11.0, ColorToken::TextMuted),
+            text_style(11.0, kivact::style::color::TEXT_MUTED),
         );
         let shown = tail(turns);
         let max_ns = shown
@@ -60,7 +60,7 @@ fn paint(draw: &mut Draw, size: Size, turns: &[p::TurnGraph], frames: &[p::Frame
             draw.text(
                 &format!("#{}", turn.turn),
                 Point::new(3.0, y),
-                text_style(10.0, ColorToken::TextMuted),
+                text_style(10.0, kivact::style::color::TEXT_MUTED),
             );
             let rect = Rect::new(LABEL_WIDTH, y, width, BAND_HEIGHT);
             paint_turn(draw, rect, turn, max_ns);
@@ -72,7 +72,7 @@ fn paint(draw: &mut Draw, size: Size, turns: &[p::TurnGraph], frames: &[p::Frame
         draw.text(
             "Frames (ms)",
             Point::new(3.0, y),
-            text_style(11.0, ColorToken::TextMuted),
+            text_style(11.0, kivact::style::color::TEXT_MUTED),
         );
         y += 14.0;
         let shown = tail(frames);
@@ -86,7 +86,7 @@ fn paint(draw: &mut Draw, size: Size, turns: &[p::TurnGraph], frames: &[p::Frame
             draw.text(
                 &format!("{:.1}", ns_to_ms(frame.work_ns)),
                 Point::new(3.0, y),
-                text_style(10.0, ColorToken::TextMuted),
+                text_style(10.0, kivact::style::color::TEXT_MUTED),
             );
             let rect = Rect::new(LABEL_WIDTH, y, width, BAND_HEIGHT);
             paint_frame(draw, rect, frame, max_ns);
@@ -102,7 +102,7 @@ fn tail<T>(items: &[T]) -> &[T] {
 
 /// Paint the stages of one turn.
 fn paint_turn(draw: &mut Draw, rect: Rect, turn: &p::TurnGraph, max_ns: u64) {
-    draw.fill_rect(rect, Color::token(ColorToken::Surface));
+    draw.fill_rect(rect, kivact::style::color::SURFACE);
     for stage in &turn.stages {
         let offset = stage.start_ns.saturating_sub(turn.started_ns);
         paint_band(
@@ -119,12 +119,12 @@ fn paint_turn(draw: &mut Draw, rect: Rect, turn: &p::TurnGraph, max_ns: u64) {
 
 /// Paint the scene, raster and present stages of one frame.
 fn paint_frame(draw: &mut Draw, rect: Rect, frame: &p::FrameInfo, max_ns: u64) {
-    draw.fill_rect(rect, Color::token(ColorToken::Surface));
+    draw.fill_rect(rect, kivact::style::color::SURFACE);
     let mut offset = 0;
     for (label, ns, token) in [
-        ("scene", frame.scene_ns, ColorToken::Accent),
-        ("raster", frame.raster_ns, ColorToken::Warning),
-        ("present", frame.present_ns, ColorToken::Success),
+        ("scene", frame.scene_ns, kivact::style::color::ACCENT),
+        ("raster", frame.raster_ns, kivact::style::color::WARNING),
+        ("present", frame.present_ns, kivact::style::color::SUCCESS),
     ] {
         paint_band(draw, rect, offset, ns, max_ns, label, token);
         offset += ns;
@@ -138,7 +138,7 @@ fn paint_frame(draw: &mut Draw, rect: Rect, frame: &p::FrameInfo, max_ns: u64) {
             other,
             max_ns,
             "other",
-            ColorToken::TextMuted,
+            kivact::style::color::TEXT_MUTED,
         );
     }
 }
@@ -151,7 +151,7 @@ fn paint_band(
     duration_ns: u64,
     max_ns: u64,
     label: &str,
-    token: ColorToken,
+    token: Color,
 ) {
     let x = rect.x + fraction(offset, max_ns) * rect.width;
     let width = (fraction(duration_ns, max_ns) * rect.width).min(rect.right() - x);
@@ -159,7 +159,7 @@ fn paint_band(
         return;
     }
     let band = Rect::new(x, rect.y, (width - 1.0).max(1.0), rect.height);
-    draw.fill_rect(band, Color::token(token));
+    draw.fill_rect(band, token);
     if band.width >= 30.0 {
         draw.text(
             label,
@@ -167,12 +167,12 @@ fn paint_band(
             TextFormat {
                 size: 9.0,
                 baseline: TextBaseline::Middle,
-                color: Color::token(ColorToken::AccentText),
+                color: kivact::style::color::ACCENT_TEXT,
                 ..TextFormat::default()
             },
         );
     }
-    draw.stroke_rect(band, Stroke::new(1.0), Color::token(ColorToken::Surface));
+    draw.stroke_rect(band, Stroke::new(1.0), kivact::style::color::SURFACE);
 }
 
 /// The name of a stage.
@@ -190,16 +190,16 @@ fn stage_label(stage: p::TurnStage) -> &'static str {
 }
 
 /// The color of a stage band.
-fn stage_color(stage: p::TurnStage) -> ColorToken {
+fn stage_color(stage: p::TurnStage) -> Color {
     match stage {
-        p::TurnStage::Begin => ColorToken::Accent,
-        p::TurnStage::Reports => ColorToken::Focus,
-        p::TurnStage::Dispatch => ColorToken::Warning,
-        p::TurnStage::Async => ColorToken::Success,
-        p::TurnStage::Commit => ColorToken::Selection,
-        p::TurnStage::Mounts => ColorToken::TextMuted,
-        p::TurnStage::UserEffects => ColorToken::Danger,
-        p::TurnStage::Output => ColorToken::Border,
+        p::TurnStage::Begin => kivact::style::color::ACCENT,
+        p::TurnStage::Reports => kivact::style::color::FOCUS,
+        p::TurnStage::Dispatch => kivact::style::color::WARNING,
+        p::TurnStage::Async => kivact::style::color::SUCCESS,
+        p::TurnStage::Commit => kivact::style::color::SELECTION,
+        p::TurnStage::Mounts => kivact::style::color::TEXT_MUTED,
+        p::TurnStage::UserEffects => kivact::style::color::DANGER,
+        p::TurnStage::Output => kivact::style::color::BORDER,
     }
 }
 
@@ -217,10 +217,10 @@ fn fraction(value: u64, max: u64) -> f64 {
 }
 
 /// A small label style.
-fn text_style(size: f64, token: ColorToken) -> TextFormat {
+fn text_style(size: f64, token: Color) -> TextFormat {
     TextFormat {
         size,
-        color: Color::token(token),
+        color: token,
         ..TextFormat::default()
     }
 }

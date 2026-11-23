@@ -39,7 +39,7 @@
 //! effects setting (`SPI_GETCLIENTAREAANIMATION`, reduced motion) and the
 //! locale; when one changed, it notes the change and wakes the loop.
 //!
-//! Debug builds only: the registered message `ArvaneDebugDpiChange` (any
+//! With the feature `test` only: the registered message `ArvaneDebugDpiChange` (any
 //! process may post it; `wparam` is a DPI) makes the window send itself the
 //! `WM_DPICHANGED` a move to a monitor of that DPI sends, so the GUI
 //! harness drives the real scale-change path on machines whose monitors
@@ -53,7 +53,7 @@
 
 use std::rc::Rc;
 
-use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
+use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{ClientToScreen, ScreenToClient};
 use windows_sys::Win32::UI::Input::Ime::{
     IMECHARPOSITION, IMR_CONFIRMRECONVERTSTRING, IMR_DOCUMENTFEED, IMR_QUERYCHARPOSITION,
@@ -65,18 +65,25 @@ use windows_sys::Win32::UI::Input::Pointer::{
 };
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetCursorPos, GetMessageExtraInfo, GetSystemMetrics, GetWindowRect, KillTimer, PEN_MASK_TILT_X,
-    PEN_MASK_TILT_Y, POINTER_MESSAGE_FLAG_CANCELED, PT_PEN, PT_TOUCH, RegisterWindowMessageW,
-    SM_CXDOUBLECLK, SM_CYDOUBLECLK, SPI_GETCLIENTAREAANIMATION, SPI_GETWHEELSCROLLCHARS,
-    SPI_GETWHEELSCROLLLINES, SendMessageW, SetTimer, SystemParametersInfoW, WM_DPICHANGED,
-    WM_IME_REQUEST, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEHWHEEL,
-    WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_POINTERDOWN, WM_POINTERUP, WM_POINTERUPDATE,
-    WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER, WM_XBUTTONDOWN, WM_XBUTTONUP,
+    GetCursorPos, GetMessageExtraInfo, GetSystemMetrics, KillTimer, PEN_MASK_TILT_X,
+    PEN_MASK_TILT_Y, POINTER_MESSAGE_FLAG_CANCELED, PT_PEN, PT_TOUCH, SM_CXDOUBLECLK,
+    SM_CYDOUBLECLK, SPI_GETCLIENTAREAANIMATION, SPI_GETWHEELSCROLLCHARS, SPI_GETWHEELSCROLLLINES,
+    SetTimer, SystemParametersInfoW, WM_IME_REQUEST, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN,
+    WM_MBUTTONUP, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_POINTERDOWN,
+    WM_POINTERUP, WM_POINTERUPDATE, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER,
+    WM_XBUTTONDOWN, WM_XBUTTONUP,
 };
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
+
+#[cfg(feature = "test")]
+use windows_sys::Win32::Foundation::RECT;
+#[cfg(feature = "test")]
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    GetWindowRect, RegisterWindowMessageW, SendMessageW, WM_DPICHANGED,
+};
 
 use super::state::{ContactNote, NativeInput, Subclass as SubclassState};
 use arvane_shell::ShellImeText;
@@ -245,7 +252,8 @@ unsafe extern "system" fn subclass(
                 input.wake(WakeReasons::ENVIRONMENT);
             }
         }
-        _ if cfg!(debug_assertions) && message == debug_dpi_message() => {
+        #[cfg(feature = "test")]
+        _ if message == debug_dpi_message() => {
             debug_dpi_change(hwnd, wparam);
             return 0;
         }
@@ -530,12 +538,9 @@ fn char_position(hwnd: HWND, text: &ShellImeText, scale: f64, lparam: LPARAM) ->
 
 /// The id of the registered message `ArvaneDebugDpiChange` (`u32::MAX`,
 /// which no message has, when it cannot be registered).
+#[cfg(feature = "test")]
 fn debug_dpi_message() -> u32 {
-    #[expect(
-        clippy::disallowed_types,
-        reason = "process-wide registered Windows message identity"
-    )]
-    static ID: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+    static ID: kivact_types::cell::SharedDeferred<u32> = kivact_types::cell::SharedDeferred::new();
     *ID.get_or_init(|| {
         let name: Vec<u16> = "ArvaneDebugDpiChange".encode_utf16().chain([0]).collect();
         // SAFETY: `name` is a NUL-terminated UTF-16 string that outlives
@@ -546,8 +551,9 @@ fn debug_dpi_message() -> u32 {
 }
 
 /// Send `hwnd` the `WM_DPICHANGED` of a move to a monitor of `dpi`
-/// (debug builds; see the module doc). winit sizes the window for the new
+/// (feature `test`; see the module doc). winit sizes the window for the new
 /// scale itself; the suggested rectangle is the window's own.
+#[cfg(feature = "test")]
 fn debug_dpi_change(hwnd: HWND, dpi: WPARAM) {
     let dpi = (dpi & 0xffff).max(1);
     let mut rect = RECT {
@@ -642,7 +648,7 @@ pub(crate) fn pointer_settings(scale: f64) -> kivact_types::PointerSettings {
 
 /// Read the documented per-user app color mode; missing settings use light.
 #[cfg(feature = "embed")]
-pub(crate) fn theme_hint() -> kivact_types::ThemeHint {
+pub(crate) fn theme_hint() -> kivact_types::ThemeMode {
     use windows_sys::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
     let key = "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"
         .encode_utf16()
@@ -668,9 +674,9 @@ pub(crate) fn theme_hint() -> kivact_types::ThemeHint {
         )
     };
     if result == 0 && light == 0 {
-        kivact_types::ThemeHint::Dark
+        kivact_types::ThemeMode::Dark
     } else {
-        kivact_types::ThemeHint::Light
+        kivact_types::ThemeMode::Light
     }
 }
 

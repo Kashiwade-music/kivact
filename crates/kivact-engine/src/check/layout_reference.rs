@@ -2,14 +2,17 @@
 use crate::measure::leaf::{EngineMeasure, Measure};
 use crate::model::Model;
 impl Model {
-    pub(crate) fn layout_self_check(&mut self, engine: &mut arvane::Engine) -> Vec<String> {
+    pub(crate) fn layout_self_check(
+        &mut self,
+        engine: &mut arvane_text::TextEngine,
+    ) -> Vec<String> {
         let mut fresh = self.tree.clone();
         fresh.pack_child_orders();
         let mut columns = self.layout.clone();
         columns.rebuild_all(&fresh);
-        let cache = self.measure.clone();
+        let cache = self.slots.measure.clone();
         cache.forget_extents();
-        let editors = self.editors.clone();
+        let editors = self.slots.editors.clone();
         let mut differences = {
             let mut assets = self.assets.borrow_mut();
             let mut measure = Measure::new(engine, &mut assets, &cache, &editors);
@@ -24,7 +27,7 @@ impl Model {
         // Placement reads anchor bounds from the model. Give it the fresh
         // geometry during the second pass, then restore the retained owners.
         std::mem::swap(&mut self.layout, &mut columns);
-        self.refit_tooltips(engine, false);
+        self.refit_tooltips(engine, false, &std::collections::HashSet::new());
         std::mem::swap(&mut self.layout, &mut columns);
         differences.extend(self.layout.compare(&columns, &self.tree));
         differences

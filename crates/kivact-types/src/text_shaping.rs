@@ -1,5 +1,5 @@
 //! Role: Backend-neutral text shaping and measurement queries.
-use crate::render::GlyphRun;
+use crate::shaped::GlyphRun;
 use crate::{InlineBox, PathCmd, ShapedInlineText, ShapedTextSnapshot, TextMetrics, TextRun};
 
 /// What a host measures and shapes text with, for a callback that has no

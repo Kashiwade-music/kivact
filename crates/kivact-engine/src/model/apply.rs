@@ -28,7 +28,9 @@
 
 use std::sync::Arc;
 
-use crate::contract::{DrawableMode, HostEvent, NodeKind, NodeProperties, NodeType, SceneLayer};
+use crate::contract::{
+    DrawableMode, HostEvent, InputFlag, NodeKind, NodeProperties, NodeType, SceneLayer,
+};
 use crate::mutation::Mutation;
 use crate::tree::node::{LeavingRole, NodePresence, Notify};
 use kivact_types::{DrawList, ElementTransform, NodeId, Point, RequestId};
@@ -76,13 +78,25 @@ impl Model {
 
     /// Set the scene of one draw layer of `id`.
     pub(crate) fn set_scene(&mut self, id: NodeId, layer: SceneLayer, scene: Arc<DrawList>) {
-        self.changes.restack = true;
         self.stale_fact(id);
-        let old_order = if self.focused().is_some_and(|focus| focus.node == id) {
-            self.focus_order()
+        let focus = self.focused().filter(|focus| focus.node == id);
+        let old_targets = if focus.is_some() {
+            self.node_targets(id)
         } else {
             Vec::new()
         };
+        let before = self.tree.get(id).and_then(|n| {
+            n.scenes()[layer_index(layer)]
+                .as_deref()
+                .map(crate::lower::scene::scene_layers)
+        });
+        // A new layer or item in the scene changes the node's layer facts;
+        // a node the list does not draw may show now: the list is built again.
+        // Otherwise the write forgets the node's ink (WRITTEN) and it is
+        // drawn again in place.
+        if before != Some(crate::lower::scene::scene_layers(&scene)) || !self.paint.lists_own(id) {
+            self.changes.restack = true;
+        }
         if let Some(n) = self.tree.get_mut(id) {
             n.scenes[layer_index(layer)] = Some(scene);
             self.changes.mark(id, Dirty::WRITTEN);
@@ -104,17 +118,18 @@ impl Model {
         for root in roots {
             self.a11y.moved(root);
         }
-        if let Some(focus) = self
-            .focused()
-            .filter(|f| f.node == id && !self.is_focus_target(*f))
-        {
-            let start = old_order.iter().position(|t| *t == focus).unwrap_or(0);
-            let next = old_order[start..]
+        if let Some(focus) = focus.filter(|f| !self.is_focus_target(*f)) {
+            let start = old_targets.iter().position(|t| *t == focus).unwrap_or(0);
+            let next = old_targets[start..]
                 .iter()
-                .chain(old_order[..start].iter())
+                .chain(old_targets[..start].iter())
                 .copied()
                 .find(|t| self.is_focus_target(*t) && self.in_scope(t.node))
-                .or_else(|| self.tab_stops().into_iter().next());
+                .or_else(|| {
+                    self.next_target_after(focus, |t| {
+                        self.is_focus_target(t) && self.in_scope(t.node)
+                    })
+                });
             self.move_focus_to(next);
         }
     }
@@ -135,15 +150,14 @@ impl Model {
 
     /// Scroll the container `id` to `offset`.
     pub(crate) fn scroll_to(&mut self, id: NodeId, offset: Point) {
-        let Some(n) = self.tree.get_mut(id) else {
+        if !self.tree.contains(id) {
             return;
-        };
-        let moved = n.scroll != offset;
-        n.scroll = offset;
+        }
+        let moved = self.tree.set_scroll_of(id, offset);
         if moved {
             // Like a wheel or a scroll by a delta, a new offset moves the
             // content (the paint list redraws positions on `moved`).
-            self.changes.moved();
+            self.changes.moved_node(id);
             self.changes.mark(id, Dirty::SCROLLED);
             self.a11y_scrolled(id);
         }
@@ -156,6 +170,9 @@ impl Model {
     /// already did.
     pub(crate) fn observe_layout(&mut self, id: NodeId, on: bool) -> bool {
         let changed = self.tree.set_observed(id, on);
+        if changed && on {
+            self.changes.mark(id, Dirty::REPORT);
+        }
         if changed {
             self.changes
                 .layout
@@ -195,31 +212,72 @@ impl Model {
         id: NodeId,
         value: Option<T>,
         field: impl Fn(&mut NodeProperties) -> Option<&mut Option<T>>,
+        mutation: Mutation,
+    ) -> bool {
+        self.store_prop(
+            id,
+            value,
+            |p, value| field(p).map(|old| *old != *value),
+            |p, value| {
+                if let Some(old) = field(p) {
+                    *old = value;
+                }
+            },
+            mutation,
+        )
+    }
+
+    /// Store the input flag `flag` of `id` as `value` when it differs and
+    /// record what it outdates (as `set_prop`).
+    pub(crate) fn set_input_flag(
+        &mut self,
+        id: NodeId,
+        flag: InputFlag,
+        value: bool,
+        mutation: Mutation,
+    ) -> bool {
+        self.store_prop(
+            id,
+            value,
+            |p, value| Some(p.input.flags.get(flag) != Some(*value)),
+            |p, value| p.input.flags.set(flag, Some(value)),
+            mutation,
+        )
+    }
+
+    /// Store one property of `id` when `differs` says the value differs
+    /// (`None`: the node's kind has no such property) and record what it
+    /// outdates; `store` writes the value, once.
+    fn store_prop<V>(
+        &mut self,
+        id: NodeId,
+        value: V,
+        differs: impl Fn(&mut NodeProperties, &V) -> Option<bool>,
+        store: impl FnOnce(&mut NodeProperties, V),
         mut mutation: Mutation,
     ) -> bool {
-        let animate_text = mutation.text && self.tree.attached(id);
+        let animate_text = mutation.has(Mutation::TEXT) && self.tree.attached(id);
         let Some(node) = self.tree.get_mut(id) else {
             return false;
         };
-        let role = mutation.style.then(|| flat_role(node));
+        let role = mutation.has(Mutation::STYLE).then(|| flat_role(node));
         let visibility = mutation
-            .style
+            .has(Mutation::STYLE)
             .then(|| (node.hidden(), node.visibility_hidden()));
-        let Some(old) = field(&mut node.properties) else {
-            return false;
-        };
-        if *old == value {
+        if differs(&mut node.properties, &value) != Some(true) {
             return false;
         }
-        if mutation.read_only {
+        if mutation.has(Mutation::READ_ONLY) {
             // Commit preedit while the previous read-only policy still applies.
-            self.edit_input(id, kivact_editing::EditState::unmark);
+            self.edit_input(id, |e| {
+                e.unmark();
+            });
             let node = self
                 .tree
                 .get_mut(id)
                 .expect("invariant: input edit keeps node");
-            *field(&mut node.properties).expect("invariant: input edit keeps its kind") = value;
-        } else if mutation.paint || mutation.states {
+            store(&mut node.properties, value);
+        } else if mutation.has(Mutation::PAINT) || mutation.has(Mutation::STATES) {
             let old_place = node
                 .paint()
                 .map_or((ElementTransform::NONE, 0), |p| (p.transform, p.z_index));
@@ -227,15 +285,15 @@ impl Model {
             // A node with state styles is drawn with the deltas of its
             // states: what its list steps are made of is read from the paint
             // they give (the others from the base paint, `Model::derive`).
-            let styled = mutation.states || node.states().is_some();
+            let styled = mutation.has(Mutation::STATES) || node.states().is_some();
             let before = styled.then(|| self.paint_stacking(id));
             self.prepare_state_motion(id);
             let node = self
                 .tree
                 .get_mut(id)
                 .expect("invariant: state preparation keeps node");
-            *field(&mut node.properties).expect("invariant: setter field keeps its kind") = value;
-            mutation.placed |= if mutation.paint {
+            store(&mut node.properties, value);
+            let moved = if mutation.has(Mutation::PAINT) {
                 old_place
                     != node
                         .paint()
@@ -243,16 +301,21 @@ impl Model {
             } else {
                 old_states || node.states().is_some_and(crate::tree::states_place)
             };
-            mutation.restack |= before.is_some_and(|before| before != self.paint_stacking(id));
+            if moved {
+                mutation.insert(Mutation::PLACED);
+            }
+            if before.is_some_and(|before| before != self.paint_stacking(id)) {
+                mutation.insert(Mutation::RESTACK);
+            }
         } else if animate_text {
             self.prepare_state_motion(id);
             let node = self
                 .tree
                 .get_mut(id)
                 .expect("invariant: text transition preparation keeps node");
-            *field(&mut node.properties).expect("invariant: setter field keeps its kind") = value;
+            store(&mut node.properties, value);
         } else {
-            *old = value;
+            store(&mut node.properties, value);
         }
         if role.is_some_and(|was| self.tree.get(id).is_some_and(|n| flat_role(n) != was)) {
             self.reflattened(id);
@@ -273,17 +336,18 @@ impl Model {
     /// was hidden or shown: the children its flat parent lays out and
     /// draws changed.
     fn reflattened(&mut self, id: NodeId) {
-        self.tree.forget_flat();
-        self.paint.stale_all_facts();
+        self.tree.forget_flat_through(id);
         self.changes.restack = true;
         self.changes
             .layout
             .insert(crate::model::changes::LayoutReasons::STYLE);
         if let Some(parent) = self.tree.get(id).and_then(|n| self.tree.flat_parent(n)) {
+            self.stale_fact(parent);
             self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
             self.changes.regroup(parent);
             self.a11y.node(parent);
         }
+        self.stale_fact(id);
     }
 
     /// [`Model::set_prop`] for a boxed property: the borrowed value is
@@ -330,14 +394,11 @@ impl Model {
     /// Record the consumers affected by one typed property change.
     pub(super) fn changed(&mut self, id: NodeId, mutation: Mutation) {
         self.invalidate_semantics(id, mutation);
-        self.changes.restack |= mutation.restack;
-        let Mutation {
-            style,
-            measure,
-            text,
-            placed,
-            ..
-        } = mutation;
+        self.changes.restack |= mutation.has(Mutation::RESTACK);
+        let style = mutation.has(Mutation::STYLE);
+        let measure = mutation.has(Mutation::MEASURE);
+        let text = mutation.has(Mutation::TEXT);
+        let placed = mutation.has(Mutation::PLACED);
         let Some(index) = self.tree.nodes.index_of(id) else {
             return;
         };
@@ -356,10 +417,16 @@ impl Model {
             let fixed = place.positioning == crate::tree::node::Positioning::Fixed;
             let was_fixed = was == crate::tree::node::Positioning::Fixed;
             let parent = parent.map(|index| self.tree.nodes.id_at(index));
-            self.changes.mark(id, Dirty::LAYOUT_STYLE);
+            self.changes
+                .mark(id, Dirty::LAYOUT_STYLE.union(Dirty::REPORT));
             if fixed != was_fixed {
-                // A fixed box came or went: it is a layer root of its own.
-                self.paint.stale_all_facts();
+                // It became or stopped being a layer root: its facts and its box
+                // parent's facts are derived again.
+                self.paint.forget_fact(id);
+                self.stale_fact(id);
+                if let Some(box_parent) = self.tree.get(id).and_then(|n| self.tree.flat_parent(n)) {
+                    self.stale_fact(box_parent);
+                }
                 self.changes
                     .layout
                     .insert(crate::model::changes::LayoutReasons::STYLE);
@@ -377,10 +444,9 @@ impl Model {
                     self.a11y.node(parent);
                 }
             }
-            if place.positioning != crate::tree::node::Positioning::Sticky
-                && let Some(n) = self.tree.get_mut(id)
+            if place.positioning != crate::tree::node::Positioning::Sticky && self.tree.contains(id)
             {
-                n.shift = Point::default();
+                self.tree.set_shift_of(id, Point::default());
             }
             self.changes
                 .layout
@@ -400,7 +466,7 @@ impl Model {
             self.changes
                 .layout
                 .insert(crate::model::changes::LayoutReasons::PASS);
-            self.changes.moved();
+            self.changes.moved_node(id);
         }
         if text {
             self.invalidate_inherited_text(id);
@@ -426,18 +492,22 @@ impl Model {
     /// placeholder) changes the node's own payload; a paint may change its clip;
     /// a new transform or placement moves its subtree.
     fn invalidate_semantics(&mut self, id: NodeId, mutation: Mutation) {
-        if mutation.payload_only && !(mutation.style || mutation.subtree || mutation.read_only) {
+        if mutation.has(Mutation::PAYLOAD_ONLY)
+            && !(mutation.has(Mutation::STYLE)
+                || mutation.has(Mutation::SUBTREE)
+                || mutation.has(Mutation::READ_ONLY))
+        {
             self.a11y.payload(id);
         } else {
             self.a11y.node(id);
         }
-        if mutation.style || mutation.subtree {
+        if mutation.has(Mutation::STYLE) || mutation.has(Mutation::SUBTREE) {
             self.a11y.subtree(id);
         }
-        if mutation.paint {
+        if mutation.has(Mutation::PAINT) {
             self.a11y.reclip(id);
         }
-        if mutation.placed {
+        if mutation.has(Mutation::PLACED) {
             self.a11y.moved(id);
         }
     }
@@ -456,9 +526,9 @@ impl Model {
             let Some(n) = self.tree.get(x) else { continue };
             stack.extend(self.tree.children_ids(n));
             let (slot, kind) = (n.index.0, n.kind());
-            let drawn = kind == NodeType::Text || self.editors[slot].is_some();
-            let before = self.measure.computed_text(slot);
-            self.measure.forget_computed_text(slot);
+            let drawn = kind == NodeType::Text || self.slots.editors[slot].is_some();
+            let before = self.slots.measure.computed_text(slot);
+            self.slots.measure.forget_computed_text(slot);
             if drawn {
                 self.changes.mark(x, Dirty::MEASURE.union(Dirty::REDRAW));
                 self.a11y.payload(x);
@@ -507,8 +577,6 @@ impl Model {
         self.a11y.subtree(id);
         self.changes.restack = true;
         if self.tree.insert(parent, id, before).is_none() {
-            // Not attached: the facts of the detached subtree are unreachable.
-            self.paint.stale_all_facts();
             return;
         }
         // Its ancestors changed: so did the text style it inherits.
@@ -525,7 +593,7 @@ impl Model {
                     continue;
                 };
                 stack.extend(self.tree.children_ids(node));
-                if (node.kind() == NodeType::Text || self.editors[node.index.0].is_some())
+                if (node.kind() == NodeType::Text || self.slots.editors[node.index.0].is_some())
                     || node.measure().is_some()
                 {
                     self.changes.mark(child, Dirty::MEASURE);
@@ -534,14 +602,9 @@ impl Model {
                 self.a11y.node(child);
             }
         }
-        if self
-            .tree
-            .get(id)
-            .is_some_and(|n| n.kind() == NodeType::Overlay)
-        {
-            // An overlay is a layer root of its own.
-            self.paint.stale_all_facts();
-        }
+        // The attached subtree (built while detached, an overlay, or moved)
+        // derives its facts again, its ancestors as they change.
+        self.stale_subtree_facts(id);
         self.changes.regroup(parent);
         self.a11y.node(parent);
         self.stale_children_of(parent);
@@ -568,6 +631,7 @@ impl Model {
 
     /// `id` is destroyed: it leaves the motion index.
     fn forget_sources(&mut self, id: NodeId) {
+        self.reported_states.remove(&id);
         self.sources.file(id, None);
     }
 
@@ -613,12 +677,8 @@ impl Model {
             self.forget_presence(gone);
             self.presence.sizes.remove(&gone);
         }
-        let had_root = self.tree.root().is_some();
-        let was_overlay = self
-            .tree
-            .get(id)
-            .is_some_and(|n| n.kind() == NodeType::Overlay);
-        for gone in self.remove_slots(id) {
+        let gone = self.remove_slots(id);
+        for gone in gone.iter().copied() {
             if notify.contains(&gone) {
                 self.push(HostEvent::ExitComplete { node: gone });
             }
@@ -629,10 +689,11 @@ impl Model {
             self.paint.forget_fact(gone);
             self.forget_sources(gone);
         }
-        if was_overlay || (had_root && self.tree.root().is_none()) {
-            // An overlay or the root went: the set of layer roots changed.
-            self.paint.stale_all_facts();
-        }
+        let gone: std::collections::HashSet<NodeId> = gone.into_iter().collect();
+        self.paint.forget_missing(|x| !gone.contains(&x));
+        self.assets
+            .borrow_mut()
+            .prune_reports(|x| !gone.contains(&x));
         self.focus.forget_missing(&self.tree);
         self.clear_removed_hits();
         self.pointer.forget_missing(&self.tree);

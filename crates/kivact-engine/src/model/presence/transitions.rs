@@ -4,7 +4,7 @@ use crate::contract::{HostEvent, NodeType};
 use crate::model::Model;
 use crate::mutation::Mutation;
 use crate::tree::node::{ArrivalPhase, LeavingRole, NodePresence, Notify};
-use kivact_types::{Dimension, Edges, NodeId, Position};
+use kivact_types::{Edges, Length, NodeId, Position, StyleState};
 
 impl Model {
     /// Update authoritative presence and its scheduling indexes together.
@@ -65,7 +65,7 @@ impl Model {
                 .tree
                 .get(id)
                 .and_then(|n| n.states())
-                .is_some_and(|s| s.enter.is_some())
+                .is_some_and(|s| s.delta(StyleState::Enter).is_some())
                 || self.size_shown(id, true);
             if !enters {
                 self.transition_presence(id, NodePresence::Mounted);
@@ -74,7 +74,9 @@ impl Model {
             if !self.tree.attached(id) {
                 continue;
             }
-            if self.transition_shown(id, |s| s.enter.is_some()) || self.size_shown(id, true) {
+            if self.transition_shown(id, |s| s.delta(StyleState::Enter).is_some())
+                || self.size_shown(id, true)
+            {
                 // Writing its props captured it at its paint: it starts at
                 // its enter paint instead.
                 self.transition_presence(id, NodePresence::Arriving(ArrivalPhase::Animating));
@@ -137,7 +139,7 @@ impl Model {
             .iter()
             .copied()
             .filter(|x| {
-                self.transition_shown(*x, |s| s.exit.is_some())
+                self.transition_shown(*x, |s| s.delta(StyleState::Exit).is_some())
                     || (!pop_layout && self.size_shown(*x, false))
                     || self.tree.leaving(*x)
             })
@@ -233,19 +235,20 @@ impl Model {
             .map_or(Edges::all(0.0), |parent| parent.border);
         // Layout locations are parent border-box relative, while an absolute
         // inset is relative to the inside of the parent's border.
-        let left = last.location.x + node.shift.x - border.left;
-        let top = last.location.y + node.shift.y - border.top;
+        let shift = self.tree.shift_of(id);
+        let left = last.location.x + shift.x - border.left;
+        let top = last.location.y + shift.y - border.top;
         layout.position = Position::Absolute;
-        layout.inset = Edges::all(Dimension::Auto);
-        layout.inset.left = Dimension::Px(left);
-        layout.inset.top = Dimension::Px(top);
-        layout.margin = Edges::all(Dimension::Px(0.0));
-        layout.width = Dimension::Px(last.size.width);
-        layout.height = Dimension::Px(last.size.height);
-        layout.min_width = Dimension::Auto;
-        layout.min_height = Dimension::Auto;
-        layout.max_width = Dimension::Auto;
-        layout.max_height = Dimension::Auto;
+        layout.inset = Edges::all(Length::Auto);
+        layout.inset.left = Length::Px(left);
+        layout.inset.top = Length::Px(top);
+        layout.margin = Edges::all(Length::Px(0.0));
+        layout.width = Length::Px(last.size.width);
+        layout.height = Length::Px(last.size.height);
+        layout.min_width = Length::Auto;
+        layout.min_height = Length::Auto;
+        layout.max_width = Length::Auto;
+        layout.max_height = Length::Auto;
         if let Some(grid) = &mut layout.grid {
             grid.column = Default::default();
             grid.row = Default::default();

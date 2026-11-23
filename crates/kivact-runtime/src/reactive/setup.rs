@@ -29,9 +29,10 @@ use std::rc::Rc;
 use crate::HandlerResult;
 use crate::reactive::arena::Key;
 use crate::reactive::data::{
-    Binding, BindingRepr, Callback, CallbackFn, EffectKind, Runtime, Signal, Value, Var,
+    Callback, EffectKind, LensCell, Runtime, Signal, SignalRepr, Value, Var,
 };
 use crate::reactive::error::{ErrorKind, misuse_at};
+use crate::reactive::handler::CallbackFn;
 use crate::reactive::props::IntoValue;
 use crate::reactive::registry::current_runtime;
 use crate::reactive::scope::{owner_scope, setup_scope};
@@ -59,11 +60,11 @@ pub fn var<T: 'static>(value: T) -> Var<T> {
     Var::from_key(rt.id(), key)
 }
 
-/// A two-way input binding made of a value and the closure that writes it,
-/// for joining two separate pieces of state (a field of one value already
-/// has [`Signal::project`]; keyed lists supply row bindings). The value
+/// A two-way value made of a value and the closure that writes it (a lens),
+/// for joining two separate pieces of state; it is a `Signal`. The value
 /// can be anything [`IntoValue`] takes; `set` is called with each new value
-/// and may return `()` or `Result<(), UiError>`. Setup only.
+/// and may return `()` or `Result<(), UiError>`. `update` reads the value,
+/// lets `f` edit a copy and calls `set` once. Setup only.
 ///
 /// ```ignore
 /// let celsius = signal(20.0);
@@ -73,9 +74,32 @@ pub fn var<T: 'static>(value: T) -> Var<T> {
 pub fn binding<T: crate::PropValue, R: HandlerResult>(
     value: impl IntoValue<T>,
     set: impl Fn(T) -> R + 'static,
-) -> Binding<T> {
-    Binding {
-        repr: BindingRepr::Pair(value.into_value(), callback(set)),
+) -> Signal<T> {
+    let at = Location::caller();
+    let read = value.into_value();
+    let (rt, owner) = setup_scope("binding", at);
+    let set: Rc<dyn Fn(T) -> Result<(), crate::UiError>> =
+        Rc::new(move |v: T| set(v).into_outcome().map(|_| ()));
+    let write_whole = Rc::clone(&set);
+    let lens: Rc<LensCell<T>> = Rc::new(LensCell {
+        owner,
+        set: Box::new(move |v: T| write_whole(v)),
+        edit: Box::new(
+            move |f: &mut dyn FnMut(&mut T)| -> Result<(), crate::UiError> {
+                let mut v = read.get_untracked();
+                f(&mut v);
+                set(v)
+            },
+        ),
+    });
+    let write = rt.insert_object(owner, lens, "Signal", None, at);
+    Signal {
+        app: rt.id(),
+        repr: SignalRepr::Lens {
+            read: read.repr,
+            write,
+        },
+        _m: std::marker::PhantomData,
     }
 }
 
@@ -95,6 +119,8 @@ pub fn binding<T: crate::PropValue, R: HandlerResult>(
 /// the other setup functions work only when it is called during setup,
 /// creating under the caller's setup owner. Setup only.
 ///
+/// A shared handler without a payload takes `_` too: `callback(move |_| ..)`.
+///
 /// ```ignore
 /// let on_pick = callback(move |id: u64| selected.set(Some(id)));
 /// let reload = callback(|_| load());
@@ -105,7 +131,7 @@ pub fn callback<E: 'static, R: HandlerResult>(f: impl Fn(E) -> R + 'static) -> C
     let (rt, owner) = setup_scope("callback", at);
     let cb: Rc<CallbackFn<E>> = Rc::new(CallbackFn {
         owner,
-        f: Box::new(move |e| f(e).into_outcome().map(|_| ())),
+        f: crate::reactive::Handler::from_fn(f),
     });
     Callback::from_key(rt.id(), rt.insert_object(owner, cb, "Callback", None, at))
 }
@@ -178,17 +204,16 @@ pub fn on_mount(f: impl FnOnce() + 'static) {
     rt.push_mount(owner, Box::new(f));
 }
 
-/// A reactive value of the nearest `T` provided above the current owner (Solid
-/// `useContext`); a Copy handle struct is copied, a larger value is shared
-/// by wrapping it in an `Rc` before providing it.
-/// Works in setup and in handlers, tasks and effects (the nearest owner
-/// of the frame stack). Panics at the caller, naming `T`, if none is provided.
-/// Use [`try_use_context`] when the context is optional.
+/// The nearest `T` provided above the current owner (Solid `useContext`),
+/// cloned. Provide a `Signal` or a `Value` (or a struct of them) when readers
+/// must see changes. Works in setup and in handlers, tasks and effects (the
+/// nearest owner of the frame stack). Panics at the caller, naming `T`, if
+/// none is provided. Use [`try_use_context`] when the context is optional.
 #[track_caller]
-pub fn use_context<T: Clone + 'static>() -> Value<T> {
+pub fn use_context<T: Clone + 'static>() -> T {
     let at = Location::caller();
     let (rt, owner) = owner_scope("use_context", at);
-    lookup_context::<Value<T>>(&rt, owner).unwrap_or_else(|| {
+    lookup_context::<T>(&rt, owner).unwrap_or_else(|| {
         misuse_at(
             ErrorKind::Message,
             format!(
@@ -204,10 +229,10 @@ pub fn use_context<T: Clone + 'static>() -> Value<T> {
 /// Works in setup and in handlers, tasks and effects, like [`use_context`].
 /// A missing or disposed owner is still a located misuse.
 #[track_caller]
-pub fn try_use_context<T: Clone + 'static>() -> Option<Value<T>> {
+pub fn try_use_context<T: Clone + 'static>() -> Option<T> {
     let at = Location::caller();
     let (rt, owner) = owner_scope("try_use_context", at);
-    lookup_context::<Value<T>>(&rt, owner)
+    lookup_context::<T>(&rt, owner)
 }
 
 /// The nearest `T` provided to `owner` or one of its ancestors.
@@ -216,10 +241,10 @@ pub(crate) fn lookup_context<T: Clone + 'static>(rt: &Runtime, owner: Key) -> Op
         .and_then(|v| v.downcast_ref::<T>().cloned())
 }
 
-/// A value-free dependency owned by the current component setup.
+/// A dependency without a value (Solid `createTrigger`): computations that call `track` re-run after `notify`. Setup only.
 #[track_caller]
-pub fn notifier() -> crate::Notifier {
+pub fn trigger() -> crate::Trigger {
     let at = Location::caller();
-    let (rt, owner) = setup_scope("notifier", at);
-    crate::Notifier::from_key(rt.id(), rt.create_source(owner, (), at))
+    let (rt, owner) = setup_scope("trigger", at);
+    crate::Trigger::from_key(rt.id(), rt.create_source(owner, (), at))
 }

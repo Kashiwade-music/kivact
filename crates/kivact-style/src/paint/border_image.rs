@@ -4,9 +4,9 @@
 use super::fill_layer::fill_layer;
 use super::gradient::Gradient;
 use crate::asset::Asset;
-use crate::theme::value::Theme;
+use crate::length::Resolve;
 use kivact_types as p;
-use kivact_types::{BorderImageRepeat, Insets};
+use kivact_types::{BorderImageRepeat, Edges};
 
 /// What a [`BorderImage`] paints: a picture or a gradient.
 #[derive(Clone, Debug, PartialEq)]
@@ -14,7 +14,7 @@ pub enum BorderImageSource {
     /// A picture.
     Image(Asset),
     /// A CSS gradient.
-    Gradient(Gradient),
+    Gradient(Box<Gradient>),
 }
 
 impl From<Asset> for BorderImageSource {
@@ -37,7 +37,7 @@ impl From<&'static str> for BorderImageSource {
 
 impl From<Gradient> for BorderImageSource {
     fn from(g: Gradient) -> Self {
-        BorderImageSource::Gradient(g)
+        BorderImageSource::Gradient(Box::new(g))
     }
 }
 
@@ -46,7 +46,7 @@ impl From<Gradient> for BorderImageSource {
 ///
 /// ```
 /// use kivact::prelude::*;
-/// use kivact::draw::{BorderImage, BorderImageRepeat};
+/// use kivact::style::{BorderImage, BorderImageRepeat};
 /// // A 12 px frame cut from the picture, its edges repeated.
 /// let frame = BorderImage::new(&[0u8; 4])
 ///     .slice(12)
@@ -57,14 +57,11 @@ impl From<Gradient> for BorderImageSource {
 #[derive(Clone, Debug, PartialEq)]
 pub struct BorderImage {
     source: BorderImageSource,
-    slice: Insets,
-    // xtask-allow(state-fields): option: set by slice_pct() and cleared by slice(); false means the slice insets are px of the source, true percent
+    slice: Edges<f64>,
     slice_pct: bool,
-    // xtask-allow(state-fields): option: set by fill(); false (the CSS default) leaves the middle of the source unpainted
     fill: bool,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
-    width: Option<Insets>,
-    outset: Insets,
+    width: Option<Edges<f64>>,
+    outset: Edges<f64>,
     repeat: [BorderImageRepeat; 2],
 }
 
@@ -73,24 +70,24 @@ impl BorderImage {
     pub fn new(source: impl Into<BorderImageSource>) -> BorderImage {
         BorderImage {
             source: source.into(),
-            slice: Insets::default(),
+            slice: Edges::<f64>::default(),
             slice_pct: false,
             fill: false,
             width: None,
-            outset: Insets::default(),
+            outset: Edges::<f64>::default(),
             repeat: [BorderImageRepeat::Stretch; 2],
         }
     }
 
     /// The slices, in px of the source.
-    pub fn slice(mut self, slice: impl Into<Insets>) -> BorderImage {
+    pub fn slice(mut self, slice: impl Into<Edges<f64>>) -> BorderImage {
         self.slice = slice.into();
         self.slice_pct = false;
         self
     }
 
     /// The slices, in percent of the source.
-    pub fn slice_pct(mut self, slice: impl Into<Insets>) -> BorderImage {
+    pub fn slice_pct(mut self, slice: impl Into<Edges<f64>>) -> BorderImage {
         self.slice = slice.into();
         self.slice_pct = true;
         self
@@ -104,13 +101,13 @@ impl BorderImage {
 
     /// The width of the border image area, in px (default: the border
     /// widths).
-    pub fn width(mut self, width: impl Into<Insets>) -> BorderImage {
+    pub fn width(mut self, width: impl Into<Edges<f64>>) -> BorderImage {
         self.width = Some(width.into());
         self
     }
 
     /// How far the border image reaches beyond the border box, in px.
-    pub fn outset(mut self, outset: impl Into<Insets>) -> BorderImage {
+    pub fn outset(mut self, outset: impl Into<Edges<f64>>) -> BorderImage {
         self.outset = outset.into();
         self
     }
@@ -130,9 +127,9 @@ impl BorderImage {
         self
     }
 
-    /// The engine's border image, with its source resolved against `theme`.
-    pub(crate) fn wire(&self, theme: &Theme) -> p::BorderImage {
-        let edges = |i: Insets, pct: bool| {
+    /// The engine's border image, with its source resolved in `cx`.
+    pub(crate) fn wire(&self, cx: &mut Resolve<'_>) -> p::BorderImage {
+        let edges = |i: Edges<f64>, pct: bool| {
             let l = |v: f64| {
                 if pct { p::Len::pct(v) } else { p::Len::px(v) }
             };
@@ -146,7 +143,7 @@ impl BorderImage {
         let source = match &self.source {
             BorderImageSource::Image(a) => p::FillImage::Image(a.clone()),
             BorderImageSource::Gradient(g) => {
-                let layer = fill_layer(&super::Paint::from(g.clone()), theme);
+                let layer = fill_layer(&super::Paint::from(g.as_ref().clone()), cx);
                 layer.image
             }
         };

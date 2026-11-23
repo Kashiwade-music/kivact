@@ -5,7 +5,6 @@ use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawWindowHandle,
     Win32WindowHandle, WindowHandle,
 };
-use std::future::Future;
 use std::num::NonZeroIsize;
 use std::os::windows::ffi::OsStringExt;
 use std::path::PathBuf;
@@ -73,7 +72,7 @@ fn dialog(parent: &Parent, request: &FileDialog) -> Result<rfd::AsyncFileDialog,
 }
 
 fn wait<T>(future: impl Future<Output = T>) -> T {
-    // rfd 0.17.2's async worker can finish its epilogue after sending the
+    // rfd's async worker (seen in 0.17.2) can finish its epilogue after sending the
     // result. Keep its code mapped before polling can start that worker.
     crate::module::retain_module();
     let mut future = Box::pin(future);

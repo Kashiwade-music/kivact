@@ -1,5 +1,5 @@
 //! Role: Attach zoom and pan machines to the caller's viewport.
-use super::data::{ViewTransform, ZoomPanOptions, finite, valid_scale};
+use super::data::{ZoomPan, ZoomPanOptions, finite, valid_scale};
 use super::machine;
 use crate::EditSession;
 use crate::options_cell::OptionsCell;
@@ -7,7 +7,7 @@ use kivact_core::ErrorKind;
 use kivact_core::custom::{Part, PartState, part, raise};
 use kivact_core::geometry::{Point, Rect, Size};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, MachineHandle, Signal, Value, machine, memo, signal};
+use kivact_core::state::{MachineHandle, Signal, Value, machine, memo};
 use kivact_core::view::EditPhase;
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, WheelEvent};
@@ -18,11 +18,9 @@ use std::rc::Rc;
 /// to the caller's node; drawing and content remain the caller's responsibility.
 #[derive(Clone, Copy)]
 pub struct ZoomPanApi {
-    // xtask-allow(state-fields): independent: the observation of the attached viewport part, absent until it attaches
-    observed: Signal<Option<Value<PartState>>>,
-    transform: Binding<ViewTransform>,
+    transform: Signal<ZoomPan>,
     settings: OptionsCell<ZoomPanOptions>,
-    edit: EditSession<ViewTransform>,
+    edit: EditSession<ZoomPan>,
     /// The one gesture; Space is held in its idle state, so
     /// `is_gesturing` and `is_space_armed` follow it.
     gesture: MachineHandle<machine::Machine>,
@@ -32,8 +30,7 @@ pub struct ZoomPanApi {
 
 /// Create shared zoom and pan behavior during setup.
 #[track_caller]
-pub fn use_zoom_pan(transform: impl kivact_core::state::IntoBinding<ViewTransform>) -> ZoomPanApi {
-    let transform = transform.into_binding();
+pub fn use_zoom_pan(transform: kivact_core::state::Signal<ZoomPan>) -> ZoomPanApi {
     let settings = OptionsCell::new(ZoomPanOptions::default());
     let edit = EditSession::new(move |initial| transform.set(initial));
     let session = Rc::new(edit);
@@ -64,7 +61,6 @@ pub fn use_zoom_pan(transform: impl kivact_core::state::IntoBinding<ViewTransfor
     let gesturing = memo(move || gesture.get().active());
     let armed = memo(move || gesture.get().space());
     ZoomPanApi {
-        observed: signal(None),
         transform,
         settings,
         edit,
@@ -75,7 +71,7 @@ pub fn use_zoom_pan(transform: impl kivact_core::state::IntoBinding<ViewTransfor
 }
 
 impl kivact_core::view::ViewportTransform for ZoomPanApi {
-    fn view_transform(&self) -> Value<ViewTransform> {
+    fn view_transform(&self) -> Value<ZoomPan> {
         self.transform.into_value()
     }
     fn attach(
@@ -94,16 +90,6 @@ impl ZoomPanApi {
     /// Map a content point through the current shared pose into the view.
     pub fn to_view(self, point: Point) -> Point {
         self.transform.get().to_view(point)
-    }
-
-    /// Drawing state of the actual attached input target.
-    pub fn viewport_state(self) -> Value<PartState> {
-        kivact_core::state::memo(move || {
-            self.observed
-                .get()
-                .map(|state| state.get())
-                .unwrap_or_default()
-        })
     }
 
     /// Positive finite scale bounds with `min <= max` (default 0.01 through
@@ -155,11 +141,11 @@ impl ZoomPanApi {
         self.gesturing
     }
 
-    fn zoom(self, current: ViewTransform, anchor: Point, factor: f64) -> ViewTransform {
+    fn zoom(self, current: ZoomPan, anchor: Point, factor: f64) -> ZoomPan {
         let ZoomPanOptions { min, max, .. } = self.settings.get();
         let scale = (valid_scale(current.scale) * factor).clamp(min, max);
         let content = current.to_content(anchor);
-        ViewTransform {
+        ZoomPan {
             scale,
             offset: Point::new(anchor.x - content.x * scale, anchor.y - content.y * scale),
         }
@@ -204,13 +190,13 @@ impl ZoomPanApi {
                     return Handled::No;
                 };
                 let bounds = content.get();
-                let fit = ViewTransform::fit(
+                let fit = ZoomPan::fit(
                     Size::new(bounds.width, bounds.height),
                     Size::new(rect.width, rect.height),
                 );
                 // The bounds may not start at the origin: its corner
                 // goes to the surface's.
-                let fit = ViewTransform {
+                let fit = ZoomPan {
                     scale: fit.scale,
                     offset: Point::new(
                         fit.offset.x - bounds.x * fit.scale,
@@ -267,7 +253,6 @@ impl ZoomPanApi {
         let edit = self.edit;
         let input = part(|input| input);
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.observed, part_state);
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             let surface = host

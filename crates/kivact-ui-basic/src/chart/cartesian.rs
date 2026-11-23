@@ -2,7 +2,7 @@
 
 use super::model::{ChartKind, Frame, Hit, HitRow, series_color};
 use super::scale::{Domain, text_width};
-use crate::tokens::Tokens;
+use crate::color::{BACKGROUND, BORDER, BORDER_VAR, MUTED, MUTED_FOREGROUND};
 use kivact::draw::{Draw, LineCap, LineJoin, Path, Stroke, TextBaseline, TextFormat};
 use kivact::geometry::{Point, Rect, Size};
 use kivact::style::TextAlign;
@@ -144,10 +144,10 @@ fn crisp(v: f64) -> f64 {
     v.floor() + 0.5
 }
 
-fn label_style(tokens: &Tokens, align: TextAlign, baseline: TextBaseline) -> TextFormat {
+fn label_style(align: TextAlign, baseline: TextBaseline) -> TextFormat {
     TextFormat {
         size: 12.0,
-        color: tokens.muted_foreground,
+        color: MUTED_FOREGROUND,
         align,
         baseline,
         ..TextFormat::default()
@@ -156,27 +156,26 @@ fn label_style(tokens: &Tokens, align: TextAlign, baseline: TextBaseline) -> Tex
 
 /// Paint the chart; `hit` is the row under the pointer.
 pub(super) fn paint(d: &mut Draw, size: Size, f: &Frame, hit: Option<&Hit>) {
-    let tokens = d.theme().ext::<Tokens>();
     let layout = Layout::new(size, f);
-    paint_grid(d, &layout, f, &tokens);
+    paint_grid(d, &layout, f);
     if f.axis {
-        paint_labels(d, &layout, f, &tokens);
+        paint_labels(d, &layout, f);
     }
     if let Some(hit) = hit {
-        paint_cursor(d, &layout, f, &tokens, hit.index);
+        paint_cursor(d, &layout, f, hit.index);
     }
     match f.kind {
-        ChartKind::Bar => paint_bars(d, &layout, f, &tokens),
-        ChartKind::StackedBar => paint_stacks(d, &layout, f, &tokens),
-        _ => paint_lines(d, &layout, f, &tokens, hit.map(|hit| hit.index)),
+        ChartKind::Bar => paint_bars(d, &layout, f),
+        ChartKind::StackedBar => paint_stacks(d, &layout, f),
+        _ => paint_lines(d, &layout, f, hit.map(|hit| hit.index)),
     }
 }
 
-fn paint_grid(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens) {
+fn paint_grid(d: &mut Draw, l: &Layout, f: &Frame) {
     if !f.grid {
         return;
     }
-    let color = tokens.border.with_alpha(0.5);
+    let color = d.theme().get(&BORDER_VAR).with_alpha(0.5);
     for tick in l.domain.ticks() {
         let at = l.position(tick);
         let (from, to) = if l.horizontal {
@@ -196,16 +195,16 @@ fn paint_grid(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens) {
     }
 }
 
-fn paint_labels(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens) {
+fn paint_labels(d: &mut Draw, l: &Layout, f: &Frame) {
     let below = l.plot.y + l.plot.height + 6.0;
     for tick in l.domain.ticks() {
         let at = l.position(tick);
         let text = f.format(tick);
         if l.horizontal {
-            let style = label_style(tokens, TextAlign::Center, TextBaseline::Top);
+            let style = label_style(TextAlign::Center, TextBaseline::Top);
             d.text(&text, Point::new(at, below), style);
         } else {
-            let style = label_style(tokens, TextAlign::End, TextBaseline::Middle);
+            let style = label_style(TextAlign::End, TextBaseline::Middle);
             d.text(&text, Point::new(l.plot.x - LABEL_GAP, at), style);
         }
     }
@@ -219,21 +218,21 @@ fn paint_labels(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens) {
     let stride = (needed / l.band()).ceil().max(1.0) as usize;
     for (i, row) in f.rows.iter().enumerate().step_by(stride) {
         if l.horizontal {
-            let style = label_style(tokens, TextAlign::End, TextBaseline::Middle);
+            let style = label_style(TextAlign::End, TextBaseline::Middle);
             d.text(
                 &row.label,
                 Point::new(l.plot.x - LABEL_GAP, l.center(i)),
                 style,
             );
         } else {
-            let style = label_style(tokens, TextAlign::Center, TextBaseline::Top);
+            let style = label_style(TextAlign::Center, TextBaseline::Top);
             d.text(&row.label, Point::new(l.center(i), below), style);
         }
     }
 }
 
 /// The hovered category: a muted band behind bars, a rule behind lines.
-fn paint_cursor(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens, index: usize) {
+fn paint_cursor(d: &mut Draw, l: &Layout, f: &Frame, index: usize) {
     if index >= f.rows.len() {
         return;
     }
@@ -245,19 +244,19 @@ fn paint_cursor(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens, index: usi
         } else {
             Rect::new(center - band / 2.0, l.plot.y, band, l.plot.height)
         };
-        d.fill_rect(rect, tokens.muted);
+        d.fill_rect(rect, MUTED);
     } else {
         let x = crisp(center);
         d.line(
             Point::new(x, l.plot.y),
             Point::new(x, l.plot.y + l.plot.height),
             Stroke::new(1.0),
-            tokens.border,
+            BORDER,
         );
     }
 }
 
-fn paint_bars(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens) {
+fn paint_bars(d: &mut Draw, l: &Layout, f: &Frame) {
     let series = f.config.series.len();
     if series == 0 {
         return;
@@ -275,12 +274,12 @@ fn paint_bars(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens) {
             }
             let center = first + s as f64 * (across + BAR_GAP);
             let bar = l.bar(center, across, 0.0, value);
-            d.fill_rect(bar, series_color(f.config, s, tokens));
+            d.fill_rect(bar, series_color(f.config, s));
         }
     }
 }
 
-fn paint_stacks(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens) {
+fn paint_stacks(d: &mut Draw, l: &Layout, f: &Frame) {
     let across = (l.band() * BAR_SHARE).max(1.0);
     for row in 0..f.rows.len() {
         let (mut up, mut down) = (0.0f64, 0.0f64);
@@ -293,16 +292,16 @@ fn paint_stacks(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens) {
             let from = *base;
             *base += value;
             let bar = l.bar(l.center(row), across, from, *base);
-            d.fill_rect(bar, series_color(f.config, s, tokens));
+            d.fill_rect(bar, series_color(f.config, s));
         }
     }
 }
 
-fn paint_lines(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens, hovered: Option<usize>) {
+fn paint_lines(d: &mut Draw, l: &Layout, f: &Frame, hovered: Option<usize>) {
     let stroke = Stroke::new(2.0).cap(LineCap::Round).join(LineJoin::Round);
     let area = f.kind == ChartKind::Area;
     for s in 0..f.config.series.len() {
-        let color = series_color(f.config, s, tokens);
+        let color = series_color(f.config, s);
         let points: Vec<Point> = (0..f.rows.len())
             .map(|row| l.point(row, f.value(row, s)))
             .collect();
@@ -331,7 +330,7 @@ fn paint_lines(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens, hovered: Op
             }
         }
         if let Some(point) = hovered.and_then(|index| points.get(index)) {
-            d.circle(*point, 6.0, tokens.background);
+            d.circle(*point, 6.0, BACKGROUND);
             d.circle(*point, 4.0, color);
         }
     }

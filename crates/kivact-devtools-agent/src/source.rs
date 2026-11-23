@@ -1,7 +1,7 @@
 //! Role: Read a source line to find the name a signal was bound to.
 
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use kivact_devtools_protocol::SourceLocation;
 
@@ -9,7 +9,7 @@ const MAX_FILES: usize = 64;
 
 /// Source files read so far (a pure cache; the oldest is dropped first).
 pub(crate) struct SourceCache {
-    files: Vec<(PathBuf, Rc<str>)>,
+    files: Vec<(PathBuf, Arc<str>)>,
 }
 
 impl SourceCache {
@@ -25,15 +25,15 @@ impl SourceCache {
         hint_in_line(text.lines().nth(index)?)
     }
 
-    fn text(&mut self, path: &Path) -> Option<Rc<str>> {
+    fn text(&mut self, path: &Path) -> Option<Arc<str>> {
         if let Some((_, text)) = self.files.iter().find(|(known, _)| known == path) {
-            return Some(Rc::clone(text));
+            return Some(Arc::clone(text));
         }
-        let text: Rc<str> = std::fs::read_to_string(path).ok()?.into();
+        let text: Arc<str> = std::fs::read_to_string(path).ok()?.into();
         if self.files.len() >= MAX_FILES {
             self.files.remove(0);
         }
-        self.files.push((path.to_path_buf(), Rc::clone(&text)));
+        self.files.push((path.to_path_buf(), Arc::clone(&text)));
         Some(text)
     }
 }

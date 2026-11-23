@@ -3,7 +3,7 @@
 [日本語](../../../jp/creative/how-to-guide/knobs-and-faders.md)
 
 The Creative kit's numeric controls (`number`, `value_slider`, `knob`, `fader`)
-share one implementation: the same binding, range, steps, keys, wheel and edit
+share one implementation: the same signal, range, steps, keys, wheel and edit
 phases. This guide shows how to make them read the way your users think about
 the value, follow the right curve, and behave like a plugin control under the
 pointer.
@@ -19,7 +19,8 @@ text and an assistive `SetValue` read back the same way.
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn gain() -> impl IntoView {
+#[component]
+fn gain() -> impl Element {
     let gain = signal(0.5);
     ui::knob("Gain", gain)
         .range(0.0..=2.0)
@@ -58,7 +59,7 @@ and `unit` still set the step and the built-in display.
 ## Map the value to the travel
 
 By default equal travel changes the value by equal amounts. `mapping` changes
-that without changing the units of the binding:
+that without changing the units of the signal:
 
 | Mapping | Position |
 |---|---|
@@ -77,7 +78,8 @@ use kivact::interaction::{ScalarMapping, ScalarStep};
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn frequency() -> impl IntoView {
+#[component]
+fn frequency() -> impl Element {
     ui::knob("Frequency", signal(440.0))
         .range(20.0..=20_000.0)
         .mapping(ScalarMapping::logarithmic())
@@ -102,7 +104,8 @@ logical pixels, that crosses the whole range through the mapping.
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn threshold() -> impl IntoView {
+#[component]
+fn threshold() -> impl Element {
     ui::knob("Threshold", signal(-18.0))
         .range(-60.0..=0.0)
         .unit(" dB")
@@ -160,7 +163,8 @@ the draft and reports nothing.
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn mix() -> impl IntoView {
+#[component]
+fn mix() -> impl Element {
     ui::knob("Mix", signal(100.0))
         .range(0.0..=100.0)
         .reset_to(100.0)

@@ -9,7 +9,7 @@
 use std::time::Duration;
 
 use kivact_core::state::IntoValue;
-use kivact_core::state::{MachineHandle, Value, effect, machine, memo};
+use kivact_core::state::{MachineHandle, Value, machine, memo};
 
 use super::machine::{Effect, Event, Machine, State};
 
@@ -42,8 +42,8 @@ pub enum DelayedPhase {
 ///
 /// ```no_run
 /// use std::time::Duration;
-/// use kivact_core::{state::signal, view::{Element, column, node, text, show}};
-/// use kivact_interaction::{Delays, use_delayed};
+/// use kivact::{state::signal, view::{Element, column, node, text, show}};
+/// use kivact::interaction::{Delays, use_delayed};
 /// let hovered = signal(false);
 /// let card = use_delayed(hovered, Delays {
 ///     open: Duration::from_millis(300),
@@ -109,7 +109,8 @@ pub(crate) fn delayed(
         phase,
         shown,
     };
-    effect(move || state.send(Event::Wanted(wanted.get())));
+    state.send(Event::Wanted(wanted.get_untracked()));
+    state.feed(wanted, Event::Wanted);
     this
 }
 

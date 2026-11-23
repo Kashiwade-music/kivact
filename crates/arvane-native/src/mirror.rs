@@ -37,10 +37,10 @@
 //! loop per process, and this display holds it.
 
 use crate::a11y::native::NativeAccessibility;
+use arvane_protocol::{SemanticsNode, SemanticsTree};
 use arvane_shell::{Accessibility, PlatformTree};
 use arvane_shell::{ShellError, ShellWaker};
-use kivact_types::Transform;
-use kivact_types::render::{SemanticsNode, SemanticsTree};
+use kivact_types::Affine;
 use kivact_types::{Point, Rect, Role, SemanticsId};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
@@ -101,29 +101,22 @@ pub struct MirrorStats {
     pub presented: u64,
 }
 
+// xtask-allow(state): statistic: created, reused and presented are separate counts the test UI thread adds to (a new window, a pooled window, a shown frame); TestDisplay::stats only reads them
 #[derive(Default)]
 struct Counters {
-    // xtask-allow(state-fields): statistic: native windows created
     created: AtomicU64,
-    // xtask-allow(state-fields): statistic: pooled windows handed to a new test
     reused: AtomicU64,
-    // xtask-allow(state-fields): statistic: frames shown after coalescing
     presented: AtomicU64,
 }
 
 /// What a test window shows next; the UI thread takes it all at once.
 #[derive(Default)]
 struct MirrorBatch {
-    // xtask-allow(state-fields): option: the frame a test window shows next; absent when none is pending
     frame: Option<Frame>,
-    // xtask-allow(state-fields): independent: set only by the accessibility tree's change callback, while frame, title, resize and gpu come from other MirrorWindow calls on the test thread; flush applies each on its own, so any mix in one batch is valid
     /// The accessibility tree changed: hand the platform what it lacks.
     accessibility: bool,
-    // xtask-allow(state-fields): option: the title a test window shows next; absent when none is pending
     title: Option<String>,
-    // xtask-allow(state-fields): option: the size a test window resizes to; absent when none is pending
     resize: Option<(u32, u32, f64)>,
-    // xtask-allow(state-fields): independent: set only by `MirrorWindow::gpu_presents`, while the other batch values come from other MirrorWindow calls; flush switches the window to GPU use on its own (a frame in the same batch is then not kept), so any mix is valid
     /// A GPU surface presents to the window from now on.
     gpu: bool,
 }
@@ -172,6 +165,7 @@ enum Command {
     },
 }
 
+// xtask-allow(state): identity: next allocates test window ids in TestDisplay::open; proxy is the event-loop sender behind a Mutex only for Sync and is never replaced
 /// The process-wide test display: the UI thread and its event loop.
 pub struct TestDisplay {
     proxy: Mutex<EventLoopProxy<Command>>,
@@ -179,11 +173,8 @@ pub struct TestDisplay {
     counters: Arc<Counters>,
 }
 
-#[expect(
-    clippy::disallowed_types,
-    reason = "process-wide native test display initialized once"
-)]
-static DISPLAY: std::sync::OnceLock<Result<TestDisplay, ShellError>> = std::sync::OnceLock::new();
+static DISPLAY: kivact_types::cell::SharedDeferred<Result<TestDisplay, ShellError>> =
+    kivact_types::cell::SharedDeferred::new();
 
 impl TestDisplay {
     /// The display, its UI thread started on first use. Fails where no
@@ -610,7 +601,7 @@ fn idle_tree() -> SemanticsTree {
             children: Vec::new(),
             bounds: Some(Rect::default()),
             scroll: Point::default(),
-            transform: Transform::IDENTITY,
+            transform: Affine::IDENTITY,
             semantics: kivact_types::Semantics {
                 role: Some(Role::Generic),
                 name: Some("idle test window".into()),

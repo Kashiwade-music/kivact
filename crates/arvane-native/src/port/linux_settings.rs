@@ -18,14 +18,12 @@ const INTERFACE: &str = "org.freedesktop.portal.Settings";
 const GNOME_NAMESPACE: &str = "org.gnome.desktop.interface";
 const KDE_NAMESPACE: &str = "org.kde.kdeglobals.KDE";
 
-// xtask-allow(state-fields): cache: the reduced-motion preference last read from the portal
 /// The reduced-motion preference last read from the portal.
 static REDUCED_MOTION: AtomicBool = AtomicBool::new(false);
 
 /// The wakers of the event loops that show the environment, by registration.
 static WAKERS: Mutex<Vec<(u64, ShellWaker)>> = Mutex::new(Vec::new());
 
-// xtask-allow(state-fields): identity: the next waker registration number
 /// The next registration number.
 static NEXT: AtomicU64 = AtomicU64::new(0);
 

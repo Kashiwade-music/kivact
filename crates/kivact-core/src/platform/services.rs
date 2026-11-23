@@ -22,7 +22,6 @@
 //! - [`set_fullscreen`] sends the request, and `platform::fullscreen()`
 //!   reads the host's state as it reports it.
 
-use std::future::Future;
 use std::panic::Location;
 use std::path::PathBuf;
 
@@ -31,7 +30,7 @@ use kivact_types::{PlatformRequest, PlatformResult};
 
 use crate::view::requests;
 use crate::view::requests::platform_result;
-use crate::view::state::EffectWaiter;
+use crate::view::state::Waiter;
 use kivact_runtime::Completion;
 use kivact_runtime::{Owner, UiError, require_effectful};
 
@@ -40,7 +39,7 @@ pub use kivact_types::FileDialog;
 /// Every platform request: the scope must be alive and the caller must
 /// not be a memo or render effect.
 #[track_caller]
-fn request(owner: Owner, api: &'static str, req: HostRequest, waiter: EffectWaiter) {
+fn request(owner: Owner, api: &'static str, req: HostRequest, waiter: Waiter) {
     let rt = owner.runtime();
     require_effectful(api);
     requests::request_effect(&rt, req, waiter);
@@ -53,7 +52,7 @@ fn request_async(
     req: HostRequest,
 ) -> Completion<Result<PlatformResult, UiError>> {
     let slot = Completion::new();
-    request(owner, api, req, EffectWaiter::Future(slot.clone()));
+    request(owner, api, req, Waiter::Future(slot.clone()));
     slot
 }
 
@@ -64,7 +63,7 @@ fn ask(
     req: HostRequest,
     at: &'static Location<'static>,
 ) -> Completion<Result<PlatformResult, UiError>> {
-    request_async(Owner::ambient(api, at), api, req)
+    request_async(Owner::running(api, at), api, req)
 }
 
 /// Send the platform request of the nearest owner to its window.
@@ -74,7 +73,7 @@ fn ask_platform(
     req: PlatformRequest,
     at: &'static Location<'static>,
 ) -> Completion<Result<PlatformResult, UiError>> {
-    let owner = Owner::ambient(api, at);
+    let owner = Owner::running(api, at);
     let window = crate::view::state::current_window(owner);
     request_async(
         owner,
@@ -99,7 +98,7 @@ pub fn request_window_size(
     height: impl Into<f64>,
 ) -> impl Future<Output = Result<(), UiError>> + 'static {
     let at = Location::caller();
-    let owner = Owner::ambient("request_window_size", at);
+    let owner = Owner::running("request_window_size", at);
     require_effectful("request_window_size");
     let window = crate::view::state::current_window(owner);
     let (width, height) = (width.into(), height.into());
@@ -115,10 +114,7 @@ pub fn request_window_size(
         Ok(request_async(
             owner,
             "request_window_size",
-            HostRequest::Platform {
-                window,
-                request: PlatformRequest::RequestWindowSize(size),
-            },
+            HostRequest::RequestWindowSize { window, size },
         ))
     } else {
         Err(UiError::new(
@@ -320,7 +316,7 @@ pub fn reveal_path(
 #[track_caller]
 pub fn save_state(key: &'static str, bytes: Vec<u8>) {
     let at = Location::caller();
-    let owner = Owner::ambient("save_state", at);
+    let owner = Owner::running("save_state", at);
     let window = crate::view::state::current_window(owner);
     request(
         owner,
@@ -329,7 +325,7 @@ pub fn save_state(key: &'static str, bytes: Vec<u8>) {
             window,
             request: PlatformRequest::SaveState { key, bytes },
         },
-        EffectWaiter::Report {
+        Waiter::Report {
             owner: Some(owner),
             at,
             failed: kivact_runtime::ErrorKind::Platform,

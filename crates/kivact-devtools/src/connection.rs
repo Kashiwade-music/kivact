@@ -1,11 +1,12 @@
 //! Role: Finding a target, connecting to it, and the connection state screens.
 
+use kivact::task::blocking;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use kivact::prelude::*;
-use kivact_devtools_client as client;
 use kivact_devtools_protocol as p;
+use kivact_devtools_protocol::client;
 
 use crate::source::Source;
 use crate::state::{Connection, Target};

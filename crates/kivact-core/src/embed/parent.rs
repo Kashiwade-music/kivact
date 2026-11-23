@@ -2,7 +2,7 @@
 
 use super::EmbedNotice;
 use kivact_types::NativeWindow;
-use kivact_types::embed::Visibility;
+use kivact_types::embed::EmbedVisibility;
 use kivact_types::{ResizeAnswer, UnhandledKeys};
 use std::ffi::c_void;
 use std::num::{NonZeroIsize, NonZeroU32};
@@ -13,11 +13,9 @@ use std::sync::Arc;
 /// If the parent dies first, the child stops safely without undefined behavior.
 #[derive(Clone)]
 pub struct Parent {
-    // xtask-allow(state-fields): option: an optional constructor input; the default applies when absent
     pub(super) window: Option<NativeWindow>,
-    // xtask-allow(state-fields): option: an optional host scale; the default applies when absent
     pub(super) scale: Option<f64>,
-    pub(super) visibility: Visibility,
+    pub(super) visibility: EmbedVisibility,
     pub(super) unhandled_keys: UnhandledKeys,
     pub(super) on_resize_request: Option<Arc<dyn Fn(u32, u32) -> ResizeAnswer + Send + Sync>>,
     pub(super) on_notice: Option<Arc<dyn Fn(EmbedNotice) + Send + Sync>>,
@@ -41,7 +39,7 @@ impl Parent {
         Self {
             window: NonZeroIsize::new(hwnd as isize).map(NativeWindow::Win32),
             scale: None,
-            visibility: Visibility::default(),
+            visibility: EmbedVisibility::default(),
             unhandled_keys: UnhandledKeys::default(),
             on_resize_request: None,
             on_notice: None,
@@ -53,7 +51,7 @@ impl Parent {
         Self {
             window: NonZeroU32::new(window).map(NativeWindow::X11),
             scale: None,
-            visibility: Visibility::default(),
+            visibility: EmbedVisibility::default(),
             unhandled_keys: UnhandledKeys::default(),
             on_resize_request: None,
             on_notice: None,
@@ -66,7 +64,7 @@ impl Parent {
     /// [`Embedded::show`](super::Embedded::show). Without it the window is
     /// shown when `App::embed` returns.
     pub fn hidden(mut self) -> Parent {
-        self.visibility = Visibility::Hidden;
+        self.visibility = EmbedVisibility::Hidden;
         self
     }
     /// Give key presses the editor does not handle, and their releases, back

@@ -36,40 +36,31 @@ pub enum NodeKind {
 pub struct NodeProperties {
     /// Node type and its corresponding payload.
     pub kind: NodeKind,
-    // xtask-allow(state-fields): option: absent means the node is not a native editor
     /// Optional native editing contract.
     pub editing: Option<Box<EditingData>>,
-    // xtask-allow(state-fields): option: absent means the node has no IME session
     /// Optional IME session of a focusable node that is not a native editor.
     pub ime: Option<Box<ImeSessionProps>>,
-    // xtask-allow(state-fields): option: absent uses the host's layout defaults
     /// Optional layout properties; absent uses host defaults.
     pub layout: Option<std::rc::Rc<LayoutProps>>,
-    // xtask-allow(state-fields): option: absent draws nothing
     /// Optional resolved paint properties.
     pub paint: Option<std::rc::Rc<PaintProps>>,
-    // xtask-allow(state-fields): option: absent inherits the parent's text style
     /// Optional inherited text properties.
     pub text: Option<std::rc::Rc<TextStyle>>,
-    // xtask-allow(state-fields): option: absent has no state styles
     /// Optional state-dependent style overrides.
     pub states: Option<std::rc::Rc<StateStyles>>,
     /// Input participation and focus flags.
     pub input: NodeInput,
-    // xtask-allow(state-fields): option: absent exposes no accessible properties
     /// Optional accessible node properties.
     pub semantics: Option<std::rc::Rc<kivact_types::Semantics<FocusTarget>>>,
-    // xtask-allow(state-fields): option: absent means it is not a drawable root
     /// The drawable this node is the root of, if any (its id and mode).
     pub drawable: Option<DrawableRole>,
-    // xtask-allow(state-fields): option: absent means it has no shared-layout identity
     /// The shared-layout id: a node that gets its first box with the id of
     /// a departed node animates from that node's last box (`layout_id`).
     pub layout_id: Option<std::sync::Arc<str>>,
 }
 
 const _: () = assert!(
-    std::mem::size_of::<NodeProperties>() <= 240,
+    std::mem::size_of::<NodeProperties>() <= 232,
     "NodeProperties grew: box the new rare field"
 );
 
@@ -112,28 +103,60 @@ pub struct ImeSessionProps {
 /// Optional input flags; absent values leave the host defaults in force.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct NodeInput {
-    /// Disable interactive behavior when true.
-    pub disabled: Option<bool>,
-    /// Exclude the node and subtree from display and interaction when true.
-    pub hidden: Option<bool>,
-    /// Allow the node to receive keyboard focus.
-    pub focusable: Option<bool>,
-    /// Keep an otherwise focusable node in focus order while disabled.
-    pub focusable_when_disabled: Option<bool>,
+    /// The yes/no/unset input flags ([`InputFlag`]).
+    pub flags: InputFlags,
     /// Group descendants into one stop in the native Tab order.
     pub roving_focus: Option<RovingFocus>,
-    /// Request routed pointer events.
-    pub listen_pointer: Option<bool>,
     /// Where a press moves the focus instead of this node; `None`: the host
     /// default.
     pub focus_on_press: Option<FocusTarget>,
+}
+
+/// One input flag of a node (see [`InputFlags`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InputFlag {
+    /// Disable interactive behavior when true.
+    Disabled,
+    /// Exclude the node and subtree from display and interaction when true.
+    Hidden,
+    /// Allow the node to receive keyboard focus.
+    Focusable,
+    /// Keep an otherwise focusable node in focus order while disabled.
+    FocusableWhenDisabled,
+    /// Request routed pointer events.
+    ListenPointer,
     /// Request wheel events for the node.
-    pub listen_wheel: Option<bool>,
+    ListenWheel,
     /// Request native file drag-and-drop events.
-    pub listen_file: Option<bool>,
-    /// `false`: the pointer passes through the node and its subtree to what
-    /// lies behind (CSS `pointer-events: none`); `None` is `true`.
-    pub hit_testable: Option<bool>,
+    ListenFile,
+    /// `false`: the pointer passes through the node and its subtree; unset is `true`.
+    HitTestable,
+}
+
+/// Each [`InputFlag`] unset, false or true, in two bits.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct InputFlags(u16);
+
+impl InputFlags {
+    /// The value of `flag` (`None`: unset).
+    pub fn get(self, flag: InputFlag) -> Option<bool> {
+        match (self.0 >> (2 * flag as u16)) & 0b11 {
+            0 => None,
+            1 => Some(false),
+            _ => Some(true),
+        }
+    }
+
+    /// Set `flag` to `value`.
+    pub fn set(&mut self, flag: InputFlag, value: Option<bool>) {
+        let shift = 2 * flag as u16;
+        let bits = match value {
+            None => 0,
+            Some(false) => 1,
+            Some(true) => 2,
+        };
+        self.0 = (self.0 & !(0b11 << shift)) | (bits << shift);
+    }
 }
 
 /// Direction of a group whose active focus target moves with arrow keys.
@@ -146,10 +169,8 @@ pub struct RovingFocus {
 /// Measurement callback for a childless box; absent means ordinary layout.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct BoxData {
-    // xtask-allow(state-fields): option: absent means ordinary layout
     /// Optional natural dimensions used to size the leaf box.
     pub intrinsic: Option<IntrinsicSize>,
-    // xtask-allow(state-fields): option: absent means ordinary layout
     /// Pure measurement callback for a leaf box.
     pub measure: Option<LeafMeasure>,
 }
@@ -157,43 +178,30 @@ pub struct BoxData {
 /// Native text-editing behavior, coloring and constraints for a node.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct EditingData {
-    // xtask-allow(state-fields): option: absent means the editor's default
     /// Synchronous native editing behavior.
     pub behavior: Option<kivact_editing::EditBehavior>,
-    // xtask-allow(state-fields): option: absent means the editor's default
     /// Optional line coloring callback.
     pub colors: Option<kivact_editing::LineColors>,
-    // xtask-allow(state-fields): option: absent means the editor's default
     /// Resolved document decorations.
     pub decorations: Option<Vec<kivact_editing::RangeDecoration>>,
-    // xtask-allow(state-fields): option: absent means the editor's default
     /// Keys bypassing native editing and its behavior, forwarded to client handlers.
     pub forward_keys: Option<Vec<Key>>,
-    // xtask-allow(state-fields): option: the controlled value the app writes (InputValue, Model::controlled_value); absent until the first write, when the editor starts from empty text
     /// Controlled document value; identity and revision govern host adoption.
     pub value: Option<std::rc::Rc<str>>,
-    // xtask-allow(state-fields): option: absent means the editor's default
     /// Hide clipboard content and request protected native editing.
     pub purpose: Option<kivact_types::InputPurpose>,
-    // xtask-allow(state-fields): option: absent means the editor's default
     /// Prevent mutations while retaining selection and copy.
     pub read_only: Option<bool>,
-    // xtask-allow(state-fields): option: absent means the editor's default
     /// Maximum Unicode scalar count accepted by editing mutations.
     pub max_length: Option<usize>,
-    // xtask-allow(state-fields): option: absent means the editor's default
     /// Text displayed while the controlled document is empty.
     pub placeholder: Option<String>,
-    // xtask-allow(state-fields): option: absent means the editor's default
     /// Allow line breaks in the editable value.
     pub multiline: Option<bool>,
-    // xtask-allow(state-fields): option: absent means the editor's default
     /// Visual line layout of a multiline field.
     pub line_layout: Option<EditLineLayout>,
-    // xtask-allow(state-fields): option: absent means the editor's default
     /// Request document-change events.
     pub report_text: Option<bool>,
-    // xtask-allow(state-fields): option: absent means the editor's default
     /// Request selection and composition-session events.
     pub report_session: Option<bool>,
 }

@@ -6,7 +6,7 @@
 //! noticed by the awaiting future, which takes the payload from the dead
 //! thread and resumes it on the UI thread.
 
-use std::future::Future;
+use std::panic::Location;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -35,18 +35,19 @@ enum Outcome<R> {
 pub(crate) struct BlockingFuture<R> {
     slot: Arc<Mutex<Slot<R>>>,
     cancel: CancelToken,
-    pool: Option<Arc<Pool>>,
+    pool: Arc<Pool>,
 }
 
-/// Held by a running job: on drop, at a normal exit and on unwind alike, it
+// xtask-allow(state): independent: slot is the job's outcome handoff shared with its BlockingFuture and outstanding is the pool's statistic of unfinished jobs; JobGuard holds both handles from construction, and its drop settles one and decrements the other
+/// Held by a running job (its guard): on drop, at a normal exit and on unwind alike, it
 /// settles the slot, wakes the awaiting task and stops counting the job as
 /// outstanding.
-struct Completion<R> {
+struct JobGuard<R> {
     slot: Arc<Mutex<Slot<R>>>,
-    outstanding: Option<Arc<AtomicUsize>>,
+    outstanding: Arc<AtomicUsize>,
 }
 
-impl<R> Drop for Completion<R> {
+impl<R> Drop for JobGuard<R> {
     fn drop(&mut self) {
         let waker = {
             let mut s = lock(&self.slot);
@@ -62,9 +63,7 @@ impl<R> Drop for Completion<R> {
         if let Some(w) = waker {
             w.wake();
         }
-        if let Some(o) = &self.outstanding {
-            o.fetch_sub(1, Ordering::SeqCst);
-        }
+        self.outstanding.fetch_sub(1, Ordering::SeqCst);
     }
 }
 
@@ -77,7 +76,7 @@ impl<R> Future for BlockingFuture<R> {
             Outcome::Done(v) => Poll::Ready(v),
             Outcome::Died(thread) => {
                 drop(s);
-                let payload = self.pool.as_ref().and_then(|pool| pool.take_panic(thread));
+                let payload = self.pool.take_panic(thread);
                 match payload {
                     Some(payload) => std::panic::resume_unwind(payload),
                     None => panic!(
@@ -115,6 +114,7 @@ impl CancelToken {
 
 fn start<R: Send + 'static>(
     f: impl FnOnce(CancelToken) -> R + Send + 'static,
+    at: &'static Location<'static>,
 ) -> BlockingFuture<R> {
     let cancel = CancelToken::default();
     let token = cancel.clone();
@@ -123,43 +123,20 @@ fn start<R: Send + 'static>(
         waker: None,
     }));
     let s2 = slot.clone();
-    let runtime = crate::Runtime::current();
-    let state = runtime.as_deref().map(super::TaskState::of);
-    let pool = state.map(super::TaskState::blocking_pool);
-    let outstanding = pool.as_ref().map(|p| p.outstanding.clone());
-    if let Some(o) = &outstanding {
-        o.fetch_add(1, Ordering::SeqCst);
-    }
+    let runtime = super::time::timer_runtime("blocking", at);
+    let pool = runtime.tasks().blocking_pool();
+    let outstanding = Arc::clone(&pool.outstanding);
+    outstanding.fetch_add(1, Ordering::SeqCst);
     let job: Job = Box::new(move || {
-        let completion = Completion {
+        let guard = JobGuard {
             slot: s2,
             outstanding,
         };
         let r = f(token);
-        lock(&completion.slot).outcome = Outcome::Done(r);
+        lock(&guard.slot).outcome = Outcome::Done(r);
     });
-    let awaiting_pool = pool.clone();
-    match pool {
-        Some(p) => p.submit(job),
-        None => {
-            let handle = std::thread::Builder::new()
-                .name("kivact-blocking".into())
-                .spawn(job);
-            if let Ok(handle) = handle {
-                if let Some(state) = state {
-                    state.retain_fallback(handle);
-                } else {
-                    kivact_types::process::DetachedThreads::note();
-                    drop(handle);
-                }
-            }
-        }
-    }
-    BlockingFuture {
-        slot,
-        cancel,
-        pool: awaiting_pool,
-    }
+    pool.submit(job);
+    BlockingFuture { slot, cancel, pool }
 }
 
 /// Run `f` on the App's blocking pool. Only this closure needs `Send`: read
@@ -185,12 +162,15 @@ fn start<R: Send + 'static>(
 /// let n = blocking(move || expensive(input)).await;
 /// let m = blocking(move |cancel: CancelToken| long(input, &cancel)).await;
 /// ```
+///
+/// Outside a running App it raises a located `WrongApp`, as `sleep` does.
+#[track_caller]
 pub fn blocking<R, M, F>(f: F) -> impl Future<Output = R>
 where
     R: Send + 'static,
     F: BlockingWork<R, M>,
 {
-    start(move |cancel| f.run(cancel))
+    start(move |cancel| f.run(cancel), Location::caller())
 }
 
 /// The closure of [`blocking`]: `FnOnce() -> R` or `FnOnce(CancelToken) -> R`,
@@ -204,6 +184,7 @@ where
     label = "runs on a blocking thread: every capture must be `Send`",
     note = "`Signal`, `Value` and the other handles stay on the UI thread: read the value outside `blocking` and move the plain value in"
 )]
+#[doc(hidden)]
 pub trait BlockingWork<R, M>: crate::task::sealed::BlockingWorkSeal<M> + Send + 'static {
     #[doc(hidden)]
     fn run(self, cancel: CancelToken) -> R;

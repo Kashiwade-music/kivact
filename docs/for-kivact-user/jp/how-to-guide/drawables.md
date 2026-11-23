@@ -13,13 +13,16 @@
 ```rust,no_run
 use kivact::draw::Layer;
 use kivact::prelude::*;
+use kivact::view::drawable;
+use kivact::style::Transform;
 
-fn settings_card() -> impl IntoView {
+#[component]
+fn settings_card() -> impl Element {
     let card = drawable();
     let angle = signal(20.0_f64);
 
     column((
-        button("回す").on_press(move || angle.update(|a| *a += 15.0)),
+        button("Turn").on_press(move || angle.update(|a| *a += 15.0)),
         canvas(move |draw, size| {
             let width = card.size().get().width;
             let at = Point::new((size.width - width) / 2.0, 40.0);
@@ -31,13 +34,13 @@ fn settings_card() -> impl IntoView {
             );
         })
         .drawable(card, || {
-            column((text("設定"), button("適用").on_press(|| ())))
+            column((text("Settings"), button("Apply").on_press(|| ())))
         })
         .style(style().size(320, 200)),
     ))
     .style(style().gap(8).padding(12))
 }
-# fn main() -> kivact::Result<()> { App::new("設定カード").run(settings_card) }
+# fn main() -> kivact::Result<()> { App::new("Settings card").run(settings_card) }
 ```
 
 - `card.size()` は、内容のレイアウト後の大きさを値として返します。最初のレイアウトまでは 0 なので、キャンバスはそのレイアウトの後に描きます。
@@ -66,12 +69,14 @@ use kivact::draw::Pixels;
 use kivact::geometry::Matrix4;
 use kivact::prelude::*;
 use kivact::view::{DrawableFrame, ShareError, ShareUpdate, viewport};
+use kivact::view::drawable;
 
-fn engine_panel() -> impl IntoView {
+#[component]
+fn engine_panel() -> impl Element {
     let panel = drawable();
     let share = panel.share();
     share.request_pixels();
-    // エンジンは、パネルを viewport の右へ 40 px、下へ 24 px ずらした位置に表示します。
+    // The engine shows the panel 40 px right and 24 px down in the viewport.
     share.set_geometry(Some(Matrix4::translate(40.0, 24.0, 0.0)));
 
     std::thread::spawn(move || {
@@ -81,22 +86,22 @@ fn engine_panel() -> impl IntoView {
                 Ok(ShareUpdate::Frame(frame)) => {
                     seen = frame.number();
                     if let DrawableFrame::Pixels { pixels, .. } = frame {
-                        // `pixels`（ストレートアルファの RGBA8）を、エンジンのテクスチャへ送ります。
+                        // Upload `pixels` (straight-alpha RGBA8) to a texture of your engine.
                         let _ = pixels;
                     }
                 }
                 Ok(_) => {}
                 Err(ShareError::Timeout) => {}
-                Err(_) => break, // drawable が破棄された、または要求が失敗した
+                Err(_) => break, // the drawable is gone, or the request failed
             }
         }
     });
 
     viewport(Pixels::new(1, 1, vec![0, 0, 0, 0]))
-        .drawable(panel, || column((text("設定"), button("適用").on_press(|| ()))))
+        .drawable(panel, || column((text("Settings"), button("Apply").on_press(|| ()))))
         .style(style().size(320, 200))
 }
-# fn main() -> kivact::Result<()> { App::new("エンジンのパネル").run(engine_panel) }
+# fn main() -> kivact::Result<()> { App::new("Engine panel").run(engine_panel) }
 ```
 
 - `wait(after, timeout)` は、番号が `after` より大きい次のフレームを返します。来ないまま時間が過ぎると `Timeout` を返します。最後に見た番号を渡してください。`0` を渡すと、どのフレームでも受け取ります。フレーム番号は、要求をまたいでも増え続けるので、新しい要求の後でも最後に見た番号を渡せば正しく動きます。

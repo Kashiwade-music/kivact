@@ -4,8 +4,8 @@ use kivact::geometry::{Point, Rect};
 use kivact::interaction::{DragApi, DragPhase, DragUpdate, ScalarMapping, ScalarRange, ScalarStep};
 use std::rc::Rc;
 
-use super::builder::NumericKind;
 use super::machine::{self, Anchor, ScrubSpace};
+use super::types::NumericKind;
 use super::view::NumericView;
 
 /// The space and units per pixel of a scrub.
@@ -174,7 +174,7 @@ impl NumericView {
             && self.text_entry
             && matches!(self.kind, NumericKind::Number | NumericKind::Slider)
         {
-            self.typing.show(());
+            self.typing.edit(());
         }
     }
 

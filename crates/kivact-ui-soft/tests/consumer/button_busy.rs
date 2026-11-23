@@ -8,9 +8,9 @@ use kivact::style::rgb;
 use kivact::style::style;
 use kivact::test::RenderOptions;
 use kivact::test::render_with;
-use kivact::ui::ButtonBusyMotion;
-use kivact::ui::UiRecipes;
 use kivact::ui::button;
+use kivact::ui::theme::ButtonTheme;
+use kivact::ui::theme::button as button_theme;
 use kivact::ui::tooltip;
 use kivact::view::Element;
 use kivact::view::Key;
@@ -24,7 +24,8 @@ fn soft_disabled_button_can_show_its_tooltip_with_keyboard_focus() {
         || {
             let attempts = signal(0);
             kivact::view::column((
-                tooltip("Select an item first").attach(
+                tooltip(
+                    "Select an item first",
                     button("Remove")
                         .disabled(true)
                         .on_press(move || attempts.update(|count| *count += 1)),
@@ -49,28 +50,32 @@ fn soft_disabled_button_can_show_its_tooltip_with_keyboard_focus() {
 #[test]
 fn soft_delays_the_spinner_but_disables_input_immediately() {
     let theme = kivact_ui_soft::theme(ThemeMode::Light);
-    let timing = theme.ext::<kivact::ui::UiTokens>().button.busy_motion;
-    assert_eq!(timing.spin_ms, 525);
-    assert_eq!(timing.reduced_spin_ms, 3000);
-    assert_eq!(timing.reveal_delay_ms, 225);
-    assert_eq!(timing.reveal_fade_ms, 125);
+    assert_eq!(theme.get(&button_theme::BUSY_SPIN_MS_VAR), 525.0);
+    assert_eq!(theme.get(&button_theme::BUSY_REDUCED_SPIN_MS_VAR), 3000.0);
+    assert_eq!(theme.get(&button_theme::BUSY_REVEAL_DELAY_MS_VAR), 225.0);
+    assert_eq!(theme.get(&button_theme::BUSY_REVEAL_FADE_MS_VAR), 125.0);
+    assert_eq!(Theme::light().get(&button_theme::BUSY_SPIN_MS_VAR), 700.0);
     assert_eq!(
-        Theme::light()
-            .ext::<kivact::ui::UiTokens>()
-            .button
-            .busy_motion,
-        ButtonBusyMotion::default()
+        Theme::light().get(&button_theme::BUSY_REDUCED_SPIN_MS_VAR),
+        700.0
+    );
+    assert_eq!(
+        Theme::light().get(&button_theme::BUSY_REVEAL_DELAY_MS_VAR),
+        0.0
+    );
+    assert_eq!(
+        Theme::light().get(&button_theme::BUSY_REVEAL_FADE_MS_VAR),
+        0.0
     );
 
-    let recipes = (*theme.ext::<UiRecipes>()).clone().button_busy(|_| {
-        |_, _| {
-            style()
-                .position(Position::Absolute)
-                .top(0)
-                .left(0)
-                .size(16, 16)
-                .background(rgb(0xff0000))
-        }
+    let base: ButtonTheme = (*theme.ext::<ButtonTheme>()).clone();
+    let recipes = base.busy(|_, _, _| {
+        style()
+            .position(Position::Absolute)
+            .top(0)
+            .left(0)
+            .size(16, 16)
+            .background(rgb(0xff0000))
     });
     let screen = render_with(RenderOptions::with_theme(theme.with(recipes)), || {
         button("Loading example").busy(true)

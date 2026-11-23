@@ -85,7 +85,8 @@ fn range_stages_anchor_cancels_and_commits_reverse_with_span_constraints() {
                 selected,
                 kivact::ui::calendar(selected)
                     .default_month(CalendarMonth::new(2026, 10))
-                    .range_span(3, Some(5)),
+                    .min_span(3)
+                    .max_span(Some(5)),
             )
         },
     );
@@ -128,7 +129,8 @@ fn date_input_commits_draft_and_calendar_returns_focus() {
             let selected = signal(None::<CalendarDate>);
             (
                 selected,
-                kivact::ui::date_input("Due", selected)
+                kivact::ui::date_input(selected)
+                    .label("Due")
                     .presentation(kivact::ui::DatePresentation::Desktop),
             )
         },
@@ -168,7 +170,8 @@ fn date_range_input_closes_and_returns_focus_after_second_choice() {
             let selected = signal(None::<DateRange>);
             (
                 selected,
-                kivact::ui::date_range_input("Window", selected)
+                kivact::ui::date_range_input(selected)
+                    .label("Window")
                     .picker_label("Window")
                     .presentation(kivact::ui::DatePresentation::Desktop)
                     .calendar(|calendar| calendar.default_month(CalendarMonth::new(2026, 10))),
@@ -197,7 +200,8 @@ fn range_presets_validate_endpoints_and_publish_only_on_activation() {
 
             (
                 selected,
-                kivact::ui::date_range_input("Preset window", selected)
+                kivact::ui::date_range_input(selected)
+                    .label("Preset window")
                     .picker_label("Preset window")
                     .presentation(kivact::ui::DatePresentation::Desktop)
                     .min(Some(date(6)))
@@ -267,7 +271,8 @@ fn date_input_invalid_commit_keeps_value_and_reports_error() {
             let valid = signal(true);
             (
                 (selected, valid),
-                kivact::ui::date_input("Due", selected)
+                kivact::ui::date_input(selected)
+                    .label("Due")
                     .valid(valid)
                     .presentation(kivact::ui::DatePresentation::Desktop),
             )

@@ -39,7 +39,7 @@ use std::rc::Rc;
 use super::arena::Tomb;
 use crate::reactive::arena::Key;
 use crate::reactive::data::{
-    ConstEntry, EffectKind, Kind, NodeData, OwnerEntry, OwnerPhase, Runtime,
+    ConstEntry, EffectKind, Graveyard, Kind, NodeData, OwnerEntry, OwnerPhase, Runtime,
 };
 use crate::reactive::error::{ErrorKind, UiError, misuse_at, new_error};
 
@@ -88,7 +88,7 @@ impl Runtime {
             owners.remove(
                 key,
                 Some(Tomb {
-                    created_at: at,
+                    created_at: Some(at),
                     disposed_by,
                 }),
             );
@@ -143,7 +143,7 @@ impl Runtime {
         if let Some(NodeData::Effect(e) | NodeData::Watcher(e)) =
             self.graph.borrow_mut().get_mut(effect).map(|n| &mut n.data)
         {
-            e.cleanups.push(f);
+            e.cleanups.get_or_insert_with(Default::default).push(f);
         }
     }
 
@@ -223,6 +223,9 @@ impl Runtime {
                 }
             }
         }
+        // The root leaves its parent's children but keeps its `parent` link
+        // until it is gone: its cleanups still read its ancestors' contexts
+        // and report to their error boundaries.
         self.detach_owner(root);
         // Disposal runs user cleanups: untracked, never pure.
         let _g = self.handler_frame(Some(root));
@@ -249,9 +252,6 @@ impl Runtime {
         if let Some(m) = moved.and_then(|m| owners.get_mut(m)) {
             m.parent_index = index as u32;
         }
-        if let Some(o) = owners.get_mut(key) {
-            o.parent = None;
-        }
     }
 
     fn dispose_one(&self, key: Key) {
@@ -271,7 +271,7 @@ impl Runtime {
                 c();
             }
         }
-        let mut graveyard: Vec<Box<dyn Any>> = Vec::new();
+        let mut graveyard = std::mem::take(&mut *self.graveyard.borrow_mut());
         // Releasing members may register more (cleanups, `on_dispose`
         // hooks): release those too, in bounded rounds.
         loop {
@@ -314,7 +314,7 @@ impl Runtime {
                 let removed = self.remove_disposed_owner(key, created_at);
                 self.dispose_members(key, created_at, nodes, objects, consts, &mut graveyard);
                 drop(removed);
-                drop(graveyard);
+                self.bury(graveyard);
                 return;
             }
             self.dispose_members(key, created_at, nodes, objects, consts, &mut graveyard);
@@ -324,7 +324,18 @@ impl Runtime {
         }
         let removed = self.remove_disposed_owner(key, created_at);
         drop(removed);
-        drop(graveyard);
+        self.bury(graveyard);
+    }
+
+    /// Drop what a disposal released (no borrow is held: `Drop` code may
+    /// dispose more), then keep the emptied lists for the next disposal.
+    fn bury(&self, mut graveyard: Graveyard) {
+        graveyard.nodes.clear();
+        graveyard.data.clear();
+        let mut slot = self.graveyard.borrow_mut();
+        if slot.nodes.capacity() < graveyard.nodes.capacity() {
+            *slot = graveyard;
+        }
     }
 
     fn remove_disposed_owner(
@@ -335,7 +346,7 @@ impl Runtime {
         self.owners.borrow_mut().remove(
             key,
             Some(Tomb {
-                created_at,
+                created_at: Some(created_at),
                 disposed_by: Some(created_at),
             }),
         )
@@ -359,7 +370,7 @@ impl Runtime {
                 objects.remove(
                     key,
                     Some(Tomb {
-                        created_at,
+                        created_at: Some(created_at),
                         disposed_by,
                     }),
                 )
@@ -380,45 +391,50 @@ impl Runtime {
         nodes: Vec<Key>,
         objects: Vec<Key>,
         consts: Vec<Key>,
-        graveyard: &mut Vec<Box<dyn Any>>,
+        graveyard: &mut Graveyard,
     ) {
-        // Effects first (their cleanups may read memos and sources), then memos, then sources.
-        let rank = |k: &Key| -> u8 {
-            match self.graph.borrow().get(*k).map(|n| n.kind()) {
-                Some(Kind::Effect(EffectKind::User)) => 0,
-                Some(Kind::Effect(_)) => 1,
-                Some(Kind::Memo) => 2,
-                _ => 3,
-            }
+        // Effects first (their cleanups may read memos and sources), then
+        // memos, then sources. Ranks are read once; the sort is stable.
+        let mut ranked: Vec<(u8, Key)> = {
+            let g = self.graph.borrow();
+            nodes
+                .iter()
+                .map(|k| {
+                    let rank = match g.get(*k).map(|n| n.kind()) {
+                        Some(Kind::Effect(EffectKind::User)) => 0,
+                        Some(Kind::Effect(_)) => 1,
+                        Some(Kind::Memo) => 2,
+                        _ => 3,
+                    };
+                    (rank, *k)
+                })
+                .collect()
         };
-        let mut nodes = nodes;
-        nodes.sort_by_key(|k| rank(k));
-        for n in nodes {
+        ranked.sort_by_key(|(rank, _)| *rank);
+        for (_, n) in ranked {
             let cleanups = self
                 .graph
                 .borrow_mut()
                 .get_mut(n)
                 .and_then(|r| match &mut r.data {
-                    NodeData::Effect(e) | NodeData::Watcher(e) => {
-                        Some(std::mem::take(&mut e.cleanups))
-                    }
+                    NodeData::Effect(e) | NodeData::Watcher(e) => e.cleanups.take(),
                     _ => None,
                 });
-            if let Some(cleanups) = cleanups.filter(|c| !c.is_empty()) {
+            if let Some(cleanups) = cleanups {
                 let _g = self.handler_frame(Some(key));
                 for c in cleanups.into_iter().rev() {
                     c();
                 }
             }
             if let Some(node) = self.remove_node(n, Some(created_at)) {
-                graveyard.push(Box::new(node));
+                graveyard.nodes.push(node);
             }
         }
         for o in objects {
             let removed = self.objects.borrow_mut().remove(
                 o,
                 Some(Tomb {
-                    created_at,
+                    created_at: Some(created_at),
                     disposed_by: Some(created_at),
                 }),
             );
@@ -426,7 +442,7 @@ impl Runtime {
                 if let Some(f) = obj.on_dispose.take() {
                     f(self);
                 }
-                graveyard.push(Box::new(obj.data));
+                graveyard.data.push(obj.data);
             }
         }
         for c in consts {
@@ -435,12 +451,12 @@ impl Runtime {
             let removed = self.consts.borrow_mut().remove(
                 c,
                 Some(Tomb {
-                    created_at: at,
+                    created_at: Some(at),
                     disposed_by: Some(created_at),
                 }),
             );
             if let Some(entry) = removed {
-                graveyard.push(Box::new(entry.data));
+                graveyard.data.push(entry.data);
             }
         }
     }
@@ -468,7 +484,7 @@ impl Runtime {
             let removed = self.consts.borrow_mut().remove(
                 key,
                 Some(Tomb {
-                    created_at: at,
+                    created_at: Some(at),
                     disposed_by,
                 }),
             );
@@ -488,7 +504,7 @@ impl Runtime {
         let tomb = self.consts.borrow().tomb(key);
         misuse_at(
             ErrorKind::Disposed {
-                created_at: tomb.map(|t| t.created_at),
+                created_at: tomb.and_then(|t| t.created_at),
                 disposed_by: tomb.and_then(|t| t.disposed_by),
             },
             "Value read after its owner was disposed",
@@ -527,7 +543,12 @@ mod tests {
 
     #[test]
     fn disposing_an_owner_releases_its_context_cleanup_error_handler_object_and_const() {
-        let rt = Runtime::with_id(AppId(1), Rc::new(Quiet), 0);
+        let rt = Runtime::with_id(
+            AppId(1),
+            Rc::new(Quiet),
+            0,
+            crate::reactive::extensions::test_extensions(),
+        );
         let at = Location::caller();
         let log = Rc::new(RefCell::new(Vec::<&'static str>::new()));
         let owner = rt.create_owner(None, at);

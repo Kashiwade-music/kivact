@@ -1,15 +1,13 @@
 //! Role: The pointer state machine: chains, press, release, move, cancel and wheel.
 
 use super::space::PointerSpace;
-use super::state::{Capture, MouseGesture, PointerSource, Press, Track};
+use super::state::{Capture, Press, SelectUnit, Track};
 use crate::contract::HostEvent;
 use crate::model::Model;
-use crate::text_input::{line_range, word_range};
 use kivact_types::{
     A11yAction, ButtonPress, FocusTarget, Modifiers, MouseButton, NodeId, Point, PointerButtons,
-    PointerId, PointerPhase, PointerSample, RegionId,
+    PointerId, PointerPhase, PointerSample, RegionId, StyleState,
 };
-use std::ops::Range;
 
 /// Which of a pointer's two chains a change is about.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -38,63 +36,79 @@ impl Model {
         }
     }
 
+    /// Send `input`'s pointer's event `phase` to `node`, at the window
+    /// position `at`; the sample's buttons, pressure, tilt, time and
+    /// modifiers are `input`'s.
     fn send_pointer(
         &mut self,
-        pointer: PointerId,
+        input: &PointerSample,
         node: NodeId,
         phase: PointerPhase,
-        modifiers: Modifiers,
         at: Point,
     ) {
-        let event = self.pointer_sample(pointer, node, phase, modifiers, at);
+        let event = self.pointer_sample(input, node, phase, at);
         self.push(HostEvent::Pointer(event));
     }
 
     fn pointer_sample(
         &self,
-        pointer: PointerId,
+        input: &PointerSample,
         node: NodeId,
         phase: PointerPhase,
-        modifiers: Modifiers,
         at: Point,
     ) -> crate::contract::Routed<PointerSample> {
         let pos = self.pointer_local(node, at);
         let region = self.node(node).and_then(|n| n.region_at(pos));
-        let track = self.pointer.state.track(pointer);
-        let source = *track.source();
-        let is_primary = track.is_primary();
+        let is_primary = self.pointer.state.track(input.id).is_primary();
         crate::contract::Routed {
             window: self.window,
             target: Some(crate::contract::RouteTarget { node, region }),
             local: pos,
             activation: None,
+            origin: self.frame.origin(),
             input: PointerSample {
-                id: source.id,
                 phase,
                 position: at,
                 buttons: if phase == PointerPhase::Cancel {
                     PointerButtons::NONE
                 } else {
-                    source.buttons
+                    input.buttons
                 },
                 button: phase.press().map(|press| press.button),
                 press: phase.press(),
-                modifiers,
-                kind: source.kind,
-                pressure: source.pressure,
-                tilt: source.tilt,
                 is_primary,
-                time_ns: source.time_ns,
+                ..*input
             },
         }
     }
 
-    /// Follow a new contact, `source`, at the window position `at`; `primary`
-    /// is the platform's `isPrimary` at its `Down`.
-    pub(super) fn begin_pointer(&mut self, source: PointerSource, primary: bool, at: Point) {
-        let mut track = Track::contact(source, primary);
+    /// The sample a cancel without a shell sample carries: no button, no
+    /// modifier, no pressure or tilt, at the host time of the event being
+    /// handled.
+    pub(super) fn cancel_sample(&self, pointer: PointerId, at: Point) -> PointerSample {
+        let track = self.pointer.state.track(pointer);
+        PointerSample {
+            id: pointer,
+            kind: track.kind(),
+            phase: PointerPhase::Cancel,
+            position: at,
+            buttons: PointerButtons::NONE,
+            button: None,
+            press: None,
+            pressure: None,
+            tilt: None,
+            time_ns: self.frame.host_now(),
+            modifiers: Modifiers::default(),
+            is_primary: track.is_primary(),
+        }
+    }
+
+    /// Follow a new contact, `input`'s pointer, at the window position `at`;
+    /// `input.is_primary` is the platform's `isPrimary` at its `Down`.
+    pub(super) fn begin_pointer(&mut self, input: &PointerSample, at: Point) {
+        let mut track = Track::contact(input.id, input.kind, input.is_primary);
         track.set_at(at);
-        self.pointer.state.tracks.insert(source.id.0, track);
+        self.pointer.state.tracks.insert(input.id.0, track);
     }
 
     /// Stop following the contact `pointer` (it ended).
@@ -147,7 +161,7 @@ impl Model {
         let dependents = if which == Chain::Pressed {
             Vec::new()
         } else {
-            self.group_dependents(&touched, |s| s.group_hover.is_some())
+            self.group_dependents(&touched, |s| s.wants(StyleState::GroupHover))
         };
         let shown = |model: &Model, id: NodeId| (model.is_hovered(id), model.is_pressed(id));
         let before: Vec<_> = touched.iter().map(|id| shown(self, *id)).collect();
@@ -178,10 +192,10 @@ impl Model {
             self.restyled(id);
         }
         for (id, hover, press) in flipped {
-            let has =
-                self.tree.get(id).and_then(|n| n.states()).is_some_and(|s| {
-                    (hover && s.hover.is_some()) || (press && s.pressed.is_some())
-                });
+            self.report_states(id);
+            let has = self.tree.get(id).and_then(|n| n.states()).is_some_and(|s| {
+                (hover && s.wants(StyleState::Hover)) || (press && s.wants(StyleState::Active))
+            });
             if has {
                 self.repaint(id);
                 if self
@@ -195,7 +209,7 @@ impl Model {
                     self.changes
                         .layout
                         .insert(crate::model::changes::LayoutReasons::PASS);
-                    self.changes.moved();
+                    self.changes.moved_node(id);
                 }
             }
         }
@@ -230,22 +244,22 @@ impl Model {
             .tracks
             .values()
             .filter(|t| t.chain().first().is_some_and(|hit| stale(self, *hit)))
-            .map(|t| t.source().id)
+            .map(|t| t.id())
             .collect();
         for pointer in pointers {
             self.clear_hover(pointer);
         }
     }
 
-    /// `pointer`'s hover chain (a primary pointer's) and `Enter`/`Leave` of
-    /// the listener under `hit`.
+    /// `input`'s pointer's hover chain (a primary pointer's) and
+    /// `Enter`/`Leave` of the listener under `hit`.
     fn track_hover(
         &mut self,
-        pointer: PointerId,
+        input: &PointerSample,
         hit: Option<NodeId>,
-        modifiers: Modifiers,
         space: &PointerSpace<'_>,
     ) {
+        let pointer = input.id;
         if self.pointer.state.track(pointer).is_primary() {
             let chain = self.tree.chain(hit);
             self.set_chain(pointer, Chain::Hover, chain);
@@ -256,10 +270,10 @@ impl Model {
         self.report_hover();
         if over != old {
             if let Some(o) = old.filter(|o| self.tree.contains(*o)) {
-                self.send_pointer(pointer, o, PointerPhase::Leave, modifiers, space.window());
+                self.send_pointer(input, o, PointerPhase::Leave, space.window());
             }
             if let Some(n) = over {
-                self.send_pointer(pointer, n, PointerPhase::Enter, modifiers, space.window());
+                self.send_pointer(input, n, PointerPhase::Enter, space.window());
             }
         }
     }
@@ -280,20 +294,22 @@ impl Model {
         declared.filter(|target| self.is_focus_target(*target) && self.in_scope(target.node))
     }
 
-    /// A button of `pointer` pressed over `hit` (the host's hit test).
+    /// A button of `input`'s pointer pressed over `hit` (the host's hit test).
     pub(crate) fn pointer_down(
         &mut self,
-        pointer: PointerId,
+        input: &PointerSample,
         hit: Option<NodeId>,
-        press: ButtonPress,
-        modifiers: Modifiers,
         space: &PointerSpace<'_>,
     ) {
+        let PointerPhase::Down(press) = input.phase else {
+            unreachable!("invariant: a press is a `Down`")
+        };
+        let pointer = input.id;
         let hit = self.scoped(hit);
-        self.track_hover(pointer, hit, modifiers, space);
+        self.track_hover(input, hit, space);
         let capture = self.pointer.state.track(pointer).capture();
         if self.pointer.state.track(pointer).is_primary() {
-            self.primary_press(pointer, hit, press, modifiers, capture, space);
+            self.primary_press(pointer, hit, press, input.modifiers, capture, space);
         }
         let target =
             capture.or_else(|| hit.and_then(|h| self.ancestor_where(h, |n| n.listens_pointer())));
@@ -302,13 +318,7 @@ impl Model {
             if route.capture.and_then(Capture::target).is_none() {
                 route.capture = Some(Capture::Implicit(t));
             }
-            self.send_pointer(
-                pointer,
-                t,
-                PointerPhase::Down(press),
-                modifiers,
-                space.window(),
-            );
+            self.send_pointer(input, t, PointerPhase::Down(press), space.window());
         }
     }
 
@@ -369,12 +379,13 @@ impl Model {
             .filter(|f| {
                 self.tree
                     .get(*f)
-                    .is_some_and(|n| self.editors[n.index.0].is_some())
+                    .is_some_and(|n| self.slots.editors[n.index.0].is_some())
             });
+        let mut unit = None;
         if let (Some(i), true) = (input, primary)
             && let Some(at) = space.text_offset(self, i)
         {
-            self.press_text_input(i, at, button_press.clicks, modifiers.shift);
+            unit = Some(self.press_text_input(i, at, button_press.clicks, modifiers.shift));
         }
         let selecting = self
             .focused()
@@ -386,40 +397,69 @@ impl Model {
                     && self
                         .tree
                         .get(*f)
-                        .is_some_and(|n| self.editors[n.index.0].is_some())
+                        .is_some_and(|n| self.slots.editors[n.index.0].is_some())
             });
-        if let Some(editor) = selecting
-            && let Track::Mouse(mouse) = self.pointer.state.track_mut(pointer)
-            && let MouseGesture::Route(route) = &mut mouse.gesture
-        {
-            mouse.gesture = MouseGesture::SelectText {
-                editor,
-                route: std::mem::take(route),
-            };
+        if let Some(editor) = selecting {
+            let unit = unit.unwrap_or(SelectUnit::Char);
+            self.pointer
+                .state
+                .track_mut(pointer)
+                .start_selecting(editor, unit);
         }
     }
 
-    /// A primary press over the text input `input` at the byte offset `at`
-    /// (`clicks`: the press's click count). A single click places the caret
-    /// (Shift extends the selection); a double click selects the word there,
-    /// and a triple click the line.
-    fn press_text_input(&mut self, input: NodeId, at: usize, clicks: u8, extend: bool) {
+    /// A primary press over the text input `input` at byte offset `at`
+    /// (`clicks`: its click count): a click places the caret (Shift
+    /// extends), a double click selects the word there, a triple click the
+    /// line. Returns what a drag from it extends by.
+    fn press_text_input(
+        &mut self,
+        input: NodeId,
+        at: usize,
+        clicks: u8,
+        extend: bool,
+    ) -> SelectUnit {
         let multiline = self.tree.get(input).is_some_and(|n| n.multiline());
+        let mut unit = SelectUnit::Char;
         match clicks {
             0 | 1 => self.place_caret(input, at, extend),
-            2 => self.select_text(input, |text| word_range(text, at)),
-            _ => self.select_text(input, |text| line_range(text, at, multiline)),
+            _ => {
+                self.edit_input(input, |e| {
+                    unit = if clicks == 2 {
+                        SelectUnit::Word(e.word_at(at))
+                    } else {
+                        SelectUnit::Line(e.line_at(at, multiline))
+                    };
+                    if let SelectUnit::Word(range) | SelectUnit::Line(range) = &unit {
+                        e.select(range.clone());
+                    }
+                });
+            }
         }
+        unit
     }
 
-    /// Select `range` of the value of the text input `input`: its anchor at
-    /// the start of the range and its caret at the end.
-    fn select_text(&mut self, input: NodeId, range: impl FnOnce(&str) -> Range<usize>) {
+    /// Extend the selection of `input` to the pointer at byte offset `at`
+    /// by `unit`: a word or line drag keeps the clicked unit selected and
+    /// reaches the end of the unit under the pointer.
+    fn extend_selection(&mut self, input: NodeId, at: usize, unit: &SelectUnit) {
+        let multiline = self.tree.get(input).is_some_and(|n| n.multiline());
+        let origin = match unit {
+            SelectUnit::Char => return self.place_caret(input, at, true),
+            SelectUnit::Word(origin) | SelectUnit::Line(origin) => origin.clone(),
+        };
+        let words = matches!(unit, SelectUnit::Word(_));
         self.edit_input(input, |e| {
-            let range = range(e.value());
-            e.move_to(range.start, false);
-            e.move_to(range.end, true);
-            false
+            let here = if words {
+                e.word_at(at)
+            } else {
+                e.line_at(at, multiline)
+            };
+            if here.start < origin.start {
+                e.select(origin.end..here.start);
+            } else {
+                e.select(origin.start..here.end.max(origin.end));
+            }
         });
     }
 
@@ -466,7 +506,7 @@ impl Model {
                 })
                 .flatten();
             region.or_else(|| {
-                self.ancestor_where(h, |n| n.focusable(self.editors[n.index.0].is_some()))
+                self.ancestor_where(h, |n| n.focusable(self.slots.editors[n.index.0].is_some()))
                     .map(|node| kivact_types::FocusTarget { node, region: None })
             })
         })
@@ -479,12 +519,14 @@ impl Model {
     /// releases the capture.
     pub(crate) fn pointer_up(
         &mut self,
-        pointer: PointerId,
+        input: &PointerSample,
         hit: Option<NodeId>,
-        press: ButtonPress,
-        modifiers: Modifiers,
         space: &PointerSpace<'_>,
     ) {
+        let PointerPhase::Up(press) = input.phase else {
+            unreachable!("invariant: a release is an `Up`")
+        };
+        let pointer = input.id;
         let hit = self.scoped(hit);
         let hit_chain = self.tree.chain(hit);
         let capture = self.pointer.state.track(pointer).capture();
@@ -494,13 +536,7 @@ impl Model {
             .track(pointer)
             .route()
             .is_some_and(|route| route.capture == Some(Capture::Released));
-        let released = self
-            .pointer
-            .state
-            .track(pointer)
-            .source()
-            .buttons
-            .is_empty();
+        let released = input.buttons.is_empty();
         let pressed = if press.button == MouseButton::Primary {
             self.set_chain(pointer, Chain::Pressed, Vec::new());
             let track = self.pointer.state.track_mut(pointer);
@@ -508,11 +544,7 @@ impl Model {
                 .routed_mut()
                 .and_then(|route| route.press.take())
                 .and_then(|press| press.target);
-            if let Track::Mouse(mouse) = track
-                && let MouseGesture::SelectText { route, .. } = &mut mouse.gesture
-            {
-                mouse.gesture = MouseGesture::Route(std::mem::take(route));
-            }
+            track.stop_selecting();
             pressed
         } else {
             None
@@ -525,13 +557,7 @@ impl Model {
                 .filter(|t| self.tree.get(*t).is_some_and(|n| !n.disabled()))
         };
         if let Some(t) = capture.or_else(|| hit_tested.then(listener).flatten()) {
-            self.send_pointer(
-                pointer,
-                t,
-                PointerPhase::Up(press),
-                modifiers,
-                space.window(),
-            );
+            self.send_pointer(input, t, PointerPhase::Up(press), space.window());
         }
         if let Some(a) = pressed.filter(|a| hit_chain.contains(&a.node))
             && a.region.is_none_or(|region| {
@@ -543,10 +569,9 @@ impl Model {
                 node: a.node,
                 region: a.region,
                 pointer: Some(self.pointer_sample(
-                    pointer,
+                    input,
                     a.node,
                     PointerPhase::Up(press),
-                    modifiers,
                     space.window(),
                 )),
             });
@@ -603,15 +628,15 @@ impl Model {
         }
     }
 
-    /// `pointer` moved over `hit`, with the buttons its source holds.
+    /// `input`'s pointer moved over `hit`, with the buttons `input` holds.
     pub(crate) fn pointer_move(
         &mut self,
-        pointer: PointerId,
+        input: &PointerSample,
         hit: Option<NodeId>,
-        modifiers: Modifiers,
         space: &PointerSpace<'_>,
     ) {
-        let held = self.pointer.state.track(pointer).source().buttons;
+        let pointer = input.id;
+        let held = input.buttons;
         // No button held while a capture is active: the release happened
         // where the host could not see it. End the drag with `Cancel`.
         if held.is_empty()
@@ -626,44 +651,31 @@ impl Model {
         }
         let hit = self.scoped(hit);
         let before = self.pointer.state.track(pointer).over();
-        self.track_hover(pointer, hit, modifiers, space);
+        self.track_hover(input, hit, space);
         let track = self.pointer.state.track(pointer);
         if let Some(t) = track
             .capture()
             .or(track.over().filter(|o| before == Some(*o)))
         {
-            self.send_pointer(pointer, t, PointerPhase::Move, modifiers, space.window());
+            self.send_pointer(input, t, PointerPhase::Move, space.window());
         }
         // A primary drag that started in the focused text input selects.
-        let selecting = match self.pointer.state.track(pointer) {
-            Track::Mouse(mouse) => match mouse.gesture {
-                MouseGesture::SelectText { editor, .. }
-                    if held.contains(MouseButton::Primary)
-                        && self
-                            .focused()
-                            .is_some_and(|f| f.node == editor && f.region.is_none()) =>
-                {
-                    Some(editor)
-                }
-                _ => None,
-            },
-            track => self
-                .focused()
-                .filter(|f| f.region.is_none())
-                .map(|f| f.node)
-                .filter(|f| {
-                    held.contains(MouseButton::Primary)
-                        && track.pressed().contains(f)
-                        && self
-                            .tree
-                            .get(*f)
-                            .is_some_and(|n| self.editors[n.index.0].is_some())
-                }),
-        };
-        if let Some(i) = selecting
-            && let Some(at) = space.text_offset(self, i)
+        let selecting = self
+            .pointer
+            .state
+            .track(pointer)
+            .selecting()
+            .filter(|(editor, _)| {
+                held.contains(MouseButton::Primary)
+                    && self
+                        .focused()
+                        .is_some_and(|f| f.node == *editor && f.region.is_none())
+            })
+            .map(|(editor, unit)| (editor, unit.clone()));
+        if let Some((editor, unit)) = selecting
+            && let Some(at) = space.text_offset(self, editor)
         {
-            self.place_caret(i, at, true);
+            self.extend_selection(editor, at, &unit);
         }
     }
 
@@ -673,17 +685,23 @@ impl Model {
     /// text engine, so it is delivered at once.
     pub(crate) fn cancel_pointer_input(&mut self, pointer: PointerId) {
         let at = self.pointer.state.track(pointer).at();
-        self.cancel_pointer_at(pointer, at);
+        let sample = self.cancel_sample(pointer, at);
+        self.cancel_pointer_at(pointer, at, &sample);
     }
 
-    pub(super) fn cancel_pointer_at(&mut self, pointer: PointerId, at: Point) {
-        // The `Cancel` and the `Leave` after it hold no button; the
-        // pointer's next event reports what is held again.
-        self.pointer.state.track_mut(pointer).source_mut().buttons = PointerButtons::NONE;
+    /// Cancel `pointer`'s gesture, sending the `Cancel` as `input` (a sample
+    /// that holds no button: the `Cancel` and the `Leave` after it hold none;
+    /// the pointer's next event reports what is held again).
+    pub(super) fn cancel_pointer_at(
+        &mut self,
+        pointer: PointerId,
+        at: Point,
+        input: &PointerSample,
+    ) {
         self.set_chain(pointer, Chain::Pressed, Vec::new());
         let track = self.pointer.state.track_mut(pointer);
         if let Some(t) = track.reset_gesture() {
-            self.send_pointer(pointer, t, PointerPhase::Cancel, Modifiers::default(), at);
+            self.send_pointer(input, t, PointerPhase::Cancel, at);
         }
     }
 
@@ -700,7 +718,7 @@ impl Model {
                 t.capture()
                     .is_some_and(|id| self.tree.get(id).is_some_and(|node| node.disabled()))
             })
-            .map(|t| t.source().id)
+            .map(|t| t.id())
             .collect();
         for pointer in disabled {
             self.cancel_pointer_input(pointer);
@@ -731,6 +749,7 @@ impl Model {
                 target: Some(crate::contract::RouteTarget { node: t, region }),
                 local: pos,
                 activation: None,
+                origin: self.frame.origin(),
                 input: kivact_types::WheelInput {
                     delta,
                     position: space.window(),

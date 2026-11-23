@@ -1,27 +1,26 @@
-//! Role: The Outliner builder and the tree rows, filter and drag view it builds.
+//! Role: The outliner component: the hierarchy tree view, its rows, filter and drag.
 
 use super::drop_plan::{Drag, DragEvent, DragMachine, Placement, plan_drop};
+use crate::color::{ACCENT, DIM, MUTED, SELECTION, TEXT};
 use crate::editors::shared::model::EditorEvent;
 use crate::outliner_data::{Restriction, RestrictionFlag, TreeDrop, TreeItem};
-use crate::{ColorName, LabelTone};
+use crate::size::ROW;
+use crate::{LabelTone, OutlinerState};
+use kivact::component;
 use kivact::custom::Generation;
 use kivact::geometry::Point;
 use kivact::i18n::message;
 use kivact::interaction::{
-    DragCoordinates, DragPhase, DragUpdate, EditSession, Selection, use_drag, use_tree,
+    DragCoordinates, DragPhase, DragUpdate, EditSession, Selection, TreeNode, use_drag, use_tree,
 };
-use kivact::view::{Element, Node, column, icon, node, row, text};
-
-use kivact::interaction::TreeNode;
-use kivact::state::{Callback, Value, machine, memo, signal};
-use kivact::state::{IntoValue, callback};
-use kivact::style::use_theme;
-use kivact::style::{Align, ColorToken, Cursor, Overflow, Position, pct, style};
+use kivact::state::{Callback, IntoValue, Value, callback, machine, memo, signal};
+use kivact::style::{
+    Align, Cursor, FontStyle, Length, Overflow, Position, color as style_color, pct, style,
+};
 use kivact::ui::tree_rows;
-use kivact::view::EditPhase;
-use kivact::view::HandlerResult;
 use kivact::view::{
-    Handled, IntoView, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, View, node_ref, show,
+    EditPhase, Element, Handled, IntoView, Key, KeyEvent, MouseButton, Node, PointerEvent,
+    PointerPhase, View, column, icon, node, node_ref, row, show, text,
 };
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -38,129 +37,134 @@ type CellRenderer = kivact::view::ViewFn<Value<TreeItem>>;
 /// F2 renames the focused row and `H` toggles its
 /// visibility (so typing `h` does not jump to a label).
 ///
-/// A double click renames the row, unless
-/// [`on_activate`](Self::on_activate) is set: then a double click
-/// and Enter activate the item and only F2 renames. An item that is not
+/// A double click renames the row, unless `on_activate` is set: then a double
+/// click and Enter activate the item and only F2 renames. An item that is not
 /// `selectable` is shown as a disabled row. The toggles at the end of a row
 /// are not tab stops (they have their accessibility actions, and a press
 /// toggles them; drag across rows to paint a value).
 ///
 /// A drag moves an item. The pointer decides the place (see [`TreeDrop`]),
 /// shown by a line before or after the row, or a highlighted row for "into
-/// it"; Escape cancels. With [`on_item_drop`](Self::on_item_drop) the drop is
-/// reported and the application moves the item; without it, the outliner
-/// keeps dragging disabled.
-pub struct Outliner {
-    root: Node,
+/// it"; Escape cancels. With `on_item_drop` the drop is reported and the
+/// application moves the item; without it, the outliner keeps dragging
+/// disabled.
+///
+/// The props: `restrictions` shows or hides the three per-item selection,
+/// visibility and render controls; `on_rename` reports a submitted name (the
+/// application decides whether to accept it); `on_restriction` reports
+/// absolute restriction proposals (restore application items on Cancel;
+/// controls are disabled without a callback); `filter` shows only the items
+/// whose label contains the text (ignoring case) and their ancestors, all
+/// open; `on_activate` receives the item on Enter and on a double click;
+/// `on_item_drop` receives where a dragged item was dropped (see [`TreeDrop`])
+/// instead of moving it in the items, and a cancelled drag reports nothing;
+/// `active` is the application's current object, drawn with an accent marker
+/// (it is not the selection); `reveal_active` (default: true) opens the
+/// ancestors of the active item and scrolls its row into view when `active`
+/// changes; `cells` are fixed-width application cells (see [`OutlinerCell`]);
+/// `row_height` is the height of a row (at least 20; the default is the
+/// density's row).
+#[component]
+pub fn outliner(
     items: Value<Vec<TreeItem>>,
-    state: crate::OutlinerState,
+    state: OutlinerState,
+    #[prop(default = true)] restrictions: Value<bool>,
     on_rename: Option<Callback<(u64, String)>>,
     on_restriction: Option<Callback<EditorEvent<Restriction>>>,
-    filter: Value<String>,
-    restrictions: Value<bool>,
-    activation: Option<Callback<u64>>,
-    item_drop: Option<Callback<TreeDrop>>,
-    active: Value<Option<u64>>,
-    reveal_active: Value<bool>,
-    cells: Vec<(Value<f64>, CellRenderer)>,
+    #[prop(default = String::new())] filter: Value<String>,
+    on_activate: Option<Callback<u64>>,
+    on_item_drop: Option<Callback<TreeDrop>>,
+    #[prop(default = None::<u64>)] active: Value<Option<u64>>,
+    #[prop(default = true)] reveal_active: Value<bool>,
+    #[prop(default = Vec::new())] cells: Vec<OutlinerCell>,
     row_height: Option<Value<f64>>,
+) -> impl Element {
+    let root = column(())
+        .name(message("creative.outliner.label", "Outliner"))
+        .style(
+            style()
+                .width(pct(100))
+                .min_width(0)
+                .overflow(Overflow::Hidden),
+        );
+    let rename_edit = kivact::interaction::use_inline_edit(state.renaming);
+    let has_activation = on_activate.is_some();
+    let (by_id, nodes) = item_indexes(items);
+    let mut tree =
+        use_tree(nodes, state.expanded, Selection::Multiple(state.selection)).filter(filter);
+    if let Some(callback) = on_activate {
+        tree = tree.on_activate(move |value| callback.try_call(value));
+    }
+    let mounted: super::controls::Rows = Rc::new(RefCell::new(HashMap::new()));
+    let drag = machine(Drag::Idle, || DragMachine, |_, ()| {});
+    let reveal = super::reveal::observe(
+        active,
+        reveal_active,
+        items,
+        state.expanded,
+        mounted.clone(),
+    );
+    let levels = memo(move || {
+        tree.rows().with(|rows| {
+            rows.iter()
+                .map(|row| (row.key, row.level))
+                .collect::<HashMap<_, _>>()
+        })
+    });
+    let factory = Rc::new(RowFactory {
+        by_id,
+        data: items,
+        rename_edit,
+        generation: Rc::new(Cell::new(Generation::new())),
+        mounted,
+        reveal,
+        on_rename,
+        expanded: state.expanded,
+        selected: state.selection,
+        painter: restriction_painter(on_restriction),
+        on_restriction,
+        cells: cells
+            .into_iter()
+            .map(|cell| (cell.width, cell.render))
+            .collect(),
+        drag,
+        active,
+        restrictions,
+        row_height,
+        levels,
+        item_drop: on_item_drop,
+        has_activation,
+    });
+    let painter = factory.painter;
+    let rows = tree_rows(
+        tree,
+        |_| (),
+        move |_, entry, part| factory.build(entry, part),
+    );
+    root.part(tree.list()).child(rows).on_key(move |event| {
+        if event.key() == Key::Escape && painter.cancel() {
+            Handled::Yes
+        } else {
+            Handled::No
+        }
+    })
 }
 
-/// An outliner of `items` with the open, selected and renamed items of
-/// `state`.
-#[track_caller]
-pub fn outliner(items: impl IntoValue<Vec<TreeItem>>, state: crate::OutlinerState) -> Outliner {
-    Outliner {
-        root: column(())
-            .name(message("creative.outliner.label", "Outliner"))
-            .style(
-                style()
-                    .width(pct(100))
-                    .min_width(0)
-                    .overflow(Overflow::Hidden),
-            ),
-        items: items.into_value(),
-        state,
-        on_rename: None,
-        on_restriction: None,
-        filter: String::new().into_value(),
-        restrictions: true.into_value(),
-        activation: None,
-        item_drop: None,
-        active: None::<u64>.into_value(),
-        reveal_active: true.into_value(),
-        cells: Vec::new(),
-        row_height: None,
-    }
+/// A fixed-width application cell after the label of an [`outliner`] row,
+/// given to the outliner as `cells`.
+///
+/// Cells keep their width while the label shrinks, and clip overflowing
+/// content. Pointer and key input in a cell stays with its controls instead of
+/// selecting, dragging or renaming the row. Tab keeps normal focus navigation.
+/// Non-finite or non-positive widths hide the cell.
+pub struct OutlinerCell {
+    pub(crate) width: Value<f64>,
+    pub(crate) render: CellRenderer,
 }
 
-impl Outliner {
-    /// Show or hide the three per-item selection, visibility and render
-    /// controls (constant or reactive).
-    #[track_caller]
-    pub fn restrictions(mut self, enabled: impl IntoValue<bool>) -> Self {
-        self.restrictions = enabled.into_value();
-        self
-    }
-    /// Report a submitted name. The application decides whether to accept it.
-    pub fn on_rename<R: HandlerResult>(mut self, f: impl Fn((u64, String)) -> R + 'static) -> Self {
-        self.on_rename = Some(callback(f));
-        self
-    }
-    /// Report absolute restriction proposals; restore application items on Cancel.
-    /// Selected rows use one value, opposite to the pressed/focused row's initial flag.
-    /// Painting accumulates affected IDs without changing that value. Single clicks,
-    /// keys and accessibility actions emit Begin, Request, Commit. Controls are
-    /// disabled without a callback.
-    pub fn on_restriction<R: HandlerResult>(
-        mut self,
-        f: impl Fn(EditorEvent<Restriction>) -> R + 'static,
-    ) -> Self {
-        self.on_restriction = Some(callback(f));
-        self
-    }
-    /// Show only the items whose label contains the text (ignoring case) and
-    /// their ancestors, all open; the expansion binding is preserved.
-    pub fn filter(mut self, filter: impl IntoValue<String>) -> Self {
-        self.filter = filter.into_value();
-        self
-    }
-    /// Call `f` with the item on Enter and on a double click, instead
-    /// of renaming on a double click. F2 still renames.
-    pub fn on_activate<R: HandlerResult>(mut self, f: impl Fn(u64) -> R + 'static) -> Self {
-        self.activation = Some(callback(f));
-        self
-    }
-    /// Report where a dragged item was dropped (see [`TreeDrop`]) instead of
-    /// moving it in the items. A cancelled drag (Escape, or a drag too short
-    /// to be one) reports nothing.
-    pub fn on_item_drop<R: HandlerResult>(mut self, f: impl Fn(TreeDrop) -> R + 'static) -> Self {
-        self.item_drop = Some(callback(f));
-        self
-    }
-    /// The application's current object, which is not the selection: its row
-    /// is drawn with an accent marker and publishes `checked`.
-    pub fn active(mut self, active: impl IntoValue<Option<u64>>) -> Self {
-        self.active = active.into_value();
-        self
-    }
-    /// Whether a change of [`active`](Self::active) opens the ancestors of
-    /// the item (by writing the expansion binding) and scrolls its row into
-    /// view (default: true; constant or reactive, read when `active`
-    /// changes). A change that follows a press on a row of this outliner is
-    /// left alone, and so is the value at mount.
-    #[track_caller]
-    pub fn reveal_active(mut self, reveal: impl IntoValue<bool>) -> Self {
-        self.reveal_active = reveal.into_value();
-        self
-    }
-    /// Append a fixed-width application cell after the label and before restrictions.
-    /// Cells keep their width while the label shrinks, and clip overflowing content.
-    /// Pointer and key input in a cell stays with its controls instead of selecting,
-    /// dragging or renaming the row. Tab keeps normal focus navigation.
-    /// Non-finite or non-positive widths hide the cell.
-    pub fn cell<V: IntoView>(
-        mut self,
+impl OutlinerCell {
+    /// A cell `width` pixels wide whose content `render` builds for a row's item.
+    pub fn new<V: IntoView>(
         width: impl IntoValue<f64>,
         render: impl Fn(Value<TreeItem>) -> V + 'static,
     ) -> Self {
@@ -173,67 +177,33 @@ impl Outliner {
                 0.0
             }
         });
-        self.cells.push((width, kivact::view::ViewFn::from(render)));
-        self
-    }
-    /// The height of a row (at least 20). The default is the density's row.
-    pub fn row_height(mut self, height: impl IntoValue<f64>) -> Self {
-        self.row_height = Some(height.into_value());
-        self
+        Self {
+            width,
+            render: kivact::view::ViewFn::from(render),
+        }
     }
 }
 
-impl Element for Outliner {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for Outliner {
-    fn into_view(self) -> View {
-        let (root, tree, factory) = self.prepare();
-        let painter = factory.painter;
-        let rows = tree_rows(
-            tree,
-            |_| (),
-            move |_, entry, part| factory.build(entry, part),
-        );
-        root.part(tree.list())
-            .child(rows)
-            .on_key(move |event| {
-                if event.key() == Key::Escape && painter.cancel() {
-                    Handled::Yes
-                } else {
-                    Handled::No
-                }
-            })
-            .into_view()
-    }
-}
-
+// xtask-allow(state): identity: generation is the mount-id allocator advanced only by RowFactory::register, so a row's cleanup can tell its own mount from a newer one; row_height and has_activation are copied once from the outliner and never written; generation of registered rows
 struct RowFactory {
     by_id: Value<HashMap<u64, TreeItem>>,
     data: Value<Vec<TreeItem>>,
     rename_edit: kivact::interaction::InlineEditApi<u64>,
-    // xtask-allow(state-fields): identity: generation of registered rows
     generation: Rc<Cell<Generation>>,
     mounted: super::controls::Rows,
     reveal: kivact::state::MachineHandle<super::reveal::Reveal>,
     on_rename: Option<Callback<(u64, String)>>,
-    expanded: kivact::state::Binding<Vec<u64>>,
-    selected: kivact::state::Binding<Vec<u64>>,
+    expanded: kivact::state::Signal<Vec<u64>>,
+    selected: kivact::state::Signal<Vec<u64>>,
     painter: super::controls::Painter,
     on_restriction: Option<Callback<EditorEvent<Restriction>>>,
     cells: Vec<(Value<f64>, CellRenderer)>,
     drag: kivact::state::MachineHandle<DragMachine>,
     active: Value<Option<u64>>,
     restrictions: Value<bool>,
-    // xtask-allow(state-fields): option: absent means the theme's row height
     row_height: Option<Value<f64>>,
     levels: Value<HashMap<u64, u32>>,
     item_drop: Option<Callback<TreeDrop>>,
-    // xtask-allow(state-fields): option: whether the caller set Outliner::on_activate; false means a double click renames the row instead of activating it
     has_activation: bool,
 }
 impl RowFactory {
@@ -271,23 +241,25 @@ fn row_label(
     id: u64,
 ) -> impl IntoView {
     show(
-        move || !rename_edit.is_open(&id),
+        move || !is_renaming(rename_edit, id),
         move || {
             text(move || item.with(|n| n.label.clone())).style(move || {
-                let theme = use_theme().get();
-                let p = theme.ext::<crate::tokens::Tokens>();
                 item.with(|item| {
                     let color = if item.placeholder && item.tone == LabelTone::Normal {
-                        p.muted
+                        MUTED
                     } else {
-                        item.tone.color(&p)
+                        item.tone.color()
                     };
                     style()
-                        .grow(1)
-                        .shrink(1000)
+                        .flex_grow(1)
+                        .flex_shrink(1000)
                         .min_width(0)
                         .single_line()
-                        .italic(item.placeholder)
+                        .font_style(if item.placeholder {
+                            FontStyle::Italic
+                        } else {
+                            FontStyle::Normal
+                        })
                         .color(color)
                 })
             })
@@ -303,7 +275,7 @@ fn rename_field(
     reference: kivact::view::NodeRef,
 ) -> impl IntoView {
     show(
-        move || rename_edit.is_open(&id),
+        move || is_renaming(rename_edit, id),
         move || {
             node()
                 .part(
@@ -313,7 +285,7 @@ fn rename_field(
                             message("creative.outliner.rename", "Rename tree item"),
                             signal(item.get_untracked().label),
                         )
-                        .on_draft_commit(move |name| {
+                        .on_commit(move |name| {
                             if let Some(callback) = on_rename {
                                 callback.call((id, name));
                             }
@@ -321,7 +293,7 @@ fn rename_field(
                         .return_focus(reference)
                         .control(),
                 )
-                .style(style().grow(1).height(22))
+                .style(style().flex_grow(1).height(22))
         },
     )
 }
@@ -348,7 +320,7 @@ fn row_cells(item: Value<TreeItem>, cells: &[(Value<f64>, CellRenderer)]) -> Vec
                         .align_items(Align::Center)
                         .gap(4)
                         .width(width.get())
-                        .shrink(0)
+                        .flex_shrink(0)
                         .min_width(0)
                         .overflow(Overflow::Hidden)
                 })
@@ -411,17 +383,19 @@ fn row_style(
     level: u32,
     mark: Value<Option<Placement>>,
 ) -> kivact::style::Style {
-    let t = &use_theme().get();
-    let p = t.ext::<crate::tokens::Tokens>();
-    let rest = style()
-        .height(row_height.map_or(p.row, |height| {
+    let height: Length = match row_height {
+        Some(height) => {
             let height = height.get();
             if height.is_finite() {
-                height.max(20.0)
+                height.max(20.0).into()
             } else {
-                p.row
+                ROW
             }
-        }))
+        }
+        None => ROW,
+    };
+    let rest = style()
+        .height(height)
         .padding_left(
             8 + (levels.with(|map| map.get(&id).copied()).unwrap_or(level) as i32 - 1) * 16,
         )
@@ -429,80 +403,13 @@ fn row_style(
         .gap(5)
         .align_items(Align::Center)
         .cursor(Cursor::Default)
-        .color(if item.get().visible { p.text } else { p.dim })
-        .hover(style().background(ColorToken::Hover))
-        .selected(style().background(p.selection));
+        .color(if item.get().visible { TEXT } else { DIM })
+        .hover(style().background(style_color::HOVER))
+        .selected(style().background(SELECTION));
     if mark.get() == Some(Placement::Into) {
-        rest.background(p.selection).ring(1, p.accent)
+        rest.background(SELECTION).outline(1, ACCENT)
     } else {
         rest
-    }
-}
-
-impl Outliner {
-    fn prepare(self) -> (Node, kivact::interaction::TreeApi<u64>, Rc<RowFactory>) {
-        let Outliner {
-            root,
-            items,
-            state:
-                crate::OutlinerState {
-                    expanded,
-                    selection: selected,
-                    renaming: rename,
-                },
-            on_rename,
-            on_restriction,
-            filter,
-            restrictions,
-            activation,
-            item_drop,
-            active,
-            reveal_active,
-            cells,
-            row_height,
-        } = self;
-        let data = items;
-        let rename_edit = kivact::interaction::use_inline_edit(rename);
-        let (by_id, nodes) = item_indexes(data);
-        let has_activation = activation.is_some();
-        let mut tree = use_tree(nodes, expanded, Selection::Multiple(selected)).filter(filter);
-        if let Some(callback) = activation {
-            tree = tree.on_activate(move |value| callback.try_call(value));
-        }
-        let mounted: super::controls::Rows = Rc::new(RefCell::new(HashMap::new()));
-        let generation = Rc::new(Cell::new(Generation::new()));
-        let drag = machine(Drag::Idle, || DragMachine, |_, ()| {});
-        let reveal = super::reveal::observe(active, reveal_active, data, expanded, mounted.clone());
-        let painter = restriction_painter(on_restriction);
-        let levels = memo(move || {
-            tree.rows().with(|rows| {
-                rows.iter()
-                    .map(|row| (row.key, row.level))
-                    .collect::<HashMap<_, _>>()
-            })
-        });
-        let factory = Rc::new(RowFactory {
-            by_id,
-            data,
-            rename_edit,
-            generation,
-            mounted,
-            reveal,
-            on_rename,
-            expanded,
-            selected,
-            painter,
-            on_restriction,
-            cells,
-            drag,
-            active,
-            restrictions,
-            row_height,
-            levels,
-            item_drop,
-            has_activation,
-        });
-        (root, tree, factory)
     }
 }
 
@@ -576,7 +483,9 @@ impl RowFactory {
             super::controls::expansion(item, context.clone()).into_view()
         } else {
             // The room of the button, so the labels line up.
-            column(()).style(style().size(18, 18).shrink(0)).into_view()
+            column(())
+                .style(style().size(18, 18).flex_shrink(0))
+                .into_view()
         };
         let cells = row_cells(item, &cells);
         let line = move |at| drop_line(mark, at);
@@ -587,7 +496,7 @@ impl RowFactory {
                 .top(0)
                 .bottom(0)
                 .width(2)
-                .background(ColorName::Accent),
+                .background(ACCENT),
         );
         row((
             chevron,
@@ -636,7 +545,7 @@ impl RowFactory {
             data,
             rows: mounted.clone(),
         };
-        let start_rename = move || rename_edit.show(id);
+        let start_rename = move || rename_edit.edit(id);
         let dragger = row_drag(id, data, mounted.clone(), drag, item_drop, dragger);
         // Consume the drag Part after the Tree Part so selection runs
         // before a drag or double-click rename can handle the press.
@@ -670,7 +579,8 @@ impl RowFactory {
                             && press.button == MouseButton::Primary
                         {
                             reveal.send(super::reveal::Event::Press(Some(id)));
-                            if press.clicks == 2 && !has_activation && !rename_edit.is_open(&id) {
+                            if press.clicks == 2 && !has_activation && !is_renaming(rename_edit, id)
+                            {
                                 dragger.cancel();
                                 start_rename();
                                 return Handled::Yes;
@@ -694,14 +604,13 @@ fn drop_line(mark: Value<Option<Placement>>, at: Placement) -> Node {
     column(())
         .hidden(move || mark.get() != Some(at))
         .style(move || {
-            let t = &use_theme().get();
             let base = style()
                 .position(Position::Absolute)
                 .left(0)
                 .right(0)
                 .height(2)
                 .z_index(5)
-                .background(t.ext::<crate::tokens::Tokens>().accent);
+                .background(ACCENT);
             if at == Placement::Before {
                 base.top(0)
             } else {
@@ -749,4 +658,9 @@ fn restriction_painter(
             })
         }),
     ))
+}
+
+/// Whether the item `id` is being renamed.
+fn is_renaming(edit: kivact::interaction::InlineEditApi<u64>, id: u64) -> bool {
+    edit.editing().with(|key| *key == Some(id))
 }

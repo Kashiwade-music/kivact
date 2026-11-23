@@ -5,27 +5,33 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Arvane: the window, text, rendering, accessibility and asset layer behind kivact-engine (public facade)"
+description = "Arvane: the window driver and presenter behind kivact-engine"
 
 [dependencies]
 arvane-shell = { path = "../arvane-shell", version = "0.1.0" }
 kivact-types = { path = "../kivact-types", version = "0.1.0" }
-arvane-text = { path = "../arvane-text", version = "0.1.0" }
+arvane-protocol = { path = "../arvane-protocol", version = "0.1.0" }
 arvane-render = { path = "../arvane-render", version = "0.1.0" }
 arvane-compose = { path = "../arvane-compose", version = "0.1.0" }
-arvane-asset = { path = "../arvane-asset", version = "0.1.0" }
 tracing = { workspace = true }
 
 [target.'cfg(any(windows, target_os = "linux"))'.dev-dependencies]
 gpu-interop-producer = { path = "../../dev/tests/gpu-interop-producer", features = ["wgpu"] }
 
-# Arvane's contract tests: the arvane facade alone, on real test windows
+[features]
+# Test hooks: the bundled test font, a GPU probe and a device loss (`kivact-engine/testing`).
+test = []
+
+# Arvane's contract tests: the driver alone, on real test windows
 # (one binary, to link once).
 [[test]]
 name = "e2e"
 path = "tests/e2e/main.rs"
+required-features = ["test"]
 
 [dev-dependencies]
+arvane-text = { path = "../arvane-text" }
+arvane-asset = { path = "../arvane-asset" }
 # The GPU and shared-texture contract tests run with `cargo test -p arvane` alone.
 arvane-compose = { path = "../arvane-compose", version = "0.1.0", features = ["gpu-interop"] }
 arvane-native = { path = "../arvane-native", features = ["test"] }

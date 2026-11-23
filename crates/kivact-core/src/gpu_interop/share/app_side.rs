@@ -5,7 +5,8 @@ use std::fmt;
 use std::panic::Location;
 use std::sync::Arc;
 
-use kivact_runtime::{Notifier, Owner, Runtime, Signal};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Owner, Signal, Trigger};
 use kivact_types::cell::Sent;
 use kivact_types::{GpuAdapter, SharedTextures};
 
@@ -13,9 +14,10 @@ use super::link::{LinkState, Phase, ShareLink, ShareMode, ShareRequest, ShareSta
 use crate::gpu_interop::adapter;
 use crate::gpu_interop::import::{ExternalImage, ImportStatus, import_in};
 use crate::sync::Inbox;
-use kivact_runtime::spawn_in;
+use kivact_runtime::driver::spawn_in;
 use kivact_style::draw::{GpuFrame, Pixels};
 
+// xtask-allow(state): independent: current is the import of the newest request, written only by replace_current; pixels is the newest CPU picture whatever the request, written only by receive; size is the size the App asks for, written only by set_size
 /// An image an engine on another thread shares with the UI
 /// ([`shared_image`]): the UI thread's handle, `Clone` and `!Send`.
 ///
@@ -27,11 +29,9 @@ pub struct SharedImage {
     state: Arc<Inbox<LinkState>>,
     /// Notified after each change of `state` the UI makes or takes from the
     /// engine (the receiving task): [`SharedImage::status`] tracks it.
-    changed: Notifier,
-    // xtask-allow(state-fields): projection: the import of the link's current request, written only by SharedImage::replace_current
+    changed: Trigger,
     /// The import of the newest request, once the engine provided it.
     current: Signal<Option<Current>>,
-    // xtask-allow(state-fields): independent: the last pixels delivered, kept for every phase
     pixels: Signal<Option<Pixels>>,
     size: Signal<(u32, u32)>,
 }
@@ -73,7 +73,7 @@ impl PartialEq for Current {
 #[track_caller]
 pub fn shared_image(width: u32, height: u32) -> SharedImage {
     let at = Location::caller();
-    let owner = kivact_runtime::Owner::current("shared_image", at);
+    let owner = kivact_runtime::Owner::setup("shared_image", at);
     // Reading the adapter (below) asks for the window's device; the renewal
     // effect makes a GPU request once it is ready.
     let size = (width.max(1), height.max(1));
@@ -86,7 +86,7 @@ pub fn shared_image(width: u32, height: u32) -> SharedImage {
     })));
     let image = SharedImage {
         state: state.clone(),
-        changed: owner.notifier(at),
+        changed: owner.trigger(at),
         current: owner.signal(None, at),
         pixels: owner.signal(None, at),
         size: owner.signal(size, at),

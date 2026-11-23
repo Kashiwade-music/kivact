@@ -10,7 +10,8 @@ use std::fmt;
 use std::panic::Location;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use kivact_runtime::{Owner, Runtime, ThreadWaker};
+use kivact_runtime::Owner;
+use kivact_runtime::driver::ThreadWaker;
 
 /// Ends a running App from any thread, like the user closing its main window.
 ///
@@ -99,20 +100,13 @@ pub(crate) enum Begin {
 /// owner (a misuse, with a fix hint).
 #[track_caller]
 pub fn app_handle() -> AppHandle {
-    let owner = Owner::ambient("app_handle", Location::caller());
+    let owner = Owner::running("app_handle", Location::caller());
     AppHandleExt::of(&owner.runtime()).0.clone()
 }
 
 /// The App's handle, installed as a runtime extension so `app_handle` returns
 /// the handle of the App whose code is running.
 pub(crate) struct AppHandleExt(pub(crate) AppHandle);
-
-impl AppHandleExt {
-    /// The handle of `rt`'s App.
-    pub(crate) fn of(rt: &Runtime) -> &Self {
-        rt.ext::<Self>()
-    }
-}
 
 /// The single owner of "this run was asked to end from outside".
 struct AppLink {
@@ -172,26 +166,19 @@ impl AppLink {
     #[track_caller]
     fn begin(&self) -> Begin {
         let mut state = self.lock();
-        let outcome = match state.clone() {
-            LinkState::Unstarted => Ok(Begin::Run),
+        match state.clone() {
+            LinkState::Unstarted => Begin::Run,
             LinkState::ClosePending => {
                 *state = LinkState::Ended;
-                Ok(Begin::Skip)
+                Begin::Skip
             }
-            LinkState::Ended => Err(
-                "one AppHandle drives one run; App::run consumes the App and cannot run again: \
-                 make another App with App::new",
-            ),
-            LinkState::Running(_) | LinkState::CloseRequested(_) | LinkState::Exiting => {
-                Err("an AppHandle drives one run at a time; make another App with App::new")
+            LinkState::Running(_)
+            | LinkState::CloseRequested(_)
+            | LinkState::Exiting
+            | LinkState::Ended => {
+                drop(state);
+                unreachable!("invariant: App::run consumes the App, so its handle begins once")
             }
-        };
-        // Do not poison the link with a misuse panic: another clone may still
-        // ask about the run that is going.
-        drop(state);
-        match outcome {
-            Ok(begin) => begin,
-            Err(why) => panic!("kivact misuse: {why}"),
         }
     }
 
@@ -265,7 +252,7 @@ mod link_tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use kivact_runtime::ThreadWaker;
+    use kivact_runtime::driver::ThreadWaker;
 
     fn counted_waker() -> (ThreadWaker, Arc<AtomicUsize>) {
         let count = Arc::new(AtomicUsize::new(0));
@@ -372,24 +359,5 @@ mod link_tests {
         clone.close();
         assert_eq!(format!("{handle:?}"), "AppHandle(ClosePending)");
         assert_eq!(handle.begin(), Begin::Skip);
-    }
-
-    #[test]
-    #[should_panic(expected = "one AppHandle drives one run")]
-    fn a_finished_handle_starts_no_run() {
-        let handle = AppHandle::new();
-        handle.close();
-        assert_eq!(handle.begin(), Begin::Skip);
-        handle.begin();
-    }
-
-    #[test]
-    #[should_panic(expected = "drives one run at a time")]
-    fn a_running_handle_starts_no_second_run() {
-        let handle = AppHandle::new();
-        assert_eq!(handle.begin(), Begin::Run);
-        let (waker, _) = counted_waker();
-        handle.attach(waker);
-        handle.begin();
     }
 }

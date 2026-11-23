@@ -10,22 +10,21 @@ use crate::editors::time::gesture::{State, Target};
 use crate::editors::time::input::{key, pointer, wheel};
 use crate::editors::time::layout::lane_rect;
 use crate::editors::time::model::TimeItem;
-use kivact::custom::NodeRefExt;
 use kivact::custom::part;
 use kivact::interaction::EditSession;
 use kivact::interaction::ListItem;
 use kivact::state::IntoValue;
 use kivact::state::{Callback, Value};
-use kivact::style::{ColorToken, Overflow, style};
+use kivact::style::{Overflow, color, style};
 
-use kivact::view::{A11yAction, IntoView, Role, View, node_ref};
+use kivact::view::{A11yAction, Role, View, node_ref};
 use kivact::view::{Node, node};
 
+/// The editor of the timeline and the dope sheet, built by its component.
 pub(crate) struct TimeEditor<T: TimeItem> {
     pub(crate) root: Node,
     pub(crate) items: Value<Vec<T>>,
     pub(crate) state: crate::TimeState,
-    // xtask-allow(state-fields): option: the caller's .lanes(...) builder; absent means one unnamed lane per distinct item lane id (visible_lanes)
     pub(crate) lanes: Option<Value<Vec<Lane>>>,
     pub(crate) snap: Value<bool>,
     pub(crate) step: Value<f64>,
@@ -50,7 +49,7 @@ impl<T: TimeItem> TimeEditor<T> {
                 style()
                     .height(280)
                     .overflow(Overflow::Hidden)
-                    .background(ColorToken::Surface),
+                    .background(color::SURFACE),
             ),
             items: items.into_value(),
             state,
@@ -65,8 +64,10 @@ impl<T: TimeItem> TimeEditor<T> {
     }
 }
 
-impl<T: TimeItem> IntoView for TimeEditor<T> {
-    fn into_view(self) -> View {
+impl<T: TimeItem> TimeEditor<T> {
+    /// Build the editor's root node. With a context menu the root is the
+    /// menu's trigger, so the node returned is a plain wrapper around it.
+    pub(crate) fn into_node(self) -> Node {
         let Prepared {
             root,
             state,
@@ -82,7 +83,10 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
         let gesture = crate::editors::time::input::drag(state);
         let reference = node_ref();
         let availability = kivact::custom::part(|input| input);
-        observe_inputs(state, reference, availability.state());
+        state.press.watch_inputs(
+            crate::editors::shared::gesture::inputs_ok(reference, availability.state()),
+            move || state.cancel(),
+        );
         let root = super::a11y::attach(root, state, gesture, ruler.format.clone());
         let root = root
             .node_ref(reference)
@@ -114,14 +118,14 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
                 })
             });
         match extensions.menu {
-            Some(menu) => menu.call((
+            Some(menu) => node().child(menu.call((
                 root.a11y_action(A11yAction::ShowMenu, move |event| {
                     state.cancel();
                     state.context_request(event.region);
                 }),
                 state.context.into_value(),
-            )),
-            None => root.into_view(),
+            ))),
+            None => root,
         }
     }
 }
@@ -218,36 +222,6 @@ impl<T: TimeItem> TimeEditor<T> {
     }
 }
 
-fn observe_inputs<T: TimeItem>(
-    state: State<T>,
-    reference: kivact::view::NodeRef,
-    availability_state: Value<kivact::custom::PartState>,
-) {
-    let focus = reference.focus_within();
-    kivact::state::effect(move || {
-        let focused = focus.get();
-        let visible = reference.is_visible();
-        let items = state.data.get();
-        let lanes = state.visible.get();
-        let missing = state.initial().is_some_and(|snapshot| match snapshot {
-            crate::editors::time::gesture::Snapshot::Items(initial) => initial.iter().any(|v| {
-                !items
-                    .iter()
-                    .any(|i| i.id() == v.0 && lanes.iter().any(|lane| lane.id == i.lane()))
-            }),
-            _ => false,
-        });
-        let input = availability_state.get();
-        state.press.inputs_changed(
-            focused,
-            visible && !input.is_hidden(),
-            !input.is_disabled(),
-            !missing,
-            move || state.cancel(),
-        );
-    });
-}
-
 fn visible_lanes<T: TimeItem>(
     data: Value<Vec<T>>,
     lanes: Option<Value<Vec<Lane>>>,
@@ -272,7 +246,7 @@ fn time_scene<T: TimeItem>(
     data: Value<Vec<T>>,
     visible: Value<Vec<Lane>>,
     selection: Value<Vec<u64>>,
-) -> (TimeScene, kivact::state::Binding<Option<Target>>) {
+) -> (TimeScene, kivact::state::Signal<Option<Target>>) {
     let targets = targets::targets::<Target, Target>(move || {
         let selected = selection.get();
         let mut targets = vec![Target::Playhead];
@@ -297,7 +271,7 @@ fn time_scene<T: TimeItem>(
 fn time_selection<T: TimeItem>(
     data: Value<Vec<T>>,
     visible: Value<Vec<Lane>>,
-    selected: kivact::state::Binding<Vec<u64>>,
+    selected: kivact::state::Signal<Vec<u64>>,
 ) -> kivact::interaction::ListApi<u64> {
     let order = kivact::state::memo(move || {
         data.get()

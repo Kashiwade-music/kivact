@@ -5,11 +5,9 @@
 
 use crate::dock_model::{Layout, container_of, editor_layout, weights};
 use crate::support::near;
-use kivact::geometry::{Point, Rect};
-use kivact::interaction::MenuEntry;
 use kivact::prelude::*;
 use kivact::test::{Locator, Screen};
-use kivact::view::{A11yAction, MouseButton};
+use kivact::view::A11yAction;
 use kivact_ui_creative as ui;
 use std::cell::Cell;
 use std::rc::Rc;

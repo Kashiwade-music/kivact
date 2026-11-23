@@ -11,11 +11,12 @@ Kivact は Rust のネイティブ GUI フレームワークです。コンポ�
 ```rust,no_run
 use kivact::prelude::*;
 
-fn counter() -> impl IntoView {
+#[component]
+fn counter() -> impl Element {
     let count = signal(0);
     column((
-        text(move || format!("回数: {}", count.get())),
-        button("増やす").on_press(move || count.update(|n| *n += 1)),
+        text(move || format!("count: {}", count.get())),
+        button("Increment").on_press(move || count.update(|n| *n += 1)),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -25,16 +26,13 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-App の root setup は mount 時に一度だけ実行されます。子の setup と cleanup を
-独立した owner に置くには `scope(move || view)` を使います。変化する property は
-closure の中で signal を読みます。実行時の画像・font の入力には所有する `Vec<u8>` や
-`AssetBytes` を渡せます。同じ asset を再利用するときは保持した値を clone し、cache の
-identity を維持します。
+コンポーネントは `#[component]` を付けた関数です。本体は mount 時に一度だけ実行され、状態は画面にある間は生きています。変化する property は closure の中で signal を読みます。実行時の画像入力には所有する `Vec<u8>` や `AssetBytes` を渡せます。同じ asset を再利用するときは保持した値を clone し、cache の identity を維持します。font はテーマが持ちます（`Theme::with_fonts`）。
 
 ## 特徴
 
-- **普通の関数とシグナル。** `signal`・`memo`・`effect` と key 付きの一覧。仮想 DOM はなく、コンポーネント全体を再実行しません。props を取る関数は `#[component]` が props のビルダーを書きます。
+- **コンポーネントとシグナル。** コンポーネントは `#[component]` を付けた関数です。`signal`・`memo`・`effect` と key 付きの一覧は変わった部分だけを更新し、仮想 DOM もコンポーネント全体の再実行もありません。標準部品と UI キットも同じ書き方です。
 - **標準コンポーネント。** button・入力欄・select・dialog・menu・tabs・表・toast などを `kivact::ui` に持ち、見た目は有効なテーマが決めます。
+- **CSS の名前とテーマの変数。** style は CSS のプロパティ名で書き、`color::ACCENT` や `space::MD` のようなテーマの変数は CSS のカスタムプロパティのように働きます。
 - **既定でアクセシブル。** どのコンポーネントも役割・名前・状態を OS の支援技術へ出し、キーボードで操作できます。
 - **App 全体のテスト。** `kivact::test` は `arvane-virtual` の上で実アプリと同じ描画 driver と仮想時計を使い、役割と名前で App 全体を操作します。手元では実 window に mirror できます。
 - **文字と入力。** CJK・結合文字・双方向テキスト・IME の変換を扱います。
@@ -52,6 +50,15 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact" }
 [dev-dependencies]
 kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["test"] }
 ```
+
+Kivact を使うすべてのリポジトリを同じ revision に固定し（git 依存の `rev = "<commit>"`）、まとめて更新してください。Kivact のレイアウトと描画のコードは最適化しないと遅いため、Kivact の crate を並べる代わりに 1 行で依存のすべてを debug build でも最適化します。
+
+```toml
+[profile.dev.package."*"]
+opt-level = 3
+```
+
+rework 前の API で書かれたコードは、[改修後の API へアプリを移行する](docs/for-kivact-user/jp/how-to-guide/migrating-to-rework.md)を参照してください。
 
 ツールチェーンは [`rust-toolchain.toml`](rust-toolchain.toml) で固定しています。まず [チュートリアル](docs/for-kivact-user/jp/getting-started/README.md) から始めてください。
 
@@ -78,58 +85,64 @@ API リファレンスは rustdoc です: `cargo doc -p kivact --open`
 
 ## Workspace の crate
 
-workspace は 49 package で構成します。アプリは `kivact` と必要な UI キットを使います。
+workspace は 54 package で構成します。アプリは `kivact` と必要な UI キットを使います。
 内部の library は runtime、engine、backend、test harness の責務で分かれています。
-図は主な依存経路です。全体は [アーキテクチャ](docs/for-kivact-developer/architecture.md) と
-[生成した依存図](architecture/) を参照してください。
+図は主な依存経路です。全体は [アーキテクチャ](docs/for-kivact-developer/architecture.md) を参照してください。`cargo xtask diagrams` が crate と module の依存図の全体を生成します。
 
 ```mermaid
 flowchart TD
     Apps[Applications and kits] --> Facade[kivact]
+    Plot[kivact-plot] --> Facade
     Facade --> UI[kivact-ui]
     UI --> Interaction[kivact-interaction]
     Interaction --> Core[kivact-core]
     Facade --> Core
+    Facade --> Offscreen[kivact-offscreen]
+    Offscreen --> Engine
     Core --> Runtime[kivact-runtime / kivact-style / kivact-i18n]
     Core --> Engine[kivact-engine]
     Engine --> Geometry[kivact-layout / kivact-editing]
     Engine --> Host[arvane]
-    Host --> Adapters[arvane-shell / arvane-text / arvane-render / arvane-asset]
-    Host --> Compose[arvane-compose]
+    Engine --> Adapters[arvane-shell / arvane-text / arvane-asset / arvane-compose]
     Engine --> Native[arvane-native]
     Engine --> Virtual[arvane-virtual]
+    Engine --> Protocol[arvane-protocol]
+    Adapters --> Render[arvane-render]
+    Render --> Protocol
     Facade -. test feature .-> Test[kivact-test]
     Test --> Core
     Test --> Virtual
     Runtime --> Types[kivact-types]
     Runtime --> Shader[kivact-shader]
-    Engine --> Types
+    Protocol --> Types
 ```
 
 | Crate | パス | 用途 |
 |---|---|---|
 | `kivact` | `crates/kivact` | アプリ・部品作者向けの公開入口。 |
-| `kivact-macros` | `crates/kivact-macros` | 部品の props のビルダーを書く `#[component]`（`kivact` が再公開）。 |
+| `kivact-macros` | `crates/kivact-macros` | `#[component]` と `#[derive(Prop)]`（`kivact` が再公開）。 |
 | `kivact-core` | `crates/kivact-core` | view の記述、mount、入力、アプリ起動。 |
 | `kivact-test` | `crates/kivact-test` | kivact::test の App 全体 E2E ハーネス。 |
-| `kivact-devtools-protocol` | `crates/kivact-devtools-protocol` | DevTools の agent・アプリ・MCP・Python client が共有する通信の語彙。 |
+| `kivact-devtools-protocol` | `crates/kivact-devtools-protocol` | DevTools の agent・アプリ・MCP が共有する通信の語彙。client の feature は discovery と型付きの呼出しを足す。 |
 | `kivact-devtools-agent` | `crates/kivact-devtools-agent` | target のアプリの中で動く DevTools の server。socket、discovery、PNG。 |
-| `kivact-devtools-client` | `crates/kivact-devtools-client` | DevTools の agent の discovery と型付きの呼び出し。 |
 | `kivact-devtools` | `crates/kivact-devtools` | DevTools のデスクトップアプリ。 |
 | `kivact-devtools-mcp` | `crates/kivact-devtools-mcp` | DevTools の target を stdio で公開する MCP server。 |
-| `kivact-public-api-tests` | `dev/tests/kivact-public-api` | 公開 API 利用者の E2E と offscreen の契約。 |
+| `kivact-public-api-tests` | `dev/tests/kivact-public-api` | 公開 API 利用者の E2E（`e2e_core`、`e2e_ui`、`e2e_native`）と offscreen の契約。 |
+| `kivact-kit-tests` | `dev/tests/kivact-kit-tests` | キットを使う公開 API の E2E（`e2e_kits`）。 |
 | `kivact-runtime` | `crates/kivact-runtime` | reactive owner、signal、Machine、task、motion。 |
 | `kivact-i18n` | `crates/kivact-i18n` | locale、message、日付・数値の書式。 |
-| `kivact-style` | `crates/kivact-style` | style、theme、token、描画の語彙。 |
+| `kivact-style` | `crates/kivact-style` | CSS の名前で書く style、テーマ、テーマの変数、描画の語彙。 |
 | `kivact-shader` | `crates/kivact-shader` | ユーザーの WGSL の検証と shader module の組み立て。 |
 | `kivact-svg` | `crates/kivact-svg` | 記録した drawing を SVG 1.1 の文書に書く（`Offscreen::render_svg` の内側）。 |
+| `kivact-offscreen` | `crates/kivact-offscreen` | window なしの描画: ピクセルと SVG の文書（`kivact::draw::Offscreen`）。 |
 | `kivact-interaction` | `crates/kivact-interaction` | 表示を持たない振る舞い、semantics、入力 controller。 |
-| `kivact-ui` | `crates/kivact-ui` | 標準部品と recipe の契約。 |
+| `kivact-ui` | `crates/kivact-ui` | 標準部品と、部品ごとのテーマ。 |
 | `kivact-ui-basic` | `crates/kivact-ui-basic` | shadcn/ui Lyra 風の中立的な汎用キット。 |
 | `kivact-ui-pop` | `crates/kivact-ui-pop` | 落ち着いた配色のコンパクトな業務アプリ用キット。 |
 | `kivact-ui-game` | `crates/kivact-ui-game` | ゲーム風の操作パネルと HUD。 |
 | `kivact-ui-creative` | `crates/kivact-ui-creative` | 制作向けの編集ツール、dock、inspector。 |
 | `kivact-ui-soft` | `crates/kivact-ui-soft` | Astryx Neutral のライト・ダークテーマ。 |
+| `kivact-plot` | `crates/kivact-plot` | どのキットとも使える数値の XY プロット。 |
 | `kivact-engine` | `crates/kivact-engine` | 保持する UI tree、scene の生成、backend の駆動。 |
 | `kivact-editing` | `crates/kivact-editing` | document、edit session、native 文字入力の契約。 |
 | `kivact-layout` | `crates/kivact-layout` | 借用した tree の layout と派生 geometry。 |
@@ -145,8 +158,9 @@ flowchart TD
 | `kivact-ui-game-catalog` | `examples/kivact-ui-game` | game キットの対話的カタログ。 |
 | `kivact-ui-creative-catalog` | `examples/kivact-ui-creative` | creative キットの対話的カタログ。 |
 | `kivact-ui-soft-catalog` | `examples/kivact-ui-soft` | soft キットの対話的カタログ。 |
-| `arvane` | `crates/arvane` | 移植可能な window、text、render、asset の入口。 |
-| `kivact-types` | `crates/kivact-types` | 中立な geometry、event、asset、不変 snapshot。 |
+| `catalog-shell` | `examples/catalog-shell` | 5 つのキットのカタログが共有する shell。 |
+| `arvane` | `crates/arvane` | window の driver と presenter。GPU の device はプロセスに 1 つ。 |
+| `kivact-types` | `crates/kivact-types` | 中立な値、geometry、event、std だけの小さな helper。 |
 | `arvane-native` | `crates/arvane-native` | 実 window、入力、表示、accessibility。 |
 | `arvane-shell` | `crates/arvane-shell` | backend SPI と移植可能な window・入力の語彙。 |
 | `arvane-virtual` | `crates/arvane-virtual` | 共通描画 driver を使う台本 backend と任意の実窓 mirror。 |
@@ -154,21 +168,22 @@ flowchart TD
 | `arvane-render` | `crates/arvane-render` | RenderScene のラスタライズ（Vello）。 |
 | `arvane-compose` | `crates/arvane-compose` | Composition の plan と、その CPU・GPU の合成。3D、cache、shader、外部 texture を Vello の外で合成する。 |
 | `arvane-asset` | `crates/arvane-asset` | 画像・font の読込、decode、asset cache。 |
+| `arvane-protocol` | `crates/arvane-protocol` | engine が renderer に渡す描画 scene と semantics。 |
 | `kivact-gpu-share` | `crates/kivact-gpu-share` | GPU texture 共有の契約と native helper（実験的）。 |
 | `gpu-interop-producer` | `dev/tests/gpu-interop-producer` | GPU 共有の試験で使う独立 renderer。 |
-| `xtask` | `dev/xtask` | workspace 検査と architecture 図の生成。 |
+| `xtask` | `dev/xtask` | workspace の検査。`cargo xtask diagrams` が依存図を書く。 |
 | `kivact-bench` | `dev/bench` | 性能の指標の手動計測（CI では実行しない）。 |
 
 ## `kivact` の Cargo feature
 
 | Feature | 既定 | 説明 |
 |---|---|---|
-| `gpu` | 有効 | GPU で描画し、使えなければ CPU に切り替えます。無効にすると CPU だけで build します。`ARVANE_RENDERER=cpu` で実行時に CPU へ固定できます。既定ではウィンドウが GPU を必要としたとき（ユーザーの shader を描いた、App が `gpu_interop::adapter()` を読んだ、CPU の frame が表示周期の半分を続けて超えた）に device を起動します (`GpuStart::OnDemand`。`App::gpu_preference` で `GpuStart::AtLaunch` を選べます)。 |
+| `gpu` | 有効 | GPU で描画し、使えなければ CPU に切り替えます。無効にすると CPU だけで build します。`ARVANE_RENDERER=cpu\|gpu\|auto` で実行時に選べます（`GpuStart::Never`、`AtLaunch`、`OnDemand`）。既定ではウィンドウが GPU を必要としたとき（ユーザーの shader を描いた、App が `gpu_interop::adapter()` を読んだ、CPU の frame が表示周期の半分を続けて超えた）に device を起動します (`GpuStart::OnDemand`。`App::gpu_preference` で `kivact::platform::GpuStart` から選びます)。 |
 | `complex-scripts` | 有効 | タイ語、ラオ語、クメール語、ミャンマー語、中国語・日本語の分かち書きのための ICU の辞書 (約 3 MB)。その分かち書きが要らないアプリは無効にするとバイナリが小さくなります。 |
 | `test` | 無効 | `kivact::test` の App 全体の仮想 E2E と任意の実窓 mirror。 |
-| `devtools` | 無効 | アプリ内の DevTools の agent。別アプリの DevTools、MCP server、Python client から使います。有効にした release build は起動時に警告を出します。 |
+| `devtools` | 無効 | アプリ内の DevTools の agent。別アプリの DevTools と MCP server から使います。有効にした release build は起動時に警告を出します。 |
 | `tokio` | 無効 | 非同期 task の Tokio 連携。 |
-| `embed` | 無効 | 実験的。ホストのウィンドウの中にアプリを開きます（オーディオプラグインの editor など）。 |
+| `embed` | 無効 | 実験的。ホストのウィンドウの中にアプリを開きます（オーディオプラグインの editor など）。どのプラットフォームでもコンパイルでき、埋め込めない環境では `App::embed` が `ErrorKind::Unsupported` を返します。 |
 | `gpu-interop` | 無効 | 実験的。アプリ自身の renderer の GPU texture を、読み戻さずに表示します。 |
 
 ## 対応プラットフォーム
@@ -189,7 +204,6 @@ flowchart TD
 | `templates/basic/` | テスト付きの最小のアプリ |
 | `docs/` | 利用者ガイド、恒久的な architecture・decisions・製品戦略 |
 | `dev/` | ワークスペースの検査、公開 API のテスト、性能の手動計測 |
-| `architecture/` | 生成した crate と module の依存関係の図 |
 
 ## 開発への参加
 

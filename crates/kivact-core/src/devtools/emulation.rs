@@ -3,16 +3,17 @@
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
 use kivact_engine::contract::{EngineEmulation, HostRequest};
-use kivact_runtime::{ErrorKind, Runtime};
-use kivact_types::ThemeHint;
+use kivact_runtime::ErrorKind;
+use kivact_runtime::driver::Runtime;
+use kivact_types::ThemeMode;
 
-use crate::view::devtools_state::{DevtoolsState, emulation_off};
+use crate::devtools::state::{DevtoolsState, emulation_off};
 use crate::view::requests::request_effect;
-use crate::view::state::EffectWaiter;
+use crate::view::state::Waiter;
 
 /// Send one DevTools effect to the engine through the view's request counter.
 fn engine_effect(rt: &Runtime, request: HostRequest) {
-    let waiter = EffectWaiter::Report {
+    let waiter = Waiter::Report {
         owner: None,
         at: std::panic::Location::caller(),
         failed: ErrorKind::Platform,
@@ -33,8 +34,8 @@ pub(super) fn set_emulation(
     i.hooks.emulation.set(params.clone());
     let emulation = EngineEmulation {
         theme_hint: params.theme.map(|theme| match theme {
-            p::ThemeEmulation::Light => ThemeHint::Light,
-            p::ThemeEmulation::Dark => ThemeHint::Dark,
+            p::ThemeEmulation::Light => ThemeMode::Light,
+            p::ThemeEmulation::Dark => ThemeMode::Dark,
         }),
         scale: params.scale,
         touch: params.touch,

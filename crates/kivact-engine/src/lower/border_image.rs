@@ -24,11 +24,11 @@ use crate::lower::SceneOut;
 use crate::lower::context::Context;
 use crate::lower::fill::gradient;
 use crate::lower::sanitize;
-use arvane::asset::PixelSize;
-use kivact_types::render::{Paint, RenderCmd as D};
-use kivact_types::scene::Shape;
+use arvane_asset::PixelSize;
+use arvane_protocol::{RasterPaint, RenderCmd as D};
+use kivact_types::scene::Outline;
 use kivact_types::{
-    BorderImage, BorderImageRepeat as Repeat, Edges, FillImage, Len, Pixels, Rect, Transform,
+    Affine, BorderImage, BorderImageRepeat as Repeat, Edges, FillImage, Len, Pixels, Rect,
 };
 
 /// The most tiles along an axis before its edges are stretched instead.
@@ -39,7 +39,7 @@ enum Source {
     /// The image's pixels, and how many of them span one source px.
     Image { pixels: Pixels, scale: f64 },
     /// A paint over the border image area, in that area's coordinates.
-    Paint { paint: Paint, area: Rect },
+    Paint { paint: RasterPaint, area: Rect },
 }
 
 /// One run of tiles along an axis: where it lies in the destination and
@@ -131,7 +131,7 @@ fn resolve(source: &FillImage, area: Rect, ctx: &Context<'_>) -> Option<(Source,
             Some((Source::Paint { paint, area }, area_size))
         }
         FillImage::Solid(color) => {
-            let paint = Paint::Solid(color.sanitize());
+            let paint = RasterPaint::Solid(color.sanitize());
             Some((Source::Paint { paint, area }, area_size))
         }
         FillImage::Coordinate(_) | FillImage::Shader(_) => None,
@@ -361,7 +361,7 @@ fn emit(out: &mut SceneOut, source: &Source, src: Rect, dst: Rect) {
             };
             let (kx, ky) = (dst.width / src.width, dst.height / src.height);
             out.push(D::PushClip(dst));
-            out.push(D::PushTransform(Transform {
+            out.push(D::PushTransform(Affine {
                 a: kx,
                 b: 0.0,
                 c: 0.0,
@@ -370,7 +370,7 @@ fn emit(out: &mut SceneOut, source: &Source, src: Rect, dst: Rect) {
                 f: dst.y - frame.y * ky,
             }));
             out.push(D::FillShape {
-                shape: Shape::Rect(frame),
+                shape: Outline::Rect(frame),
                 paint: paint.clone(),
             });
             out.push(D::PopTransform);

@@ -1,53 +1,89 @@
-//! Role: Creative typography and read-only description styling for canonical metrics.
-use crate::Tokens;
-use kivact::style::Theme;
-use kivact::ui::{DescriptionListRecipes, HeadingState, Look, StatRecipes, UiRecipes};
+//! Role: Creative typography and read-only styling of heading, stat and description list.
+use crate::color;
+use crate::fonts::mono_family;
+use crate::size::ROW;
+use kivact::style::{Style, Theme};
+use kivact::ui::theme::{
+    DescriptionListTheme, HeadingState, HeadingTheme, Look, StatState, StatTheme,
+};
 
-pub(crate) fn install(r: UiRecipes) -> UiRecipes {
-    r.heading(|prev| {
-        move |t: &Theme, s: &Look<HeadingState>| {
-            prev(t, s).weight(600).color(t.ext::<Tokens>().text_high)
-        }
-    })
-    .stat(stat)
-    .description_list(description_list)
+/// Install the metrics' recipes into `theme`.
+pub(crate) fn install(theme: Theme) -> Theme {
+    theme.with(heading()).with(stat()).with(description_list())
 }
 
-fn stat(r: StatRecipes) -> StatRecipes {
-    r.root(|prev| {
-        move |t: &Theme, s: &_| {
-            let p = t.ext::<Tokens>();
-            prev(t, s)
-                .padding(12)
-                .gap(4)
-                .radius(9)
-                .background(p.island)
-                .border(1, p.hair)
-        }
-    })
-    .label(|prev| move |t: &Theme, s: &_| prev(t, s).font_size(10.5).color(t.ext::<Tokens>().muted))
-    .value(|prev| {
-        move |t: &Theme, s: &_| {
-            let p = t.ext::<Tokens>();
-            prev(t, s)
-                .font_family(p.mono_font.as_str())
-                .font_size(24)
-                .weight(600)
-                .color(p.text_high)
-        }
-    })
-    .delta(|prev| move |t: &Theme, s: &_| prev(t, s).font_size(10.5).color(t.ext::<Tokens>().muted))
-    .icon(|prev| move |t: &Theme, s: &_| prev(t, s).color(t.ext::<Tokens>().dim))
-    .chart(|prev| move |t: &Theme, s: &_| prev(t, s).min_width(0))
+/// The theme of a heading: a semibold text in the high text color.
+fn heading() -> HeadingTheme {
+    HeadingTheme::default().root(heading_root)
 }
 
-fn description_list(r: DescriptionListRecipes) -> DescriptionListRecipes {
-    r.root(|prev| move |t: &Theme, s: &_| prev(t, s).gap(4))
-        .item(|prev| move |t: &Theme, s: &_| prev(t, s).gap(8).min_height(t.ext::<Tokens>().row))
-        .term(|prev| {
-            move |t: &Theme, s: &_| prev(t, s).font_size(11.5).color(t.ext::<Tokens>().muted)
-        })
-        .detail(|prev| {
-            move |t: &Theme, s: &_| prev(t, s).font_size(11.5).color(t.ext::<Tokens>().text)
-        })
+fn heading_root(_t: &Theme, _s: &Look<HeadingState>, base: Style) -> Style {
+    base.font_weight(600).color(color::TEXT_HIGH)
+}
+
+/// The theme of a stat: a card with a label, a large mono value and a delta.
+fn stat() -> StatTheme {
+    StatTheme::default()
+        .root(stat_root)
+        .label(stat_label)
+        .value(stat_value)
+        .delta(stat_delta)
+        .icon(stat_icon)
+        .chart(stat_chart)
+}
+
+fn stat_root(_t: &Theme, _s: &Look<StatState>, base: Style) -> Style {
+    base.padding(12)
+        .gap(4)
+        .border_radius(9)
+        .background(color::ISLAND)
+        .border(1, color::HAIR)
+}
+
+fn stat_label(_t: &Theme, _s: &Look<StatState>, base: Style) -> Style {
+    base.font_size(10.5).color(color::MUTED)
+}
+
+fn stat_value(t: &Theme, _s: &Look<StatState>, base: Style) -> Style {
+    base.font_family(mono_family(t))
+        .font_size(24)
+        .font_weight(600)
+        .color(color::TEXT_HIGH)
+}
+
+fn stat_delta(_t: &Theme, _s: &Look<StatState>, base: Style) -> Style {
+    base.font_size(10.5).color(color::MUTED)
+}
+
+fn stat_icon(_t: &Theme, _s: &Look<StatState>, base: Style) -> Style {
+    base.color(color::DIM)
+}
+
+fn stat_chart(_t: &Theme, _s: &Look<StatState>, base: Style) -> Style {
+    base.min_width(0)
+}
+
+/// The theme of a description list: rows of muted terms and text details.
+fn description_list() -> DescriptionListTheme {
+    DescriptionListTheme::default()
+        .root(description_root)
+        .item(description_item)
+        .term(description_term)
+        .detail(description_detail)
+}
+
+fn description_root(_t: &Theme, _s: &Look<()>, base: Style) -> Style {
+    base.gap(4)
+}
+
+fn description_item(_t: &Theme, _s: &Look<()>, base: Style) -> Style {
+    base.gap(8).min_height(ROW)
+}
+
+fn description_term(_t: &Theme, _s: &Look<()>, base: Style) -> Style {
+    base.font_size(11.5).color(color::MUTED)
+}
+
+fn description_detail(_t: &Theme, _s: &Look<()>, base: Style) -> Style {
+    base.font_size(11.5).color(color::TEXT)
 }

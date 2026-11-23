@@ -13,7 +13,7 @@ fn equal<T: PartialEq + std::fmt::Debug>(out: &mut Vec<String>, label: &str, a: 
 pub(super) fn compare(
     snapshot: RefreshedLines<'_>,
     caret: usize,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
 ) -> Vec<String> {
     // Every query below mutates only disposable copies. No live IDs or caches.
     let mut retained = snapshot.lines.clone();
@@ -88,7 +88,7 @@ fn compare_structure(
     retained: &mut EditLines,
     rebuilt: &mut EditLines,
     text: &str,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     errors: &mut Vec<String>,
 ) {
     equal(
@@ -169,7 +169,7 @@ fn compare_samples(
     text: &str,
     samples: std::collections::BTreeSet<usize>,
     width: f64,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     errors: &mut Vec<String>,
 ) {
     for i in samples {
@@ -216,7 +216,7 @@ fn compare_publication(
     text: &str,
     caret: usize,
     width: f64,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     errors: &mut Vec<String>,
 ) {
     // Never re-evaluate user LineColors merely to create a reference. Neutral

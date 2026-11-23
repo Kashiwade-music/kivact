@@ -21,7 +21,7 @@
 
 use crate::common::{Error, same_backend};
 use ::wgpu::hal::api::Dx12;
-use kivact_types::{AdapterIds, GpuBackend, SharedHandle, SharedTextures};
+use kivact_types::{GpuBackend, SharedHandle, SharedTextures};
 use std::os::windows::io::{AsHandle, AsRawHandle, FromRawHandle, OwnedHandle};
 use std::time::Duration;
 use windows::Win32::Foundation::{HANDLE, WAIT_OBJECT_0};
@@ -43,16 +43,6 @@ const SAMPLED: D3D12_RESOURCE_STATES = D3D12_RESOURCE_STATES(
     D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE.0 | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE.0,
 );
 
-/// The identity of a Direct3D 12 adapter (`None`: not Direct3D 12).
-pub(crate) fn identity(adapter: &::wgpu::Adapter) -> Option<AdapterIds> {
-    // SAFETY: only reads the adapter's description while the guard lives.
-    let hal = unsafe { adapter.as_hal::<Dx12>() }?;
-    // SAFETY: a live DXGI adapter.
-    let desc = unsafe { hal.raw_adapter().GetDesc2() }.ok()?;
-    let luid = crate::d3d12_contract::luid_bytes(desc.AdapterLuid);
-    Some(AdapterIds::Dx12 { luid })
-}
-
 /// Whether `device` is a Direct3D 12 device.
 pub(crate) fn is_dx12(device: &::wgpu::Device) -> bool {
     // SAFETY: only asks for the backend; the guard is dropped at once.
@@ -60,7 +50,7 @@ pub(crate) fn is_dx12(device: &::wgpu::Device) -> bool {
 }
 
 /// A transition barrier borrowing `resource` (no reference is taken).
-use crate::d3d12_contract::transition;
+use crate::d3d12::transition;
 
 /// The object `handle` names, opened on `device`.
 fn open<T: Interface>(device: &ID3D12Device, handle: &SharedHandle) -> Result<T, Error> {
@@ -73,7 +63,7 @@ fn open<T: Interface>(device: &ID3D12Device, handle: &SharedHandle) -> Result<T,
 
 /// The resource flags of a shared texture: made for storage writes or
 /// not (the engine's contract).
-use crate::d3d12_contract::resource_flags;
+use crate::d3d12::resource_flags;
 
 /// Fail unless `resource` is a texture the engine's contract describes
 /// (made for storage writes when `storage`).

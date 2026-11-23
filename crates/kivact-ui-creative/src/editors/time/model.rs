@@ -22,7 +22,7 @@ impl Keyframe {
             time,
             duration: 0.0,
             label: label.into(),
-            color: crate::color::default_item_color(),
+            color: crate::color::DEFAULT_ITEM_COLOR,
             glyph: KeyGlyph::Diamond,
             muted: false,
         }

@@ -22,7 +22,7 @@
 //! fixtures are in `crates/arvane/tests/fixtures/`. The tests of OpenType
 //! features and variable weights use Inter
 //! (`crates/arvane/tests/fonts/InterVariable.ttf`, SIL OFL, with a `wght`
-//! axis, `tnum`, `ss01` and `cv11`) through `Engine::with_fonts_only`. A
+//! axis, `tnum`, `ss01` and `cv11`) through `TextEngine::isolated`. A
 //! GPU frame matches the CPU frame when the mean channel difference is at
 //! most 1, at most 0.5% of the pixels differ by more than 64 and at least
 //! 99% by 8 or less (`support.rs`). A GPU test is skipped, saying why,

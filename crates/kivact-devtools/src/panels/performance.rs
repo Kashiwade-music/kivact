@@ -1,12 +1,13 @@
 //! Role: The Performance panel.
 
-use kivact::draw::{Draw, Stroke, TextFormat};
-use kivact::geometry::Rect;
+use kivact::draw::TextFormat;
 use kivact::prelude::*;
+use kivact::ui::{DataColumn, data_table, toggle_group};
+use kivact::view::Node;
 use kivact_devtools_protocol as p;
-use kivact_ui_basic as basic;
 
 use crate::state::{Session, push_capped};
+use crate::widgets::counters_chart::counters_chart as counters_lines;
 use crate::widgets::flame;
 
 /// The most frames the bar chart draws.
@@ -65,7 +66,7 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         ))
         .style(style().gap(12).padding(12).width(pct(100))),
     )
-    .style(style().grow(1.0).min_height(0.0).width(pct(100)))
+    .style(style().flex_grow(1.0).min_height(0.0).width(pct(100)))
 }
 
 /// The window select, the renderer, the trace export and the paint flashing toggle.
@@ -76,7 +77,6 @@ fn controls(
 ) -> impl IntoView {
     row((
         select(
-            "Window",
             move || {
                 session.windows.with(|windows| {
                     windows
@@ -93,7 +93,8 @@ fn controls(
                     }
                 },
             ),
-        ),
+        )
+        .label("Window"),
         text(move || frame_summary(&frames.get())),
         spacer(),
         button("Export as Perfetto").on_press(move || export_trace(session)),
@@ -130,7 +131,7 @@ fn frame_bars(frames: Value<Vec<p::FrameInfo>>) -> Node {
         style()
             .width(pct(100))
             .height(160)
-            .background(Color::token(ColorToken::SurfaceAlt)),
+            .background(kivact::style::color::SURFACE_ALT),
     )
 }
 
@@ -146,13 +147,13 @@ fn paint_frame_bars(draw: &mut Draw, size: Size, frames: &[p::FrameInfo]) {
         Point::new(plot.x, plot.bottom()),
         Point::new(plot.right(), plot.bottom()),
         Stroke::new(1.0),
-        Color::token(ColorToken::Border),
+        kivact::style::color::BORDER,
     );
     if frames.is_empty() {
         draw.text(
             "No frames recorded",
             Point::new(plot.x, plot.y + plot.height / 2.0),
-            label_style(12.0, ColorToken::TextMuted),
+            label_style(12.0, kivact::style::color::TEXT_MUTED),
         );
         return;
     }
@@ -167,12 +168,12 @@ fn paint_frame_bars(draw: &mut Draw, size: Size, frames: &[p::FrameInfo]) {
     draw.text(
         &format!("{:.1} ms", ns_to_ms(max_ns)),
         Point::new(4.0, plot.y),
-        label_style(10.0, ColorToken::TextMuted),
+        label_style(10.0, kivact::style::color::TEXT_MUTED),
     );
     draw.text(
         &format!("budget {:.1} ms", ns_to_ms(budget_ns)),
         Point::new(plot.x, plot.y + 2.0),
-        label_style(10.0, ColorToken::TextMuted),
+        label_style(10.0, kivact::style::color::TEXT_MUTED),
     );
     let budget_y = plot.bottom() - fraction(budget_ns, max_ns) * plot.height;
     draw.line(
@@ -182,7 +183,7 @@ fn paint_frame_bars(draw: &mut Draw, size: Size, frames: &[p::FrameInfo]) {
             dash: vec![4.0, 4.0],
             ..Stroke::new(1.0)
         },
-        Color::token(ColorToken::TextMuted),
+        kivact::style::color::TEXT_MUTED,
     );
     let slot = plot.width / shown.len() as f64;
     let bar_width = (slot * 0.7).max(1.0);
@@ -195,9 +196,9 @@ fn paint_frame_bars(draw: &mut Draw, size: Size, frames: &[p::FrameInfo]) {
             height,
         );
         let color = if frame.over_budget {
-            Color::token(ColorToken::Danger)
+            kivact::style::color::DANGER
         } else {
-            Color::token(ColorToken::Accent)
+            kivact::style::color::ACCENT
         };
         draw.fill_rect(rect, color);
     }
@@ -205,38 +206,23 @@ fn paint_frame_bars(draw: &mut Draw, size: Size, frames: &[p::FrameInfo]) {
 
 /// The counters history and a button that samples again.
 fn counters_chart(session: Session, counters: Signal<Vec<(u64, p::Counters)>>) -> impl IntoView {
-    let config = basic::ChartConfig::new([
-        basic::ChartSeries::new("reactive", "Reactive"),
-        basic::ChartSeries::new("owners", "Owners"),
-        basic::ChartSeries::new("objects", "Objects"),
-        basic::ChartSeries::new("constants", "Constants"),
-        basic::ChartSeries::new("nodes", "Nodes"),
-        basic::ChartSeries::new("timers", "Timers"),
-        basic::ChartSeries::new("frame_loops", "Frame loops"),
-        basic::ChartSeries::new("animations", "Animations"),
-        basic::ChartSeries::new("turns", "Turns"),
-        basic::ChartSeries::new("blocking", "Blocking"),
-    ]);
     let rows = memo(move || {
         counters
             .get()
             .iter()
-            .map(|(sample, counters)| {
-                basic::ChartRow::new(
-                    format!("#{sample}"),
-                    [
-                        counters.live_reactive as f64,
-                        counters.live_owners as f64,
-                        counters.live_objects as f64,
-                        counters.live_constants as f64,
-                        counters.tree_nodes as f64,
-                        counters.timers as f64,
-                        counters.frame_loops as f64,
-                        counters.animations as f64,
-                        counters.turns as f64,
-                        counters.outstanding_blocking as f64,
-                    ],
-                )
+            .map(|(_, counters)| {
+                [
+                    counters.live_reactive as f64,
+                    counters.live_owners as f64,
+                    counters.live_objects as f64,
+                    counters.live_constants as f64,
+                    counters.tree_nodes as f64,
+                    counters.timers as f64,
+                    counters.frame_loops as f64,
+                    counters.animations as f64,
+                    counters.turns as f64,
+                    counters.outstanding_blocking as f64,
+                ]
             })
             .collect::<Vec<_>>()
     });
@@ -247,9 +233,7 @@ fn counters_chart(session: Session, counters: Signal<Vec<(u64, p::Counters)>>) -
             button("Refresh counters").on_press(move || refresh_counters(session, counters)),
         ))
         .style(style().gap(8).align_items(Align::Center)),
-        basic::chart(config, rows)
-            .kind(basic::ChartKind::Line)
-            .height(180),
+        counters_lines(rows),
     ))
     .style(style().gap(6))
 }
@@ -401,10 +385,10 @@ fn fraction(value: u64, max: u64) -> f64 {
 }
 
 /// A small muted label used by the canvases.
-fn label_style(size: f64, token: ColorToken) -> TextFormat {
+fn label_style(size: f64, token: Color) -> TextFormat {
     TextFormat {
         size,
-        color: Color::token(token),
+        color: token,
         ..TextFormat::default()
     }
 }

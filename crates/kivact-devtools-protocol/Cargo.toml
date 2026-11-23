@@ -5,11 +5,24 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Wire vocabulary of the Kivact DevTools: JSON-RPC methods, notifications and values."
+description = "Wire vocabulary of the Kivact DevTools (JSON-RPC methods, notifications, values) and the client connection (feature client)."
+
+[features]
+# Discovery and the connection a DevTools client opens; the app-side agent does not need it.
+client = []
 
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+[dev-dependencies]
+proc-macro2 = { workspace = true }
+syn = { workspace = true }
+
+[[test]]
+name = "client"
+path = "tests/client.rs"
+required-features = ["client"]
 
 [lints]
 workspace = true

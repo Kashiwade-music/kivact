@@ -2,14 +2,11 @@
 //!
 //! `kivact::draw::Offscreen`: fixed-resolution RGBA images drawn without an
 //! App or a window. This binary opens no window (the comparison with a
-//! canvas in a window is `e2e/offscreen.rs`).
+//! canvas in a window is `e2e_core/offscreen.rs`).
 
 use kivact::ErrorKind;
 use kivact::draw::{Offscreen, Pixels, TextFormat};
-use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
-use kivact::style::Color;
-use kivact::style::Theme;
 use std::cell::Cell;
 
 static TUFFY: &[u8] = include_bytes!("../../../../crates/arvane/assets/fonts/Tuffy.ttf");
@@ -21,12 +18,10 @@ fn px(image: &Pixels, x: usize, y: usize) -> [u8; 4] {
 }
 
 fn tuffy_theme() -> Theme {
-    let theme = Theme::default();
-    let text = kivact::style::theme::Typography {
-        family: Some("Tuffy".into()),
-        ..theme.text().clone()
-    };
-    theme.with_text(text)
+    Theme::default().set(
+        &kivact::style::font::FAMILY_VAR,
+        kivact::style::FontFamily::from("Tuffy"),
+    )
 }
 
 #[test]
@@ -34,13 +29,13 @@ fn a_size_outside_what_windows_draw_is_invalid_and_never_calls_paint() {
     let mut renderer = Offscreen::new();
     let called = Cell::new(false);
     for (width, height) in [
-        (0, 1),
-        (1, 0),
-        (0, 0),
-        (16_385, 1),
-        (1, 16_385),
-        (4097, 4096),
-        (u32::MAX, 1),
+        (0.0, 1.0),
+        (1.0, 0.0),
+        (0.0, 0.0),
+        (16_385.0, 1.0),
+        (1.0, 16_385.0),
+        (4097.0, 4096.0),
+        (f64::from(u32::MAX), 1.0),
     ] {
         let error = renderer
             .render(width, height, |_, _| called.set(true))
@@ -53,10 +48,24 @@ fn a_size_outside_what_windows_draw_is_invalid_and_never_calls_paint() {
         );
     }
     assert!(!called.get());
-    for (width, height) in [(16_384, 1), (1, 16_384)] {
+    for (width, height) in [(16_384.0, 1.0), (1.0, 16_384.0)] {
         let image = renderer.render(width, height, |_, _| {}).unwrap();
-        assert_eq!(image.rgba.len(), (width * height * 4) as usize);
+        assert_eq!(image.rgba.len(), (width * height * 4.0) as usize);
     }
+}
+
+#[test]
+fn a_scale_of_two_doubles_the_pixels_and_keeps_the_drawing() {
+    let image = Offscreen::new()
+        .scale(2.0)
+        .render(10.0, 5.0, |draw, size| {
+            assert_eq!(size, Size::new(10.0, 5.0));
+            draw.fill_rect(Rect::new(0.0, 0.0, 5.0, 5.0), rgb(0xff0000));
+        })
+        .unwrap();
+    assert_eq!((image.width, image.height), (20, 10));
+    assert_eq!(px(&image, 9, 9), [255, 0, 0, 255]);
+    assert_eq!(px(&image, 11, 1), [0, 0, 0, 0]);
 }
 
 #[test]
@@ -64,7 +73,7 @@ fn the_image_is_exactly_sized_transparent_and_draw_knows_its_size() {
     let mut renderer = Offscreen::new();
     let mut seen = None;
     let image = renderer
-        .render(5, 3, |draw, size| seen = Some((draw.size(), size)))
+        .render(5.0, 3.0, |draw, size| seen = Some((draw.size(), size)))
         .unwrap();
     assert_eq!(seen, Some((Size::new(5.0, 3.0), Size::new(5.0, 3.0))));
     assert_eq!((image.width, image.height, image.rgba.len()), (5, 3, 60));
@@ -80,7 +89,7 @@ fn rects_and_text_are_drawn_where_they_are_placed() {
     renderer.font(TUFFY).unwrap();
     let mut measured = None;
     let image = renderer
-        .render(120, 60, |draw, size| {
+        .render(120.0, 60.0, |draw, size| {
             draw.fill_rect(size.to_rect(), Color::WHITE);
             draw.fill_rect(Rect::new(100.0, 40.0, 10.0, 10.0), rgb(0xff0000));
             let style = TextFormat {

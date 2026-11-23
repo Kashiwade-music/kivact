@@ -25,9 +25,9 @@
 use crate::convert;
 use crate::derived::DerivedScope;
 use crate::gradient::gradient;
+use arvane_protocol::{PatternSource, RasterPaint};
 use kivact_types::Rect;
 use kivact_types::pixel::Pixels;
-use kivact_types::render::{Paint, PatternSource};
 use vello_cpu::PaintType;
 use vello_cpu::kurbo::Affine;
 
@@ -42,14 +42,12 @@ pub(crate) enum Brush {
 
 /// How [`crate::draw::Canvas::fill_pattern`] repeats pixels.
 pub(crate) struct PatternFill {
-    /// Straight-alpha pixels.
+    /// Premultiplied-alpha pixels.
     pub(crate) image: Pixels,
     /// From the image's pixel grid to the current coordinates.
     pub(crate) transform: Affine,
-    // xtask-allow(state-fields): option: repeat along x (else the edge pixels extend)
     /// Repeat along x (else the edge pixels extend).
     pub(crate) repeat_x: bool,
-    // xtask-allow(state-fields): option: repeat along y (else the edge pixels extend)
     /// Repeat along y.
     pub(crate) repeat_y: bool,
     /// The area of one tile in the current coordinates.
@@ -64,14 +62,18 @@ pub(crate) struct PatternFill {
 
 /// The brush of `paint`; `device_scale` is the device pixels per unit of
 /// the current coordinates (gradient tiles are rasterized at it).
-pub(crate) fn brush(paint: &Paint, derived: &mut DerivedScope<'_>, device_scale: f64) -> Brush {
+pub(crate) fn brush(
+    paint: &RasterPaint,
+    derived: &mut DerivedScope<'_>,
+    device_scale: f64,
+) -> Brush {
     match paint {
-        Paint::Solid(c) => Brush::Paint(PaintType::Solid(convert::color(*c)), None),
-        Paint::Gradient(g) => {
+        RasterPaint::Solid(c) => Brush::Paint(PaintType::Solid(convert::color(*c)), None),
+        RasterPaint::Gradient(g) => {
             let (paint, transform) = gradient(g);
             Brush::Paint(paint, transform)
         }
-        Paint::Pattern(p) => {
+        RasterPaint::Pattern(p) => {
             let device_tile = (p.tile.width * device_scale, p.tile.height * device_scale);
             let image = match &p.source {
                 PatternSource::Image { image } => {

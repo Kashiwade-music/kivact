@@ -8,18 +8,19 @@ Keep the display name in a signal. The standard input reads and updates that sig
 use kivact::prelude::*;
 use kivact_ui_soft as soft;
 
-fn settings(save: impl Fn(String) + 'static) -> impl IntoView {
+#[component]
+fn settings(save: Callback<String>) -> impl Element {
     let display_name = signal(String::new());
 
     column((
         kivact::ui::heading("Profile", 1),
-        text_input("Display name", display_name),
+        text_input(display_name).label("Display name"),
         button("Save")
             .variant(kivact::ui::ButtonVariant::Primary)
             .disabled(move || display_name.get().trim().is_empty())
-            .on_press(move || save(display_name.get().trim().to_owned())),
+            .on_press(move || save.call(display_name.get().trim().to_owned())),
     ))
-    .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
+    .style(style().gap(soft::SPACE_S3))
 }
 ```
 

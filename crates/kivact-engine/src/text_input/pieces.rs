@@ -62,7 +62,7 @@ pub(super) fn shape_long(
     if pieces.len() == 1 {
         return shape(0..text.len());
     }
-    let shaped: Vec<(Range<usize>, kivact_types::render::ShapedText)> = pieces
+    let shaped: Vec<(Range<usize>, kivact_types::shaped::ShapedText)> = pieces
         .into_iter()
         .map(|range| {
             Some((
@@ -72,11 +72,11 @@ pub(super) fn shape_long(
         })
         .collect::<Option<_>>()?;
     let baseline = shaped.iter().map(|(_, s)| s.baseline).fold(0.0, f64::max);
-    let mut out = kivact_types::render::ShapedText {
+    let mut out = kivact_types::shaped::ShapedText {
         baseline,
         ..Default::default()
     };
-    let mut line: Option<kivact_types::render::TextLine> = None;
+    let mut line: Option<kivact_types::shaped::TextLine> = None;
     let (mut x, mut scalars) = (0.0f64, 0u32);
     for (i, (range, piece)) in shaped.into_iter().enumerate() {
         let dy = baseline - piece.baseline;
@@ -135,23 +135,26 @@ pub(super) fn shape_long(
 }
 
 fn merge_line(
-    line: &mut Option<kivact_types::render::TextLine>,
-    lines: &[kivact_types::render::TextLine],
+    line: &mut Option<kivact_types::shaped::TextLine>,
+    lines: &[kivact_types::shaped::TextLine],
     at: impl Fn(Rect) -> Rect,
     text_len: usize,
     baseline: f64,
 ) {
     if let Some(first) = lines.first() {
         let rect = at(first.rect);
+        let line_box = at(first.line_box);
         *line = Some(match line.take() {
-            None => kivact_types::render::TextLine {
+            None => kivact_types::shaped::TextLine {
                 range: 0..text_len,
                 rect,
+                line_box,
                 baseline,
                 ..first.clone()
             },
             Some(mut l) => {
                 l.rect = l.rect.union(rect);
+                l.line_box = l.line_box.union(line_box);
                 l.ascent = l.ascent.max(first.ascent);
                 l.descent = l.descent.max(first.descent);
                 l.cap_height = l.cap_height.max(first.cap_height);

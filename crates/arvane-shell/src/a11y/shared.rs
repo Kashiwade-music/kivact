@@ -2,7 +2,7 @@
 
 use super::error::AccessibilityError;
 use super::{state, validation};
-use kivact_types::render::{SemanticsTree, SemanticsUpdate};
+use arvane_protocol::{SemanticsTree, SemanticsUpdate};
 use kivact_types::{SemanticsId, SemanticsTextRun};
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -63,7 +63,9 @@ impl Shared {
 
     /// Validates a complete tree and replaces the accepted one with it.
     pub(crate) fn replace(&mut self, tree: &SemanticsTree) -> Result<(), AccessibilityError> {
-        let tree = validation::canonicalize(tree)?;
+        #[cfg(debug_assertions)]
+        validation::validate(tree)?;
+        let tree = validation::canonical(tree)?;
         self.tree = Some(state::AcceptedTree::new(&tree));
         if let Reader::Active { unsent } = &mut self.reader {
             *unsent = Unsent::Tree;
@@ -161,7 +163,7 @@ enum RunSelection<'a> {
 /// update separately carries only the text runs that changed.
 pub struct PlatformUpdate<'a> {
     tree: &'a state::AcceptedTree,
-    nodes: Vec<&'a kivact_types::render::SemanticsNode>,
+    nodes: Vec<&'a arvane_protocol::SemanticsNode>,
     runs: RunSelection<'a>,
     scale: f64,
 }
@@ -178,7 +180,7 @@ impl PlatformUpdate<'_> {
     }
 
     /// The current nodes the platform needs, in delivery order.
-    pub fn nodes(&self) -> impl Iterator<Item = &kivact_types::render::SemanticsNode> {
+    pub fn nodes(&self) -> impl Iterator<Item = &arvane_protocol::SemanticsNode> {
         self.nodes.iter().copied()
     }
 

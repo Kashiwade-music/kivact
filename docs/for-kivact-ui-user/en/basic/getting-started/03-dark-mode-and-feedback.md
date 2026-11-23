@@ -9,20 +9,14 @@ In this step the screen learns three things. A switch in the header changes betw
 `profile_card` and `notifications_card` are the ones from step 2. `settings` now takes the `dark` signal, and a new `root` function installs the theme.
 
 ```rust,test_harness
-use kivact::interaction::{DialogMode, Toast, Tone, toaster};
+use kivact::interaction::{Toast, Tone, use_toaster};
 use kivact::prelude::*;
-use kivact::style::theme::Typography;
-use kivact::style::{Direction, Theme, ThemeMode};
-use kivact::ui::toast_region;
+use kivact::style::{FlexDirection, FontFamily, Theme, ThemeMode, font};
+use kivact::ui::{DialogKind, toast_region};
 use kivact_ui_basic as basic;
 
 fn theme(mode: ThemeMode) -> Theme {
-    let theme = basic::theme(mode);
-    let text = Typography {
-        family: Some("Inter, sans-serif".into()),
-        ..theme.text().clone()
-    };
-    theme.with_text(text)
+    basic::theme(mode).set(&font::FAMILY_VAR, FontFamily::from("Inter, sans-serif"))
 }
 
 fn fonts() -> Vec<&'static [u8]> {
@@ -33,7 +27,7 @@ fn profile_card(
     name: Signal<String>,
     saved_name: Signal<String>,
     language: Signal<Option<&'static str>>,
-) -> impl IntoView {
+) -> impl Element {
     let languages = vec![
         ListItem::new("en", "English"),
         ListItem::new("ja", "Japanese"),
@@ -42,28 +36,28 @@ fn profile_card(
     let changed = move || name.get() != saved_name.get();
     kivact::ui::card({
         basic::field_group((
-            field("Display name", text_input("Display name", name))
+            field("Display name", text_input(name))
                 .hint("Shown on your public page."),
-            field("Language", select("Language", languages, language)),
+            field("Language", select(languages, language)),
         ))
     })
     .header(
         row((
             column((
-                text("Profile").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
+                text("Profile").style(style().font_size(14).line_height(20.0 / 14.0).font_weight(500)),
                 text("Choose how others see you.").style(
                     style()
                         .line_height(1.625)
-                        .color(basic::ColorName::MutedForeground),
+                        .color(basic::MUTED_FOREGROUND),
                 ),
             ))
-            .style(style().gap(4).grow(1).min_width(0)),
+            .style(style().gap(4).flex_grow(1).min_width(0)),
             row({
                 show(changed, || {
                     kivact::ui::badge("Unsaved changes").variant(basic::BadgeVariant::Secondary)
                 })
             })
-            .style(style().align_self(Align::Start).shrink(0)),
+            .style(style().align_self(Align::Start).flex_shrink(0)),
         ))
         .style(style().align_items(Align::Start).gap(8)),
     )
@@ -74,7 +68,7 @@ fn notifications_card(
     digest: Signal<bool>,
     mentions: Signal<bool>,
     reminder: Signal<Option<&'static str>>,
-) -> impl IntoView {
+) -> impl Element {
     let reminders = vec![
         ListItem::new("daily", "Daily"),
         ListItem::new("weekly", "Weekly"),
@@ -89,7 +83,7 @@ fn notifications_card(
             .hint("A summary of your week, every Monday.")
             .style(
                 style()
-                    .direction(Direction::Row)
+                    .flex_direction(FlexDirection::Row)
                     .align_items(Align::Center)
                     .gap(12),
             ),
@@ -97,7 +91,7 @@ fn notifications_card(
                 .hint("Tell me when someone mentions me.")
                 .style(
                     style()
-                        .direction(Direction::Row)
+                        .flex_direction(FlexDirection::Row)
                         .align_items(Align::Center)
                         .gap(12),
                 ),
@@ -111,19 +105,20 @@ fn notifications_card(
     })
     .header(
         column((
-            text("Notifications").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
+            text("Notifications").style(style().font_size(14).line_height(20.0 / 14.0).font_weight(500)),
             text("Choose what you want to hear about.").style(
                 style()
                     .line_height(1.625)
-                    .color(basic::ColorName::MutedForeground),
+                    .color(basic::MUTED_FOREGROUND),
             ),
         ))
-        .style(style().gap(4).grow(1).min_width(0)),
+        .style(style().gap(4).flex_grow(1).min_width(0)),
     )
     .style(style().width(420))
 }
 
-fn settings(dark: Signal<bool>) -> impl IntoView {
+#[component]
+fn settings(dark: Signal<bool>) -> impl Element {
     let name = signal(String::from("Ada"));
     let saved_name = signal(String::from("Ada"));
     let language = signal(Some("en"));
@@ -137,7 +132,7 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
                 kivact::ui::heading("Settings", 3),
                 basic::muted("Manage your profile and notifications."),
             ))
-            .style(style().grow(1).gap(8)),
+            .style(style().flex_grow(1).gap(8)),
             switch("Dark mode", dark),
         ))
         .style(style().align_items(Align::Center)),
@@ -149,7 +144,7 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
         row((
             button("Save").icon(icon("check")).on_press(move || {
                 saved_name.set(name.get());
-                toaster().push(
+                use_toaster().push(
                     Toast::new("Settings saved")
                         .tone(Tone::Success)
                         .body(format!("Display name: {}", name.get())),
@@ -160,7 +155,7 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
         .style(style().gap(12).align_items(Align::Center)),
         basic::separator(),
         kivact::ui::alert("Danger zone")
-            .variant(basic::AlertLook::Destructive)
+            .variant(basic::AlertTone::Destructive)
             .icon(icon("triangle-alert"))
             .description("Deleting your account cannot be undone.")
             .actions({
@@ -170,7 +165,7 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
             })
             .style(style().width(856)),
         dialog("Delete your account?", confirm_delete)
-            .mode(DialogMode::AlertModal)
+            .mode(DialogKind::AlertModal)
             .closable(false)
             .description("All of your settings will be removed.")
             .footer(move || {
@@ -182,22 +177,23 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
                         .variant(kivact::ui::ButtonVariant::Danger)
                         .on_press(move || {
                             confirm_delete.set(false);
-                            toaster().push(Toast::new("Account deleted"));
+                            use_toaster().push(Toast::new("Account deleted"));
                         }),
                 )
             }),
-        toast_region(toaster()).hold_all_on_hover(true),
+        toast_region(use_toaster()).hold_all_on_hover(true),
     ))
     .style(
         style()
             .size(pct(100), pct(100))
             .padding(24)
             .gap(16)
-            .background(basic::ColorName::Background)
-            .color(basic::ColorName::Foreground),
+            .background(basic::BACKGROUND)
+            .color(basic::FOREGROUND),
     )
 }
 
+#[component]
 fn root() -> impl IntoView {
     let dark = signal(false);
     kivact::style::provide_theme(
@@ -213,11 +209,9 @@ fn root() -> impl IntoView {
 }
 
 fn main() -> kivact::Result<()> {
-    let mut app = App::new("Settings").theme(theme(ThemeMode::Light));
-    for font in fonts() {
-        app = app.font(font);
-    }
-    app.run(root)
+    App::new("Settings")
+        .theme(theme(ThemeMode::Light).with_fonts(fonts()))
+        .run(root)
 }
 
 #[cfg(test)]
@@ -295,8 +289,8 @@ Run `cargo run`. You should see the same two cards with a "Dark mode" switch at 
 ## How it works
 
 - **Switching the theme.** `provide_theme(theme, child)` gives the subtree below it a theme. Its first argument is a closure that reads `dark`, so every time `dark` changes the theme is rebuilt and every style re-resolves its colors. Components keep their state because they are not remounted. Pass the same kind of closure instead of a fixed `Theme` whenever the theme can change.
-- **Toasts.** `toast_region(toaster())` is mounted once; it is the place the toasts appear. Any handler can then call `toaster().push(Toast::new(title))`. `.tone(..)` picks the icon and urgency, `.body(..)` adds a second line. A toast closes itself after five seconds, pauses while the pointer is over it, and has a close button.
-- **Alert dialog.** `dialog(title, open)` is the standard dialog; `.mode(DialogMode::AlertModal)` makes it the kit's alert dialog. `open` is a plain `signal(bool)`: a button sets it to `true`, and the buttons in `.footer(..)` set it to `false`. `.closable(false)` removes the close button an alert dialog does not have.
+- **Toasts.** `toast_region(use_toaster())` is mounted once; it is the place the toasts appear. Any handler can then call `use_toaster().push(Toast::new(title))`. `.tone(..)` picks the icon and urgency, `.body(..)` adds a second line. A toast closes itself after five seconds, pauses while the pointer is over it, and has a close button.
+- **Alert dialog.** `dialog(title, open)` is the standard dialog; `.mode(DialogKind::AlertModal)` makes it the kit's alert dialog. `open` is a plain `signal(bool)`: a button sets it to `true`, and the buttons in `.footer(..)` set it to `false`. `.closable(false)` removes the close button an alert dialog does not have.
 - **Alert vs. alert dialog.** `kivact::ui::alert(..)` is a static callout on the page (the "Danger zone" box). The dialog is the pop-up that interrupts.
 
 ## The test

@@ -59,12 +59,12 @@ fn main() {
     let result = App::new("Demo").window_size(800, 600).run(|| text("Hello"));
     if let Err(error) = result {
         match error.kind() {
-            ErrorKind::Message => eprintln!("ウィンドウの設定が不正です: {error}"),
-            ErrorKind::Platform => eprintln!("ウィンドウを開けませんでした: {error}"),
+            ErrorKind::Message => eprintln!("invalid window settings: {error}"),
+            ErrorKind::Platform => eprintln!("no window could be opened: {error}"),
             _ => eprintln!("{error:?}"),
         }
         if let Some(at) = error.location() {
-            eprintln!("発生位置: {at}");
+            eprintln!("raised at {at}");
         }
         std::process::exit(1);
     }
@@ -91,12 +91,12 @@ Kivact はコンポーネントの setup、イベントハンドラー (`on_pres
 use std::error::Error;
 
 fn report(error: kivact::UiError) -> Box<dyn Error + Send + Sync> {
-    // `?` も `Box::from` も、種別・メッセージ・位置を保ちます。
+    // `?` and `Box::from` keep the kind, message and location.
     Box::from(error)
 }
 
 fn log(error: &kivact::UiError) {
-    // `Display` はメッセージ、`source()` は包んだエラーです。
+    // `Display` is the message; `source()` is the wrapped error.
     eprintln!("{}", error.as_error());
 }
 ```
@@ -108,16 +108,16 @@ use kivact::ErrorKind;
 use kivact::prelude::*;
 
 fn export() -> Result<(), UiError> {
-    // `?` はあらゆる `std::error::Error` を `UiError` に変換します。
+    // `?` converts any `std::error::Error` into `UiError`.
     std::fs::read_to_string("does-not-exist.txt")?;
     Ok(())
 }
 
-fn app() -> impl IntoView {
+fn app() -> impl Element {
     column((
-        // 境界なし: エラーは既定の出力先へ行きます。
+        // No boundary: the error goes to the default sink.
         button("Export").on_press(export),
-        // fallback つきの境界は、子を差し替えて再試行を用意します。
+        // A boundary with a fallback replaces its child and offers a retry.
         error_boundary(|| {
             button("Risky").on_press(|| -> Result<(), UiError> {
                 Err(UiError::msg("the disk is full"))
@@ -126,7 +126,7 @@ fn app() -> impl IntoView {
         .fallback(|error, reset| {
             column((
                 text(format!("Failed: {error}")),
-                button("Retry").on_press(move || reset.run()),
+                button("Try again").on_press(reset),
             ))
         }),
     ))
@@ -152,10 +152,10 @@ mod tests {
 
         screen.get_by_role(Role::Button, "Risky").click();
         screen.get_by_text("Failed: the disk is full");
-        // 境界が処理したので、出力先に 2 つ目のエラーは届きません。
+        // The boundary handled it, so the sink did not get a second error.
         assert_eq!(screen.errors().len(), 1);
 
-        screen.get_by_role(Role::Button, "Retry").click();
+        screen.get_by_role(Role::Button, "Try again").click();
         screen.get_by_role(Role::Button, "Risky");
     }
 }
@@ -175,10 +175,11 @@ mod tests {
 ```rust,no_run
 use kivact::prelude::*;
 
-fn report_button() -> impl IntoView {
+#[component]
+fn report_button() -> impl Element {
     let summary = signal(String::new());
     column((
-        button("問題を報告").on_press(move || {
+        button("Report a problem").on_press(move || {
             let lines: Vec<String> = kivact::diagnostics::errors()
                 .iter()
                 .map(|error| format!("{:?}: {error}", error.kind()))
@@ -207,7 +208,7 @@ fn main() -> kivact::Result<()> {
 | `BorrowedWrite` | シグナル自身の `with` や `update` のクロージャーの中で、そのシグナルに書き込んだ (または読んだ)。 | `with` から判断だけを返し、戻ってから書き込みます。 |
 | `Disposed { .. }` | ハンドルを作ったコンポーネントが消えたあとに、そのハンドルを使った。エラーにはハンドルと所有者が作られた位置が入ります。 | コンポーネントより長生きする場所にハンドルを保持しないか、`try_get` で読みます。 |
 | `WrongApp` | 別の App、またはすでに存在しない App のハンドルを使った。 | ハンドルは、それを作った App の中だけで使います。 |
-| `Cycle { path }` | effect や memo が互いに依存して循環している。`path` に作成位置が並びます。 | 循環を断ちます。片方を `get_untracked` で読むか、2 つを 1 つにまとめます。 |
+| `Cycle { path }` | effect や memo が互いに依存して循環している。`path` に作成位置が並びます。 | 循環を断ちます。片方を `untrack(|| ..)` で読むか、2 つを 1 つにまとめます。 |
 | `DuplicateKey` | `for_each` の 2 行が同じキーを返した。あとの行は捨てられます。 | 項目ごとに一意のキーを返します。 |
 | `Unsupported` | 設定がそのノードの種類やプラットフォームに適用できない。メッセージにその設定が書かれ、ノードはその設定なしで mount されます。 | 設定を外すか、適用できるノードを使います。 |
 | `Platform` | クリップボード、ダイアログ、フォーカスの要求が失敗した。 | 呼び出し側で失敗を扱います。システムによっては普通に起こる結果です。 |
@@ -235,7 +236,7 @@ fn main() -> kivact::Result<()> {
 use kivact::diagnostics::why;
 use kivact::prelude::*;
 
-fn app() -> impl IntoView {
+fn app() -> impl Element {
     let count = signal(0);
     let doubled = memo(move || count.get() * 2);
     let label = node_ref();
@@ -244,7 +245,7 @@ fn app() -> impl IntoView {
         text(move || format!("doubled: {}", doubled.get())).node_ref(label),
         button("+1").on_press(move || count.update(|n| *n += 1)),
         button("Why?").on_press(move || {
-            // ノードが mount されていないときは `None` です。
+            // `None` while the node is not mounted.
             if let Some(explanation) = why(&label) {
                 eprintln!("{explanation}");
             }
@@ -275,7 +276,7 @@ node 5 Text "doubled: 4"
 ```rust,test_harness
 use kivact::prelude::*;
 
-fn app() -> impl IntoView {
+fn app() -> impl Element {
     let count = signal(0);
     let doubled = memo(move || count.get() * 2);
     column((
@@ -316,7 +317,7 @@ Kivact は入力をターン単位で処理します。イベントが届き、�
 ```rust,test_harness
 use kivact::prelude::*;
 
-fn app() -> impl IntoView {
+fn app() -> impl Element {
     let count = signal(0);
     column((
         text(move || format!("count: {}", count.get())),
@@ -340,7 +341,7 @@ mod tests {
         let turns = screen.trace();
         let click = turns
             .iter()
-            .find(|turn| turn.causes.iter().any(|cause| cause.starts_with("Activate")))
+            .find(|turn| turn.causes.iter().any(|cause| cause.event.starts_with("Activate")))
             .expect("the click started a turn");
         let writes: Vec<_> = click.writes.iter().filter(|w| w.ty == "i32").collect();
         assert_eq!(writes.len(), 1);

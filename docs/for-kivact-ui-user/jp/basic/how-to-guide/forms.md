@@ -2,39 +2,41 @@
 
 [English](../../../en/basic/how-to-guide/forms.md)
 
-このガイドでは、キットでフォームを作る方法を説明します。field にラベルを付けて検証し、field をまとめ、入力欄にアイコンやボタンを足し、標準セットにないピッカー（コンボボックス、日付ピッカー、カレンダー、ワンタイムコード）を使います。[チュートリアル](../getting-started/README.md)を終えていることを前提にしています。
+この手引きでは、キットを使ってフォームを作る方法を説明します。欄にラベルを付けて検証し、欄をまとめ、入力欄にアイコンやボタンを付け、標準の部品にない選択の部品（コンボボックス、日付ピッカー、カレンダー、ワンタイムコード）を使います。[チュートリアル](../getting-started/README.md)を終えていることを前提にしています。
 
-ふつうのコントロール（`text_input`、`text_area`、`checkbox`、`switch`、`radio_group`、`select`、`slider`）は標準コンポーネントで、テーマが Lyra の見た目を与えます。どのコントロールも、アプリの持つ signal を編集します。フォームが「送信」されるのは、アプリのコードがそれらの signal を読むとき、たいていはボタンの `on_press` の中です。
+基本の部品（`text_input`、`text_area`、`checkbox`、`switch`、`radio_group`、`select`、`slider`）は標準コンポーネントで、テーマが Lyra の見た目を与えます。どの部品も、アプリが持つシグナルを編集します。フォームが「送信」されるのは、アプリのコードがそのシグナルを読むときです。たいていは、ボタンの `on_press` の中です。
 
-## field にラベルを付けて検証する
+## 欄にラベルを付けて検証する
 
-`field(label, control)` は、見えるラベルとコントロールを組にします。`.hint(..)` は下に補足の文を足し、`.error(..)` は値が `Some` の間メッセージを表示します。エラーは、`memo` で signal から計算します。
+`field(label, control)` は、見えるラベルとコントロールを組にします。`.hint(..)` はその下に説明を足し、`.error(..)` は値が `Some` のあいだメッセージを出します。エラーは `memo` でシグナルから計算します。
 
 ```rust,no_run
 use kivact::prelude::*;
 
-fn email_field() -> impl IntoView {
+#[component]
+fn email_field() -> impl Element {
     let email = signal(String::from("ada@"));
     let error = memo(move || {
         let email = email.get();
         (!email.contains("@example.com")).then(|| "Use an @example.com address.".to_string())
     });
-    field("Email", text_input("Email", email))
+    field("Email", text_input(email))
         .hint("We never share it.")
         .error(error)
         .style(style().width(320))
 }
 ```
 
-エラーが `Some` の間は、ラベルが赤くなり、コントロールが invalid として扱われ、メッセージがアラートとして読み上げられます。ラベルはコントロールの accessible name になるので、両方に同じ語を書きます（`field("Email", text_input("Email", ..))`）。ラベルを押すと、コントロールにフォーカスが移るか、切り替わります。
+エラーが `Some` のあいだ、ラベルは赤くなり、コントロールは無効な状態として印が付き、メッセージはアラートとして読み上げられます。ラベルはコントロールのアクセシブルな名前になるので、両方に同じ語を書いてください（`field("Email", text_input(..))`）。ラベルを押すと、コントロールにフォーカスが移るか、コントロールが切り替わります。
 
-送信を止めるには、同じ signal から `can_submit` の memo を導き、ボタンに使います。
+送信を止めるには、同じシグナルから `can_submit` の memo を作り、ボタンに使います。
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn sign_up() -> impl IntoView {
+#[component]
+fn sign_up() -> impl Element {
     let email = signal(String::new());
     let accepted = signal(false);
     let created = signal(false);
@@ -44,7 +46,7 @@ fn sign_up() -> impl IntoView {
     });
     let ready = memo(move || !email.get().is_empty() && error.get().is_none() && accepted.get());
     basic::field_group((
-        field("Email", text_input("Email", email)).error(error),
+        field("Email", text_input(email)).error(error),
         checkbox("I accept the terms", accepted),
         button("Create account")
             .disabled(move || !ready.get())
@@ -61,20 +63,21 @@ fn sign_up() -> impl IntoView {
 }
 ```
 
-## field をセットにまとめる
+## 欄をまとめる
 
-`basic::field_group((..))` は、キットの余白で field を縦に並べます。`basic::field_set(..)` は凡例と説明つきのグループで、`basic::field_separator()` は field の間に線を引きます。`.text("Or")` を付けると、線にラベルが付きます。
+`basic::field_group((..))` は、欄をキットの間隔で積み重ねます。`basic::field_set(..)` は、凡例と説明を持つまとまりです。`basic::field_separator()` は欄のあいだに罫線を引きます。罫線にラベルを付けるには `.text("Or")` を渡します。
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn address() -> impl IntoView {
+#[component]
+fn address() -> impl Element {
     let (name, city) = (signal(String::new()), signal(String::new()));
     basic::field_set(basic::field_group((
-        field("Name", text_input("Name", name)),
+        field("Name", text_input(name)),
         basic::field_separator().text("Or"),
-        field("City", text_input("City", city)).hint("Where you live."),
+        field("City", text_input(city)).hint("Where you live."),
     )))
     .legend("Address")
     .description("Used to ship your order.")
@@ -82,13 +85,14 @@ fn address() -> impl IntoView {
 }
 ```
 
-スイッチのように自分のラベルを持つコントロールは、文字の隣にあるほうが読みやすくなります。field を行にし、コントロール自身のラベルは隠し（field が表示します）、子の位置を揃えます。
+スイッチのように、それ自体がラベルを持つコントロールは、その文字と並べたほうが読みやすくなります。欄を行にし、コントロール自身のラベルは隠して（欄がそれを表示します）、子を揃えます。
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::Direction;
+use kivact::style::FlexDirection;
 
-fn marketing() -> impl IntoView {
+#[component]
+fn marketing() -> impl Element {
     let on = signal(true);
     field(
         "Marketing emails",
@@ -97,7 +101,7 @@ fn marketing() -> impl IntoView {
     .hint("Receive news and offers.")
     .style(
         style()
-            .direction(Direction::Row)
+            .flex_direction(FlexDirection::Row)
             .align_items(Align::Center)
             .gap(12)
             .width(420),
@@ -105,21 +109,23 @@ fn marketing() -> impl IntoView {
 }
 ```
 
-## 入力欄の中にアイコン、文字、ボタンを置く
+## 入力欄の中にアイコン・文字・ボタンを置く
 
-`kivact::ui::input_group("Input group", (input,))` は、入力欄を共通の枠で包み、前後に付け足しを置けるようにします。`.start(..)` と `.end(..)` は view を取り、付け足しを押すと入力欄にフォーカスが移ります。文字には `kivact::ui::input_addon(..)`、ボタンには `kivact::ui::button(..).variant(kivact::ui::ButtonVariant::Ghost).variant(basic::InputGroupButtonSize::Xs).style(style().margin_right(-4.8))` を使います。
+`kivact::ui::input_group("Input group", (input,))` は、入力欄を共有の枠で囲み、その前後に付属の部品を足せるようにします。`.start(..)` と `.end(..)` はビューを受け取ります。付属の部品を押すと、入力欄にフォーカスが移ります。普通の文字には `kivact::ui::input_addon(..)` を、ボタンには `kivact::ui::button(..).variant(kivact::ui::ButtonVariant::Ghost).variant(basic::InputGroupButtonSize::Xs).style(style().margin_right(-4.8))` を使います。
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn search_and_copy() -> impl IntoView {
+#[component]
+fn search_and_copy() -> impl Element {
     let query = signal(String::new());
     let url = signal(String::from("https://example.com"));
     column((
         kivact::ui::input_group(
             "Search",
-            (kivact::ui::text_input("Search", query)
+            (kivact::ui::text_input(query)
+                .label("Search")
                 .variant(basic::InputGroupControl)
                 .placeholder("Search..."),),
         )
@@ -128,7 +134,9 @@ fn search_and_copy() -> impl IntoView {
         .style(style().width(320)),
         kivact::ui::input_group(
             "Link",
-            (kivact::ui::text_input("Link", url).variant(basic::InputGroupControl),),
+            (kivact::ui::text_input(url)
+                .label("Link")
+                .variant(basic::InputGroupControl),),
         )
         .end(
             kivact::ui::button("Copy")
@@ -144,18 +152,18 @@ fn search_and_copy() -> impl IntoView {
 }
 ```
 
-- `kivact::ui::text_area(label, signal).variant(basic::InputGroupControl)` は、入力欄の代わりに複数行の文字を受け取ります。`.block_start(..)` と `.block_end(..)` は、その上下に付け足し（文字数のカウンターなど）を置きます。
-- `.invalid(true)` は、グループ全体を invalid にします。
+- `kivact::ui::text_area(signal).label("..").variant(basic::InputGroupControl)` は、複数行のテキストで入力欄の代わりになります。`.block_start(..)` と `.block_end(..)` は、その上か下に付属の部品（文字数のカウンターなど）を置きます。
+- `.invalid(true)` は、グループ全体を無効な状態として印を付けます。
 
-## 長い一覧から 1 つまたは複数を選ぶ
+## 長い一覧から 1 つか複数の選択肢を選ぶ
 
-`kivact::ui::combobox("Framework", items, selected)` は、絞り込みつきの一覧を持つ入力欄です。項目は `ListItem` です。選択の型がモードを決めます。`signal(None)`（`Option<K>`）は 1 つ、`signal(Vec::new())` は複数を選びます。`.chips()` で外せるチップを表示します。
+`kivact::ui::combobox(items, selected)` は、絞り込みの付いた一覧を持つテキストボックスです。項目は `ListItem` です。選択の型がモードを決めます。`signal(None)`（`Option<K>`）は 1 つを選び、`signal(Vec::new())` は複数を選びます。取り外せるチップを出すには `.chips()` を足します。
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact_ui_basic as basic;
 
-fn frameworks() -> impl IntoView {
+#[component]
+fn frameworks() -> impl Element {
     let items = vec![
         ListItem::new("next", "Next.js"),
         ListItem::new("remix", "Remix"),
@@ -164,12 +172,12 @@ fn frameworks() -> impl IntoView {
     let one = signal(None);
     let many = signal(vec!["next"]);
     column((
-        kivact::ui::combobox("Framework", items.clone(), one)
+        kivact::ui::combobox(items.clone(), one)
             .placeholder("Select a framework")
             .name("Framework")
             .show_clear(true)
             .style(style().width(260)),
-        kivact::ui::combobox("Frameworks", items, many)
+        kivact::ui::combobox(items, many)
             .chips()
             .placeholder("Add framework")
             .name("Frameworks")
@@ -179,24 +187,25 @@ fn frameworks() -> impl IntoView {
 }
 ```
 
-- `.name(..)` を付けてください。コンボボックス自身はラベルを持たないので、これが accessible name になります。ラベルを表示したいときは `field` で包みます。
-- `.empty_text("No frameworks found.")` は、絞り込みで何もなかったときの文言を置き換え、`.disabled(true)` は無効にします。
-- 短い一覧なら、標準の `select("Language", items, signal)` のほうが簡単です。`basic::native_select(items, signal)` は、ブラウザーの素の select のように枠だけで描く select です。
+- 名前は `.name(..)` で設定します。目に見えるラベルを出すには、コンボボックスを `field` で囲みます。
+- `.empty_text("No frameworks found.")` は、絞り込みに一致する項目がないときの文言を置き換えます。`.disabled(true)` で無効にできます。
+- 項目が少ないなら、標準の `select(items, signal).label("Language")` のほうが簡単です。`basic::native_select(items, signal)` は、ブラウザ標準の枠の見た目の select です。
 
-## 日付や期間を選ぶ
+## 日付または期間を選ぶ
 
-`kivact::ui::date_input(label, date).attach(button)` は、自分のボタンからカレンダーを開きます。表示文字、空のときの案内、書式はボタンで指定します。期間は `date_range_input` で同じように編集します。
+`kivact::ui::date_input(date).attach(button)` は、自分のボタンからカレンダーを開きます。付けたボタンが、その文字、プレースホルダー、形式を持ちます。`date_range_input` も同じ形で期間を編集します。
 
 ```rust,no_run
 use kivact::i18n::{CalendarDate, DateRange};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn dates() -> impl IntoView {
+#[component]
+fn dates() -> impl Element {
     let due = signal(Some(CalendarDate::new(2026, 10, 3)));
     let stay = signal(None::<DateRange>);
     column((
-        kivact::ui::date_input("Due date", due)
+        kivact::ui::date_input(due)
             .presentation(kivact::ui::DatePresentation::Desktop)
             .variant(basic::DatePickerVariant::Flush)
             .calendar(|c| c.variable_rows(true))
@@ -212,7 +221,7 @@ fn dates() -> impl IntoView {
                 .variant(kivact::ui::ButtonVariant::Outline)
                 .style(style().width(280)),
             ),
-        kivact::ui::date_range_input("Stay", stay)
+        kivact::ui::date_range_input(stay)
             .presentation(kivact::ui::DatePresentation::Desktop)
             .variant(basic::DatePickerVariant::Flush)
             .calendar(|c| c.number_of_months(2).variable_rows(true))
@@ -227,14 +236,14 @@ fn dates() -> impl IntoView {
 }
 ```
 
-`.calendar(|c| ..)` は、ポップアップの中のカレンダーを設定します。常に見えているカレンダーには、`kivact::ui::calendar(signal).variable_rows(true)` か `kivact::ui::calendar(signal).variable_rows(true)` を使います。どちらも同じオプションを取ります。
+`.calendar(|c| ..)` は、ポップアップのカレンダーを設定します。いつも表示しておくカレンダーには、`kivact::ui::calendar(signal).variable_rows(true)` を使います。1 日のシグナルでも期間のシグナルでも使え、どちらも同じ設定を受け取ります。
 
 ```rust,no_run
 use kivact::i18n::{CalendarMonth, Weekday};
 use kivact::prelude::*;
-use kivact_ui_basic as basic;
 
-fn weekdays_only() -> impl IntoView {
+#[component]
+fn weekdays_only() -> impl Element {
     kivact::ui::calendar(signal(None::<kivact::i18n::CalendarDate>))
         .variable_rows(true)
         .default_month(CalendarMonth::new(2026, 10))
@@ -244,22 +253,24 @@ fn weekdays_only() -> impl IntoView {
 }
 ```
 
-月・曜日の名前と日付書式は現在の `Locale` に従います。操作ラベルは `calendar.*` のメッセージです。ボタン内では `Locale::format_date` またはアプリの書式関数を使えます。
+月と曜日の名前、日付の整形は、有効な `Locale` から来ます。カレンダーの操作の文言は `calendar.*` のメッセージを使います。トリガーの中身には `Locale::format_date` かアプリの整形関数を使えます。
 
 ## ワンタイムコードを求める
 
-`basic::input_otp(label, code, length)` は、1 文字につき 1 つのセルを表示し、`String` を編集します。ユーザーは 1 文字ずつ入力することも、コード全体を貼り付けることもできます。
+`basic::input_otp(code, length)` は、文字ごとに 1 つのセルを表示し、`String` を編集します。利用者は、コード全体を入力するか貼り付けられます。
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn verify() -> impl IntoView {
+#[component]
+fn verify() -> impl Element {
     let code = signal(String::new());
     let done = signal(String::new());
     column((
-        basic::input_otp("Verification code", code, 6)
-            .groups(&[3, 3])
+        basic::input_otp(code, 6usize)
+            .name("Verification code")
+            .groups(vec![3_usize, 3])
             .pattern(basic::OtpPattern::Digits)
             .on_complete(move |code: String| done.set(code)),
         basic::muted(move || format!("Entered: {}", done.get())),
@@ -268,12 +279,12 @@ fn verify() -> impl IntoView {
 }
 ```
 
-`.groups(&[3, 3])` はセルを区切りで分け、`.pattern(..)` は使える文字を制限し（`Digits` が既定で、`Alphanumeric` は英字も許します）、`.on_complete(..)` は最後のセルが埋まったときに実行されます。コードの検証はアプリの仕事です。
+`.groups(vec![3_usize, 3])` は、区切りでセルを分けます。`.pattern(..)` は使える文字を制限します（既定は `Digits`、`Alphanumeric` なら英字も入ります）。`.on_complete(..)` は最後のセルが埋まったときに実行されます。認証そのものはアプリが行います。
 
-## 関連項目
+## 関連
 
 - [オーバーレイ](overlays.md): フォームをダイアログやシートに入れる。
-- [ナビゲーション](navigation.md): ページの間のタブとウィザード。
-- rustdoc: 入力グループ、コンボボックス、ピッカー、`input_otp` は `cargo doc -p kivact-ui-basic --open`、`field`、`select`、`text_input` は `cargo doc -p kivact-ui --open`。
+- [ナビゲーション](navigation.md): 欄のページのあいだのタブやウィザード。
+- リファレンス: 入力グループ、ピッカー、`input_otp` は `cargo doc -p kivact-ui-basic --open`、`combobox`、`field`、`select`、`text_input` は `cargo doc -p kivact-ui --open`。
 
-枠のない入力は `.variant(basic::InputGroupControl)` を使い、実際のグループからフォーカス・不正状態・上下の余白を読みます。付属ボタンは通常の `button` に `InputGroupButtonSize` の variant を指定します。`IconXs` / `IconSm` は `.hide_label(true)` も指定します。リアクティブな寸法は `InputGroupButtonLook::default().size(size)` で、文字の表示は標準の `.hide_label(..)` で制御します。
+枠のない部品は `.variant(basic::InputGroupControl)` を使い、所属するグループのフォーカス、無効の状態、ブロックの間隔を観察します。グループのボタンは、見た目の `InputGroupButtonSize` の variant を持つ普通の `button` のビルダーです。`IconXs` と `IconSm` には `.hide_label(true)` を使ってください。

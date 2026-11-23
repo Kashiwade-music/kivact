@@ -18,16 +18,15 @@ enum Kind {
     Wgpu,
 }
 
+// xtask-allow(state): independent: shared is the pool's handles, taken once by shared_textures or signal_prepared; next is the next frame number, advanced only by draw; frames may be drawn before or after the handles are taken
 /// An engine sharing its frames as one image of a window.
 pub struct Producer {
     image: ExternalImageId,
     width: u32,
     height: u32,
     engine: Box<dyn Engine>,
-    // xtask-allow(state-fields): independent: the pool's handles until shared_textures or signal_prepared takes them, once per engine; draw numbers frames before or after that, since the engine's first frames wait for the preparation signal
     /// The pool's handles, until they are shared.
     shared: Option<SharedTextures>,
-    // xtask-allow(state-fields): identity: the number of the frame drawn next
     /// The frame drawn next.
     next: u64,
 }
@@ -169,7 +168,7 @@ impl Producer {
         self.engine.prepare(&shared.release)
     }
 
-    /// Texture `slot`'s last frame, read back as straight-alpha RGBA8
+    /// Texture `slot`'s last frame, read back as premultiplied RGBA8
     /// (`width` × `height` × 4 bytes), while no window uses it.
     pub fn read_back(&self, slot: u32) -> Result<Vec<u8>, String> {
         self.engine.read_back(slot)

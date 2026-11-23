@@ -15,7 +15,8 @@ use crate::state::Value;
 use crate::view::part_data::PartBinding;
 use crate::view::tree::Handlers;
 use crate::view::{MouseButton, PointerId};
-use kivact_runtime::{Notifier, Owner, Runtime};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Owner, Trigger};
 use kivact_style::asset::ImageFit;
 use kivact_style::draw::RegionId;
 use kivact_types::NodeId;
@@ -35,7 +36,7 @@ use crate::view::input::{FileEvent, KeyEvent, PointerEvent, WheelEvent};
 use crate::view::node_ref::NodeRef;
 use crate::view::span::Span;
 use kivact_runtime::Prop as InputProp;
-use kivact_runtime::{Callback, ErrorKind, UiError};
+use kivact_runtime::{ErrorKind, IntoHandler, UiError};
 use kivact_style::Style;
 
 use super::exit_layout::ExitLayout;
@@ -248,7 +249,7 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
     /// written after it overrides only what it sets. A closure that
     /// reads [`use_theme`](crate::style::use_theme) is
     /// recomputed when the theme visible at the node changes:
-    /// `.style(move || { let t = &use_theme(); style().padding(t.space().md) })`.
+    /// `.style(move || use_theme().with(|t| style().padding(t.get(&kivact::style::space::MD_VAR))))`.
     #[track_caller]
     fn style(mut self, s: impl IntoValue<Style>) -> Self {
         self.node_mut()
@@ -258,12 +259,25 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
     }
 
     /// Add a kit recipe's style layer (DevTools shows its name).
-    // xtask-allow(internal-contract): kit recipes tag their style layers with the recipe's name for DevTools
     #[doc(hidden)]
     fn recipe_style(mut self, name: RecipeName, s: impl IntoValue<Style>) -> Self {
         self.node_mut()
             .common
             .push_recipe_style(name, s.into_prop(), Location::caller());
+        self
+    }
+
+    /// Choose a look of the component: a value of a variant type its theme's
+    /// recipes know (`ButtonVariant::Ghost`, a kit's own enum). One value per
+    /// type; a later one replaces an earlier one. A theme that does not know the
+    /// type draws the plain look. It may be reactive (`move || ..`, a `Signal`).
+    #[track_caller]
+    fn variant<V: crate::view::Variant>(mut self, v: impl IntoValue<V>) -> Self {
+        self.node_mut()
+            .common
+            .variants
+            .get_or_insert_with(Default::default)
+            .set(v.into_prop());
         self
     }
 
@@ -318,11 +332,15 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
     /// ancestor cuts the animation short. Create it outside the removed
     /// branch so its owner can still be alive when the exit finishes.
     #[track_caller]
-    fn on_exit_complete(mut self, callback: impl Into<Callback<()>>) -> Self {
-        let callback = callback.into();
-        // An error goes to the error boundary of the callback's owner.
+    fn on_exit_complete<M>(mut self, callback: impl IntoHandler<(), M>) -> Self {
+        // A callback whose owner was removed with the node answers `Disposed`
+        // and does not run; a closure, or a callback of a live owner, runs.
+        let handler = callback.into_handler();
         self.node_mut().common.exit_complete = Some(kivact_runtime::Handler::from_fn(move |()| {
-            callback.call_if_alive(())
+            match handler.call(()) {
+                Err(error) if matches!(error.kind(), ErrorKind::Disposed { .. }) => Ok(()),
+                result => result.map(|_| ()),
+            }
         }));
         self
     }
@@ -376,7 +394,7 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
         common.roving_focus = Some(
             (move || kivact_engine::contract::RovingFocus {
                 orientation: orientation.get(),
-                rtl: direction.get() == ReadingDirection::Rtl,
+                rtl: direction == ReadingDirection::Rtl,
             })
             .into_prop(),
         );
@@ -385,7 +403,7 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
             if event.modifiers() != Modifiers::default() {
                 return Handled::No;
             }
-            let rtl = direction.get_untracked() == ReadingDirection::Rtl;
+            let rtl = direction == ReadingDirection::Rtl;
             let movement = match (orientation.get_untracked(), event.key()) {
                 (Orientation::Horizontal, Key::ArrowLeft) if !rtl => RovingMove::Previous,
                 (Orientation::Horizontal, Key::ArrowRight) if rtl => RovingMove::Previous,
@@ -468,9 +486,9 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
     /// This replaces the existing caller action.
     /// Attached part defaults continue to run after the caller action.
     #[track_caller]
-    fn on_press(mut self, f: impl Into<Callback<()>>) -> Self {
-        let f = f.into();
-        self.node_mut().common.set_press(move || f.call(()));
+    fn on_press<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
+        let handler = f.into_handler();
+        self.node_mut().common.set_press(move || handler.call(()));
         self
     }
 
@@ -513,12 +531,12 @@ pub(crate) type LayoutDrawFn = Rc<dyn Fn(&mut Draw, &kivact_editing::TextLayout)
 
 pub(crate) type DrawFn = Rc<dyn Fn(&mut Draw, Size)>;
 
+// xtask-allow(state): independent: each field is one builder modifier, written only by its own Element or Node modifier and moved out once at mount; drop_misused clears the ones a node kind cannot show, so every combination is a valid builder value
 /// Modifiers shared by every element builder.
 #[derive(Default)]
 pub(crate) struct Common {
     pub(crate) deferred_parts:
         Vec<Box<dyn FnOnce(crate::view::element_data::Node) -> crate::view::element_data::Node>>,
-    // xtask-allow(state-fields): option: an exit layout; absent means no exit layout
     pub(crate) exit_layout: Option<super::exit_layout::ExitLayout>,
     pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
     /// NodeRefs bound at mount (each once, in order).
@@ -527,21 +545,15 @@ pub(crate) struct Common {
     pub style: Vec<StyleLayer>,
     /// Canonical authored semantic patches, in declaration order.
     pub semantics: Vec<crate::view::semantics_data::SemanticsPatch>,
-    // xtask-allow(state-fields): option: absent means not focusable while disabled
     pub focusable_when_disabled: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): option: absent means no roving focus
     pub roving_focus: Option<InputProp<kivact_engine::contract::RovingFocus>>,
-    // xtask-allow(state-fields): option: absent means the node hit-tests
     /// `Some(false)`: the pointer passes through the subtree.
     pub hit_testable: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): option: absent means the pointer press does not focus
     /// Native pointer focus destination, resolved through the reference binding.
     pub(crate) focus_on_press: Option<crate::view::node_ref::NodeRef>,
     /// Event handlers.
     pub handlers: Handlers,
-    // xtask-allow(state-fields): option: absent means the node does not edit text
     pub(crate) text_editing: Option<Box<crate::view::editing_data::TextEditing>>,
-    // xtask-allow(state-fields): option: absent means no IME session
     /// The IME session of a node that edits its own text.
     pub(crate) ime: Option<crate::view::ime_session::ImeSession>,
     /// Behavior requirements cannot be erased by later caller modifiers.
@@ -550,48 +562,39 @@ pub(crate) struct Common {
     /// parts, which remain defaults even after later customizations. Their
     /// key, pointer and wheel handlers are entries of `handlers`.
     pub(crate) part_actions: crate::view::tree::PartActions,
-    // xtask-allow(state-fields): option: absent means the part takes no region defaults
     /// This part opts its own defaults into unhandled canvas-region input.
     pub(crate) part_region_events: bool,
     /// Mount hooks and references of attached parts, in attachment order.
     pub(crate) part_bindings: Vec<crate::view::part_data::PartBinding>,
-    // xtask-allow(state-fields): option: absent means no modal focus scope
     /// An attached behavior requires the existing Overlay modal focus scope.
     pub(crate) part_modal: bool,
     /// Setup declarations; drawing supplies only geometry for these identities.
     pub(crate) regions: Vec<Declaration>,
-    // xtask-allow(state-fields): option: absent means no layer below
     /// Draw layer behind the children.
     pub draw: Option<DrawFn>,
-    // xtask-allow(state-fields): option: absent means no layer above
     /// Draw layer over the children.
     pub draw_over: Option<DrawFn>,
-    // xtask-allow(state-fields): option: absent means no layout-driven drawing
     pub draw_with_layout: Option<LayoutDrawFn>,
-    // xtask-allow(state-fields): option: absent means the style's size
     /// Size hints for layout.
     pub intrinsic: Option<IntrinsicSize>,
-    // xtask-allow(state-fields): option: absent means the image's own fit
     /// How an image fills its box (image nodes only).
     pub image_fit: Option<InputProp<ImageFit>>,
-    // xtask-allow(state-fields): option: absent means the image's own colors
     /// Paint an image in the text color (image nodes only).
     pub monochrome: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): option: absent means the image plays
     /// Whether an animated image plays (image nodes only; default true).
     pub image_playing: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): option: absent means no shared layout
     /// The shared-layout id: a node that departs with it leaves its box for
     /// the next node of the same id to animate from.
     pub layout_id: Option<std::sync::Arc<str>>,
-    // xtask-allow(state-fields): option: absent means the builder's call site
     /// Creation location set by `.located_at_caller()`; replaces the builder's call site
     /// for every node the builder creates.
     pub at: Option<&'static Location<'static>>,
+    /// The variant values given with `.variant(..)`, one per type.
+    pub(crate) variants: Option<Box<crate::view::Variants>>,
 }
 
 /// The style layers and their origins are defined in [`style_layer`](crate::view::style_layer).
-pub(crate) use crate::view::style_layer::{LayerOrigin, RecipeName, StyleLayer};
+pub(crate) use crate::view::style_layer::{LayerFn, LayerOrigin, RecipeName, StyleLayer};
 
 impl Common {
     /// How many of the first layers of `style` are base layers.
@@ -613,7 +616,7 @@ impl Common {
         self.style.insert(
             index,
             StyleLayer {
-                f: s.into_fn(),
+                f: LayerFn::Plain(s.into_fn()),
                 at: Some(at),
                 origin: LayerOrigin::Base,
             },
@@ -623,7 +626,7 @@ impl Common {
     /// Append a style layer (`.style(..)`).
     pub(crate) fn push_style(&mut self, s: InputProp<Style>, at: &'static Location<'static>) {
         self.style.push(StyleLayer {
-            f: s.into_fn(),
+            f: LayerFn::Plain(style_fn(s)),
             at: Some(at),
             origin: LayerOrigin::Caller,
         });
@@ -637,7 +640,7 @@ impl Common {
         at: &'static Location<'static>,
     ) {
         self.style.push(StyleLayer {
-            f: s.into_fn(),
+            f: LayerFn::Plain(style_fn(s)),
             at: Some(at),
             origin: LayerOrigin::Recipe(name),
         });
@@ -654,7 +657,7 @@ impl Common {
         self.style.insert(
             index,
             StyleLayer {
-                f: s.into_fn(),
+                f: LayerFn::Plain(s.into_fn()),
                 at: Some(at),
                 origin: LayerOrigin::BaseRecipe(name),
             },
@@ -763,6 +766,7 @@ pub(super) enum RegistryPhase {
     Mounted,
 }
 
+// xtask-allow(state): independent: state is the region tables (adopt, retire and cleanup in mount/regions); phase is the mount phase, written only by Registry::bind; gestures is the pointer gesture record of mount/part_pointer; each adopted region keeps its own binding, so phase never contradicts state
 /// One canvas identity owns this lookup for its entire mounted lifetime.
 pub(crate) struct Registry {
     pub(super) node: NodeId,
@@ -770,8 +774,8 @@ pub(crate) struct Registry {
     pub(super) root: Rc<Target>,
     pub(super) at: &'static Location<'static>,
     pub(super) state: RefCell<State>,
-    pub(super) revision: Notifier,
-    pub(super) changed: Notifier,
+    pub(super) revision: Trigger,
+    pub(super) changed: Trigger,
     pub(super) phase: Cell<RegistryPhase>,
     /// The pointer gestures on the node and its regions (`mount::part_pointer`).
     pub(super) gestures: RefCell<Gestures>,
@@ -837,4 +841,17 @@ pub(super) struct Constraints {
 pub(crate) enum Modifier {
     Caller(Box<Common>),
     Part(Box<dyn FnOnce(Node) -> Node>),
+}
+
+/// The closure of a style layer. A style that never changes is kept for the
+/// node's lifetime, so it is kept without the spare capacity its builder
+/// grew (a few hundred bytes per node).
+fn style_fn(s: InputProp<Style>) -> Rc<dyn Fn() -> Style> {
+    match s.fixed() {
+        Some(mut style) => {
+            kivact_style::internal::shrink(&mut style);
+            Rc::new(move || style.clone())
+        }
+        None => s.into_fn(),
+    }
 }

@@ -1,7 +1,6 @@
 //! Role: Node editor sockets, links, deletion and parameters through the public API.
 
 use crate::node_support::app_node_editor;
-use kivact::geometry::{Point, Size};
 use kivact::prelude::*;
 use kivact::view::A11yAction;
 use kivact_ui_creative as ui;

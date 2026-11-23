@@ -1,16 +1,21 @@
 //! Role: Render one combobox query and selection through themed editor and list parts.
 use super::data::Combobox;
-use super::labels::{KnownLabels, label};
+use super::data::ComboboxMode;
+use super::labels::label;
 use super::notices::Notices;
+use crate::combobox::look::ComboboxTheme;
+use crate::helpers::{is_named, report_unnamed};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::{ButtonVariant, button, text_input};
-use kivact_core::custom::PartState;
-use kivact_core::state::{IntoBinding, IntoValue, ItemKey, Value, binding, memo, signal};
+use kivact_core::custom::{PartFacts, PartState};
+use kivact_core::state::{IntoValue, ItemKey, Value, binding, memo, signal};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, Placement, PointerKind, PointerPhase, View, column, for_each,
     icon, node, node_ref, overlay, row, scroll, show, text,
 };
-use kivact_interaction::{ComboboxApi, ComboboxMode, ListItem, Selection, use_combobox};
+use kivact_interaction::{
+    ComboboxApi, ComboboxOptions, ListItem, Selection, known_options, use_combobox,
+};
 
 /// The combobox frame takes no input while the combobox is disabled.
 fn frame_availability(disabled: bool) -> kivact_core::view::Availability {
@@ -19,6 +24,19 @@ fn frame_availability(disabled: bool) -> kivact_core::view::Availability {
     } else {
         kivact_core::view::Availability::default()
     }
+}
+
+/// The combobox frame rings while the focus is within it, and takes no input
+/// while the combobox is disabled.
+fn frame_state(within: bool, disabled: bool) -> PartState {
+    PartState::fixed(PartFacts {
+        focus: if within {
+            kivact_core::view::Focus::Focused
+        } else {
+            kivact_core::view::Focus::None
+        },
+        availability: frame_availability(disabled),
+    })
 }
 
 pub(super) fn render<K: ItemKey>(mut field: Combobox<K>) -> View {
@@ -41,9 +59,9 @@ pub(super) fn render<K: ItemKey>(mut field: Combobox<K>) -> View {
         empty,
         clear,
         presentation,
-        variants,
         ..
     } = field;
+    let variants = root.authored().variants();
     let input_ref = node_ref();
     let anchor = node_ref();
     let within = anchor.focus_within();
@@ -72,16 +90,9 @@ pub(super) fn render<K: ItemKey>(mut field: Combobox<K>) -> View {
         row((editor, tokens, clear_button, toggle))
             .node_ref(anchor)
             .with_node(move |node| node.focus_on_press(input_ref)),
-        |r| r.combobox_recipes().frame_recipe(),
+        |r: &ComboboxTheme| r.frame_recipe(),
         &variants,
-        move || PartState {
-            focus: if within.get() {
-                kivact_core::view::Focus::Focused
-            } else {
-                kivact_core::view::Focus::None
-            },
-            availability: frame_availability(disabled.get()),
-        },
+        move || frame_state(within.get(), disabled.get()),
     );
     let empty =
         empty.unwrap_or_else(|| kivact_core::i18n::message("combobox.empty", "No results found."));
@@ -107,7 +118,8 @@ fn suggestions<K: ItemKey>(
     source: Value<Vec<ListItem<K>>>,
     name: Value<String>,
     empty: Value<String>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
+    input: Option<kivact_core::view::NodeRef>,
 ) -> View {
     let rows = for_each(list.visible(), |key| key.clone(), {
         let variants = variants.clone();
@@ -118,7 +130,7 @@ fn suggestions<K: ItemKey>(
             let shown = memo(move || label(source, &key));
             with_recipe_style(
                 node().part(part),
-                |r| r.combobox_recipes().option_recipe(),
+                |r: &ComboboxTheme| r.option_recipe(),
                 &variants,
                 move || state.get(),
             )
@@ -126,14 +138,19 @@ fn suggestions<K: ItemKey>(
         }
     });
     let rows = scroll(column(rows))
-        .with_node(|node| node.part(list.content()))
+        .with_node(|node| {
+            node.part(match input {
+                Some(input) => list.content_for(input),
+                None => list.content(),
+            })
+        })
         .name(name);
     let no_results = show(move || list.visible().with(Vec::is_empty), {
         let variants = variants.clone();
         move || {
             with_recipe_style(
                 text(empty),
-                |r| r.combobox_recipes().empty_recipe(),
+                |r: &ComboboxTheme| r.empty_recipe(),
                 &variants,
                 PartState::default,
             )
@@ -141,7 +158,7 @@ fn suggestions<K: ItemKey>(
     });
     with_recipe_style(
         column((rows, no_results)),
-        |r| r.combobox_recipes().surface_recipe(),
+        |r: &ComboboxTheme| r.surface_recipe(),
         &variants,
         PartState::default,
     )
@@ -155,7 +172,7 @@ fn selected_chips<K: ItemKey>(
     known: Value<Vec<ListItem<K>>>,
     disabled: Value<bool>,
     input_ref: kivact_core::view::NodeRef,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> Option<View> {
     if chips {
         match selection {
@@ -185,13 +202,13 @@ fn selected_chips<K: ItemKey>(
                                             .collect(),
                                     )
                                 }),
-                            |r| r.combobox_recipes().remove_recipe(),
+                            |r: &ComboboxTheme| r.remove_recipe(),
                             &variants,
                             PartState::default,
                         );
                         with_recipe_style(
                             row((text(shown), remove)),
-                            |r| r.combobox_recipes().chip_recipe(),
+                            |r: &ComboboxTheme| r.chip_recipe(),
                             &variants,
                             PartState::default,
                         )
@@ -244,7 +261,7 @@ fn editor_view<K: ItemKey>(
     free_text: bool,
     placeholder: Value<String>,
     presentation: crate::SelectPresentation,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     root: &mut kivact_core::view::Node,
 ) -> View {
     let EditorState {
@@ -256,6 +273,7 @@ fn editor_view<K: ItemKey>(
         invalid,
     } = state;
     let shown = list.is_open();
+    let tap = kivact_interaction::use_sheet_tap(move || !disabled.get() && !shown.get());
     let filtering = list.is_filtering();
     let query = list.query();
     let displayed = binding(
@@ -284,7 +302,8 @@ fn editor_view<K: ItemKey>(
         },
     );
     let mut editor = with_recipe_style(
-        text_input(name, displayed)
+        text_input(displayed)
+            .label(name)
             .node_ref(input_ref)
             .disabled(disabled)
             .invalid(invalid)
@@ -297,8 +316,9 @@ fn editor_view<K: ItemKey>(
                 keys
             })
             .with_node(move |node| node.part(list.input()))
-            .on_pointer(editor_pointer(list, disabled, input_ref, presentation)),
-        |r| r.combobox_recipes().input_recipe(),
+            .with_node(move |node| node.part(tap.target()))
+            .on_pointer(editor_pointer(list, disabled, tap, presentation)),
+        |r: &ComboboxTheme| r.input_recipe(),
         variants,
         PartState::default,
     );
@@ -311,45 +331,19 @@ fn editor_view<K: ItemKey>(
     editor.into_view()
 }
 
-/// Recognize sheet taps and pointer opens through the existing gesture machine.
+/// Open the list from a pointer press, or the sheet from a touch tap.
 fn editor_pointer<K: ItemKey>(
     list: ComboboxApi<K>,
     disabled: Value<bool>,
-    input_ref: kivact_core::view::NodeRef,
+    tap: kivact_interaction::SheetTapApi,
     presentation: crate::SelectPresentation,
 ) -> impl Fn(kivact_core::view::PointerEvent) -> Handled {
     let shown = list.is_open();
-    let bounds = input_ref.rect();
-    let gesture = kivact_core::state::machine(
-        crate::select::machine::SheetGesture::Idle,
-        move || crate::select::machine::Machine {
-            readiness: if !disabled.get() && !shown.get() {
-                crate::select::machine::Readiness::Ready
-            } else {
-                crate::select::machine::Readiness::Unavailable
-            },
-            bounds: bounds.get(),
-            slop: kivact_core::style::use_theme()
-                .get()
-                .ext::<kivact_interaction::InteractionPolicy>()
-                .select
-                .sheet_slop,
-        },
-        |_, effect| match effect {},
-    );
     move |event| {
-        gesture.send(crate::select::machine::Event::Pointer(event));
+        tap.pointer(event);
         if !disabled.get_untracked() {
-            if presentation.uses_sheet()
-                && matches!(
-                    gesture.get(),
-                    crate::select::machine::SheetGesture::Released(
-                        crate::select::machine::Outcome::Tap
-                    )
-                )
-            {
+            if presentation.uses_sheet() && tap.take_tap() {
                 list.show_sheet();
-                gesture.send(crate::select::machine::Event::Reset);
             } else if matches!(event.phase(), PointerPhase::Down(_))
                 && ((event.kind() != PointerKind::Touch && !shown.get_untracked())
                     || (event.kind() == PointerKind::Touch && !presentation.uses_sheet()))
@@ -397,7 +391,7 @@ fn popup_surface<K: ItemKey>(
     source: Value<Vec<ListItem<K>>>,
     name: Value<String>,
     empty: Value<String>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
     anchor: kivact_core::view::NodeRef,
     inline: bool,
 ) -> View {
@@ -407,7 +401,7 @@ fn popup_surface<K: ItemKey>(
     show(
         move || shown.get() && !sheet_shown.get(),
         move || {
-            let content = suggestions(list, source, name, empty, surface_variants.clone());
+            let content = suggestions(list, source, name, empty, surface_variants.clone(), None);
             if inline {
                 content
             } else {
@@ -416,9 +410,7 @@ fn popup_surface<K: ItemKey>(
                     .offset(
                         kivact_core::style::use_theme()
                             .get()
-                            .ext::<crate::UiTokens>()
-                            .combobox
-                            .popup_offset,
+                            .get(&crate::combobox::look::POPUP_OFFSET_VAR),
                     )
                     .on_dismiss(move |_| list.hide())
                     .into_view()
@@ -434,7 +426,7 @@ fn sheet_surface<K: ItemKey>(
     source: Value<Vec<ListItem<K>>>,
     name: Value<String>,
     empty: Value<String>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
     disabled: Value<bool>,
     placeholder: Value<String>,
 ) -> View {
@@ -446,16 +438,16 @@ fn sheet_surface<K: ItemKey>(
         }
     });
     let sheet_input = node_ref();
-    let sheet_list = list.with_input_ref(sheet_input);
     let sheet_search = kivact_core::i18n::message("combobox.sheet_search", "Search options");
     crate::dialog(name, sheet_open)
-        .mode(kivact_interaction::DialogMode::Drawer(
+        .mode(crate::dialog::DialogKind::Drawer(
             kivact_core::geometry::Edge::Bottom,
         ))
         .initial_focus(sheet_input)
         .content(move || {
             column((
-                text_input(sheet_search, query)
+                text_input(query)
+                    .label(sheet_search)
                     .node_ref(sheet_input)
                     .disabled(disabled)
                     .placeholder(placeholder)
@@ -466,8 +458,15 @@ fn sheet_surface<K: ItemKey>(
                         Key::Escape,
                         Key::Backspace,
                     ])
-                    .with_node(move |node| node.part(sheet_list.input())),
-                suggestions(sheet_list, source, name, empty, variants.clone()),
+                    .with_node(move |node| node.part(list.input_for(sheet_input))),
+                suggestions(
+                    list,
+                    source,
+                    name,
+                    empty,
+                    variants.clone(),
+                    Some(sheet_input),
+                ),
             ))
         })
         .into_view()
@@ -487,7 +486,13 @@ struct Mounted<K: ItemKey> {
 /// Configure shared interaction and retain the labels required by its selection.
 fn prepare<K: ItemKey>(field: &mut Combobox<K>) -> Mounted<K> {
     let selection = field.selection;
-    let name = field.root.accessible_name().unwrap_or(field.label);
+    let named = is_named(&mut field.root) || field.label.is_some();
+    report_unnamed(named, "combobox", field.at);
+    let name = field
+        .root
+        .accessible_name()
+        .or(field.label)
+        .unwrap_or_else(|| String::new().into_value());
     let disabled = field
         .root
         .accessible_disabled()
@@ -500,7 +505,7 @@ fn prepare<K: ItemKey>(field: &mut Combobox<K>) -> Mounted<K> {
     if let Some(observer) = field.on_edit {
         edit.on_edit(move |phase| observer.call(phase));
     }
-    let known = KnownLabels::new(field.options);
+    let known = known_options(field.options);
     let retained_labels = known.values();
     let notices = Notices::new();
     let selection = editable_selection(selection, retained_labels, notices, edit);
@@ -530,7 +535,7 @@ fn prepare<K: ItemKey>(field: &mut Combobox<K>) -> Mounted<K> {
         }
         rows
     });
-    known.observe(label_source, selection);
+    known.follow(label_source, selection);
     let known = known.values();
     list = filter_options(
         list,
@@ -555,27 +560,21 @@ fn prepare<K: ItemKey>(field: &mut Combobox<K>) -> Mounted<K> {
 fn configured_list<K: ItemKey>(
     options: Value<Vec<ListItem<K>>>,
     selection: Selection<K>,
-    controlled: Option<kivact_core::state::Binding<String>>,
-    controlled_open: Option<kivact_core::state::Binding<bool>>,
+    controlled: Option<kivact_core::state::Signal<String>>,
+    controlled_open: Option<kivact_core::state::Signal<bool>>,
     mode: Option<ComboboxMode>,
     search: Option<super::data::Search<K>>,
     debounce: Value<std::time::Duration>,
 ) -> (ComboboxApi<K>, bool) {
-    let local_open = signal(false);
-    let (inline, open) = match mode.unwrap_or(ComboboxMode::Popup) {
-        ComboboxMode::Inline => (true, binding(|| true, |_: bool| {})),
-        ComboboxMode::Popup => (
-            false,
-            controlled_open.unwrap_or_else(|| local_open.into_binding()),
-        ),
+    let inline = matches!(mode.unwrap_or(ComboboxMode::Popup), ComboboxMode::Inline);
+    let query = controlled.unwrap_or_else(|| signal(String::new()));
+    let open = if inline {
+        signal(true)
+    } else {
+        controlled_open.unwrap_or_else(|| signal(false))
     };
-    let mut list = use_combobox(options, selection).debounce(debounce);
-    if let Some(query) = controlled {
-        list = list.query_binding(query);
-    }
-    if !inline {
-        list = list.popup_with_focus_transfer(open, list.is_sheet_open());
-    }
+    let mut list = use_combobox(options, selection, query, open, ComboboxOptions { inline })
+        .debounce(debounce);
     if let Some(search) = search {
         list = list.search(move |query| search(query));
     }
@@ -597,7 +596,7 @@ fn editor_actions<K: ItemKey>(
             show(
                 move || clear.get() && value.with(Option::is_some),
                 move || {
-                    button("Clear")
+                    button(kivact_core::i18n::message("combobox.clear", "Clear"))
                         .variant(ButtonVariant::Ghost)
                         .hide_label(true)
                         .icon(icon("x"))
@@ -615,15 +614,18 @@ fn editor_actions<K: ItemKey>(
         Selection::Multiple(_) => None,
     };
     let toggle = (!inline).then(|| {
-        button("Toggle options")
-            .variant(ButtonVariant::Ghost)
-            .hide_label(true)
-            .icon(icon("chevron-down"))
-            .disabled(disabled)
-            .focusable(false)
-            .with_node(move |node| node.focus_on_press(input_ref))
-            .on_press(move || list.toggle())
-            .into_view()
+        button(kivact_core::i18n::message(
+            "combobox.toggle",
+            "Toggle options",
+        ))
+        .variant(ButtonVariant::Ghost)
+        .hide_label(true)
+        .icon(icon("chevron-down"))
+        .disabled(disabled)
+        .focusable(false)
+        .with_node(move |node| node.focus_on_press(input_ref))
+        .on_press(move || list.toggle())
+        .into_view()
     });
     (clear_button, toggle)
 }

@@ -2,27 +2,27 @@
 
 [English](../../../en/soft/how-to-guide/motion.md)
 
-独自の描画フィードバックには、有効なテーマのモーショントークンを使います。この例ではポインターが重なったときに背景色を補間します。既定の装飾用トランジションは、動きを減らす設定に従います。
+独自の描画フィードバックには、キットの値を使います。速い動きの 125 ms と、キットの標準のイージングです。
 
 ```rust,no_run
-use kivact::motion::Transition;
+use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 use kivact_ui_soft as soft;
 
-fn hover_surface() -> impl IntoView {
-    soft::styled_text("Build information").style(|| {
-        let p = kivact::style::use_tokens::<soft::Tokens>();
+#[component]
+fn hover_surface() -> impl Element {
+    soft::styled_text("Build information").style(
         style()
-            .padding(p.spacing.s2)
-            .radius(p.radius.element)
-            .background(p.colors.bg_surface)
-            .hover(style().background(p.colors.bg_muted))
+            .padding(soft::SPACE_S2)
+            .border_radius(soft::RADIUS_ELEMENT)
+            .background(soft::BG_SURFACE)
+            .hover(style().background(soft::BG_MUTED))
             .transition(
                 TransitionProp::All,
-                Transition::tween(p.motion.fast as f64, p.motion.ease_standard.clone()),
-            )
-    })
+                Transition::tween(125.0, Easing::CubicBezier(0.24, 1.0, 0.4, 1.0)),
+            ),
+    )
 }
 ```
 

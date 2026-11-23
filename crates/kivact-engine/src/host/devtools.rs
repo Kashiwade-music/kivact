@@ -1,22 +1,30 @@
 //! Role: Host-side DevTools state: overlays, pick, keys and emulation.
-use crate::contract::{DevtoolsKeys, DevtoolsOverlay, EngineEmulation, KeyChord, OverlayBox};
-use arvane::Engine;
-use kivact_types::geometry3d::Matrix4;
-use kivact_types::render::{
-    CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Paint, Plane, RasterGrid,
+use crate::contract::EngineEmulation;
+#[cfg(feature = "devtools")]
+use crate::contract::{DevtoolsKeys, DevtoolsOverlay, KeyChord, OverlayBox};
+#[cfg(feature = "devtools")]
+use arvane_protocol::{
+    CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Plane, RasterGrid, RasterPaint,
     RenderCmd, RenderScene,
 };
-use kivact_types::{
-    ComputedTextStyle, Environment, Key, KeyCode, KeyInput, KeyPhase, Point, PointerClass, Rect,
-    Rgba, Size, WindowId,
-};
+#[cfg(feature = "devtools")]
+use arvane_text::TextEngine;
+#[cfg(feature = "devtools")]
+use kivact_types::geometry3d::Matrix4;
+#[cfg(feature = "devtools")]
+use kivact_types::{ComputedTextStyle, Key, KeyInput, KeyPhase, Point, Rect, Rgba, WindowId};
+use kivact_types::{Environment, KeyCode, PointerClass, Size};
+#[cfg(feature = "devtools")]
 use std::collections::BTreeMap;
 
 /// The DevTools state the host applies to its windows.
 #[derive(Default)]
 pub(super) struct DevtoolsHost {
+    #[cfg(feature = "devtools")]
     pub(super) overlays: BTreeMap<WindowId, DevtoolsOverlay>,
+    #[cfg(feature = "devtools")]
     pub(super) pick: Option<WindowId>,
+    #[cfg(feature = "devtools")]
     pub(super) keys: DevtoolsKeys,
     pub(super) emulation: EngineEmulation,
 }
@@ -60,6 +68,7 @@ fn valid_scale(scale: &f64) -> bool {
 }
 
 /// Whether `input` is the key chord `chord` (on a press).
+#[cfg(feature = "devtools")]
 pub(super) fn chord_matches(chord: &KeyChord, input: &KeyInput) -> bool {
     if input.modifiers != chord.modifiers || !matches!(input.phase, KeyPhase::Down { .. }) {
         return false;
@@ -110,14 +119,15 @@ pub(super) fn physical_letter(code: KeyCode) -> Option<char> {
 
 /// Add the DevTools overlay of `overlay` to `composition` as the layer
 /// `LayerKey::Devtools`, referenced last from the root layer.
+#[cfg(feature = "devtools")]
 pub(super) fn append_overlay_layer(
     overlay: &DevtoolsOverlay,
-    composition: &mut Composition,
-    engine: &mut Engine,
+    mut composition: Composition,
+    engine: &mut TextEngine,
     size: Size,
-) {
+) -> Composition {
     if composition.layers.is_empty() {
-        return;
+        return composition;
     }
     let index = composition.layers.len() as u32;
     composition.layers.push(CompositeLayer {
@@ -133,16 +143,19 @@ pub(super) fn append_overlay_layer(
         backface: Default::default(),
         grid: RasterGrid::Target,
         effects: LayerEffects::default(),
+        content_version: crate::lower::content_versions::fresh_content_version(),
         items: vec![LayerItem::Raster(overlay_scene(overlay, engine))],
     });
     composition.layers[0].items.push(LayerItem::Layer {
         index,
         clips: Vec::new(),
     });
+    composition
 }
 
 /// The scene of the overlay: box fills, fills, outlines and labels.
-fn overlay_scene(overlay: &DevtoolsOverlay, engine: &mut Engine) -> RenderScene {
+#[cfg(feature = "devtools")]
+fn overlay_scene(overlay: &DevtoolsOverlay, engine: &mut TextEngine) -> RenderScene {
     let mut commands = Vec::new();
     for overlay_box in &overlay.boxes {
         push_box(&mut commands, overlay_box);
@@ -150,7 +163,7 @@ fn overlay_scene(overlay: &DevtoolsOverlay, engine: &mut Engine) -> RenderScene 
     for fill in &overlay.fills {
         commands.push(RenderCmd::Rect {
             rect: fill.rect,
-            fill: Paint::Solid(fill.color),
+            fill: RasterPaint::Solid(fill.color),
         });
     }
     for outline in &overlay.outlines {
@@ -167,6 +180,7 @@ fn overlay_scene(overlay: &DevtoolsOverlay, engine: &mut Engine) -> RenderScene 
     RenderScene { commands }
 }
 
+#[cfg(feature = "devtools")]
 fn push_box(commands: &mut Vec<RenderCmd>, overlay_box: &OverlayBox) {
     let colors = [
         (overlay_box.margin, Rgba::from_hex(0xf6b26b, 0.4)),
@@ -177,13 +191,14 @@ fn push_box(commands: &mut Vec<RenderCmd>, overlay_box: &OverlayBox) {
     for (rect, color) in colors {
         commands.push(RenderCmd::Rect {
             rect,
-            fill: Paint::Solid(color),
+            fill: RasterPaint::Solid(color),
         });
     }
 }
 
 /// A label: black behind white text, shaped by Arvane's engine.
-fn push_label(commands: &mut Vec<RenderCmd>, at: Point, text: &str, engine: &mut Engine) {
+#[cfg(feature = "devtools")]
+fn push_label(commands: &mut Vec<RenderCmd>, at: Point, text: &str, engine: &mut TextEngine) {
     let white = Rgba {
         r: 1.0,
         g: 1.0,
@@ -205,7 +220,7 @@ fn push_label(commands: &mut Vec<RenderCmd>, at: Point, text: &str, engine: &mut
             width: shaped.size.width,
             height: shaped.size.height,
         },
-        fill: Paint::Solid(Rgba {
+        fill: RasterPaint::Solid(Rgba {
             r: 0.0,
             g: 0.0,
             b: 0.0,
@@ -216,7 +231,7 @@ fn push_label(commands: &mut Vec<RenderCmd>, at: Point, text: &str, engine: &mut
         commands.push(RenderCmd::Glyphs {
             run: run.clone(),
             origin: at,
-            fill: Some(Paint::Solid(white)),
+            fill: Some(RasterPaint::Solid(white)),
             stroke: None,
             order: Default::default(),
         });

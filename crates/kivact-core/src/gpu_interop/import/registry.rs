@@ -2,17 +2,18 @@
 
 use crate::view::state::{ViewState, current_window};
 use kivact_engine::contract::HostRequest;
+use kivact_runtime::Owner;
 use kivact_runtime::Signal;
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{ErrorKind, UiError};
-use kivact_runtime::{Owner, Runtime};
 use kivact_types::{ExternalImageId, ExternalImport, GpuAdapter, RequestId, WindowId};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::panic::Location;
 
+// xtask-allow(state): independent: imports is the import table (register gives ids, forget drops them); adapter is each window's device adapter, written only by adapter_changed; whether an import fits the adapter is kept in that import's own status signal
 /// What `gpu_interop` keeps per App: its imports and the adapter of each
-/// window's device. The client installs it as a runtime extension when the
-/// App is created.
+/// window's device. It is made on the first use ([`state`]).
 pub(crate) struct State {
     imports: RefCell<Imports>,
     /// The adapter of the device drawing each window; a window without an
@@ -27,12 +28,21 @@ impl State {
             adapter: owner.signal(BTreeMap::new(), at),
         }
     }
+}
 
-    /// The gpu-interop state of `rt`'s App.
-    #[inline]
-    pub(crate) fn of(rt: &Runtime) -> &State {
-        rt.ext::<State>()
-    }
+/// The runtime extension holding the gpu-interop state of an App. It is
+/// installed with the view state at launch, and the state is made on the
+/// first call ([`state`]).
+#[derive(Default)]
+pub(crate) struct StateSlot(kivact_types::cell::Deferred<State>);
+
+/// The gpu-interop state of `rt`'s App, made on the first call.
+#[track_caller]
+pub(crate) fn state(rt: &Runtime) -> &State {
+    let at = Location::caller();
+    StateSlot::of(rt)
+        .0
+        .get_or_init(|| State::new(rt.root(), at))
 }
 
 /// The imports of an App, by id.
@@ -152,7 +162,7 @@ pub enum ImportStatus {
 /// outside every owner.
 #[track_caller]
 pub fn adapter() -> Option<GpuAdapter> {
-    let owner = Owner::ambient("adapter", Location::caller());
+    let owner = Owner::running("adapter", Location::caller());
     let window = current_window(owner);
     let adapter = with_adapter(owner, window, |adapter| adapter.cloned());
     if adapter.is_none() {
@@ -167,14 +177,14 @@ pub fn adapter() -> Option<GpuAdapter> {
 /// the adapter started.
 #[track_caller]
 pub(crate) fn has_adapter() -> bool {
-    let owner = Owner::ambient("Viewport::gpu_frame", Location::caller());
+    let owner = Owner::running("Viewport::gpu_frame", Location::caller());
     with_adapter(owner, current_window(owner), |adapter| adapter.is_some())
 }
 
 /// `f` of `window`'s adapter, tracked.
 fn with_adapter<R>(owner: Owner, window: WindowId, f: impl FnOnce(Option<&GpuAdapter>) -> R) -> R {
     let rt = owner.runtime();
-    let signal = State::of(&rt).adapter;
+    let signal = state(&rt).adapter;
     drop(rt);
     signal.with(|adapters| f(adapters.get(&window)))
 }
@@ -193,7 +203,7 @@ fn demand(rt: &Runtime, window: WindowId) {
 
 /// The window answered the import `image` (`HostEvent::ExternalImported`).
 pub(crate) fn imported(rt: &Runtime, image: ExternalImageId, result: &ExternalImport) {
-    let imports = State::of(rt).imports.borrow();
+    let imports = state(rt).imports.borrow();
     // Dropped meanwhile (its owner is gone).
     let Some(import) = imports.images.get(&image) else {
         return;
@@ -224,7 +234,7 @@ pub(crate) fn imported(rt: &Runtime, image: ExternalImageId, result: &ExternalIm
 /// its imports of another device are lost. The other windows keep theirs.
 pub(crate) fn adapter_changed(rt: &Runtime, window: WindowId, adapter: Option<&GpuAdapter>) {
     let generation = adapter.map(|a| a.generation);
-    let statuses: Vec<Signal<ImportPhase>> = State::of(rt)
+    let statuses: Vec<Signal<ImportPhase>> = state(rt)
         .imports
         .borrow()
         .images
@@ -232,7 +242,7 @@ pub(crate) fn adapter_changed(rt: &Runtime, window: WindowId, adapter: Option<&G
         .filter(|import| import.window == window)
         .map(|import| import.status)
         .collect();
-    let signal = State::of(rt).adapter;
+    let signal = state(rt).adapter;
     // Only the adapter and the statuses are written here: no owner applies.
     rt.enter(|| {
         let mut adapters = signal.get_untracked();

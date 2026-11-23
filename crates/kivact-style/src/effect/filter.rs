@@ -5,10 +5,10 @@ use std::sync::Arc;
 use kivact_runtime::UiError;
 use kivact_types::FilterOp;
 
-use crate::color::Color;
+use crate::color_value::Color;
 use crate::geometry::Point;
 use crate::shader::ShaderFilter;
-use crate::theme::value::{Theme, ThemeColor};
+use crate::theme::value::Theme;
 
 use super::filter_graph::{AuthoredGraph, FilterGraph};
 
@@ -42,7 +42,7 @@ pub(crate) enum FilterFn {
 /// ```
 /// use kivact::prelude::*;
 /// use kivact::style::{rgba};
-/// use kivact::draw::Filter;
+/// use kivact::style::Filter;
 /// // CSS `filter: brightness(1.12) drop-shadow(0 0 4px rgba(90,169,255,.5))`
 /// let s = style().filter(
 ///     Filter::new()
@@ -108,12 +108,12 @@ impl Filter {
         x: impl Into<f64>,
         y: impl Into<f64>,
         blur: impl Into<f64>,
-        color: impl ThemeColor,
+        color: impl Into<Color>,
     ) -> Filter {
         self.ops.push(FilterFn::DropShadow {
             offset: Point::new(x.into(), y.into()),
             blur: blur.into(),
-            color: Color::of(color),
+            color: color.into(),
         });
         self
     }

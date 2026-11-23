@@ -1,98 +1,58 @@
-//! Role: The time_editor_builder! macro giving Timeline and DopeSheet a builder.
+//! Role: The time_editor_builder! macro that declares a timeline or dope sheet component.
 
+/// Declare a time editor component named `$function`, over items of `$item`
+/// with lanes of `$height` pixels. Its props are the settings of the editor;
+/// `items` and `state` are its positional arguments.
 macro_rules! time_editor_builder {
-    ($type:ident, $function:ident, $item:path, $height:expr, $type_doc:literal, $function_doc:literal) => {
-        #[doc = $type_doc]
-        pub struct $type {
-            inner: $crate::editors::time::TimeEditor<$item>,
-        }
-        #[doc = $function_doc]
-        #[track_caller]
+    ($function:ident, $item:path, $height:expr, $doc:literal) => {
+        #[::kivact::component]
+        #[doc = $doc]
         pub fn $function(
-            items: impl kivact::state::IntoValue<Vec<$item>>,
+            items: ::kivact::state::Value<Vec<$item>>,
             state: $crate::TimeState,
-        ) -> $type {
-            $type {
-                inner: $crate::editors::time::TimeEditor::new(items, state, $height),
-            }
-        }
-        impl $type {
-            $crate::editors::shared::lane::lane_extension_methods!(inner.extensions);
-            /// Report absolute item proposals and gesture boundaries.
-            /// The application applies requests and restores its items on cancellation.
-            pub fn on_edit<R: kivact::view::HandlerResult>(
-                mut self,
-                f: impl Fn(
+            #[prop(default = false)] snap: ::kivact::state::Value<bool>,
+            #[prop(default = 1.0)] step: ::kivact::state::Value<f64>,
+            time_format: Option<::std::rc::Rc<dyn Fn(f64) -> String>>,
+            ruler_ticks: Option<$crate::editors::shared::ruler::RulerTicks>,
+            zoom_range: Option<::kivact::state::Value<::kivact::interaction::ScalarRange>>,
+            min_duration: Option<::kivact::state::Value<f64>>,
+            lanes: Option<::kivact::state::Value<Vec<$crate::editors::shared::model::Lane>>>,
+            on_edit: Option<
+                ::kivact::state::Callback<
                     $crate::editors::shared::model::EditorEvent<
                         $crate::editors::time::model::TimeRequest,
                     >,
-                ) -> R
-                + 'static,
-            ) -> Self {
-                self.inner.on_edit = Some(kivact::state::callback(f));
-                self
+                >,
+            >,
+            #[prop(default = Vec::new())] lane_cells: Vec<$crate::editors::shared::lane::LaneCell>,
+            on_lane_activate: Option<::kivact::state::Callback<u64>>,
+            on_activate: Option<::kivact::state::Callback<u64>>,
+            context_menu: Option<$crate::editors::shared::lane::EditorMenu>,
+        ) -> impl ::kivact::view::Element {
+            let mut editor = $crate::editors::time::TimeEditor::new(items, state, $height);
+            editor.snap = snap;
+            editor.step = step;
+            editor.lanes = lanes;
+            editor.on_edit = on_edit;
+            editor.extensions.lane_activate = on_lane_activate;
+            editor.extensions.item_activate = on_activate;
+            editor.extensions.menu = context_menu.map(|menu| menu.0);
+            for cell in lane_cells {
+                editor.extensions.cells.push((cell.width, cell.render));
             }
-            /// Provide reactive lane labels and ordering.
-            pub fn lanes(
-                mut self,
-                lanes: impl kivact::state::IntoValue<Vec<$crate::editors::shared::model::Lane>>,
-            ) -> Self {
-                self.inner.lanes = Some(kivact::state::IntoValue::into_value(lanes));
-                self
+            if let Some(format) = time_format {
+                editor.ruler.format = format;
             }
-            /// Enable snapping for pointer edits.
-            pub fn snap(mut self, snap: impl kivact::state::IntoValue<bool>) -> Self {
-                self.inner.snap = kivact::state::IntoValue::into_value(snap);
-                self
+            if let Some(ticks) = ruler_ticks {
+                editor.ruler.ticks = ticks;
             }
-            /// Set the reactive time increment for keys and pointer snapping (default: 1).
-            /// Non-finite or non-positive values use 1. Shift keys move by ten increments.
-            /// Moves beyond the finite numeric range leave the value unchanged.
-            pub fn step(mut self, step: impl kivact::state::IntoValue<f64>) -> Self {
-                self.inner.step = kivact::state::IntoValue::into_value(step);
-                self
+            if let Some(zoom) = zoom_range {
+                editor.ruler.zoom = zoom;
             }
-            /// Format ruler ticks and the playhead using application time units.
-            pub fn time_format(mut self, format: impl Fn(f64) -> String + 'static) -> Self {
-                self.inner.ruler.format = std::rc::Rc::new(format);
-                self
+            if let Some(min) = min_duration {
+                editor.ruler.min_duration = $crate::editors::shared::ruler::duration(min, 0.0625);
             }
-            /// Choose automatic or application-provided ruler ticks.
-            pub fn ruler_ticks(
-                mut self,
-                ticks: $crate::editors::shared::ruler::RulerTicks,
-            ) -> Self {
-                self.inner.ruler.ticks = ticks;
-                self
-            }
-            /// Set finite positive zoom bounds; invalid bounds report a usage error.
-            pub fn zoom_range(
-                mut self,
-                range: impl kivact::state::IntoValue<kivact::interaction::ScalarRange>,
-            ) -> Self {
-                self.inner.ruler.zoom = kivact::state::IntoValue::into_value(range);
-                self
-            }
-            /// Set the minimum clip duration; invalid lengths report a usage error.
-            pub fn min_duration(mut self, duration: impl kivact::state::IntoValue<f64>) -> Self {
-                self.inner.ruler.min_duration =
-                    $crate::editors::shared::ruler::duration(duration, 0.0625);
-                self
-            }
-        }
-        impl kivact::view::Element for $type {
-            /// Return the editor root for ordinary node modifiers.
-            #[doc(hidden)]
-            fn node_mut(&mut self) -> &mut kivact::view::Node {
-                &mut self.inner.root
-            }
-        }
-        #[diagnostic::do_not_recommend]
-        impl kivact::view::IntoView for $type {
-            /// Build the editor view.
-            fn into_view(self) -> kivact::view::View {
-                kivact::view::IntoView::into_view(self.inner)
-            }
+            editor.into_node()
         }
     };
 }

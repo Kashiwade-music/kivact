@@ -3,7 +3,7 @@
 use crate::clock::Clock;
 use arvane_shell::pipeline::{ImeDriver, RawInput};
 use arvane_shell::{EventTarget, ShellError, ShellEvent, WindowInput};
-use kivact_types::{A11yRequest, Insets, Point, PointerPhase, PointerSample, Size, WindowId};
+use kivact_types::{A11yRequest, Edges, Point, PointerPhase, PointerSample, Size, WindowId};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, VecDeque};
 use std::path::PathBuf;
@@ -35,7 +35,7 @@ pub(crate) enum WindowItem {
     Reduced(bool),
     Dark(bool),
     Locale(Option<String>),
-    SafeArea(Insets),
+    SafeArea(Edges<f64>),
     Surface(bool),
     Occluded(bool),
     FailPresents(u32),
@@ -277,10 +277,10 @@ impl WindowScript {
     pub fn set_locale(&self, locale: Option<&str>) {
         self.push(WindowItem::Locale(locale.map(str::to_owned)));
     }
-    pub fn set_safe_area(&self, insets: Insets) {
+    pub fn set_safe_area(&self, insets: Edges<f64>) {
         self.push(WindowItem::SafeArea(insets));
     }
-    pub fn set_keyboard_inset(&self, insets: Insets) {
+    pub fn set_keyboard_inset(&self, insets: Edges<f64>) {
         self.input(ShellEvent::KeyboardInset(insets));
     }
     pub fn create_surface(&self) {

@@ -1,12 +1,10 @@
-//! Role: Expose the Soft component catalog, its pages and embedded fonts.
-mod docs;
+//! Role: The Soft component catalog: one page per component, each with its demo and the
+//! code that makes it.
+mod consts;
 mod fonts;
-mod look;
-mod model;
-mod page;
 mod pages;
-mod shell;
+mod theme;
 
-pub use fonts::fonts;
-pub use pages::{PageInfo, pages};
-pub use shell::{catalog, catalog_at, catalog_with_mode};
+pub use consts::{START, THEME};
+pub use pages::pages;
+pub use theme::theme;

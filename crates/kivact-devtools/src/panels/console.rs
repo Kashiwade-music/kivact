@@ -1,6 +1,7 @@
 //! Role: The Console panel.
 
 use kivact::prelude::*;
+use kivact::view::RowHeight;
 use kivact_devtools_protocol as p;
 
 use crate::state::Session;
@@ -40,7 +41,9 @@ pub(crate) fn view(session: Session) -> impl IntoView {
     column((
         row((
             text("Console"),
-            select("Kind", kinds, kind).style(style().width(180.0)),
+            select(kinds, kind)
+                .label("Kind")
+                .style(style().width(180.0)),
         )),
         header(),
         virtual_list(
@@ -49,9 +52,9 @@ pub(crate) fn view(session: Session) -> impl IntoView {
             move |error| error_row(error, session),
         )
         .row_height(RowHeight::Fixed(22.0))
-        .style(style().grow(1.0).min_height(0.0)),
+        .style(style().flex_grow(1.0).min_height(0.0)),
     ))
-    .style(style().grow(1.0).min_height(0.0))
+    .style(style().flex_grow(1.0).min_height(0.0))
 }
 
 /// The column titles of the error table.

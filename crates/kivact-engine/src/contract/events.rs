@@ -5,10 +5,31 @@ use kivact_types::{
     Revision, Size, SurfaceSize, WindowId,
 };
 
+/// The last layout report of a node: the values of its last `HostEvent::LayoutChanged`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LayoutReport {
+    /// Its window-space rect, as drawn.
+    pub rect: Rect,
+    /// Its window layout box (no transform), once laid out.
+    pub layout_rect: Option<Rect>,
+    /// Whether its text is cut off.
+    pub text_truncated: bool,
+}
+
+/// The visibility facts of a node, its ancestors included.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct NodeFlags {
+    /// No node from it up to the root is hidden by its `Hidden` input flag.
+    pub visible: bool,
+    /// It or an ancestor is a live region (an alert, status or log role, or a polite or assertive live region).
+    pub in_live_region: bool,
+}
+
 /// What the engine tells the client. Every kind goes into one ordered
 /// queue, in the order produced (never one list per kind), handed whole to
-/// each turn: input (`Pointer`, `Wheel`, `File`, `Key`, `Activate`), focus
-/// and hover (`FocusChanged`, `FocusResult`, `HoverChanged`), text editing
+/// each turn: input (`Pointer`, `Wheel`, `File`, `Key`, `Activate`), focus,
+/// hover and the reported states (`FocusChanged`, `FocusResult`, `HoverChanged`,
+/// `StatesChanged`), text editing
 /// (`TextChanged`, `SelectionChanged`), the input method of a node with an
 /// IME session (`Ime`), geometry (`ScrollChanged`,
 /// `LayoutChanged`), assistive technology and dismissal (`A11y`), time and platform answers (`FrameTick`,
@@ -68,6 +89,13 @@ pub enum HostEvent {
         window: WindowId,
         target: Option<kivact_types::FocusTarget>,
     },
+    /// The host states of a node whose style asked for them
+    /// (`StateStyles::report`) changed: the reported states active now.
+    /// Sent once with the empty set when the node stops asking.
+    StatesChanged {
+        node: NodeId,
+        states: kivact_types::StateSet,
+    },
     /// Passive mouse location in logical window pixels, even without a hit.
     MousePosition {
         window: WindowId,
@@ -112,6 +140,11 @@ pub enum HostEvent {
         /// The window layout box without the node's own transform (`None`
         /// when it has no layout).
         layout: Option<Rect>,
+    },
+    /// The visibility facts of a watched node (`Writer::watch_flags`) changed in a commit.
+    NodeFlagsChanged {
+        node: NodeId,
+        flags: NodeFlags,
     },
     /// A request for an offered action: from assistive technology, or a
     /// `Dismiss(OutsidePress)` when a pointer press lands outside a shown
@@ -285,7 +318,7 @@ pub enum HostEvent {
         adapter: Option<kivact_types::GpuAdapter>,
     },
     /// An exported frame of a drawable; its generation travels with it.
-    DrawableFrame(kivact_types::render::ExportedFrame),
+    DrawableFrame(kivact_types::export::ExportedFrame),
     /// The drawable was resized while its GPU export runs: it needs a new pool.
     DrawableResized {
         id: kivact_types::DrawableId,
@@ -297,7 +330,7 @@ pub enum HostEvent {
         result: Result<DrawableTexturesHandle, kivact_types::Failure>,
     },
     /// A GPU export pool was lost with the device (of the request `generation`).
-    DrawableExportLost(kivact_types::render::ExportLoss),
+    DrawableExportLost(arvane_protocol::ExportLoss),
     /// The window can export to the GPU again: waiting requests are made anew.
     GpuExportAvailable,
 }

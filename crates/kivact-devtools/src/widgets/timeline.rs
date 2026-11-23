@@ -3,10 +3,8 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use kivact::draw::{Draw, RegionId, Stroke, TextFormat};
-use kivact::geometry::{Point, Rect};
+use kivact::draw::{RegionId, TextFormat};
 use kivact::prelude::*;
-use kivact::view::{MouseButton, PointerEvent, PointerPhase};
 use kivact_devtools_protocol as p;
 
 /// The width of the lane labels on the left.
@@ -120,6 +118,7 @@ pub(crate) fn timeline(
     .style(style().gap(2))
 }
 
+// xtask-allow(state): independent: turns and frames are read-only inputs from the session; zoom and drag are written only by Pointing::handle, zoom_to and the Reset zoom button; width is a projection written only by the paint closure
 /// The signals and the plot width the pointer handler reads.
 #[derive(Clone)]
 struct Pointing {
@@ -264,7 +263,7 @@ fn draw_timeline(draw: &mut Draw, size: Size, scene: &Scene) {
         let bottom = frame_lane.y + frame_lane.height;
         draw.fill_rect(
             Rect::new(left, top, right - left, bottom - top),
-            Color::token(ColorToken::Accent).with_alpha(0.20),
+            kivact::style::color::ACCENT.with_alpha(0.20),
         );
     }
 }
@@ -273,7 +272,7 @@ fn draw_timeline(draw: &mut Draw, size: Size, scene: &Scene) {
 fn lane(draw: &mut Draw, size: Size, label: &str, y: f64, height: f64) -> Rect {
     draw_label(draw, Point::new(PAD, y + (height - 10.0) / 2.0), label);
     let rect = Rect::new(LABEL_WIDTH, y, plot_width(size), height);
-    draw.fill_rect(rect, Color::token(ColorToken::SurfaceAlt));
+    draw.fill_rect(rect, kivact::style::color::SURFACE_ALT);
     rect
 }
 
@@ -292,7 +291,7 @@ fn draw_input(draw: &mut Draw, plot: Rect, scene: &Scene) {
         {
             let x = x_at(plot, scene, started) - 2.0;
             let rect = Rect::new(x, plot.y + 3.0, 5.0, plot.height - 6.0);
-            draw.fill_rect(rect, Color::token(ColorToken::Accent));
+            draw.fill_rect(rect, kivact::style::color::ACCENT);
         }
     }
 }
@@ -319,9 +318,9 @@ fn draw_updates(draw: &mut Draw, plot: Rect, scene: &Scene) {
             .iter()
             .find(|node| is_cause(node.kind))
             .map(|node| node.kind);
-        draw.fill_rect(rect, Color::token(cause_color(kind)));
+        draw.fill_rect(rect, cause_color(kind));
         if scene.selected == Some(turn.turn) {
-            draw.stroke_rect(rect, 2.0, Color::token(ColorToken::Accent));
+            draw.stroke_rect(rect, 2.0, kivact::style::color::ACCENT);
         }
         draw.region(RegionId(turn.turn.max(1)), rect);
     }
@@ -341,7 +340,7 @@ fn draw_frames(draw: &mut Draw, plot: Rect, scene: &Scene) {
         Point::new(plot.x, budget),
         Point::new(plot.x + plot.width, budget),
         dashed,
-        Color::token(ColorToken::TextMuted),
+        kivact::style::color::TEXT_MUTED,
     );
     for frame in scene.frames {
         let started = frame.end_ns.saturating_sub(frame.work_ns) as f64;
@@ -354,14 +353,11 @@ fn draw_frames(draw: &mut Draw, plot: Rect, scene: &Scene) {
         let room = (plot.width - FRAME_BAR).max(0.0);
         let x = plot.x + (raw - plot.x).clamp(0.0, room);
         let color = if frame.over_budget || frame.work_ns > frame.frame_period_ns {
-            ColorToken::Danger
+            kivact::style::color::DANGER
         } else {
-            ColorToken::Accent
+            kivact::style::color::ACCENT
         };
-        draw.fill_rect(
-            Rect::new(x, base - height, FRAME_BAR, height),
-            Color::token(color),
-        );
+        draw.fill_rect(Rect::new(x, base - height, FRAME_BAR, height), color);
     }
 }
 
@@ -407,7 +403,7 @@ fn draw_label(draw: &mut Draw, at: Point, label: &str) {
         at,
         TextFormat {
             size: 10.0,
-            color: Color::token(ColorToken::TextMuted),
+            color: kivact::style::color::TEXT_MUTED,
             ..TextFormat::default()
         },
     );
@@ -426,11 +422,11 @@ fn is_cause(kind: p::CauseKind) -> bool {
 }
 
 /// The color of a turn by the kind of its first cause.
-fn cause_color(kind: Option<p::CauseKind>) -> ColorToken {
+fn cause_color(kind: Option<p::CauseKind>) -> Color {
     match kind {
-        Some(p::CauseKind::Input) => ColorToken::Accent,
-        Some(p::CauseKind::Timer) => ColorToken::Warning,
-        Some(p::CauseKind::Task) => ColorToken::Focus,
-        _ => ColorToken::TextMuted,
+        Some(p::CauseKind::Input) => kivact::style::color::ACCENT,
+        Some(p::CauseKind::Timer) => kivact::style::color::WARNING,
+        Some(p::CauseKind::Task) => kivact::style::color::FOCUS,
+        _ => kivact::style::color::TEXT_MUTED,
     }
 }

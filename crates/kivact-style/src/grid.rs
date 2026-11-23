@@ -20,7 +20,7 @@
 use kivact_types as w;
 use kivact_types::Align;
 
-use super::length::Length;
+use kivact_types::Length;
 
 /// One bound of a track's size.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -244,64 +244,20 @@ impl<A: Into<GridPlacement>, B: Into<GridPlacement>> From<(A, B)> for GridPlacem
     }
 }
 
-/// CSS `grid-auto-flow`: where auto-placed items go.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum GridAutoFlow {
-    /// Filling each row (the default).
-    Row,
-    /// Filling each column.
-    Column,
-    /// Filling rows, back-filling earlier holes with later items.
-    RowDense,
-    /// Filling columns, back-filling holes.
-    ColumnDense,
-}
+pub use kivact_types::GridAutoFlow;
 
 /// The grid props a style sets (boxed in `Style`: most styles set none).
 #[derive(Clone, Debug, PartialEq, Default)]
 pub(crate) struct GridStyle {
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) columns: Option<Tracks>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) rows: Option<Tracks>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) auto_columns: Option<Tracks>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) auto_rows: Option<Tracks>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) flow: Option<GridAutoFlow>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) column: Option<GridPlacement>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) row: Option<GridPlacement>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) justify_items: Option<Align>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) justify_self: Option<Align>,
-}
-
-impl GridStyle {
-    /// Overlay `o` on `self` (fields set in `o` win).
-    pub(crate) fn merge(&mut self, o: &GridStyle) {
-        macro_rules! take {
-            ($($f:ident),*) => {$(
-                if o.$f.is_some() {
-                    self.$f = o.$f.clone();
-                }
-            )*};
-        }
-        take!(
-            columns,
-            rows,
-            auto_columns,
-            auto_rows,
-            flow,
-            column,
-            row,
-            justify_items,
-            justify_self
-        );
-    }
 }
 
 /// A list of track sizes (repeats left out).
@@ -320,7 +276,7 @@ fn sizes(tracks: &[Track]) -> Vec<w::TrackSize> {
 
 fn breadth(b: Breadth) -> w::Breadth {
     match b {
-        Breadth::Length(l) => w::Breadth::Size(l.to_wire()),
+        Breadth::Length(l) => w::Breadth::Size(l),
         Breadth::Fr(f) => w::Breadth::Fr(f),
     }
 }
@@ -375,12 +331,7 @@ pub(crate) fn resolve(g: Option<&GridStyle>, container: bool) -> Option<Box<w::G
                 .as_ref()
                 .map(|t| sizes(&t.0))
                 .unwrap_or_default(),
-            flow: match g.flow.unwrap_or(GridAutoFlow::Row) {
-                GridAutoFlow::Row => w::GridFlow::Row,
-                GridAutoFlow::Column => w::GridFlow::Column,
-                GridAutoFlow::RowDense => w::GridFlow::RowDense,
-                GridAutoFlow::ColumnDense => w::GridFlow::ColumnDense,
-            },
+            flow: g.flow.unwrap_or_default(),
             justify_items: g.justify_items,
         }),
         column: placement(g.column),

@@ -1,40 +1,7 @@
 //! Role: Tokenize source languages for canonical code-block line styling.
-use crate::SyntaxColors;
 use kivact::style::StyledRange;
+use kivact::ui::{SyntaxKind, Tokenizer, syntax_ranges};
 use std::ops::Range;
-/// A syntax coloring category.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TokenKind {
-    /// Reserved language word.
-    Keyword,
-    /// Type name.
-    Type,
-    /// String literal.
-    String,
-    /// Source comment.
-    Comment,
-    /// Operator symbol.
-    Operator,
-    /// Structural punctuation.
-    Punctuation,
-    /// Numeric literal.
-    Number,
-    /// Named constant.
-    Constant,
-    /// Function name.
-    Function,
-    /// Variable name.
-    Variable,
-    /// Markup tag name.
-    Tag,
-    /// Markup attribute name.
-    Attribute,
-    /// Object property name.
-    Property,
-}
-
-type Tokenizer = fn(&str) -> Vec<(Range<usize>, TokenKind)>;
-
 /// A caller-supplied code language.
 #[derive(Clone)]
 pub struct CodeLanguage {
@@ -92,7 +59,7 @@ impl CodeLanguageInput {
             Self::Custom(language) => &language.name,
         }
     }
-    fn tokenize(&self, line: &str) -> Vec<(Range<usize>, TokenKind)> {
+    fn tokenize(&self, line: &str) -> Vec<(Range<usize>, SyntaxKind)> {
         match self {
             Self::Named(name) => scan(line, name),
             Self::Custom(language) => (language.tokenizer)(line),
@@ -100,47 +67,11 @@ impl CodeLanguageInput {
     }
 }
 
-/// Convert tokenizer byte ranges into standard editor line styles.
-pub fn code_highlight(
-    language: &CodeLanguageInput,
-    line: &str,
-    palette: &SyntaxColors,
-) -> Vec<StyledRange> {
-    let mut offset = 0;
-    language
-        .tokenize(line)
-        .into_iter()
-        .filter_map(|(range, kind)| {
-            if range.start < offset || range.is_empty() || line.get(range.clone()).is_none() {
-                return None;
-            }
-            offset = range.end;
-            let color = match kind {
-                TokenKind::Keyword => palette.keyword,
-                TokenKind::Type => palette.r#type,
-                TokenKind::String => palette.string,
-                TokenKind::Comment => palette.comment,
-                TokenKind::Operator => palette.operator,
-                TokenKind::Punctuation => palette.punctuation,
-                TokenKind::Number => palette.number,
-                TokenKind::Constant => palette.constant,
-                TokenKind::Function => palette.function,
-                TokenKind::Variable => palette.variable,
-                TokenKind::Tag => palette.tag,
-                TokenKind::Attribute => palette.attribute,
-                TokenKind::Property => palette.property,
-            };
-
-            Some(StyledRange {
-                range,
-                color: Some(color),
-                background: None,
-                decoration: None,
-            })
-        })
-        .collect()
+/// Convert one line's tokenizer ranges into standard editor line styles.
+pub fn code_highlight(language: &CodeLanguageInput, line: &str) -> Vec<StyledRange> {
+    syntax_ranges(line, &language.tokenize(line))
 }
-fn scan(line: &str, language: &str) -> Vec<(Range<usize>, TokenKind)> {
+fn scan(line: &str, language: &str) -> Vec<(Range<usize>, SyntaxKind)> {
     const LANGUAGES: &str = "typescript javascript tsx jsx ts js json html xml svg css scss less python py bash sh zsh shell php hack yaml yml markdown md c h cpp c++ cc cxx hpp hh sql rust rs kotlin kt kts swift go golang";
     if !LANGUAGES.split_whitespace().any(|name| name == language) {
         return Vec::new();
@@ -170,16 +101,16 @@ fn token(
     first: char,
     language: &str,
     hash_comments: bool,
-) -> (usize, Option<TokenKind>) {
+) -> (usize, Option<SyntaxKind>) {
     if tail.starts_with("//")
         || (hash_comments && first == '#')
         || (language == "sql" && tail.starts_with("--"))
     {
-        (tail.len(), Some(TokenKind::Comment))
+        (tail.len(), Some(SyntaxKind::Comment))
     } else if let Some(comment) = tail.strip_prefix("/*") {
         (
             comment.find("*/").map_or(tail.len(), |end| end + 4),
-            Some(TokenKind::Comment),
+            Some(SyntaxKind::Comment),
         )
     } else if matches!(first, '"' | '\'' | '`') {
         let mut escaped = false;
@@ -192,9 +123,9 @@ fn token(
             escaped = character == '\\' && !escaped;
         }
         let kind = if language == "json" && tail[end..].trim_start().starts_with(':') {
-            TokenKind::Property
+            SyntaxKind::Property
         } else {
-            TokenKind::String
+            SyntaxKind::String
         };
         (end, Some(kind))
     } else if first.is_ascii_digit() {
@@ -202,15 +133,15 @@ fn token(
             tail.bytes()
                 .take_while(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.'))
                 .count(),
-            Some(TokenKind::Number),
+            Some(SyntaxKind::Number),
         )
     } else if first.is_alphabetic() || first == '_' {
         word_token(tail, first)
     } else {
         let kind = if "+-*/%=!<>&|^~?:".contains(first) {
-            Some(TokenKind::Operator)
+            Some(SyntaxKind::Operator)
         } else if "{}()[];,.@".contains(first) {
-            Some(TokenKind::Punctuation)
+            Some(SyntaxKind::Punctuation)
         } else {
             None
         };
@@ -218,7 +149,7 @@ fn token(
     }
 }
 
-fn word_token(tail: &str, first: char) -> (usize, Option<TokenKind>) {
+fn word_token(tail: &str, first: char) -> (usize, Option<SyntaxKind>) {
     const KEYWORDS: &str = "as async await break case catch class const continue def default delete do else enum export extends fn for from func function if impl import in interface let match mod move mut new package pass private pub public raise ref return self static struct super switch throw trait try type use var void where while with yield SELECT FROM WHERE INSERT INTO UPDATE DELETE JOIN GROUP BY ORDER LIMIT CREATE TABLE";
     let end = tail
         .char_indices()
@@ -226,13 +157,13 @@ fn word_token(tail: &str, first: char) -> (usize, Option<TokenKind>) {
         .map_or(tail.len(), |(end, _)| end);
     let word = &tail[..end];
     let kind = if matches!(word, "true" | "false" | "null" | "None" | "nil") {
-        Some(TokenKind::Constant)
+        Some(SyntaxKind::Constant)
     } else if KEYWORDS.split_whitespace().any(|keyword| keyword == word) {
-        Some(TokenKind::Keyword)
+        Some(SyntaxKind::Keyword)
     } else if tail[end..].trim_start().starts_with('(') {
-        Some(TokenKind::Function)
+        Some(SyntaxKind::Function)
     } else if first.is_uppercase() {
-        Some(TokenKind::Type)
+        Some(SyntaxKind::Type)
     } else {
         None
     };

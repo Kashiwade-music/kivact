@@ -3,7 +3,7 @@
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
 use kivact_runtime::{ErrorKind, Prop as InputProp, UiError};
-use kivact_types::{Dimension, Edges, LayoutProps, Position, ScrollAxes};
+use kivact_types::{Edges, LayoutProps, Length, Position, ScrollAxes};
 use std::rc::Rc;
 
 use super::builders::node;
@@ -13,7 +13,7 @@ use crate::view::descriptor::{mount, view_fn};
 use crate::view::element_data::{Element, Node};
 use crate::view::state::ViewState;
 use crate::view::{IntoView, Orientation, Role, View};
-use kivact_style::{Direction, Style, style};
+use kivact_style::{FlexDirection, Style, style};
 
 /// A box with `children` and the base style `s`, set before the user's
 /// modifiers so a later `.style(..)` layers on top. The box's location is
@@ -26,13 +26,13 @@ fn container(children: impl IntoView, s: Style) -> Node {
 /// Vertical flex container. Children: a tuple, a `Vec`, or any view.
 #[track_caller]
 pub fn column(children: impl IntoView) -> Node {
-    container(children, style().direction(Direction::Column))
+    container(children, style().flex_direction(FlexDirection::Column))
 }
 
 /// Horizontal flex container.
 #[track_caller]
 pub fn row(children: impl IntoView) -> Node {
-    container(children, style().direction(Direction::Row))
+    container(children, style().flex_direction(FlexDirection::Row))
 }
 
 /// A grid container (CSS `display: grid`): its children fill the cells of
@@ -120,10 +120,10 @@ impl IntoView for Scroll {
             let base = InputProp::computed(Rc::new(move || {
                 let axes = style_axes.get();
                 let direction = match axes {
-                    ScrollAxes::Horizontal => Direction::Row,
-                    ScrollAxes::Vertical | ScrollAxes::Both => Direction::Column,
+                    ScrollAxes::Horizontal => FlexDirection::Row,
+                    ScrollAxes::Vertical | ScrollAxes::Both => FlexDirection::Column,
                 };
-                kivact_style::internal::with_scroll_axes(style().direction(direction), axes)
+                kivact_style::internal::with_scroll_axes(style().flex_direction(direction), axes)
             }));
             // The first layer derives scrolling while caller style layers retain precedence.
             let at = root.at.expect("invariant: `scroll` locates its root");
@@ -181,10 +181,10 @@ fn scroll_orientation(axes: ScrollAxes) -> Option<Orientation> {
     }
 }
 
-/// Flexible empty space.
+/// Flexible empty space: it grows, and shrinks to nothing.
 #[track_caller]
 pub fn spacer() -> Node {
-    node().style(style().grow(1))
+    node().style(style().flex_grow(1).min_width(0).min_height(0))
 }
 
 /// Layers children on top of each other: the first child sizes the stack,
@@ -219,7 +219,7 @@ pub fn stack(children: impl IntoView) -> Node {
             } else {
                 LayoutProps {
                     position: Position::Absolute,
-                    inset: Edges::all(Dimension::Px(0.0)),
+                    inset: Edges::all(Length::Px(0.0)),
                     ..LayoutProps::default()
                 }
             };

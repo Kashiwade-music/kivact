@@ -45,7 +45,7 @@ impl Default for ImageOptions {
 /// `Pixels::width` and `Pixels::height` are for `Draw::pixels`.
 ///
 /// Its RGBA8 values are composited as sRGB-encoded values (premultiplied
-/// alpha), as `Pixels` and CSS colors are: an engine that computes in
+/// alpha), as `Pixels` are: an engine that computes in
 /// linear light encodes to sRGB before it hands the frame over.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GpuFrame {
@@ -133,7 +133,7 @@ impl Draw {
     /// reported. A layer's color filter does not apply to it.
     ///
     /// The frame's RGBA8 values are composited as sRGB-encoded values
-    /// (premultiplied alpha), as `Pixels` and CSS colors are: an engine
+    /// (premultiplied alpha), as `Pixels` are: an engine
     /// that computes in linear light encodes to sRGB before it hands the
     /// frame over.
     pub fn gpu_frame(&mut self, frame: &GpuFrame, rect: Rect, options: ImageOptions) {
@@ -146,7 +146,6 @@ impl Draw {
             pixelated: options.pixelated,
         });
     }
-    // xtask-allow(internal-contract): Viewport records its own CPU image alongside an immutable shared frame for snapshot lowering.
     #[doc(hidden)]
     pub fn gpu_frame_with_pixels(
         &mut self,

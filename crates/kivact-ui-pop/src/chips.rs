@@ -1,126 +1,68 @@
 //! Role: Removable chips with application-owned additions.
-use kivact::ui::{ButtonVariant, ControlSize, button};
 
+use kivact::component;
 use kivact::i18n::{message, message_with};
-use kivact::state::{Callback, Value};
-use kivact::state::{IntoText, IntoValue, callback};
-use kivact::style::{Align, BorderStyle, ColorToken, style};
-use kivact::view::{Element, Node, icon, row, text};
-use kivact::view::{HandlerResult, IntoView, View, for_index};
+use kivact::state::{Callback, Value, callback};
+use kivact::style::color as core;
+use kivact::style::{Align, BorderStyle, style};
+use kivact::ui::{ButtonVariant, ControlSize, button};
+use kivact::view::{Element, for_index, icon, row, text};
 
-/// A chip that calls its owner when its remove button is invoked.
-pub struct RemovableChip {
-    root: Node,
-    label: Value<String>,
-    remove: Callback<()>,
-}
-#[track_caller]
-pub fn removable_chip(label: impl IntoText) -> RemovableChip {
-    RemovableChip {
-        root: row(()),
-        label: label.into_text_value(),
-        remove: callback(|_| ()),
-    }
-}
-impl RemovableChip {
-    pub fn on_remove(mut self, remove: impl Into<Callback<()>>) -> Self {
-        self.remove = remove.into();
-        self
-    }
-}
-impl Element for RemovableChip {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for RemovableChip {
-    fn into_view(self) -> View {
-        let label = self.label;
-        let remove = self.remove;
-        self.root
-            .child((
-                text(label),
-                button(message_with(
-                    "pop.chip.remove",
-                    "Remove {label}",
-                    move || [("label", label.get())],
-                ))
-                .variant(ButtonVariant::Ghost)
-                .hide_label(true)
-                .icon(icon("x"))
-                .style(style().size(16, 16))
-                .on_press(remove),
+/// A chip with a label and a remove button. `on_remove` runs when the
+/// remove button is invoked.
+#[component]
+pub fn removable_chip(label: Value<String>, on_remove: Option<Callback<()>>) -> impl Element {
+    let remove = on_remove.unwrap_or_else(|| callback(|_| ()));
+    row(())
+        .child((
+            text(label),
+            button(message_with(
+                "pop.chip.remove",
+                "Remove {label}",
+                move || [("label", label.get())],
             ))
+            .variant(ButtonVariant::Ghost)
+            .hide_label(true)
+            .icon(icon("x"))
+            .style(style().size(16, 16))
+            .on_press(remove),
+        ))
+        .style(
+            style()
+                .gap(4)
+                .height(26)
+                .padding_x(10)
+                .align_items(Align::Center)
+                .background(core::SURFACE_ALT)
+                .border_radius(6)
+                .font_size(13),
+        )
+}
+
+/// A chip collection that reports requests to its owner: `on_add` when the
+/// add button is invoked, `on_remove` with the index of a removed chip.
+#[component]
+pub fn chip_list(
+    tags: Value<Vec<String>>,
+    on_add: Option<Callback<()>>,
+    on_remove: Option<Callback<usize>>,
+) -> impl Element {
+    let remove = on_remove.unwrap_or_else(|| callback(|_: usize| ()));
+    let add = on_add.unwrap_or_else(|| callback(|_| ()));
+    row(()).style(style().gap(6).flex_wrap(true)).child((
+        for_index(tags, move |index, label| {
+            removable_chip(label).on_remove(move || remove.call(index))
+        }),
+        button(message("pop.chip.add", "Add"))
+            .icon(icon("plus"))
+            .size(ControlSize::Small)
+            .variant(ButtonVariant::Ghost)
+            .on_press(move || add.call(()))
             .style(
                 style()
-                    .gap(4)
                     .height(26)
-                    .padding_x(10)
-                    .align_items(Align::Center)
-                    .background(ColorToken::SurfaceAlt)
-                    .radius(6)
-                    .font_size(13),
-            )
-            .into_view()
-    }
-}
-
-/// A chip collection that reports requests to its owner.
-pub struct ChipList {
-    root: Node,
-    tags: Value<Vec<String>>,
-    on_add: Callback<()>,
-    on_remove: Callback<usize>,
-}
-#[track_caller]
-pub fn chip_list(tags: impl IntoValue<Vec<String>>) -> ChipList {
-    ChipList {
-        root: row(()).style(style().gap(6).wrap(true)),
-        tags: tags.into_value(),
-        on_add: callback(|_| {}),
-        on_remove: callback(|_| {}),
-    }
-}
-impl ChipList {
-    /// Request an application-defined addition.
-    pub fn on_add(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.on_add = f.into();
-        self
-    }
-    /// Request removal of an item by index.
-    pub fn on_remove<R: HandlerResult>(mut self, f: impl Fn(usize) -> R + 'static) -> Self {
-        self.on_remove = callback(f);
-        self
-    }
-}
-impl Element for ChipList {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for ChipList {
-    fn into_view(self) -> View {
-        let remove = self.on_remove;
-        let add = self.on_add;
-        self.root
-            .child((
-                for_index(self.tags, move |index, label| {
-                    removable_chip(label).on_remove(move || remove.call(index))
-                }),
-                button(message("pop.chip.add", "Add"))
-                    .icon(kivact::view::icon("plus"))
-                    .size(ControlSize::Small)
-                    .variant(ButtonVariant::Ghost)
-                    .on_press(move || add.call(()))
-                    .style(
-                        style()
-                            .height(26)
-                            .border(1, ColorToken::Border)
-                            .border_style(BorderStyle::Dashed),
-                    ),
-            ))
-            .into_view()
-    }
+                    .border(1, core::BORDER)
+                    .border_style(BorderStyle::Dashed),
+            ),
+    ))
 }

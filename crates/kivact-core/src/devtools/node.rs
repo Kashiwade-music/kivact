@@ -5,16 +5,17 @@ use std::collections::{HashMap, HashSet};
 use kivact_devtools_agent::{Agent, Responder};
 use kivact_devtools_protocol as p;
 use kivact_engine::api::Reader;
-use kivact_runtime::{LiveOwner, OwnerId, Runtime, Turn};
+use kivact_runtime::driver::{LiveOwner, Runtime};
+use kivact_runtime::{OwnerId, Turn};
 use kivact_types::{CheckedState, FocusTarget, NodeId};
 
 use super::a11y;
 use super::convert;
 use super::styles;
 use super::tree;
+use crate::devtools::apply;
+use crate::devtools::state::DevtoolsState;
 use crate::diagnostics::why::{WhyDep, WhyProp, explain};
-use crate::view::devtools_apply;
-use crate::view::devtools_state::DevtoolsState;
 use crate::view::state::ViewState;
 use crate::view::tree::{Handlers, ViewNodes};
 
@@ -24,7 +25,7 @@ pub(super) fn call_chain(rt: &Runtime, id: NodeId) -> Vec<p::CallFrame> {
     let Some(node) = tree.get(id) else {
         return Vec::new();
     };
-    devtools_apply::call_sites(rt, node.owner, node.at)
+    apply::call_sites(rt, node.owner, node.at)
         .into_iter()
         .map(|at| p::CallFrame {
             location: convert::location(at),
@@ -304,7 +305,7 @@ fn handler_info(handlers: Option<&Handlers>) -> Vec<p::HandlerInfo> {
 fn why_props(rt: &Runtime, id: NodeId) -> Vec<p::WhyProp> {
     let why = explain(rt, id);
     let i = DevtoolsState::inspector(rt);
-    let mut agent = i.agent.borrow_mut();
+    let mut agent = i.ready_agent();
     why.props
         .iter()
         .map(|prop| why_prop(&mut agent, prop))
@@ -356,9 +357,9 @@ fn describe_paint(paint: &kivact_types::PaintProps, out: &mut Vec<p::StyleProper
     out.extend([
         property("background", &paint.background),
         property("border", paint.border),
-        property("ring", paint.ring),
-        property("radius", paint.radius),
-        property("shadows", &paint.shadows),
+        property("outline", paint.ring),
+        property("border_radius", paint.radius),
+        property("box_shadow", &paint.shadows),
         property("opacity", paint.opacity),
         property("transform", paint.transform),
         property("perspective", paint.perspective),
@@ -372,16 +373,16 @@ fn describe_paint(paint: &kivact_types::PaintProps, out: &mut Vec<p::StyleProper
 fn describe_text(text: &kivact_types::ComputedTextStyle, out: &mut Vec<p::StyleProperty>) {
     out.extend([
         property("font_size", text.font_size),
-        property("weight", text.weight),
+        property("font_weight", text.weight),
         property("color", text.color),
         property("line_height", text.line_height),
-        property("family", &text.family),
-        property("italic", text.italic),
+        property("font_family", &text.family),
+        property("font_style", text.italic),
         property("letter_spacing", text.letter_spacing),
         property("word_spacing", text.word_spacing),
-        property("align", text.align),
-        property("wrap", text.wrap),
-        property("decoration", text.decoration),
+        property("text_align", text.align),
+        property("text_wrap", text.wrap),
+        property("text_decoration", text.decoration),
         property("overflow", text.overflow),
         property("max_lines", text.max_lines),
         property("transform", text.transform),
@@ -414,7 +415,6 @@ fn describe_layout(layout: &kivact_types::LayoutProps, out: &mut Vec<p::StylePro
         property("inset", layout.inset),
         property("overflow_x", layout.overflow_x),
         property("overflow_y", layout.overflow_y),
-        property("hidden", layout.hidden),
         property("visibility", layout.visibility),
         property("aspect_ratio", layout.aspect_ratio),
     ]);

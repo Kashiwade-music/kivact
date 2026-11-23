@@ -1,23 +1,24 @@
 //! Role: Render keyed header and body cells with the table's actual part states.
-use super::row_drag::{RowDrag, RowDragEvent, RowPlace};
 use super::sticky_paint::surface;
 use super::types::{
     CellSlot, Key, RowColor, RowContextMenu, RowName, RowSelectable, RowSlot, RowStatusOf, Sort,
     StickyEdges,
 };
+use crate::data_table::look::DataTableTheme;
 use crate::layer::with_recipe_style;
-use crate::variants::Variants;
-use crate::{DataColumn, DataTableCellState, DataTableCheckState, DataTableRowState, checkbox};
+use crate::theme::{DataTableCellState, DataTableCheckState, DataTableRowState};
+use crate::{DataColumn, checkbox};
 use kivact_core::custom::{NodeRefExt, Part};
-use kivact_core::draw::linear_gradient;
+use kivact_core::style::linear_gradient;
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
+use kivact_core::view::Variants;
 
 use kivact_core::geometry::Rect;
 use kivact_core::i18n::message_with;
-use kivact_core::state::{Binding, Callback, Value, binding, machine, memo};
+use kivact_core::state::{Callback, Signal, Value, binding, memo};
 use kivact_core::style::{
-    Color, Cursor, Direction, Justify, Position, Style, TransitionProp, pct, style, use_theme,
+    Color, Cursor, FlexDirection, Justify, Position, Style, TransitionProp, pct, style, use_theme,
 };
 use kivact_core::view::{
     ButtonPress, Handled, Key as KeyboardKey, MouseButton, NodeRef, PointerEvent, PointerPhase,
@@ -25,8 +26,8 @@ use kivact_core::view::{
 };
 use kivact_core::view::{Node, column, icon, node, row, text};
 use kivact_interaction::{
-    DataTableApi, DragCoordinates, DragPhase, DragState, DragUpdate, ListGesture, TableCellState,
-    TableFocus, TableRowState, use_disclosure, use_drag,
+    DataTableApi, ListGesture, ReorderDragApi, ReorderPlace, TableCellState, TableFocus,
+    TableRowState, use_disclosure, use_reorder_drag,
 };
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -68,50 +69,35 @@ fn navigation_content(root: Node, content: View, enabled: bool, enter: bool) -> 
 
 /// What the header and the rows of one table share.
 pub(super) struct Grid<R: 'static, K: kivact_core::state::ItemKey> {
-    // xtask-allow(state-fields): option: the grid's tree plan, present when DataTable::tree was given; absent draws rows without expand controls
     pub(super) tree: Option<super::tree::Plan<K>>,
     pub(super) behavior: DataTableApi<K, usize>,
     pub(super) navigation: super::navigation::NavigationCache<K>,
     pub(super) row_metadata: Value<super::metadata::Rows<K>>,
     pub(super) column_metadata: Value<(Option<u32>, HashMap<usize, u32>)>,
-    // xtask-allow(state-fields): option: the grid's typed filter editors, present when DataTable::typed_column_filters was given; absent leaves the headers without them
     pub(super) filters: Option<super::filters::Filters>,
     /// The keys of the rows of the page.
     pub(super) keys: Value<Vec<K>>,
-    // xtask-allow(state-fields): option: the grid's row numbers, built when DataTable::row_index was given; absent draws no number gutter
     pub(super) indexed: Option<Value<HashMap<K, usize>>>,
     pub(super) columns: Rc<Vec<DataColumn<R>>>,
     /// The positions of the columns that are shown.
     pub(super) visible: Value<Vec<usize>>,
-    // xtask-allow(state-fields): option: the grid's copy of the caller's DataTable::selection binding; absent draws no row check boxes
-    pub(super) selection: Option<Binding<Vec<K>>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    pub(super) selection: Option<Signal<Vec<K>>>,
     pub(super) row_selectable: Option<RowSelectable<R>>,
-    // xtask-allow(state-fields): option: the grid's pinned-column measurements, present when DataTable::sticky_columns named a column; absent pins none
     pub(super) sticky: Option<Rc<StickyColumns>>,
-    // xtask-allow(state-fields): option: the grid's copy of the DataTable::resizable widths; absent draws no resize handles
-    pub(super) widths: Option<Binding<Vec<f64>>>,
-    // xtask-allow(state-fields): option: the grid's row actions column from DataTable::row_actions; absent adds no actions column
+    pub(super) widths: Option<Signal<Vec<f64>>>,
     pub(super) actions: Option<(f64, RowSlot<R>)>,
-    // xtask-allow(state-fields): option: the grid's menu from DataTable::row_context_menu; absent opens no menu on a row's secondary click
     pub(super) row_context_menu: Option<RowContextMenu<R>>,
     pub(super) row_label: RowName<R>,
-    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) cells: Option<CellSlot<R>>,
-    // xtask-allow(state-fields): option: the grid's row details view from DataTable::row_details; absent puts nothing under the rows
     pub(super) details: Option<RowSlot<R>>,
-    // xtask-allow(state-fields): option: the grid's copy of DataTable::expanded_rows; absent shows details always, and without details it adds no disclosure
-    pub(super) expanded_rows: Option<Binding<Vec<K>>>,
+    pub(super) expanded_rows: Option<Signal<Vec<K>>>,
     pub(super) reorder: Option<Callback<kivact_interaction::Reorder<K>>>,
     pub(super) source: Value<Vec<R>>,
     pub(super) key: Key<R, K>,
     pub(super) sort: Sort,
     pub(super) focus: TableFocus,
-    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) row_height: Option<Value<f64>>,
-    // xtask-allow(state-fields): option: the grid's status resolver from DataTable::row_status; absent reserves no status lane
     pub(super) row_status: Option<RowStatusOf<R>>,
-    // xtask-allow(state-fields): option: the grid's color function from DataTable::row_color; absent gives rows no edge color
     pub(super) row_color: Option<RowColor<R>>,
     pub(super) variants: Variants,
 }
@@ -149,7 +135,7 @@ impl StickyColumns {
         });
         Self {
             edges,
-            rtl: use_direction().get() == ReadingDirection::Rtl,
+            rtl: use_direction() == ReadingDirection::Rtl,
             headers,
             widths,
             viewport,
@@ -231,16 +217,16 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
     }
     /// Whether rows have check boxes: the table has a selection and cells
     /// hold the focus (with rows, a press selects the row).
-    fn checks(&self) -> Option<Binding<Vec<K>>> {
+    fn checks(&self) -> Option<Signal<Vec<K>>> {
         self.selection
             .filter(|_| matches!(self.focus, TableFocus::Cells(_)))
     }
 
     fn direction(&self) -> Style {
         if self.sticky.as_ref().is_some_and(|sticky| sticky.rtl)
-            || (self.row_status.is_some() && use_direction().get() == ReadingDirection::Rtl)
+            || (self.row_status.is_some() && use_direction() == ReadingDirection::Rtl)
         {
-            style().direction(Direction::RowReverse)
+            style().flex_direction(FlexDirection::RowReverse)
         } else {
             style()
         }
@@ -292,13 +278,8 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
         let visible = self.visible;
         let on_left = start != sticky.rtl;
         Some(node().hit_testable(false).style(move || {
-            let paint = use_theme()
-                .get()
-                .ext::<crate::UiTokens>()
-                .data_table
-                .sticky
-                .clone();
-            let width = paint.shadow_width;
+            let theme = use_theme().get();
+            let width = theme.get(&crate::data_table::look::STICKY_SHADOW_WIDTH_VAR);
             let boundary = visible.with(|columns| {
                 let mut pinned = columns
                     .iter()
@@ -312,7 +293,7 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
             });
             let (before, after) = sticky.overflow.get();
             let show = boundary == Some(index) && if on_left { before } else { after };
-            let shadow = paint.shadow;
+            let shadow = theme.get(&crate::data_table::look::STICKY_SHADOW_VAR);
             let base = style()
                 .position(Position::Absolute)
                 .top(0)
@@ -338,7 +319,11 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
             } else {
                 base.right(pct(100))
             };
-            if let Some(transition) = paint.shadow_transition.clone() {
+            if let Some(transition) = theme
+                .ext::<crate::data_table::look::DataTableTheme>()
+                .sticky_shadow_transition_value()
+                .clone()
+            {
                 base.transition(TransitionProp::All, transition)
             } else {
                 base
@@ -361,13 +346,17 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
             let s = match fixed {
                 Some(width) => {
                     let width = width.max(minimum.unwrap_or(0.0));
-                    style().width(width).min_width(width).grow(0).shrink(0)
+                    style()
+                        .width(width)
+                        .min_width(width)
+                        .flex_grow(0)
+                        .flex_shrink(0)
                 }
                 None if let Some(flex) = flex => style()
-                    .basis(0)
-                    .grow(flex)
+                    .flex_basis(0)
+                    .flex_grow(flex)
                     .min_width(minimum.unwrap_or(0.0))
-                    .shrink(1),
+                    .flex_shrink(1),
                 None => minimum.map_or_else(style, |min| style().min_width(min)),
             };
             if numeric {
@@ -403,7 +392,7 @@ pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::It
         };
         root.role(Role::ColumnHeader)
             .name(kivact_core::i18n::message("data_table.actions", "Actions"))
-            .style(style().width(*width).shrink(0))
+            .style(style().width(*width).flex_shrink(0))
     });
     let heads = grid.clone();
     let columns = dynamic(grid.visible, move |indexes: Vec<usize>| {
@@ -468,7 +457,7 @@ fn head_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     let state = part.state();
     let mark = with_recipe_style(
         node(),
-        |r| r.data_table_recipes().sort_recipe(),
+        |r: &DataTableTheme| r.sort_recipe(),
         &grid.variants,
         move || state.get(),
     );
@@ -499,7 +488,7 @@ fn head_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     }
     let header = with_recipe_style(
         header,
-        |r| r.data_table_recipes().header_recipe(),
+        |r: &DataTableTheme| r.header_recipe(),
         &grid.variants,
         move || state.get(),
     )
@@ -514,11 +503,11 @@ fn head_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     );
     let title = text(title).style(crate::helpers::single_line_text());
     let content = if inline {
-        use kivact_core::style::{Align, Direction};
+        use kivact_core::style::Align;
         content
             .style(
                 style()
-                    .direction(Direction::Column)
+                    .flex_direction(FlexDirection::Column)
                     .align_items(Align::Stretch)
                     .gap(4),
             )
@@ -552,7 +541,7 @@ fn keep_selection(event: PointerEvent) -> Handled {
 }
 
 /// The check box of the row `id`, in its box: it selects or clears the row.
-fn row_check<R, K>(grid: &Grid<R, K>, selection: Binding<Vec<K>>, id: K, item: Value<R>) -> View
+fn row_check<R, K>(grid: &Grid<R, K>, selection: Signal<Vec<K>>, id: K, item: Value<R>) -> View
 where
     R: kivact_core::state::PropValue,
     K: kivact_core::state::ItemKey,
@@ -587,7 +576,7 @@ where
     let root = grid.navigation_cell(root, id.clone(), CHECK);
     let root = with_recipe_style(
         root,
-        |r| r.data_table_recipes().check_recipe(),
+        |r: &DataTableTheme| r.check_recipe(),
         &grid.variants,
         state,
     );
@@ -644,13 +633,18 @@ where
         .checks()
         .map(|selection| row_check(grid, selection, id.clone(), item));
     let checked = grid.checks().is_some();
+    // The row's drag: its parts go on the row and on each cell, so a press on
+    // a cell (which covers the row) starts it too.
+    let drag = grid
+        .reorder
+        .map(|reorder| row_drag(grid, id.clone(), reorder));
     let cells = {
         let grid = grid.clone();
         let id = id.clone();
         dynamic(grid.visible, move |indexes: Vec<usize>| {
             indexes
                 .into_iter()
-                .map(|index| cell(&grid, &id, index, item, checked, state))
+                .map(|index| cell(&grid, &id, index, item, checked, state, drag))
                 .collect::<Vec<_>>()
         })
     };
@@ -682,7 +676,7 @@ where
             .style(style().group())
             .part(part)
             .row_index(row_index),
-        |r| r.data_table_recipes().row_recipe(),
+        |r: &DataTableTheme| r.row_recipe(),
         &grid.variants,
         move || DataTableRowState {
             interaction: state.get(),
@@ -691,8 +685,8 @@ where
         },
     )
     .style(grid.direction());
-    let line = match grid.reorder {
-        Some(reorder) => line.part(drag_source(grid, id, reorder)),
+    let line = match drag {
+        Some(drag) => line.part(drag.source()),
         None => line,
     };
     let line = match &grid.row_context_menu {
@@ -711,14 +705,14 @@ fn index_cell(role: Role, text: Node) -> Node {
             .tabular_nums()
             .font_family("monospace")
             .font_size(12)
-            .color(kivact_core::style::ColorToken::TextMuted),
+            .color(kivact_core::style::color::TEXT_MUTED),
     ))
     .role(role)
     .style(
         style()
             .width(48)
             .min_width(48)
-            .shrink(0)
+            .flex_shrink(0)
             .justify_content(Justify::End),
     )
 }
@@ -727,8 +721,8 @@ fn expansion_cell() -> Node {
     node().style(
         style()
             .width(32)
-            .shrink(0)
-            .direction(kivact_core::style::Direction::Row)
+            .flex_shrink(0)
+            .flex_direction(kivact_core::style::FlexDirection::Row)
             .align_items(kivact_core::style::Align::Center)
             .justify_content(Justify::Center),
     )
@@ -738,7 +732,7 @@ fn row_disclosure<R: 'static, K: kivact_core::state::ItemKey>(
     grid: &Grid<R, K>,
     key: K,
     item: Value<R>,
-    expanded: Binding<Vec<K>>,
+    expanded: Signal<Vec<K>>,
     render: &RowSlot<R>,
 ) -> (Node, Node) {
     let cell_key = key.clone();
@@ -812,6 +806,7 @@ fn cell<R, K>(
     item: Value<R>,
     checked: bool,
     row: Value<TableRowState>,
+    drag: Option<ReorderDragApi<K>>,
 ) -> View
 where
     R: kivact_core::state::PropValue,
@@ -854,6 +849,10 @@ where
         let state = part.state();
         (node().part(part), state)
     };
+    let node = match drag {
+        Some(drag) => node.part(drag.source()),
+        None => node,
+    };
     let tint = grid
         .sticky
         .as_ref()
@@ -861,7 +860,7 @@ where
         .map(|color| memo(move || item.with(|row| color(row))));
     let cell = with_recipe_style(
         node,
-        |r| r.data_table_recipes().cell_recipe(),
+        |r: &DataTableTheme| r.cell_recipe(),
         &grid.variants,
         move || DataTableCellState {
             interaction: state.get(),
@@ -882,46 +881,32 @@ where
     }
 }
 
-/// The drag part of a row that reports moves of one row in the caller's
-/// order and clears the sort.
-fn drag_source<R, K>(
+/// The drag of a row that reports moves of one row in the caller's order and
+/// clears the sort.
+fn row_drag<R, K>(
     grid: &Grid<R, K>,
     id: K,
     reorder: Callback<kivact_interaction::Reorder<K>>,
-) -> Part<DragState>
+) -> ReorderDragApi<K>
 where
     R: kivact_core::state::PropValue,
     K: kivact_core::state::ItemKey,
 {
     let (source, key, sort) = (grid.source, grid.key.clone(), grid.sort);
     let place = id.clone();
-    let row_drag = machine(
-        RowDrag::Idle,
+    use_reorder_drag(
+        id,
+        28.0,
         move || {
             let (at, len) =
                 source.with(|rows| (rows.iter().position(|row| key(row) == place), rows.len()));
-            RowPlace { at, len }
+            ReorderPlace { at, len }
         },
-        move |_, to: usize| {
-            reorder.call(kivact_interaction::Reorder {
-                key: id.clone(),
-                to,
-            });
+        move |request: kivact_interaction::Reorder<K>| {
+            reorder.call(request);
             sort.set(None);
         },
-    );
-    let drag = use_drag::<()>(DragCoordinates::Window)
-        .on_start(move |_| row_drag.send(RowDragEvent::Start))
-        .on_update(move |update: DragUpdate<()>| {
-            row_drag.send(RowDragEvent::Update(update.delta.y))
-        })
-        .on_end(move |update: DragUpdate<()>| {
-            row_drag.send(match update.phase {
-                DragPhase::Cancel => RowDragEvent::Cancel,
-                _ => RowDragEvent::End,
-            })
-        });
-    drag.source(())
+    )
 }
 
 /// Attach the resize part only for resizable columns with caller-owned widths.
@@ -976,8 +961,8 @@ fn row_actions<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>
             root.style(
                 style()
                     .width(*width)
-                    .shrink(0)
-                    .direction(kivact_core::style::Direction::Row)
+                    .flex_shrink(0)
+                    .flex_direction(kivact_core::style::FlexDirection::Row)
                     .align_items(kivact_core::style::Align::Center),
             ),
             render.call(item),

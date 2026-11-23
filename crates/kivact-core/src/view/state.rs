@@ -6,19 +6,21 @@
 //! policy tracks, outstanding host requests), installed as a runtime
 //! extension when the App is created.
 
-use std::any::Any;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::{BTreeMap, HashMap};
 use std::panic::Location;
 use std::rc::Rc;
 
+use kivact_runtime::Owner;
 use kivact_runtime::Selector;
-use kivact_runtime::{Binding, ErrorKind, Handler, UiError};
-use kivact_runtime::{Owner, Runtime};
-use kivact_runtime::{Signal, Value};
+use kivact_runtime::Value;
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{ErrorKind, Handler, Signal, UiError};
+use kivact_style::asset::Asset;
+use kivact_types::cell::Deferred;
 use kivact_types::{
-    DismissReason, Environment, FocusTarget, Modifiers, NodeId, PlatformResult, WindowId,
-    WindowMode,
+    DismissReason, Edges, Environment, FocusTarget, Modifiers, NodeId, PlatformResult,
+    PointerSettings, Size, ThemeMode, WindowId, WindowMode, WindowPlacement,
 };
 
 use super::tree::ViewNodes;
@@ -27,34 +29,20 @@ use kivact_types::Capabilities;
 
 pub(crate) use super::ref_data::{Bound, NodeRefState, RefObservation, RefState};
 
-/// The node the host last reported under the pointer (`view::hover`).
-#[derive(Clone, Copy)]
-pub(crate) enum PointerObservation<T: kivact_runtime::PropValue> {
-    /// No `NodeRef::hovered` asked yet: the last report as a plain value.
-    Plain(Option<T>),
-    /// The graph source the first `NodeRef::hovered` created; it holds the last report.
-    Reactive(Signal<Option<T>>),
-}
-
-/// Focus requests, with ordering independent from their stage.
+/// Focus requests: those waiting for the next commit, in order, and those
+/// the host has not answered yet.
 #[derive(Default)]
 pub(crate) struct FocusRequests {
-    pub(crate) requests: HashMap<kivact_types::RequestId, FocusRequest>,
-    pub(crate) order: Vec<kivact_types::RequestId>,
+    pub(crate) queued: Vec<(kivact_types::RequestId, FocusRequest)>,
+    pub(crate) sent: HashMap<kivact_types::RequestId, FocusReply>,
 }
 
+/// One focus request waiting for the commit.
 pub(crate) struct FocusRequest {
     pub(crate) target: kivact_types::FocusTarget,
     pub(crate) reply: FocusReply,
-    pub(crate) stage: RequestStage,
-    // xtask-allow(state-fields): independent: given once by the caller of request_focus and never changed; the stage moves from Queued to Sent on the host write whatever the indicator, so both values occur in both stages
-    /// The requested focus indicator, independent of request progress.
+    /// The requested focus indicator.
     pub(crate) visible: bool,
-}
-
-pub(crate) enum RequestStage {
-    Queued,
-    Sent,
 }
 
 pub(crate) struct FocusCompletion {
@@ -62,6 +50,7 @@ pub(crate) struct FocusCompletion {
     pub(crate) at: &'static Location<'static>,
 }
 
+// xtask-allow(state): env is the host's one report (written by `set` only) and surface_active is the surface's own report; neither follows from the other
 /// The App's host environment: one signal holding the whole `Environment` the
 /// client writes, and one memo per field a reader asked for, so a change of
 /// one field notifies only the readers of that field.
@@ -70,9 +59,22 @@ pub(crate) struct EnvState {
     owner: Owner,
     env: Signal<Environment>,
     pub(crate) surface_active: Signal<bool>,
-    /// The memos made so far, by the name of the accessor that asked
-    /// (each a `Value<T>` of its field's type).
-    fields: RefCell<Vec<(&'static str, Box<dyn Any>)>>,
+    fields: EnvFields,
+}
+
+/// One memo per environment field, made when a reader first asks.
+#[derive(Default)]
+struct EnvFields {
+    fullscreen: Deferred<Value<bool>>,
+    reduced_motion: Deferred<Value<bool>>,
+    scale_factor: Deferred<Value<f64>>,
+    safe_area: Deferred<Value<Edges<f64>>>,
+    window_size: Deferred<Value<Size>>,
+    pointer: Deferred<Value<PointerSettings>>,
+    keyboard_inset: Deferred<Value<Edges<f64>>>,
+    theme_hint: Deferred<Value<ThemeMode>>,
+    locale: Deferred<Value<Option<String>>>,
+    restored_state: Deferred<Value<BTreeMap<String, Vec<u8>>>>,
 }
 
 impl EnvState {
@@ -83,23 +85,12 @@ impl EnvState {
         surface_active: bool,
         at: &'static Location<'static>,
     ) -> Self {
-        let state = Self {
+        Self {
             owner,
             env: owner.signal(env, at),
             surface_active: owner.signal(surface_active, at),
-            fields: RefCell::new(Vec::new()),
-        };
-        state.field("is_fullscreen", |e| e.fullscreen);
-        state.field("is_motion_reduced", |e| e.reduced_motion);
-        state.field("scale_factor", |e| e.scale_factor);
-        state.field("safe_area", |e| e.safe_area);
-        state.field("window_size", |e| e.window_size);
-        state.field("pointer_settings", |e| e.pointer);
-        state.field("keyboard_inset", |e| e.keyboard_inset);
-        state.field("theme_hint", |e| e.theme_hint);
-        state.field("locale", |e| e.locale.clone());
-        state.field("frame_period_ns", |e| e.frame_period_ns);
-        state
+            fields: EnvFields::default(),
+        }
     }
 
     /// The host reports `env`; readers of the fields that differ are
@@ -123,26 +114,69 @@ impl EnvState {
         self.surface_active.get_untracked()
     }
 
-    /// A memo of the field `f` reads, shared by every call with the same
-    /// `name`: it re-runs its readers only when that field changed. Made
-    /// on first use, whatever context asks (a memo, an effect, a handler).
-    #[track_caller]
-    pub(crate) fn field<T: kivact_runtime::PropValue>(
+    /// The memo of one field, made on its first use by any context (a memo,
+    /// an effect, a handler): it re-runs its readers only when that field
+    /// changed.
+    fn memo_of<T: kivact_runtime::PropValue>(
         &self,
-        name: &'static str,
+        slot: &Deferred<Value<T>>,
         f: fn(&Environment) -> T,
     ) -> Value<T> {
-        if let Some((_, made)) = self.fields.borrow().iter().find(|(n, _)| *n == name) {
-            return *made
-                .downcast_ref::<Value<T>>()
-                .expect("invariant: one field type per environment accessor");
-        }
         let env = self.env;
-        let made = self
-            .owner
-            .with_setup(|| kivact_runtime::memo(move || env.with(f)));
-        self.fields.borrow_mut().push((name, Box::new(made)));
-        made
+        *slot.get_or_init(|| {
+            self.owner
+                .with_setup(|| kivact_runtime::memo(move || env.with(f)))
+        })
+    }
+
+    /// The memo of the window's full-screen state.
+    pub(crate) fn fullscreen(&self) -> Value<bool> {
+        self.memo_of(&self.fields.fullscreen, |e| e.fullscreen)
+    }
+
+    /// The memo of the reduced-motion request.
+    pub(crate) fn reduced_motion_value(&self) -> Value<bool> {
+        self.memo_of(&self.fields.reduced_motion, |e| e.reduced_motion)
+    }
+
+    /// The memo of the scale factor.
+    pub(crate) fn scale_factor(&self) -> Value<f64> {
+        self.memo_of(&self.fields.scale_factor, |e| e.scale_factor)
+    }
+
+    /// The memo of the safe area.
+    pub(crate) fn safe_area(&self) -> Value<Edges<f64>> {
+        self.memo_of(&self.fields.safe_area, |e| e.safe_area)
+    }
+
+    /// The memo of the window size.
+    pub(crate) fn window_size(&self) -> Value<Size> {
+        self.memo_of(&self.fields.window_size, |e| e.window_size)
+    }
+
+    /// The memo of the pointer settings.
+    pub(crate) fn pointer(&self) -> Value<PointerSettings> {
+        self.memo_of(&self.fields.pointer, |e| e.pointer)
+    }
+
+    /// The memo of the software keyboard's inset.
+    pub(crate) fn keyboard_inset(&self) -> Value<Edges<f64>> {
+        self.memo_of(&self.fields.keyboard_inset, |e| e.keyboard_inset)
+    }
+
+    /// The memo of the system's color mode.
+    pub(crate) fn theme_hint(&self) -> Value<ThemeMode> {
+        self.memo_of(&self.fields.theme_hint, |e| e.theme_hint)
+    }
+
+    /// The memo of the system's locale tag.
+    pub(crate) fn locale(&self) -> Value<Option<String>> {
+        self.memo_of(&self.fields.locale, |e| e.locale.clone())
+    }
+
+    /// The memo of the state the platform restored at launch.
+    pub(crate) fn restored_state(&self) -> Value<BTreeMap<String, Vec<u8>>> {
+        self.memo_of(&self.fields.restored_state, |e| e.restored_state.clone())
     }
 }
 
@@ -171,8 +205,8 @@ pub(crate) enum FocusReply {
     RestoreAndReport(FocusCompletion),
 }
 
-/// Who waits for the answer of a platform effect.
-pub(crate) enum EffectWaiter {
+/// Who waits for a host answer, by request id.
+pub(crate) enum Waiter {
     /// Report a failure to the owner's error chain (the default sink
     /// without an owner), located at the call; a `Failed` answer is an
     /// error of kind `failed`.
@@ -181,41 +215,51 @@ pub(crate) enum EffectWaiter {
         at: &'static Location<'static>,
         failed: ErrorKind,
     },
-    /// Complete a future.
+    /// Complete a future with the platform answer.
     Future(Completion<Result<PlatformResult, UiError>>),
+    /// A size request of a foreign window's native child.
+    ForeignSize {
+        window: WindowId,
+        at: &'static Location<'static>,
+        slot: Completion<Result<(), UiError>>,
+    },
+    /// A CPU capture answered at the settled host boundary.
+    Snapshot {
+        owner: Owner,
+        at: &'static Location<'static>,
+        reply: Completion<Result<kivact_types::Pixels, UiError>>,
+    },
+}
+
+/// One `commit_focused_edit` call: the window whose focus it removes.
+pub(crate) struct BlurRequest {
+    pub(crate) window: WindowId,
+    pub(crate) stage: BlurStage,
+    pub(crate) done: Completion<()>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BlurStage {
+    /// Waiting for the next commit, which sends the blur to the engine.
+    Queued,
+    /// Sent; waiting for the engine's `FocusChanged` of the window.
+    Sent,
+    /// Delivered: the next turn completes it, after this turn's user
+    /// effects committed the edit.
+    Delivered,
 }
 
 /// Outstanding host requests of an App.
 #[derive(Default)]
 pub(crate) struct Requests {
-    // xtask-allow(state-fields): identity: allocates host request ids; no other field derives from it
     pub(crate) next_request: u64,
     pub(crate) focus: FocusRequests,
-    pub(crate) effects: HashMap<u64, EffectWaiter>,
-    /// Size requests of foreign windows' native children, by request id.
-    pub(crate) foreign_sizes: HashMap<u64, ForeignSizeRequest>,
-    /// Pending CPU captures, answered at the settled host boundary.
-    pub(crate) snapshots: HashMap<u64, SnapshotWaiter>,
-    // xtask-allow(state-fields): independent: pushed by request_activation (NodeRef::activate) and taken whole by the client after each event; the id counter grows only on host requests, so any queue length goes with any id
-    /// Activations `NodeRef::activate` asked for, run by the client after
-    /// the handler that asked.
-    pub(crate) pending_activations: Vec<kivact_types::FocusTarget>,
+    /// The answers the host owes, by request id.
+    pub(crate) waiters: HashMap<u64, Waiter>,
     /// Actual capture releases awaiting the current pointer dispatch's cleanup.
     pub(crate) pointer_releases: Vec<(NodeId, kivact_types::PointerId)>,
-}
-
-pub(crate) struct SnapshotWaiter {
-    pub(crate) owner: Owner,
-    pub(crate) at: &'static Location<'static>,
-    pub(crate) reply: Completion<Result<kivact_types::Pixels, UiError>>,
-}
-
-/// A size request of a foreign window's native child, answered by the
-/// window's effect result or by its close.
-pub(crate) struct ForeignSizeRequest {
-    pub(crate) window: WindowId,
-    pub(crate) at: &'static Location<'static>,
-    pub(crate) slot: Completion<Result<(), UiError>>,
+    /// The `commit_focused_edit` calls waiting for their commit.
+    pub(crate) blurs: Vec<BlurRequest>,
 }
 
 impl Requests {
@@ -225,27 +269,25 @@ impl Requests {
     }
 }
 
+// xtask-allow(state): record: tree is the node tree, written only through ViewState::tree_mut by the view's tree operations; windows is the open windows' records, written by install_window and remove_window; requests is the focus and platform request queue (its ids come from request_id), written by the view's request and focus code; modifiers and pointer_modality are the last input facts, written by set_modifiers and set_pointer_modality in input dispatch; app_motion is the AppMotion delivery, written by the AppMotion host event; initial_render is true until start_mount writes false once; next_window only allocates window ids; node_states is the per-node state signal registry, inserted and removed by node_states::source (and its cleanup), its signals set by states_changed; registered_fonts is the set of theme fonts already registered, written only by register_theme_fonts; devtools is fixed at construction
 /// Everything the view layer keeps per App. Fields drop in declaration
 /// order.
 pub(crate) struct ViewState {
     /// The retained metadata and direct engine access of the whole App.
     pub(super) tree: RefCell<ViewNodes>,
-    /// Removed node ids awaiting host revision cleanup.
-    pub(crate) removed: RefCell<Vec<NodeId>>,
+    /// The DevTools hooks; None without DevTools. Fixed at construction.
+    pub(crate) devtools: Option<Rc<dyn crate::view::devtools_hook_traits::DevtoolsHooks>>,
     /// The open windows' records.
     pub(super) windows: RefCell<BTreeMap<WindowId, WindowRecord>>,
-    // xtask-allow(state-fields): identity: allocates window ids; `WindowId::MAIN` is 1
     /// The last window id handed out (`WindowId::MAIN` is 1).
     next_window: Cell<u64>,
-    /// What the host's platform can do (host events alone write it).
-    #[allow(
-        dead_code,
-        reason = "the capabilities memo is the only reader until a host event writes it"
-    )]
-    pub(super) host_capabilities: Signal<Capabilities>,
+    /// What the host's platform can do.
     pub(crate) capabilities: Value<Capabilities>,
-    pub(crate) fonts_value: Signal<Vec<String>>,
-    // xtask-allow(state-fields): independent: one-way latch: true until the first frame is drawn (launch::runtime sets it false once)
+    /// The App's font families, read from the engine on first use.
+    pub(crate) fonts: Deferred<FontsValue>,
+    /// The theme fonts already registered, by asset identity.
+    pub(crate) registered_fonts: RefCell<std::collections::HashSet<Asset>>,
+    /// True until the first turn after the App's setup (written once, by start_mount).
     pub(crate) initial_render: Signal<bool>,
     /// The App-wide motion clock input.
     pub(crate) app_motion: Signal<AppMotion>,
@@ -258,46 +300,62 @@ pub(crate) struct ViewState {
     modifiers: Signal<Modifiers>,
     /// Focus / platform requests waiting for the host.
     pub(crate) requests: RefCell<Requests>,
+    /// The reported host states of the nodes whose style asked for them
+    /// (`view::node_states`), by node.
+    pub(crate) node_states: RefCell<HashMap<NodeId, Signal<kivact_types::StateSet>>>,
 }
 
-/// One window's view record: the owner that declared it, its environment,
-/// focus source, pointer observations and open state.
+// xtask-allow(state): independent: hover and mouse are separate host reports (the node pointed at and the pointer position), and any combination occurs; close_handlers is a registry that an owner adds to and its cleanup removes from
+/// One window's view record: the owner that declared it, its declaration,
+/// environment, focus source and pointer sources.
 #[derive(Clone)]
 pub(crate) struct WindowRecord {
     /// The owner that declared the window (the root owner for the main one).
     pub(crate) declared_in: Owner,
+    /// The declaration: title, open binding, sizes, mode, placement,
+    /// dismiss handler and the foreign hooks. Shared with the window slot.
+    pub(crate) decl: Rc<WindowDecl>,
     pub(crate) env: Rc<EnvState>,
     pub(crate) focus: FocusKeys,
-    pub(crate) hover: Cell<PointerObservation<FocusTarget>>,
-    pub(crate) mouse: Cell<PointerObservation<crate::geometry::Point>>,
-    #[allow(
-        dead_code,
-        reason = "the record keeps the window's title for DevTools and diagnostics"
-    )]
+    /// The node under the pointer, as the host reports it.
+    pub(crate) hover: Signal<Option<FocusTarget>>,
+    /// The mouse position in the window.
+    pub(crate) mouse: Signal<Option<crate::geometry::Point>>,
+    /// The `on_close_request` handlers of this window (the owner that
+    /// registers one removes it on its cleanup).
+    pub(crate) close_handlers: Rc<RefCell<kivact_types::cell::Registry<Registration>>>,
+}
+
+/// One `on_close_request` handler and the owner it runs under.
+pub(crate) struct Registration {
+    pub(crate) owner: Owner,
+    pub(crate) handler: Handler<()>,
+}
+
+/// What declares a window. The main window's is built by the launch from
+/// the App's settings.
+pub(crate) struct WindowDecl {
     pub(crate) title: Value<String>,
-    // xtask-allow(state-fields): option: `Window::min_size`, or `App::min_window_size` for the main window; absent means the engine's minimum
-    pub(crate) min_size: Option<kivact_types::Size>,
-    pub(crate) dismiss: Option<Handler<DismissReason>>,
-    pub(crate) open: Binding<bool>,
-    // xtask-allow(state-fields): option: present exactly for a window declared with `foreign_window`; the hooks are the declaration's callbacks, not a second window state
-    /// The callbacks of a foreign window, shared with its declaration.
-    pub(crate) foreign: Option<Rc<super::foreign::ForeignHooks>>,
-    #[allow(
-        dead_code,
-        reason = "the record keeps the window's mode for later input routing diagnostics"
-    )]
+    pub(crate) open: Signal<bool>,
+    pub(crate) size: Size,
+    pub(crate) min_size: Option<Size>,
     pub(crate) mode: WindowMode,
+    pub(crate) placement: WindowPlacement,
+    pub(crate) dismiss: Option<Handler<DismissReason>>,
+    /// The native child machinery of a `foreign_window`.
+    pub(crate) foreign: Option<Rc<super::foreign::ForeignHooks>>,
 }
 
 /// The window a subtree belongs to.
 #[derive(Clone, Copy)]
 pub(crate) struct WindowScope(pub(crate) WindowId);
 
-/// The window of `owner`'s subtree, or `WindowId::MAIN` outside one.
+/// The window of `owner`'s subtree. The App's root provides the main window's scope.
 pub(crate) fn current_window(owner: Owner) -> WindowId {
     owner
         .context::<WindowScope>()
-        .map_or(WindowId::MAIN, |scope| scope.0)
+        .expect("invariant: every owner is under a WindowScope")
+        .0
 }
 
 /// The App's motion clock input: whether any window can draw and the tick
@@ -314,18 +372,22 @@ impl ViewState {
         owner: Owner,
         info: &kivact_engine::contract::HostInfo,
         engine: kivact_engine::api::Writer,
+        devtools: Option<Rc<dyn crate::view::devtools_hook_traits::DevtoolsHooks>>,
         at: &'static Location<'static>,
     ) -> Self {
         let host_capabilities = owner.signal(info.capabilities, at);
-        let capabilities = crate::view::devtools_hooks::wrap_capabilities(owner, host_capabilities);
+        let capabilities = match &devtools {
+            Some(h) => h.wrap_capabilities(owner, host_capabilities),
+            None => host_capabilities.into(),
+        };
         Self {
-            tree: RefCell::new(ViewNodes::new(engine, owner)),
-            removed: RefCell::new(Vec::new()),
+            tree: RefCell::new(ViewNodes::new(engine, devtools.clone())),
+            devtools,
             windows: RefCell::new(BTreeMap::new()),
             next_window: Cell::new(1),
-            host_capabilities,
             capabilities,
-            fonts_value: owner.signal(Vec::new(), at),
+            fonts: Deferred::new(),
+            registered_fonts: RefCell::new(std::collections::HashSet::new()),
             initial_render: owner.signal(true, at),
             app_motion: owner.signal(
                 AppMotion {
@@ -338,6 +400,7 @@ impl ViewState {
             pointer_modality: Cell::new(Modality::Keyboard),
             modifiers: owner.signal(Modifiers::default(), at),
             requests: RefCell::new(Requests::default()),
+            node_states: RefCell::new(HashMap::new()),
         }
     }
 
@@ -372,70 +435,30 @@ impl ViewState {
         self.windows.borrow().get(&window).map(f)
     }
 
-    /// Run `f` with `window`'s record for change.
-    pub(crate) fn with_window_mut<R>(
-        &self,
-        window: WindowId,
-        f: impl FnOnce(&mut WindowRecord) -> R,
-    ) -> Option<R> {
-        self.windows.borrow_mut().get_mut(&window).map(f)
-    }
-
     /// Resolve the size requests of `window` with `ErrorKind::Closed`; its
     /// native window is going away.
     pub(crate) fn close_foreign_sizes(&self, window: WindowId) {
-        let drained: Vec<ForeignSizeRequest> = {
+        let drained: Vec<Waiter> = {
             let mut requests = self.requests.borrow_mut();
             let ids: Vec<u64> = requests
-                .foreign_sizes
+                .waiters
                 .iter()
-                .filter(|(_, request)| request.window == window)
+                .filter(|(_, waiter)| matches!(waiter, Waiter::ForeignSize { window: w, .. } if *w == window))
                 .map(|(id, _)| *id)
                 .collect();
             ids.into_iter()
-                .filter_map(|id| requests.foreign_sizes.remove(&id))
+                .filter_map(|id| requests.waiters.remove(&id))
                 .collect()
         };
-        for request in drained {
-            request.slot.complete(Err(UiError::new(
-                ErrorKind::Closed,
-                "the foreign window closed before the size request was answered",
-                Some(request.at),
-            )));
+        for waiter in drained {
+            if let Waiter::ForeignSize { at, slot, .. } = waiter {
+                slot.complete(Err(UiError::new(
+                    ErrorKind::Closed,
+                    "the foreign window closed before the size request was answered",
+                    Some(at),
+                )));
+            }
         }
-    }
-
-    /// Resolve a pending foreign size request from the host's answer.
-    pub(crate) fn resolve_foreign_size(&self, id: u64, result: PlatformResult) -> bool {
-        let request = self.requests.borrow_mut().foreign_sizes.remove(&id);
-        let Some(request) = request else {
-            return false;
-        };
-        let outcome = match result {
-            PlatformResult::Failed(message) => Err(UiError::new(
-                ErrorKind::Platform,
-                message.to_string(),
-                Some(request.at),
-            )),
-            PlatformResult::Unsupported => Err(UiError::new(
-                ErrorKind::Unsupported,
-                "the host does not support this platform request",
-                Some(request.at),
-            )),
-            PlatformResult::Cancelled => Err(UiError::new(
-                ErrorKind::Cancelled,
-                "a newer request replaced this deferred platform request",
-                Some(request.at),
-            )),
-            PlatformResult::TimedOut => Err(UiError::new(
-                ErrorKind::Timeout,
-                "the host did not answer this deferred platform request in time",
-                Some(request.at),
-            )),
-            _ => Ok(()),
-        };
-        request.slot.complete(outcome);
-        true
     }
 
     /// Release spare request/tree capacity. Environment memos and live
@@ -443,18 +466,9 @@ impl ViewState {
     pub(crate) fn release_capacity(&self) {
         self.tree.borrow_mut().release_capacity();
         let mut requests = self.requests.borrow_mut();
-        requests.focus.order.shrink_to_fit();
-        requests.focus.requests.shrink_to_fit();
-        requests.effects.shrink_to_fit();
-        requests.foreign_sizes.shrink_to_fit();
-        requests.snapshots.shrink_to_fit();
-        requests.pending_activations.shrink_to_fit();
-    }
-
-    /// The view state of `rt`'s App.
-    #[inline]
-    pub(crate) fn of(rt: &Runtime) -> &ViewState {
-        rt.ext::<ViewState>()
+        requests.focus.queued.shrink_to_fit();
+        requests.focus.sent.shrink_to_fit();
+        requests.waiters.shrink_to_fit();
     }
 
     /// Read the retained tree of `rt`'s App.
@@ -478,7 +492,30 @@ impl ViewState {
 
     /// The window's minimum size (`None`: no minimum).
     pub(crate) fn min_window_size(&self, window: WindowId) -> Option<kivact_types::Size> {
-        self.with_window(window, |record| record.min_size).flatten()
+        self.with_window(window, |record| record.decl.min_size)
+            .flatten()
+    }
+
+    /// Write `false` to the `open` binding of every foreign window that is
+    /// still open, as the App's exit turn does. Owners are disposed by the
+    /// next stabilization, so `on_destroy` runs while the child is alive.
+    pub(crate) fn close_foreign_for_exit(&self) {
+        let open: Vec<Rc<WindowDecl>> = self
+            .windows
+            .borrow()
+            .values()
+            .filter(|record| record.decl.foreign.is_some())
+            .map(|record| record.decl.clone())
+            .collect();
+        for decl in open {
+            let released = decl
+                .foreign
+                .as_ref()
+                .is_some_and(|hooks| hooks.phase.get() == super::foreign::ForeignPhase::Released);
+            if !released && decl.open.get_untracked() {
+                decl.open.set(false);
+            }
+        }
     }
 
     /// What the host's platform can do.
@@ -521,32 +558,6 @@ impl ViewState {
     pub(crate) fn set_modifiers(&self, modifiers: Modifiers) {
         self.modifiers.set(modifiers);
     }
-
-    /// The node the host reported under the pointer last in `window`.
-    pub(crate) fn hover(&self, window: WindowId) -> PointerObservation<FocusTarget> {
-        self.with_window(window, |record| record.hover.get())
-            .unwrap_or(PointerObservation::Plain(None))
-    }
-
-    /// Replace `window`'s hover record (a report, or the first `NodeRef::hovered`).
-    pub(crate) fn set_hover(&self, window: WindowId, hover: PointerObservation<FocusTarget>) {
-        self.with_window_mut(window, |record| record.hover.set(hover));
-    }
-
-    /// The mouse position of `window`.
-    pub(crate) fn mouse(&self, window: WindowId) -> PointerObservation<crate::geometry::Point> {
-        self.with_window(window, |record| record.mouse.get())
-            .unwrap_or(PointerObservation::Plain(None))
-    }
-
-    /// Replace `window`'s mouse record.
-    pub(crate) fn set_mouse(
-        &self,
-        window: WindowId,
-        mouse: PointerObservation<crate::geometry::Point>,
-    ) {
-        self.with_window_mut(window, |record| record.mouse.set(mouse));
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -568,8 +579,41 @@ impl FocusKeys {
     }
 }
 
-impl super::tree::Removed {
-    pub(crate) fn commit(self, rt: &kivact_runtime::Runtime) {
-        ViewState::of(rt).removed.borrow_mut().extend(self.ids);
+// xtask-allow(state): projection: generation is the font version families was last read at; families is its projection, and refresh_fonts alone writes both in one transition
+pub(crate) struct FontsValue {
+    pub(crate) families: Signal<Vec<String>>,
+    generation: Cell<u64>,
+}
+
+impl ViewState {
+    /// The families of the App's fonts, read from the engine on first use.
+    pub(crate) fn font_families(
+        &self,
+        rt: &Runtime,
+        at: &'static Location<'static>,
+    ) -> Value<Vec<String>> {
+        let fonts = self.fonts.get_or_init(|| {
+            let reader = self.tree.borrow().reader();
+            FontsValue {
+                families: rt.root().signal(reader.font_families(), at),
+                generation: Cell::new(reader.font_generation()),
+            }
+        });
+        fonts.families.into()
+    }
+
+    /// Write the families again when the engine's font database changed
+    /// since they were read. Nothing happens before the first read.
+    pub(crate) fn refresh_fonts(&self, rt: &Runtime) {
+        let Some(fonts) = self.fonts.get() else {
+            return;
+        };
+        let reader = self.tree.borrow().reader();
+        let generation = reader.font_generation();
+        if generation != fonts.generation.get() {
+            fonts.generation.set(generation);
+            let families = reader.font_families();
+            rt.enter(|| fonts.families.set(families));
+        }
     }
 }

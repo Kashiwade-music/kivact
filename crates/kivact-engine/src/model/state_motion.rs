@@ -6,7 +6,7 @@
 //! changed the target: a paint or state style write (a signal, a style
 //! change), the host's hover, pressed or focus, a group state, an
 //! entrance or an exit. Each property has a track (`PropTrack`) that moves
-//! the numbers `kivact_types::prop_interp` takes from the paint and the
+//! the numbers `interp::prop_interp` takes from the paint and the
 //! text color: the canonical transform's parts and origin component by
 //! component (so `rotate(0)` to `rotate(360)` turns once); what it does
 //! not interpolate switches to the target at once.
@@ -21,8 +21,8 @@
 //!   transition whose target is what is shown ends without a frame.
 //! - A moving transform asks for a layout pass every frame (the node is
 //!   placed, hit and reported where it is drawn).
-//! - While nothing can be drawn the transitions keep their place in time
-//!   (`Model::shift_state_times`): they go on from where they paused.
+//! - While no window can draw, the App clock stands still (kivact_types::clock::Clock), so the transitions go on from where they stood.
 
+pub(crate) mod interp;
 pub(crate) mod state;
 mod steps;

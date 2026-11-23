@@ -1,10 +1,8 @@
-//! Role: The catalog's offline OFL font bytes, for the app and its tests.
+//! Role: The catalog's fonts: Geist, Geist Mono and Noto Sans JP (subset).
 
-/// Application-owned, offline OFL font bytes for the catalog and regressions.
-pub fn fonts() -> &'static [&'static [u8]] {
-    &[
-        include_bytes!("../../shared-assets/fonts/geist/Geist[wght].ttf"),
-        include_bytes!("../../shared-assets/fonts/geistmono/GeistMono[wght].ttf"),
-        include_bytes!("../../shared-assets/fonts/notosansjp/NotoSansJP-subset[wght].ttf"),
-    ]
-}
+/// The catalog's fonts: Geist, Geist Mono and Noto Sans JP (subset).
+pub(crate) static FONTS: &[&[u8]] = &[
+    include_bytes!("../../shared-assets/fonts/geist/Geist[wght].ttf"),
+    include_bytes!("../../shared-assets/fonts/geistmono/GeistMono[wght].ttf"),
+    include_bytes!("../../shared-assets/fonts/notosansjp/NotoSansJP-subset[wght].ttf"),
+];

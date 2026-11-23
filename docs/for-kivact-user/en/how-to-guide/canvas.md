@@ -19,11 +19,12 @@ corner.
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 
-fn badge() -> impl IntoView {
+#[component]
+fn badge() -> impl Element {
     canvas(|draw, size| {
         draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), rgb(0x20242c));
         draw.circle(Point::new(48.0, 48.0), 20, rgb(0x6699ff));
-        draw.rounded_rect(Rect::new(96.0, 28.0, 120.0, 40.0), 8.0, ColorToken::Accent);
+        draw.rounded_rect(Rect::new(96.0, 28.0, 120.0, 40.0), 8.0, color::ACCENT);
         draw.line(
             Point::new(12.0, 100.0),
             Point::new(size.width - 12.0, 100.0),
@@ -47,7 +48,7 @@ fn main() -> kivact::Result<()> {
 - Give the canvas a `.name(..)`. It is the text a screen reader announces for
   the picture.
 - Colors are `rgb(0xrrggbb)`, `rgba(0xrrggbb, alpha)`, or theme tokens such as
-  `ColorToken::Accent`, which follow the active theme (light, dark, a custom
+  `color::ACCENT`, which follow the active theme (light, dark, a custom
   theme). Anything that converts to a `Paint` works wherever a paint is
   expected: a color, a token or a gradient.
 - Strokes take a width (`2` is a solid line two pixels wide) or a full `Stroke`
@@ -62,7 +63,8 @@ A `Path` is a chain of moves and segments. `fill_path` fills it,
 use kivact::draw::{LineCap, LineJoin, Path, Stroke};
 use kivact::prelude::*;
 
-fn wave() -> impl IntoView {
+#[component]
+fn wave() -> impl Element {
     canvas(|draw, size| {
         let mid = size.height / 2.0;
         let wave = Path::new()
@@ -73,7 +75,7 @@ fn wave() -> impl IntoView {
                 Point::new(size.width - 8.0, mid),
             );
         let stroke = Stroke::new(4).cap(LineCap::Round).join(LineJoin::Round);
-        draw.stroke_path(&wave, &stroke, ColorToken::Accent);
+        draw.stroke_path(&wave, &stroke, color::ACCENT);
 
         let triangle = Path::new()
             .move_to(Point::new(20.0, 20.0))
@@ -103,11 +105,12 @@ Use `arc_to(p1, p2, radius)` to round a canvas corner, and `Path::parse_svg(data
 There are two kinds, and they place color differently.
 
 ```rust,no_run
-use kivact::draw::{CanvasGradient, linear_gradient};
+use kivact::style::{CanvasGradient, linear_gradient};
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 
-fn gradients() -> impl IntoView {
+#[component]
+fn gradients() -> impl Element {
     canvas(|draw, size| {
         // 1. Relative to the shape being filled, as in CSS.
         let sky = linear_gradient(180).colors([rgb(0x1e3a8a), rgb(0x93c5fd)]);
@@ -156,11 +159,12 @@ fn pill(draw: &mut Draw, label: &str, at: Point) {
     };
     let metrics = draw.measure_text(label, &style);
     let rect = Rect::new(at.x, at.y, metrics.size.width + 12.0, metrics.size.height + 8.0);
-    draw.rounded_rect(rect, rect.height / 2.0, ColorToken::Accent);
+    draw.rounded_rect(rect, rect.height / 2.0, color::ACCENT);
     draw.text(label, Point::new(at.x + 6.0, at.y + 4.0), style);
 }
 
-fn labels() -> impl IntoView {
+#[component]
+fn labels() -> impl Element {
     canvas(|draw, size| {
         pill(draw, "New", Point::new(12.0, 12.0));
         pill(draw, "In progress", Point::new(12.0, 44.0));
@@ -193,16 +197,18 @@ when the closure returns. A layer's transform maps text, images and clips too.
 
 ```rust,no_run
 # use kivact::view::canvas;
-# use kivact::draw::{Layer, Transform};
+# use kivact::draw::Layer;
+# use kivact::style::Transform;
 use kivact::geometry::{Point, Rect};
 # use kivact::prelude::*;
-fn spinner() -> impl IntoView {
+#[component]
+fn spinner() -> impl Element {
     canvas(|draw, size| {
         let center = Transform::new()
             .translate(size.width / 2.0, size.height / 2.0)
             .rotate(30);
         draw.layer(Layer::new().transform(center).opacity(0.8), |draw| {
-            draw.fill_rect(Rect::new(-20.0, -4.0, 40.0, 8.0), ColorToken::Accent);
+            draw.fill_rect(Rect::new(-20.0, -4.0, 40.0, 8.0), color::ACCENT);
         });
     })
     .style(style().size(80, 80))
@@ -221,10 +227,11 @@ a 3D group appears:
   group in the group's own 3D space, as CSS `transform-style: preserve-3d` does.
 - `backface_visibility(BackfaceVisibility::Hidden)` hides the group when it turns
   past 90 degrees, so only its front shows.
-- `composite(Composite::…)` chooses how the layer combines with what is already
+- `mix(Mix::Composite(..))` chooses how the layer combines with what is already
   drawn, as `globalCompositeOperation` does in an HTML canvas. `SourceIn` keeps
   only the part of the layer that lies over existing pixels, `DestinationOver`
   draws the layer behind what is there, and `Xor` keeps the parts that do not overlap.
+  `Mix::Blend(BlendMode::..)` blends it instead. One layer has one mix.
 
 `draw.border_image(rect, &image)` draws a nine-slice: the corners of a picture
 stay as they are, and the edges and the middle stretch or repeat to fill `rect`.
@@ -234,12 +241,14 @@ gives the frame's size on screen, and `.repeat(BorderImageRepeat::Round)` repeat
 the edge pieces so they fit a whole number of times.
 
 ```rust,no_run
-use kivact::draw::{BorderImage, Composite, Layer};
+use kivact::draw::{Composite, Layer, Mix};
+use kivact::style::{BorderImage, Transform};
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::{BackfaceVisibility, TransformStyle};
 
-fn tilted_panel() -> impl IntoView {
+#[component]
+fn tilted_panel() -> impl Element {
     canvas(|draw, size| {
         let centre = Point::new(size.width / 2.0, size.height / 2.0);
         // The panel turns about its vertical axis, seen from 400 px away.
@@ -253,7 +262,7 @@ fn tilted_panel() -> impl IntoView {
                 .transform_style(TransformStyle::Preserve3d)
                 .backface_visibility(BackfaceVisibility::Hidden),
             |draw| {
-                draw.fill_rect(Rect::new(-60.0, -40.0, 120.0, 80.0), ColorToken::Accent);
+                draw.fill_rect(Rect::new(-60.0, -40.0, 120.0, 80.0), color::ACCENT);
             },
         );
 
@@ -261,8 +270,8 @@ fn tilted_panel() -> impl IntoView {
         let frame = BorderImage::new(br##"<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"><rect width="12" height="12" fill="#f59e0b"/></svg>"##)
             .slice(4)
             .width(4)
-            .repeat(kivact::draw::BorderImageRepeat::Round);
-        draw.layer(Layer::new().composite(Composite::SourceIn), |draw| {
+            .repeat(kivact::style::BorderImageRepeat::Round);
+        draw.layer(Layer::new().mix(Mix::Composite(Composite::SourceIn)), |draw| {
             draw.border_image(Rect::new(0.0, 0.0, size.width, size.height), &frame);
         });
     })
@@ -281,10 +290,12 @@ glyphs as a `Path`, which you can fill or stroke. A single line of
 text can give its outline directly with `draw.text_path(text, at, &format)`.
 
 ```rust,no_run
-use kivact::draw::{Stroke, TextFormat, linear_gradient};
+use kivact::draw::{Stroke, TextFormat};
+use kivact::style::linear_gradient;
 use kivact::prelude::*;
 
-fn headline() -> impl IntoView {
+#[component]
+fn headline() -> impl Element {
     canvas(|draw, _size| {
         let format = TextFormat {
             size: 40.0,
@@ -335,7 +346,8 @@ the signal changes, only this canvas is redrawn. You do not write to a
 use kivact::draw::{LineJoin, Path, Stroke};
 use kivact::prelude::*;
 
-fn sparkline(values: Signal<Vec<f64>>) -> impl IntoView {
+#[component]
+fn sparkline(values: Signal<Vec<f64>>) -> impl Element {
     canvas(move |draw, size| {
         let values = values.get(); // reading subscribes this canvas
         let step = size.width / values.len().saturating_sub(1).max(1) as f64;
@@ -343,7 +355,7 @@ fn sparkline(values: Signal<Vec<f64>>) -> impl IntoView {
             let point = Point::new(i as f64 * step, size.height * (1.0 - v.clamp(0.0, 1.0)));
             if i == 0 { path.move_to(point) } else { path.line_to(point) }
         });
-        draw.stroke_path(&path, &Stroke::new(2).join(LineJoin::Round), ColorToken::Accent);
+        draw.stroke_path(&path, &Stroke::new(2).join(LineJoin::Round), color::ACCENT);
     })
     .style(style().size(240, 60))
     .name("Trend line")
@@ -388,14 +400,16 @@ two steps:
    `draw.region(id, rect)`.
 
 ```rust,test_harness
-use kivact::draw::{RegionId};
+use kivact::draw::RegionId;
 use kivact::geometry::{Rect};
 use kivact::prelude::*;
 use kivact::custom::Part;
+use kivact::state::IntoValue;
 
 const SWATCHES: [(&str, u32); 3] = [("Red", 0xe5484d), ("Green", 0x30a46c), ("Blue", 0x3e63dd)];
 
-fn swatches() -> impl IntoView {
+#[component]
+fn swatches() -> impl Element {
     let chosen = signal(0usize);
 
     let mut board = canvas(move |draw, size| {
@@ -479,7 +493,8 @@ use kivact::draw::{ImageOptions, Pixels};
 use kivact::geometry::{Rect};
 use kivact::prelude::*;
 
-fn renderer_preview() -> impl IntoView {
+#[component]
+fn renderer_preview() -> impl Element {
     let image = signal(None::<Pixels>);
     let (tx, rx) = async_channel::bounded(2);
 
@@ -562,7 +577,7 @@ fn artwork(draw: &mut Draw, size: Size) {
 
 fn main() -> kivact::Result<()> {
     let mut renderer = Offscreen::new();
-    let image = renderer.render(640, 360, artwork)?;
+    let image = renderer.render(640.0, 360.0, artwork)?;
 
     // Tightly packed RGBA, top row first, straight (not premultiplied) alpha.
     assert_eq!(image.rgba.len(), 640 * 360 * 4);
@@ -596,14 +611,16 @@ fn artwork(draw: &mut Draw, size: Size) {
     draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), rgb(0x101820));
 }
 
-fn exporter() -> impl IntoView {
-    let export = action(ActionMode::Latest, |(width, height): (u32, u32)| async move {
+use kivact::task::blocking;
+#[component]
+fn exporter() -> impl Element {
+    let export = action(|(width, height): (f64, f64)| async move {
         let image = blocking(move || Offscreen::new().render(width, height, artwork)).await?;
         // Write `image` to disk here, still off the UI thread.
         Ok(image.rgba.len())
     });
     column((
-        button("Export 1920 × 1080").on_press(move || export.run((1920, 1080))),
+        button("Export 1920 × 1080").on_press(move || export.run((1920.0, 1080.0))),
         dynamic(move || export.state(), |state| match state {
             AsyncState::Idle => text(""),
             AsyncState::Pending => text("Exporting…"),
@@ -637,7 +654,7 @@ fn main() -> kivact::Result<()> {
     let mut renderer = Offscreen::new();
     let document = renderer.render_svg(640.0, 360.0, artwork)?;
     assert!(document.starts_with("<?xml"));
-    let image = renderer.render(640, 360, artwork)?;
+    let image = renderer.render(640.0, 360.0, artwork)?;
     assert_eq!(image.rgba.len(), 640 * 360 * 4);
     // Write `document` to a `.svg` file here.
     Ok(())
@@ -651,12 +668,11 @@ fn main() -> kivact::Result<()> {
   transforms, layers with opacity, linear and radial gradients, and images
   are written as SVG elements. Images are embedded as PNG data URIs at the
   size they are drawn.
-- A command SVG cannot express is an `ErrorKind::Unsupported` error, not a
-  silent omission. Among them are blend modes, masks, filters and 3D
-  transforms on layers, text decorations and font features, shaped
-  paragraphs, conic gradients, and radial gradients sized by keywords. A size
-  that is not a positive finite pair is an `ErrorKind::Message` error, and
-  `paint` is not called.
+- Features that SVG 1.1 and CSS can express (font features and variations,
+  `mix-blend-mode`, text decorations, fills and strokes) are written; only a
+  feature with no SVG or CSS equivalent fails the export with
+  `ErrorKind::Unsupported`, not a silent omission. A size that is not a positive
+  finite pair is an `ErrorKind::Message` error, and `paint` is not called.
 - SVG does not embed fonts. Register the fonts the text uses with
   `renderer.font(include_bytes!("…"))` so the text is measured as the
   drawing needs, and install the same fonts (under the same family names)

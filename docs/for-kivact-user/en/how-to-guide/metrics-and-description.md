@@ -8,7 +8,8 @@ Use standard builders from `kivact::ui` with any installed theme. Values and lab
 use kivact::prelude::*;
 use kivact::ui::{self, ProgressVariant, Trend};
 
-fn overview() -> impl IntoView {
+#[component]
+fn overview() -> impl Element {
     let completed = signal(Some(0.7));
     let revenue = signal("$12,400".to_owned());
     column((
@@ -27,7 +28,7 @@ fn overview() -> impl IntoView {
 
 Progress takes a fraction from 0 to 1 and clamps values outside that range. `None` means indeterminate. `ProgressVariant::{Bar, Ring, Gauge}` use the same `.variant(impl Variant)` contract as custom looks: a later value of the same type replaces the earlier one. All appearances keep the progress role, range and accessible percentage. The default ring also displays the percentage; the gauge is segmented. `.size(..)` and `.moving(..)` retain their usual meaning. Motion follows the installed theme and reduced-motion preference.
 
-`stat(label, value)` exposes a group named by the label, with the application-formatted value as its accessible value. `.delta(impl IntoText)` adds a change caption, and `.trend(impl IntoValue<Trend>)` supplies `Up`, `Down` or `Neutral` to every recipe. Direction alone does not mean success or danger: choose any semantic tone with `.variant(..)` and let the theme style it. `.icon(impl IntoView)` takes a decorative view. `.label_content(..)` and `.value_content(..)` replace visible content while retaining the accessible label and value. `.chart(..)` accepts any view, such as a [sparkline](#draw-a-sparkline). The statistic already names its chart, so an unlabelled sparkline in the slot is decorative. Numeric animation, custom formatting and units can be supplied as reactive text; these builders do not parse or animate text themselves.
+`stat(label, value)` exposes a group named by the label, with the application-formatted value as its accessible value. `.delta(text)` adds a change caption, and `.trend(value)`, which takes a value, a signal or a closure, supplies `Up`, `Down` or `Neutral` to every recipe. Direction alone does not mean success or danger: choose any semantic tone with `.variant(..)` and let the theme style it. `.icon(impl IntoView)` takes a decorative view. `.label_content(..)` and `.value_content(..)` replace visible content while retaining the accessible label and value. `.chart(..)` accepts any view, such as a [sparkline](#draw-a-sparkline). The statistic already names its chart, so an unlabelled sparkline in the slot is decorative. Numeric animation, custom formatting and units can be supplied as reactive text; these builders do not parse or animate text themselves.
 
 `heading(text, level)` reports `Role::Heading` and clamps levels to 1 through 6. Its typography comes from the theme's heading recipe. Heading text remains reactive.
 
@@ -41,7 +42,8 @@ Progress takes a fraction from 0 to 1 and clamps values outside that range. `Non
 use kivact::prelude::*;
 use kivact::ui::{self, Trend};
 
-fn visitors() -> impl IntoView {
+#[component]
+fn visitors() -> impl Element {
     let daily = signal(vec![3.0, 4.5, 4.0, 6.0, 5.5]);
     column((
         ui::stat("Visitors", "5.5k")
@@ -53,16 +55,17 @@ fn visitors() -> impl IntoView {
 }
 ```
 
-`.label(..)` names the chart for assistive technology as an image, and its description gives the count of values, their range and the last value, formatted in the app's locale. Without a label the chart is decorative. The line, area and inset come from the theme's `UiTokens::sparkline`; its size comes from `UiRecipes::sparkline`, which a kit sets and an application can change.
+`.label(..)` names the chart for assistive technology as an image, and its description gives the count of values, their range and the last value, formatted in the app's locale. Without a label the chart is decorative. The line color, line width and inset are theme variables in `kivact::ui::theme::sparkline`, and `SparklineTheme` holds its round and fill settings; a kit sets them and an application can change them.
 
 For constrained media, apply the ordinary style property rather than an aspect-ratio component:
 
 ```rust,no_run
 use kivact::prelude::*;
 
-fn preview() -> impl IntoView {
+#[component]
+fn preview() -> impl Element {
     node().style(style().width(320).aspect_ratio(16.0 / 9.0))
 }
 ```
 
-Themes customize `UiRecipes::heading`, `UiRecipes::stat` and `UiRecipes::description_list`. Statistic parts are `root`, `label`, `value`, `delta`, `icon` and `chart`; description parts are `root`, `item`, `term` and `detail`; the sparkline's part is `root`. Progress keeps its `track` and `fill` recipes and adds `label` for ring text. Every part receives the component's variant values.
+Themes customize `HeadingTheme`, `StatTheme` and `DescriptionListTheme`. Statistic parts are `root`, `label`, `value`, `delta`, `icon` and `chart`; description parts are `root`, `item`, `term` and `detail`; the sparkline's part is `root`. Progress keeps its `track` and `fill` recipes and adds `label` for ring text. Every part receives the component's variant values.

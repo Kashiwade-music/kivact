@@ -13,7 +13,7 @@
 //! drawn, measured, under the caret or the pointer, or published), with
 //! what drawing and assistive technology make of each line (its colors,
 //! its colored glyphs, its text run). An edit splits again only the lines
-//! its damage touches (`Editor::take_damage`); the lines after them
+//! its damage touches (`EditState::damage_since`, asked with the lines' own revision); the lines after them
 //! move with their chunk. So opening a document costs splitting and
 //! counting its text, and an edit, the caret, the pointer, the IME and the
 //! accessibility runs cost the lines they touch and the chunk list, not
@@ -111,11 +111,9 @@ mod records;
 mod refresh;
 mod shaping;
 mod source;
-mod word;
 
 pub(crate) use edit_lines::EditLines;
 pub(crate) use line_metrics::{line_height, line_offset};
 pub(crate) use refresh::{RefreshError, RefreshMode};
-pub(crate) use shaping::Shaping;
+pub(crate) use shaping::SharedLines;
 pub(crate) use source::{Breaks, Source};
-pub(crate) use word::{line_range, word_range};

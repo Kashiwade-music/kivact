@@ -1,6 +1,6 @@
-//! Role: Shared view transforms and owner-scoped zoom and pan input.
+//! Role: Shared zoom-pan state and owner-scoped zoom and pan input.
 //!
-//! [`use_zoom_pan`] edits a caller's [`ViewTransform`] binding and shares
+//! [`use_zoom_pan`] edits a caller's [`ZoomPan`] binding and shares
 //! one input map: wheel zoom around the pointer, zoom and fit keys, a
 //! middle-button or Space-plus-primary pan and a two-finger pinch (the
 //! fingers' distance ratio scales, and the content point under their
@@ -26,5 +26,5 @@
 mod data;
 mod handle;
 mod machine;
-pub use data::ViewTransform;
+pub use data::ZoomPan;
 pub use handle::{ZoomPanApi, use_zoom_pan};

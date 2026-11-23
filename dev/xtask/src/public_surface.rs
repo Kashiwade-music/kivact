@@ -9,6 +9,8 @@ use syn::spanned::Spanned;
 #[derive(Default)]
 pub(crate) struct Surface {
     pub(crate) exports: BTreeMap<String, String>,
+    /// The public paths that name a module.
+    pub(crate) modules: BTreeSet<String>,
     pub(crate) reachable: BTreeSet<String>,
     aliases: BTreeMap<String, String>,
     pub(crate) origins: BTreeMap<String, (String, String, proc_macro2::Span)>,
@@ -16,10 +18,8 @@ pub(crate) struct Surface {
 struct Binding {
     path: String,
     target: String,
-    // xtask-allow(state-fields): independent: whether a binding is public is a fixed fact, separate from whether it names a value
     public: bool,
     origin: (String, String, proc_macro2::Span),
-    // xtask-allow(state-fields): independent: whether a binding names a value is a fixed fact, separate from its visibility
     value: bool,
 }
 
@@ -85,6 +85,7 @@ pub(crate) fn build_for(sources: &[Source], public_needed: bool) -> Surface {
             surface.origins.insert(path.clone(), binding.origin.clone());
             if modules.contains(&target) {
                 surface.exports.insert(path.clone(), target.clone());
+                surface.modules.insert(path.clone());
                 if !ancestors.contains(&target) {
                     let mut next = ancestors.clone();
                     next.insert(target.clone());

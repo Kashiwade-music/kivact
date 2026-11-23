@@ -1,23 +1,22 @@
-//! Role: The GradientEditor builder and its ramp, stop handles and fields.
+//! Role: The gradient_editor component and its ramp, stop handles and fields.
 
+use super::data::ColorTransform;
 use super::data::GradientStop;
 use super::data::position_value;
 use super::geometry::Ramp;
 use super::state::{GradientOwner, Model, State};
+use crate::color_wheel::{ColorModel, color_wheel};
+use kivact::component;
 use kivact::custom::part;
 use kivact::geometry::Size;
 use kivact::i18n::message;
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_drag};
-use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
-use kivact::state::callback;
-use kivact::state::{Binding, Callback, binding, memo};
+use kivact::state::Signal;
+use kivact::state::{Callback, binding, memo, signal};
 use kivact::style::{Color, pct, style};
 use kivact::view::EditPhase;
-use kivact::view::HandlerResult;
-use kivact::view::{
-    A11yAction, A11yEvent, A11yRequest, Handled, IntoView, Key, KeyEvent, Role, View, node_ref,
-};
+use kivact::view::{A11yAction, A11yEvent, A11yRequest, Handled, Key, KeyEvent, Role, node_ref};
 use kivact::view::{Element, Node, column, node, row};
 use std::rc::Rc;
 
@@ -25,66 +24,109 @@ use std::rc::Rc;
 /// Display sorting never reorders the application's vector. External invalid
 /// positions are normalized for display without writing the binding.
 ///
+/// `selected` is the index of the selected stop; selecting alone is not an edit
+/// and is not reported to `on_edit`. `color_transform` converts storage colors
+/// for display and back. `on_edit` observes one transaction for each drag, key,
+/// AT, button or child field edit.
+///
 /// Left/Down and Right/Up change position by 0.01 (Shift: 0.1), Home/End use
 /// 0/1, Delete/Backspace remove a stop. Select/Activate change selection without
 /// an edit. Other edits are suppressed during a stop drag. Escape, pointer
 /// cancellation, hiding, disabling and disposal restore the exact original
 /// vector and selection before Cancel. Names use `gradient.stops`,
 /// `gradient.stop`, `gradient.position`, `gradient.add` and `gradient.remove`.
-pub struct GradientEditor {
-    root: Node,
-    stops: Binding<Vec<GradientStop>>,
-    selection: Binding<Option<usize>>,
-    to_display: Rc<dyn Fn(Color) -> Color>,
-    from_display: Rc<dyn Fn(Color) -> Color>,
-    edit: Option<Callback<EditPhase>>,
-}
-
-/// Edit gradient `stops` by vector index; `selected` is the index of the
-/// selected stop, which selecting alone does not report to `on_edit`. The
-/// root name is set with Element::name.
-#[track_caller]
+#[component]
 pub fn gradient_editor(
-    stops: impl IntoBinding<Vec<GradientStop>>,
-    selected: impl IntoBinding<Option<usize>>,
-) -> GradientEditor {
-    GradientEditor {
-        root: column(())
-            .role(Role::Group)
-            .style(style().gap(8).width(pct(100)).min_width(0)),
-        stops: stops.into_binding(),
-        selection: selected.into_binding(),
-        to_display: Rc::new(|c| c),
-        from_display: Rc::new(|c| c),
-        edit: None,
-    }
-}
-
-impl GradientEditor {
-    /// Convert storage colors to display colors and writes back to storage.
-    /// Capturing closures are supported. Opening and cancellation preserve raw
-    /// storage values, including when these functions are not exact inverses.
-    pub fn color_transform(
-        mut self,
-        to_display: impl Fn(Color) -> Color + 'static,
-        from_display: impl Fn(Color) -> Color + 'static,
-    ) -> Self {
-        self.to_display = Rc::new(to_display);
-        self.from_display = Rc::new(from_display);
-        self
-    }
-    /// Observe one transaction for each drag, key, AT, button or child field edit.
-    pub fn on_edit<R: HandlerResult>(mut self, edit: impl Fn(EditPhase) -> R + 'static) -> Self {
-        self.edit = Some(callback(edit));
-        self
-    }
-}
-
-impl Element for GradientEditor {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
+    stops: Signal<Vec<GradientStop>>,
+    selected: Signal<Option<usize>>,
+    color_transform: Option<ColorTransform>,
+    on_edit: Option<Callback<EditPhase>>,
+) -> impl Element {
+    let root = column(())
+        .role(Role::Group)
+        .style(style().gap(8).width(pct(100)).min_width(0));
+    let identity: Rc<dyn Fn(Color) -> Color> = Rc::new(|color| color);
+    let (to_display, from_display) = match color_transform {
+        Some(transform) => (transform.to_display, transform.from_display),
+        None => (identity.clone(), identity),
+    };
+    let selection = selected;
+    let stop_values = stops.into_value();
+    let selected = selection.into_value();
+    let targets = crate::editors::shared::targets::targets::<usize, ()>(move || {
+        Ok((0..stop_values.get().len()).collect())
+    });
+    let scene = targets.scene();
+    let valid = memo(move || scene.get().is_ok());
+    let root_part = part(|input| input);
+    let input = root_part.state();
+    let blocked = memo(move || {
+        let input = input.get();
+        input.is_disabled() || input.is_hidden()
+    });
+    let drag = use_drag::<(usize, f64, f64)>(DragCoordinates::Local);
+    let state = Model::new(stops, selection, valid, on_edit, blocked, drag);
+    let reference = node_ref();
+    let rect = reference.rect();
+    let apply = move |update: DragUpdate<(usize, f64, f64)>| {
+        if state.enabled() && state.edit.owner() == Some(GradientOwner::Stop) {
+            let (id, position, width) = update.payload;
+            state.position(id, position + update.delta.x / width);
+        }
+    };
+    // Each drag of a stop is one edit of the shared session; Escape, an
+    // engine Cancel and `State::cancel` write the stops from the press
+    // back. A press during a field's edit joins that edit and moves
+    // nothing.
+    let gesture = drag
+        .on_start(move |update: DragUpdate<(usize, f64, f64)>| {
+            state.edit.begin(GradientOwner::Stop, state.snapshot());
+            if !state.enabled() || state.edit.owner() != Some(GradientOwner::Stop) {
+                return;
+            }
+            selection.set(Some(update.payload.0));
+        })
+        .on_update(apply)
+        .on_end(move |update: DragUpdate<(usize, f64, f64)>| {
+            if update.phase == DragPhase::Cancel {
+                state.edit.cancel_owned(GradientOwner::Stop);
+            } else {
+                apply(update);
+                state.edit.commit(GradientOwner::Stop);
+            }
+        });
+    let state = State::new(state, gesture);
+    let group = node_ref();
+    state.observe(group.focus_within());
+    let disabled = memo(move || state.blocked.get() || !valid.get());
+    let infos = stop_infos(stop_values, scene);
+    let ramp_to_display = to_display.clone();
+    let ramp = node()
+        .role(Role::Canvas)
+        .name(message("creative.gradient.stops", "Gradient stops"))
+        .node_ref(reference)
+        .style(style().height(44).width(pct(100)).min_width(0))
+        .disabled(disabled)
+        .draw(move |draw, size| {
+            if let Ok(scene) = scene.get() {
+                let data = stop_values.get();
+                let ramp = Ramp::new(size);
+                ramp.paint(draw, &data, selected.get(), ramp_to_display.as_ref());
+                for (index, stop) in data.iter().enumerate() {
+                    if let Some(id) = scene.id(&index) {
+                        draw.region(id, ramp.hit(stop.position));
+                    }
+                }
+            }
+        })
+        .regions(
+            infos,
+            |(id, _)| *id,
+            move |_, info| stop_part(state, gesture, rect, info.get_untracked().1),
+        );
+    root.node_ref(group)
+        .part(root_part)
+        .child((ramp, fields(state, to_display, from_display)))
 }
 
 fn key(state: State, id: usize, event: KeyEvent) -> Handled {
@@ -106,90 +148,6 @@ fn key(state: State, id: usize, event: KeyEvent) -> Handled {
         _ => return Handled::No,
     };
     Handled::Yes
-}
-
-impl IntoView for GradientEditor {
-    fn into_view(self) -> View {
-        let stops = self.stops.into_value();
-        let selection = self.selection;
-        let selected = selection.into_value();
-        let targets = crate::editors::shared::targets::targets::<usize, ()>(move || {
-            Ok((0..stops.get().len()).collect())
-        });
-        let scene = targets.scene();
-        let valid = memo(move || scene.get().is_ok());
-        let root_part = part(|input| input);
-        let input = root_part.state();
-        let blocked = memo(move || {
-            let input = input.get();
-            input.is_disabled() || input.is_hidden()
-        });
-        let drag = use_drag::<(usize, f64, f64)>(DragCoordinates::Local);
-        let state = Model::new(self.stops, selection, valid, self.edit, blocked, drag);
-        let reference = node_ref();
-        let rect = reference.rect();
-        let apply = move |update: DragUpdate<(usize, f64, f64)>| {
-            if state.enabled() && state.edit.owner() == Some(GradientOwner::Stop) {
-                let (id, position, width) = update.payload;
-                state.position(id, position + update.delta.x / width);
-            }
-        };
-        // Each drag of a stop is one edit of the shared session; Escape, an
-        // engine Cancel and `State::cancel` write the stops from the press
-        // back. A press during a field's edit joins that edit and moves
-        // nothing.
-        let gesture = drag
-            .on_start(move |update: DragUpdate<(usize, f64, f64)>| {
-                state.edit.begin(GradientOwner::Stop, state.snapshot());
-                if !state.enabled() || state.edit.owner() != Some(GradientOwner::Stop) {
-                    return;
-                }
-                selection.set(Some(update.payload.0));
-            })
-            .on_update(apply)
-            .on_end(move |update: DragUpdate<(usize, f64, f64)>| {
-                if update.phase == DragPhase::Cancel {
-                    state.edit.cancel_owned(GradientOwner::Stop);
-                } else {
-                    apply(update);
-                    state.edit.commit(GradientOwner::Stop);
-                }
-            });
-        let state = State::new(state, gesture);
-        let group = node_ref();
-        state.observe(group.focus_within());
-        let disabled = memo(move || state.blocked.get() || !valid.get());
-        let infos = stop_infos(stops, scene);
-        let to_display = self.to_display.clone();
-        let ramp = node()
-            .role(Role::Canvas)
-            .name(message("creative.gradient.stops", "Gradient stops"))
-            .node_ref(reference)
-            .style(style().height(44).width(pct(100)).min_width(0))
-            .disabled(disabled)
-            .draw(move |draw, size| {
-                if let Ok(scene) = scene.get() {
-                    let data = stops.get();
-                    let ramp = Ramp::new(size);
-                    ramp.paint(draw, &data, selected.get(), to_display.as_ref());
-                    for (index, stop) in data.iter().enumerate() {
-                        if let Some(id) = scene.id(&index) {
-                            draw.region(id, ramp.hit(stop.position));
-                        }
-                    }
-                }
-            })
-            .regions(
-                infos,
-                |(id, _)| *id,
-                move |_, info| stop_part(state, gesture, rect, info.get_untracked().1),
-            );
-        self.root
-            .node_ref(group)
-            .part(root_part)
-            .child((ramp, fields(state, self.to_display, self.from_display)))
-            .into_view()
-    }
 }
 
 fn fields(
@@ -261,7 +219,7 @@ fn fields(
     column((
         position,
         buttons,
-        crate::color_wheel(color, kivact::state::signal(crate::ColorModel::Rgb))
+        color_wheel(color, signal(ColorModel::Rgb))
             .alpha(true)
             .wheel_size(160.0)
             .with_node(move |node| node.disabled(field_disabled))

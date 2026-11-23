@@ -3,7 +3,7 @@
 //! Requests the view layer sends to the host and whose answers come back as
 //! events: keyboard focus (`NodeRef::focus`, the focus restores after a
 //! modal overlay or a popup closes and `NodeRef::restore_focus`),
-//! platform effects (`kivact::platform`, the App's fonts). Request ids come
+//! platform effects (`kivact::platform`, the theme's fonts). Request ids come
 //! from one per-App counter.
 //!
 //! Restores are checked once at flush against engine focus eligibility.
@@ -13,13 +13,14 @@
 use std::panic::Location;
 
 use kivact_engine::contract::HostRequest;
-use kivact_types::{PlatformResult, RequestId};
+use kivact_types::{PlatformResult, RequestId, WindowId};
 
 use super::state::{
-    EffectWaiter, FocusCompletion, FocusReply, FocusRequest, RequestStage, ViewState,
+    BlurRequest, BlurStage, FocusCompletion, FocusReply, FocusRequest, ViewState, Waiter,
 };
+use kivact_runtime::Owner;
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{ErrorKind, UiError};
-use kivact_runtime::{Owner, Runtime};
 use kivact_style::asset::Asset;
 
 /// Ask the host to focus `node` (written with the next revision); an unmounted
@@ -38,16 +39,14 @@ pub(crate) fn request_focus(
     let mut req = ViewState::of(rt).requests.borrow_mut();
     let id = req.request_id();
     let id = RequestId(id);
-    req.focus.order.push(id);
-    req.focus.requests.insert(
+    req.focus.queued.push((
         id,
         FocusRequest {
             target: node,
-            visible,
             reply,
-            stage: RequestStage::Queued,
+            visible,
         },
-    );
+    ));
     drop(req);
     rt.request_turn();
 }
@@ -71,24 +70,38 @@ fn resolve_focus_reply(rt: &Runtime, reply: FocusReply, result: FocusResult) {
 }
 
 /// Send a platform effect to the host (a write of the next revision).
-pub(crate) fn request_effect(rt: &Runtime, req: HostRequest, waiter: EffectWaiter) {
+pub(crate) fn request_effect(rt: &Runtime, req: HostRequest, waiter: Waiter) {
     let id = {
         let mut r = ViewState::of(rt).requests.borrow_mut();
         let id = r.request_id();
-        r.effects.insert(id, waiter);
+        r.waiters.insert(id, waiter);
         id
     };
     ViewState::tree(rt).engine().effect(RequestId(id), req);
     rt.request_turn();
 }
 
-/// Register the App's fonts (`App::font`), each located at its call: one
-/// `RegisterFont` effect per font, applied before mounting the root's
-/// mount so the first layout measures with them. A font the host rejects
-/// is reported to the default sink as `ErrorKind::Asset`.
-pub(crate) fn register_app_fonts(rt: &Runtime, fonts: Vec<(Asset, &'static Location<'static>)>) {
-    for (font, at) in fonts {
-        let waiter = EffectWaiter::Report {
+/// Register the fonts of `theme` the App has not registered yet (by asset
+/// identity: the path, the static address and length, or the shared
+/// allocation), located at `at`. The first layout after this call sees
+/// them (the engine registers a font when it is written). A file that is
+/// not a usable font is reported as `ErrorKind::Asset` at `at`.
+pub(crate) fn register_theme_fonts(
+    rt: &Runtime,
+    theme: &kivact_style::Theme,
+    at: &'static Location<'static>,
+) {
+    let fonts: Vec<Asset> = {
+        let mut seen = ViewState::of(rt).registered_fonts.borrow_mut();
+        theme
+            .fonts()
+            .iter()
+            .filter(|asset| seen.insert((*asset).clone()))
+            .cloned()
+            .collect()
+    };
+    for font in fonts {
+        let waiter = Waiter::Report {
             owner: None,
             at,
             failed: ErrorKind::Asset,
@@ -99,14 +112,11 @@ pub(crate) fn register_app_fonts(rt: &Runtime, fonts: Vec<(Asset, &'static Locat
 
 /// The host answered platform effect `id`.
 pub(crate) fn resolve_effect(rt: &Runtime, id: u64, result: PlatformResult) {
-    if ViewState::of(rt).resolve_foreign_size(id, result.clone()) {
-        return;
-    }
-    let Some(w) = ViewState::of(rt).requests.borrow_mut().effects.remove(&id) else {
+    let Some(waiter) = ViewState::of(rt).requests.borrow_mut().waiters.remove(&id) else {
         return;
     };
-    match w {
-        EffectWaiter::Report { owner, at, failed } => {
+    match waiter {
+        Waiter::Report { owner, at, failed } => {
             let err = match result {
                 PlatformResult::Failed(m) => Some(UiError::new(failed, m.to_string(), Some(at))),
                 other => platform_result(other)
@@ -117,56 +127,66 @@ pub(crate) fn resolve_effect(rt: &Runtime, id: u64, result: PlatformResult) {
                 rt.report(owner, e);
             }
         }
-        EffectWaiter::Future(slot) => slot.complete(Ok(result)),
+        Waiter::Future(slot) => slot.complete(Ok(result)),
+        Waiter::ForeignSize { at, slot, .. } => slot.complete(foreign_size_outcome(result, at)),
+        Waiter::Snapshot { .. } => {
+            unreachable!("invariant: a snapshot is answered by SnapshotResult, not EffectResult")
+        }
+    }
+}
+
+/// The outcome of a foreign window's size request from the host's answer.
+fn foreign_size_outcome(
+    result: PlatformResult,
+    at: &'static Location<'static>,
+) -> Result<(), UiError> {
+    match result {
+        PlatformResult::Failed(message) => Err(UiError::new(
+            ErrorKind::Platform,
+            message.to_string(),
+            Some(at),
+        )),
+        PlatformResult::Unsupported => Err(UiError::new(
+            ErrorKind::Unsupported,
+            "the host does not support this platform request",
+            Some(at),
+        )),
+        PlatformResult::Cancelled => Err(UiError::new(
+            ErrorKind::Cancelled,
+            "a newer request replaced this deferred platform request",
+            Some(at),
+        )),
+        PlatformResult::TimedOut => Err(UiError::new(
+            ErrorKind::Timeout,
+            "the host did not answer this deferred platform request in time",
+            Some(at),
+        )),
+        _ => Ok(()),
     }
 }
 
 /// The host answered focus request `id`.
 pub(crate) fn on_focus_result(rt: &Runtime, id: u64, result: Result<(), String>) {
-    let request = {
-        let mut requests = ViewState::of(rt).requests.borrow_mut();
-        let id = RequestId(id);
-        if !requests
-            .focus
-            .requests
-            .get(&id)
-            .is_some_and(|request| matches!(request.stage, RequestStage::Sent))
-        {
-            return;
-        }
-        requests.focus.requests.remove(&id)
-    };
-    if let Some(request) = request {
+    let reply = ViewState::of(rt)
+        .requests
+        .borrow_mut()
+        .focus
+        .sent
+        .remove(&RequestId(id));
+    if let Some(reply) = reply {
         let result = result.map_err(|reason| UiError::new(ErrorKind::Platform, reason, None));
-        resolve_focus_reply(rt, request.reply, FocusResult::Answered(result));
+        resolve_focus_reply(rt, reply, FocusResult::Answered(result));
     }
 }
 
 /// Send queued focus requests in order, canceling ineligible restores.
 pub(crate) fn flush_focus(rt: &Runtime) {
-    let order = std::mem::take(&mut ViewState::of(rt).requests.borrow_mut().focus.order);
+    let queued = std::mem::take(&mut ViewState::of(rt).requests.borrow_mut().focus.queued);
     let exists = |target: kivact_types::FocusTarget| ViewState::tree(rt).contains(target.node);
-    let explicit = {
-        let requests = ViewState::of(rt).requests.borrow();
-        order.iter().any(|id| {
-            requests.focus.requests.get(id).is_some_and(|request| {
-                matches!(request.reply, FocusReply::Report(_)) && exists(request.target)
-            })
-        })
-    };
-    for id in order {
-        let Some(mut request) = ViewState::of(rt)
-            .requests
-            .borrow_mut()
-            .focus
-            .requests
-            .remove(&id)
-        else {
-            continue;
-        };
-        if !matches!(request.stage, RequestStage::Queued) {
-            continue;
-        }
+    let explicit = queued.iter().any(|(_, request)| {
+        matches!(request.reply, FocusReply::Report(_)) && exists(request.target)
+    });
+    for (id, request) in queued {
         let restore = !matches!(request.reply, FocusReply::Report(_));
         let owner_gone = matches!(&request.reply, FocusReply::RestoreAndReport(completion) if !completion.owner.is_alive());
         if restore && (explicit || owner_gone || !can_take_focus(rt, request.target)) {
@@ -174,15 +194,17 @@ pub(crate) fn flush_focus(rt: &Runtime) {
             continue;
         }
         if exists(request.target) {
-            let target = request.target;
-            let visible = request.visible;
-            request.stage = RequestStage::Sent;
+            let FocusRequest {
+                target,
+                reply,
+                visible,
+            } = request;
             ViewState::of(rt)
                 .requests
                 .borrow_mut()
                 .focus
-                .requests
-                .insert(id, request);
+                .sent
+                .insert(id, reply);
             ViewState::tree(rt).engine().focus(target, id, visible);
             crate::view::devtools_hooks::focus_requested(rt, target);
         } else {
@@ -196,6 +218,83 @@ pub(crate) fn flush_focus(rt: &Runtime) {
                 ))),
             );
         }
+    }
+    send_queued_blurs(rt);
+}
+
+/// Send the queued blurs of `commit_focused_edit`: a window that still has
+/// a focus gets the engine's blur; one without a focus is delivered at once.
+fn send_queued_blurs(rt: &Runtime) {
+    let queued: Vec<WindowId> = {
+        let mut requests = ViewState::of(rt).requests.borrow_mut();
+        let mut windows = Vec::new();
+        for blur in requests
+            .blurs
+            .iter_mut()
+            .filter(|b| b.stage == BlurStage::Queued)
+        {
+            blur.stage = BlurStage::Sent;
+            if !windows.contains(&blur.window) {
+                windows.push(blur.window);
+            }
+        }
+        windows
+    };
+    for window in queued {
+        let focused = ViewState::of(rt)
+            .focus_keys(window)
+            .is_some_and(|keys| keys.focus.get_untracked().is_some());
+        if focused {
+            ViewState::tree(rt).engine().blur(window);
+        } else {
+            mark_blur_delivered(rt, window);
+        }
+    }
+}
+
+/// The focus of `window` left: its sent blur requests complete on the next turn.
+pub(crate) fn mark_blur_delivered(rt: &Runtime, window: WindowId) {
+    let mut any = false;
+    for blur in ViewState::of(rt).requests.borrow_mut().blurs.iter_mut() {
+        if blur.window == window && blur.stage == BlurStage::Sent {
+            blur.stage = BlurStage::Delivered;
+            any = true;
+        }
+    }
+    if any {
+        rt.request_turn();
+    }
+}
+
+/// Complete the blur requests delivered in an earlier turn. `true` when one
+/// completed (a task woke, so the turn is not idle).
+pub(crate) fn complete_delivered_blurs(rt: &Runtime) -> bool {
+    let delivered: Vec<BlurRequest> = {
+        let mut requests = ViewState::of(rt).requests.borrow_mut();
+        let (done, keep): (Vec<_>, Vec<_>) = std::mem::take(&mut requests.blurs)
+            .into_iter()
+            .partition(|b| b.stage == BlurStage::Delivered);
+        requests.blurs = keep;
+        done
+    };
+    let woke = !delivered.is_empty();
+    for blur in delivered {
+        blur.done.complete(());
+    }
+    woke
+}
+
+/// The window `window` closed: its blur requests complete on the next turn.
+pub(crate) fn release_blurs(rt: &Runtime, window: WindowId) {
+    let mut any = false;
+    for blur in ViewState::of(rt).requests.borrow_mut().blurs.iter_mut() {
+        if blur.window == window {
+            blur.stage = BlurStage::Delivered;
+            any = true;
+        }
+    }
+    if any {
+        rt.request_turn();
     }
 }
 
@@ -218,23 +317,6 @@ pub(crate) fn request_restore_focus(
         FocusReply::RestoreAndReport(FocusCompletion { owner, at })
     });
     request_focus(rt, Some(node), reply, visible);
-}
-
-/// Run the default action of `node` (`NodeRef::activate`) once the current
-/// handler has returned: the client takes the queue after each event and
-/// before each flush of the turn.
-pub(crate) fn request_activation(rt: &Runtime, node: kivact_types::FocusTarget) {
-    ViewState::of(rt)
-        .requests
-        .borrow_mut()
-        .pending_activations
-        .push(node);
-    rt.request_turn();
-}
-
-/// Take the activations asked for since the last call.
-pub(crate) fn take_activations(rt: &Runtime) -> Vec<kivact_types::FocusTarget> {
-    std::mem::take(&mut ViewState::of(rt).requests.borrow_mut().pending_activations)
 }
 
 /// Bridge an actual engine capture release to the current part router.
@@ -271,15 +353,6 @@ pub(crate) fn clear_pointer_releases(rt: &Runtime) {
         .borrow_mut()
         .pointer_releases
         .clear();
-}
-
-/// Whether activations wait to run.
-pub(crate) fn has_activations(rt: &Runtime) -> bool {
-    !ViewState::of(rt)
-        .requests
-        .borrow()
-        .pending_activations
-        .is_empty()
 }
 
 /// A platform result as `Ok`, or the error it reports.

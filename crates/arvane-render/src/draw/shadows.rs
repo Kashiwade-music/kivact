@@ -29,16 +29,16 @@
 use super::canvas::Canvas;
 use super::painter::Painter;
 use crate::convert;
-use kivact_types::render::BoxShadow;
+use arvane_protocol::BoxShadow;
 use kivact_types::scene::RoundedRect as Rounded;
-use kivact_types::scene::{Radius, Shape};
+use kivact_types::scene::{Outline, Radius};
 use kivact_types::{Rect as LogicalRect, Rgba};
 use vello_common::filter_effects::{EdgeMode, Filter, FilterPrimitive};
 use vello_cpu::PaintType;
 use vello_cpu::color::palette::css::BLACK;
 use vello_cpu::kurbo::Shape as _;
 
-impl<C: Canvas> Painter<'_, C> {
+impl<C: Canvas> Painter<'_, '_, C> {
     /// Draw a CSS box shadow, outer or inset.
     pub(super) fn box_shadow(&mut self, shadow: &BoxShadow) {
         let color = shadow.color;
@@ -59,7 +59,7 @@ impl<C: Canvas> Painter<'_, C> {
                     y: (r.y - shadow.spread).max(0.0),
                 }),
             };
-            let clip = convert::shape(&Shape::RoundedRect(shape));
+            let clip = convert::shape(&Outline::RoundedRect(shape));
             self.canvas.push_layer(Some(&clip), None, None, None);
             self.canvas
                 .set_paint(PaintType::Solid(convert::color(color)));
@@ -95,7 +95,7 @@ impl<C: Canvas> Painter<'_, C> {
             self.canvas.set_blend_mode(dest_out);
             self.canvas.set_paint(PaintType::Solid(BLACK));
             self.canvas
-                .fill_path(&convert::shape(&Shape::RoundedRect(shape)));
+                .fill_path(&convert::shape(&Outline::RoundedRect(shape)));
             self.canvas.set_blend_mode(Default::default());
             self.canvas.pop_layer();
         }
@@ -115,7 +115,7 @@ impl<C: Canvas> Painter<'_, C> {
             }
             self.canvas.set_paint(paint);
             self.canvas
-                .fill_path(&convert::shape(&Shape::RoundedRect(*shape)));
+                .fill_path(&convert::shape(&Outline::RoundedRect(*shape)));
             if remove {
                 self.canvas.set_blend_mode(Default::default());
             }
@@ -157,7 +157,7 @@ impl<C: Canvas> Painter<'_, C> {
             .push_layer(None, remove.then_some(dest_out), None, Some(blur));
         self.canvas.set_paint(paint);
         self.canvas
-            .fill_path(&convert::shape(&Shape::RoundedRect(*shape)));
+            .fill_path(&convert::shape(&Outline::RoundedRect(*shape)));
         self.canvas.pop_layer();
     }
 }

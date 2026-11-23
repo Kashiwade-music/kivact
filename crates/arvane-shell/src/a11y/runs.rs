@@ -15,7 +15,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use kivact_types::render::SemanticsNode;
+use arvane_protocol::SemanticsNode;
 use kivact_types::{SemanticsId, SemanticsText, SemanticsTextRun};
 
 use super::error::AccessibilityError;

@@ -17,7 +17,6 @@
 use super::dirty::{Built, MetadataUpdate};
 use crate::a11y::state::{Clipping, Payloads};
 use crate::model::Model;
-use arvane as a;
 use kivact_types::{NodeId, Point};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
@@ -30,7 +29,7 @@ impl Model {
         &mut self,
         root: NodeId,
         dirt: &Payloads,
-        engine: &mut a::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Built {
         let metadata = Rc::clone(&self.a11y.metadata);
         if self.modal() != metadata.modal {
@@ -95,13 +94,10 @@ impl Model {
         for (_, id, offset) in order {
             self.build_node(id, offset, clipped, &mut nodes, &mut regions, engine);
         }
-        #[cfg(feature = "testing")]
-        {
-            self.a11y.constructed += nodes.len() as u64;
-        }
+        self.a11y.constructed += nodes.len() as u64;
         let focus = self.semantics_focus(clipped);
         Built {
-            tree: kivact_types::render::SemanticsTree {
+            tree: arvane_protocol::SemanticsTree {
                 root: kivact_types::SemanticsId(root.0),
                 focus,
                 nodes,
@@ -129,8 +125,10 @@ impl Model {
                 if targets.insert(id, (d, offset)).is_some() {
                     continue;
                 }
-                let Some(n) = self.node(id) else { continue };
-                let s = n.scroll();
+                if self.node(id).is_none() {
+                    continue;
+                }
+                let s = self.tree().scroll_of(id);
                 let below = Point {
                     x: offset.x + s.x,
                     y: offset.y + s.y,

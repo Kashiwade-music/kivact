@@ -4,8 +4,10 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_engine::contract::SceneLayer;
-use kivact_runtime::{EffectKind, Signal, UiError};
-use kivact_style::draw::{Recording, Size};
+use kivact_runtime::driver::EffectKind;
+use kivact_runtime::{Signal, UiError};
+use kivact_style::Theme;
+use kivact_style::draw::{RecordContext, Recording, Size};
 use kivact_types::NodeId;
 
 use super::facts::LocalPaintSource;
@@ -15,15 +17,10 @@ use crate::view::state::ViewState;
 
 /// Stage 5's input: the draw layers, the style's local paint and the canvas regions.
 pub(super) struct DrawInput {
-    // xtask-allow(state-fields): option: a draw layer below the children; absent means none
     pub(super) below: Option<DrawFn>,
-    // xtask-allow(state-fields): option: a draw layer over the children; absent means none
     pub(super) over: Option<DrawFn>,
-    // xtask-allow(state-fields): option: a layout-driven draw; absent means none
     pub(super) with_layout: Option<LayoutDrawFn>,
-    // xtask-allow(state-fields): option: the local paint channel resolve made for a styled Box that does not edit text; None means the node cannot take local paint
     pub(super) local_paint: Option<LocalPaintSource>,
-    // xtask-allow(state-fields): option: the region registry attach_parts made when the node has parts, regions or part constraints; None means the draw effect paints no region
     pub(super) regions: Option<Rc<Registry>>,
     /// The node's layout size, written by the layout observer `resolve` installed.
     pub(super) size: Signal<Size>,
@@ -60,9 +57,12 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
         cx.effect(EffectKind::Render, at, move || {
             let sz = size.get();
             let theme = theme.map(|t| t.get()).unwrap_or_default();
-            let measurer = weak
+            let Some(measurer) = weak
                 .upgrade()
-                .map(|rt| ViewState::tree_mut(&rt).reader().text_measurer(id));
+                .map(|rt| ViewState::tree_mut(&rt).reader().text_measurer(id))
+            else {
+                return;
+            };
             let layout = observation.and_then(|observation| {
                 observation.editing_revision.track();
                 observation.measured.get();
@@ -70,17 +70,12 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
                 let rt = weak.upgrade()?;
                 ViewState::tree_mut(&rt).reader().editing_canvas_layout(id)
             });
+            let cx = record_context(theme, measurer, region_paint.as_ref());
             let Recording {
                 scene,
                 unsupported: issues,
                 region_errors,
-            } = kivact_style::internal::record(sz, &theme, |d| {
-                if let Some(measurer) = measurer {
-                    d.set_text_measurer(measurer);
-                }
-                if let Some(regions) = &region_paint {
-                    d.declare_regions(regions.resolve());
-                }
+            } = kivact_style::internal::record(sz, cx, |d| {
                 if let Some(f) = &f {
                     f(d, sz);
                 }
@@ -91,9 +86,9 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
                     source.revision.track();
                     // The storage borrow ends before the callback, which is
                     // user code.
-                    let compiled = source.value.borrow().clone();
-                    if let Some(compiled) = compiled {
-                        compiled.paint_retained(d, sz);
+                    let retained = source.value.borrow().clone();
+                    if let Some(retained) = retained {
+                        retained.draw(d, sz);
                     }
                 }
             });
@@ -110,6 +105,20 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
                 report_unsupported(&rt, owner, id, issues, &reported, at);
             }
         });
+    }
+}
+
+/// What one layer's recording takes from its host: the theme in effect, the
+/// node's text engine and its declared canvas regions.
+fn record_context(
+    theme: Theme,
+    shaper: impl kivact_types::TextShaper + 'static,
+    regions: Option<&Rc<Registry>>,
+) -> RecordContext {
+    RecordContext {
+        theme,
+        shaper: Rc::new(shaper),
+        regions: regions.map(|regions| regions.resolve()).unwrap_or_default(),
     }
 }
 
@@ -139,7 +148,7 @@ pub(super) fn bind_style_paint(
 }
 
 fn report_unsupported(
-    rt: &kivact_runtime::Runtime,
+    rt: &kivact_runtime::driver::Runtime,
     owner: kivact_runtime::Owner,
     id: NodeId,
     issues: u32,

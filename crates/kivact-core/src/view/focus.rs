@@ -14,7 +14,7 @@
 //! - Node ids are never reused, so a stale id in the source never matches a
 //!   node mounted later.
 
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_types::{FocusTarget, WindowId};
 
 use crate::view::state::{KeyFocus, ViewState};

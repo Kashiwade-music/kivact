@@ -1,38 +1,31 @@
-//! Role: Catalog page of Table: basic, footer and selectable rows.
+//! Catalog page of Table: basic, footer and selectable rows.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "table",
-        name: "Table",
-        description: "行と列でデータを整理して表示する表です。セルは幅を等分し、width で固定幅にできます。caption は最後に置きます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("table.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "table_header、table_body と、右寄せの金額列です。",
-                default,
-            ),
-            Example::new(
-                "footer",
-                "Footer",
-                "table_footer で合計を出し、table_caption で説明を添えます。",
-                footer,
-            ),
-            Example::new(
-                "selected",
-                "Selected row",
-                "table_row の selected に、選択中かどうかを渡します。行を押して切り替えます。",
-                selected,
-            ),
-        ],
-    }
+    Page::new("table", "Table", "Components", include_str!("table.rs"))
+        .description("A table that arranges data in rows and columns. Cells divide the width equally, and width fixes a width. The caption goes last.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "table_header, table_body and an amount column aligned to the right.",
+            default,
+        ))
+        .example(Example::new(
+            "footer",
+            "Footer",
+            "table_footer shows a total, and table_caption adds a description.",
+            footer,
+        ))
+        .example(Example::new(
+            "selected",
+            "Selected row",
+            "Pass whether the row is selected to selected of table_row. A press on a row switches it.",
+            selected,
+        ))
 }
 
 // example: default

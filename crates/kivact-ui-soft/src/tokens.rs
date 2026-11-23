@@ -1,512 +1,685 @@
-//! Role: Expose the spacing, typography, motion and color tokens of Astryx Neutral.
-use crate::color::Colors;
-use crate::shadows::Shadows;
-use kivact::draw::Shadow;
-use kivact::motion::Easing;
-use kivact::style::Theme;
-use kivact::style::ThemeExtension;
-use kivact::style::ThemeMode;
-use kivact::style::{rgb, rgba};
+//! Role: The Astryx Neutral color value of each variable for each appearance.
+//! `set_colors` sets them; the shadow and input colors are built from them.
+use crate::color::{
+    ACCENT_HOVER_VAR, ACCENT_MUTED_VAR, ACCENT_VAR, BG_BODY_VAR, BG_CARD_VAR,
+    BG_ERROR_INVERTED_VAR, BG_INVERTED_VAR, BG_MUTED_VAR, BG_POPOVER_VAR, BG_SURFACE_VAR,
+    BORDER_EMPHASIZED_VAR, BORDER_VAR, CHOICE_BORDER_HOVER_VAR, CHOICE_SURFACE_HOVER_VAR,
+    DATA_BLUE_RAMP_1_VAR, DATA_BLUE_RAMP_2_VAR, DATA_BLUE_RAMP_3_VAR, DATA_BLUE_RAMP_4_VAR,
+    DATA_BLUE_RAMP_5_VAR, DATA_BLUE_VAR, DATA_BROWN_VAR, DATA_CYAN_VAR, DATA_GRAY_RAMP_1_VAR,
+    DATA_GRAY_RAMP_2_VAR, DATA_GRAY_RAMP_3_VAR, DATA_GRAY_RAMP_4_VAR, DATA_GRAY_RAMP_5_VAR,
+    DATA_GREEN_VAR, DATA_INDIGO_VAR, DATA_NEUTRAL_VAR, DATA_ORANGE_RAMP_1_VAR,
+    DATA_ORANGE_RAMP_2_VAR, DATA_ORANGE_RAMP_3_VAR, DATA_ORANGE_RAMP_4_VAR, DATA_ORANGE_RAMP_5_VAR,
+    DATA_ORANGE_VAR, DATA_PINK_RAMP_1_VAR, DATA_PINK_RAMP_2_VAR, DATA_PINK_RAMP_3_VAR,
+    DATA_PINK_RAMP_4_VAR, DATA_PINK_RAMP_5_VAR, DATA_PINK_VAR, DATA_PURPLE_RAMP_1_VAR,
+    DATA_PURPLE_RAMP_2_VAR, DATA_PURPLE_RAMP_3_VAR, DATA_PURPLE_RAMP_4_VAR, DATA_PURPLE_RAMP_5_VAR,
+    DATA_PURPLE_VAR, DATA_RED_RAMP_1_VAR, DATA_RED_RAMP_2_VAR, DATA_RED_RAMP_3_VAR,
+    DATA_RED_RAMP_4_VAR, DATA_RED_RAMP_5_VAR, DATA_RED_VAR, DATA_SHAMROCK_RAMP_1_VAR,
+    DATA_SHAMROCK_RAMP_2_VAR, DATA_SHAMROCK_RAMP_3_VAR, DATA_SHAMROCK_RAMP_4_VAR,
+    DATA_SHAMROCK_RAMP_5_VAR, DATA_TEAL_RAMP_1_VAR, DATA_TEAL_RAMP_2_VAR, DATA_TEAL_RAMP_3_VAR,
+    DATA_TEAL_RAMP_4_VAR, DATA_TEAL_RAMP_5_VAR, DATA_TEAL_VAR, DATA_YELLOW_RAMP_1_VAR,
+    DATA_YELLOW_RAMP_2_VAR, DATA_YELLOW_RAMP_3_VAR, DATA_YELLOW_RAMP_4_VAR, DATA_YELLOW_RAMP_5_VAR,
+    ERROR_MUTED_VAR, ERROR_VAR, FOCUS_RING_VAR, HUE_BLUE_BG_VAR, HUE_BLUE_BORDER_VAR,
+    HUE_BLUE_ICON_VAR, HUE_BLUE_TEXT_VAR, HUE_CYAN_BG_VAR, HUE_CYAN_BORDER_VAR, HUE_CYAN_ICON_VAR,
+    HUE_CYAN_TEXT_VAR, HUE_GRAY_BG_VAR, HUE_GRAY_BORDER_VAR, HUE_GRAY_ICON_VAR, HUE_GRAY_TEXT_VAR,
+    HUE_GREEN_BG_VAR, HUE_GREEN_BORDER_VAR, HUE_GREEN_ICON_VAR, HUE_GREEN_TEXT_VAR,
+    HUE_ORANGE_BG_VAR, HUE_ORANGE_BORDER_VAR, HUE_ORANGE_ICON_VAR, HUE_ORANGE_TEXT_VAR,
+    HUE_PINK_BG_VAR, HUE_PINK_BORDER_VAR, HUE_PINK_ICON_VAR, HUE_PINK_TEXT_VAR, HUE_PURPLE_BG_VAR,
+    HUE_PURPLE_BORDER_VAR, HUE_PURPLE_ICON_VAR, HUE_PURPLE_TEXT_VAR, HUE_RED_BG_VAR,
+    HUE_RED_BORDER_VAR, HUE_RED_ICON_VAR, HUE_RED_TEXT_VAR, HUE_TEAL_BG_VAR, HUE_TEAL_BORDER_VAR,
+    HUE_TEAL_ICON_VAR, HUE_TEAL_TEXT_VAR, HUE_YELLOW_BG_VAR, HUE_YELLOW_BORDER_VAR,
+    HUE_YELLOW_ICON_VAR, HUE_YELLOW_TEXT_VAR, ICON_ACCENT_VAR, ICON_DISABLED_VAR, ICON_PRIMARY_VAR,
+    ICON_SECONDARY_VAR, INFO_MUTED_VAR, INFO_VAR, NEUTRAL_VAR, ON_ACCENT_VAR, ON_DARK_VAR,
+    ON_ERROR_MUTED_VAR, ON_ERROR_VAR, ON_INFO_MUTED_VAR, ON_INFO_VAR, ON_LIGHT_VAR,
+    ON_SUCCESS_MUTED_VAR, ON_SUCCESS_VAR, ON_WARNING_MUTED_VAR, ON_WARNING_VAR, OVERLAY_HOVER_VAR,
+    OVERLAY_LIGHT_SCRIM_VAR, OVERLAY_PRESSED_VAR, OVERLAY_SCRIM_VAR, SHADOW_VAR, SKELETON_VAR,
+    SUCCESS_MUTED_VAR, SUCCESS_VAR, SWITCH_OFF_HOVER_VAR, SYNTAX_ADDED_MARKER_VAR,
+    SYNTAX_ADDED_VAR, SYNTAX_BACKGROUND_VAR, SYNTAX_DIFF_HEADER_VAR, SYNTAX_REMOVED_MARKER_VAR,
+    SYNTAX_REMOVED_VAR, TEXT_ACCENT_VAR, TEXT_DISABLED_VAR, TEXT_ERROR_VAR, TEXT_INFO_VAR,
+    TEXT_PRIMARY_VAR, TEXT_SECONDARY_VAR, TEXT_SUCCESS_VAR, TEXT_WARNING_VAR, TINT_HOVER_VAR,
+    TRACK_VAR, WARNING_MUTED_VAR, WARNING_VAR, WHITE_VAR,
+};
+use kivact::style::{Color, Theme, ThemeMode, rgb, rgba};
 
-/// Astryx Neutral tokens resolved for a theme mode.
-///
-/// Install these as a theme extension and read current values with
-/// `kivact::style::use_tokens::<Tokens>()` inside reactive styling closures.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Tokens {
-    /// Appearance-dependent surface, foreground and semantic palettes.
-    pub colors: Colors,
-    /// Font families, weights, sizes and typography roles.
-    pub typography: TypeTokens,
-    /// Logical-pixel spacing scale and container padding.
-    pub spacing: SpaceTokens,
-    /// Logical-pixel corner radii for controls and surfaces.
-    pub radius: RadiusTokens,
-    /// Control dimensions, icon metrics and interaction-state amounts.
-    pub sizes: Sizes,
-    /// Appearance-dependent elevation, inset and input-outline shadows.
-    pub shadows: Shadows,
-    /// Transition durations in milliseconds and easing curves.
-    pub motion: MotionTokens,
+/// Set every color variable of the kit to its value in `mode`.
+pub(crate) fn set_colors(theme: Theme, mode: ThemeMode) -> Theme {
+    let dark = mode == ThemeMode::Dark;
+    let mut theme = theme;
+    theme = set_colors_base_1(theme, dark);
+    theme = set_colors_base_2(theme, dark);
+    theme = set_colors_base_3(theme, dark);
+    theme = set_colors_base_more_1(theme, dark);
+    theme = set_colors_base_more_2(theme, dark);
+    theme = set_colors_base_more_3(theme, dark);
+    theme = set_colors_status_1(theme, dark);
+    theme = set_colors_status_2(theme, dark);
+    theme = set_colors_status_3(theme, dark);
+    theme = set_colors_hue_1(theme, dark);
+    theme = set_colors_hue_2(theme, dark);
+    theme = set_colors_hue_3(theme, dark);
+    theme = set_colors_hue_4(theme, dark);
+    theme = set_colors_hue_5(theme, dark);
+    theme = set_colors_data_1(theme);
+    theme = set_colors_data_2(theme, dark);
+    theme = set_colors_data_3(theme);
+    theme = set_colors_data_4(theme);
+    theme = set_colors_data_5(theme);
+    theme = set_colors_data_6(theme);
+    theme = set_colors_data_7(theme, dark);
+    theme = set_colors_syntax(theme, dark);
+    theme
 }
 
-impl Tokens {
-    /// The Neutral token values for the selected appearance.
-    pub fn new(mode: ThemeMode) -> Self {
-        let dark = mode == ThemeMode::Dark;
-        Self {
-            colors: if dark {
-                Colors::dark()
+fn set_colors_base_1(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(
+            &BG_BODY_VAR,
+            if dark { rgb(0x1b1b1b) } else { rgb(0xf1f1f1) },
+        )
+        .set(
+            &BG_SURFACE_VAR,
+            if dark { rgb(0x262626) } else { rgb(0xffffff) },
+        )
+        .set(
+            &BG_CARD_VAR,
+            if dark { rgb(0x1b1b1b) } else { rgb(0xffffff) },
+        )
+        .set(
+            &BG_POPOVER_VAR,
+            if dark { rgb(0x1b1b1b) } else { rgb(0xffffff) },
+        )
+        .set(
+            &BG_MUTED_VAR,
+            if dark { rgb(0x1b1b1b) } else { rgb(0xf1f1f1) },
+        )
+        .set(
+            &BG_INVERTED_VAR,
+            if dark { rgb(0xffffff) } else { rgb(0x0a1317) },
+        )
+        .set(
+            &BG_ERROR_INVERTED_VAR,
+            if dark { rgb(0xe3193b) } else { rgb(0xaa071e) },
+        )
+        .set(
+            &NEUTRAL_VAR,
+            if dark {
+                rgba(0xffffff, 26.0 / 255.0)
             } else {
-                Colors::light()
+                rgba(0x000000, 15.0 / 255.0)
             },
-            typography: TypeTokens::NEUTRAL,
-            spacing: SpaceTokens::NEUTRAL,
-            radius: RadiusTokens::NEUTRAL,
-            sizes: Sizes::NEUTRAL,
-            shadows: Shadows::new(dark),
-            motion: MotionTokens::NEUTRAL,
-        }
-    }
+        )
 }
 
-impl ThemeExtension for Tokens {
-    fn fallback(theme: &Theme) -> Self {
-        Self::new(theme.mode())
-    }
+fn set_colors_base_2(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(
+            &ACCENT_VAR,
+            if dark { rgb(0xf1f1f1) } else { rgb(0x1b1b1b) },
+        )
+        .set(
+            &ACCENT_HOVER_VAR,
+            if dark { rgb(0xf3f3f3) } else { rgb(0x171717) },
+        )
+        .set(
+            &CHOICE_BORDER_HOVER_VAR,
+            if dark { rgb(0x757575) } else { rgb(0xaaaaaa) },
+        )
+        .set(
+            &CHOICE_SURFACE_HOVER_VAR,
+            if dark { rgb(0x313131) } else { rgb(0xf2f2f2) },
+        )
+        .set(
+            &SWITCH_OFF_HOVER_VAR,
+            if dark { rgb(0x5b5b5b) } else { rgb(0xc9c9c9) },
+        )
+        .set(
+            &ACCENT_MUTED_VAR,
+            if dark { rgb(0x262626) } else { rgb(0xf1f1f1) },
+        )
+        .set(
+            &ON_ACCENT_VAR,
+            if dark { rgb(0x111111) } else { rgb(0xffffff) },
+        )
+        .set(&ON_DARK_VAR, rgb(0xffffff))
+        .set(&WHITE_VAR, rgb(0xffffff))
 }
 
-/// A typography role's size, line height, weight and family.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct TypeStyle {
-    /// Font size in logical pixels.
-    pub size_px: f64,
-    /// Line height in logical pixels, rather than a font-size multiplier.
-    pub line_height_px: f64,
-    /// Numeric font weight, such as 400 for regular or 600 for semibold.
-    pub weight: u16,
-    /// Font-family fallback list used to shape this typography role.
-    pub family: &'static str,
+fn set_colors_base_3(theme: Theme, dark: bool) -> Theme {
+    theme.set(&ON_LIGHT_VAR, rgb(0x111111)).set(
+        &TEXT_PRIMARY_VAR,
+        if dark { rgb(0xffffff) } else { rgb(0x000000) },
+    )
 }
 
-/// Neutral font roles and size scale.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct TypeTokens {
-    /// Body-text font-family fallback list; defaults to Figtree and sans-serif.
-    pub family_body: &'static str,
-    /// Heading font-family fallback list; defaults to Figtree and sans-serif.
-    pub family_heading: &'static str,
-    /// Monospace font-family fallback list for source code.
-    pub family_code: &'static str,
-    /// Numeric font weight for normal text; defaults to 400.
-    pub weight_normal: u16,
-    /// Numeric font weight for medium text; defaults to 500.
-    pub weight_medium: u16,
-    /// Numeric font weight for semibold text; defaults to 600.
-    pub weight_semibold: u16,
-    /// Numeric font weight for bold text; defaults to 700.
-    pub weight_bold: u16,
-    /// 4XS font-size step in logical pixels; defaults to 6.
-    pub size_4xs: f64,
-    /// 3XS font-size step in logical pixels; defaults to 7.
-    pub size_3xs: f64,
-    /// 2XS font-size step in logical pixels; defaults to 8.
-    pub size_2xs: f64,
-    /// XS font-size step in logical pixels; defaults to 10.
-    pub size_xs: f64,
-    /// SM font-size step in logical pixels; defaults to 12.
-    pub size_sm: f64,
-    /// MD font-size step in logical pixels; defaults to 14.
-    pub size_md: f64,
-    /// LG font-size step in logical pixels; defaults to 17.
-    pub size_lg: f64,
-    /// XL font-size step in logical pixels; defaults to 20.
-    pub size_xl: f64,
-    /// 2XL font-size step in logical pixels; defaults to 24.
-    pub size_2xl: f64,
-    /// 3XL font-size step in logical pixels; defaults to 29.
-    pub size_3xl: f64,
-    /// 4XL font-size step in logical pixels; defaults to 35.
-    pub size_4xl: f64,
-    /// 5XL font-size step in logical pixels; defaults to 42.
-    pub size_5xl: f64,
-    /// Typography for display scale 1, independent of semantic heading level.
-    pub display1: TypeStyle,
-    /// Typography for display scale 2, independent of semantic heading level.
-    pub display2: TypeStyle,
-    /// Typography for display scale 3, independent of semantic heading level.
-    pub display3: TypeStyle,
-    /// Typography for semantic level-1 headings.
-    pub heading1: TypeStyle,
-    /// Typography for semantic level-2 headings.
-    pub heading2: TypeStyle,
-    /// Typography for semantic level-3 headings.
-    pub heading3: TypeStyle,
-    /// Typography for semantic level-4 headings.
-    pub heading4: TypeStyle,
-    /// Typography for semantic level-5 headings.
-    pub heading5: TypeStyle,
-    /// Typography for semantic level-6 headings.
-    pub heading6: TypeStyle,
-    /// Typography for large body text.
-    pub large: TypeStyle,
-    /// Typography for ordinary body text.
-    pub body: TypeStyle,
-    /// Typography for control labels.
-    pub label: TypeStyle,
-    /// Typography for inline and block source code.
-    pub code: TypeStyle,
-    /// Typography for supporting descriptions and secondary text.
-    pub supporting: TypeStyle,
-    /// Additional character spacing in logical pixels; defaults to zero.
-    pub letter_spacing: f64,
+fn set_colors_base_more_1(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(
+            &TEXT_SECONDARY_VAR,
+            if dark { rgb(0x9e9e9e) } else { rgb(0x474747) },
+        )
+        .set(
+            &TEXT_DISABLED_VAR,
+            if dark { rgb(0x525252) } else { rgb(0x919191) },
+        )
+        .set(
+            &TEXT_ACCENT_VAR,
+            if dark { rgb(0xf1f1f1) } else { rgb(0x1b1b1b) },
+        )
+        .set(
+            &ICON_PRIMARY_VAR,
+            if dark { rgb(0xffffff) } else { rgb(0x000000) },
+        )
+        .set(
+            &ICON_SECONDARY_VAR,
+            if dark { rgb(0x9e9e9e) } else { rgb(0x6a6a6a) },
+        )
+        .set(
+            &ICON_DISABLED_VAR,
+            if dark { rgb(0x525252) } else { rgb(0x919191) },
+        )
+        .set(
+            &ICON_ACCENT_VAR,
+            if dark { rgb(0xf1f1f1) } else { rgb(0x1b1b1b) },
+        )
+        .set(
+            &BORDER_VAR,
+            if dark {
+                rgba(0xffffff, 26.0 / 255.0)
+            } else {
+                rgba(0x000000, 20.0 / 255.0)
+            },
+        )
 }
 
-impl TypeTokens {
-    const NEUTRAL: Self = Self {
-        family_body: "Figtree, sans-serif",
-        family_heading: "Figtree, sans-serif",
-        family_code: "ui-monospace, SF Mono, Monaco, Consolas, Liberation Mono, Courier New, monospace",
-        weight_normal: 400,
-        weight_medium: 500,
-        weight_semibold: 600,
-        weight_bold: 700,
-        size_4xs: 6.0,
-        size_3xs: 7.0,
-        size_2xs: 8.0,
-        size_xs: 10.0,
-        size_sm: 12.0,
-        size_md: 14.0,
-        size_lg: 17.0,
-        size_xl: 20.0,
-        size_2xl: 24.0,
-        size_3xl: 29.0,
-        size_4xl: 35.0,
-        size_5xl: 42.0,
-        display1: TypeStyle {
-            size_px: 42.0,
-            line_height_px: 52.0,
-            weight: 400,
-            family: "Figtree, sans-serif",
-        },
-        display2: TypeStyle {
-            size_px: 35.0,
-            line_height_px: 44.0,
-            weight: 400,
-            family: "Figtree, sans-serif",
-        },
-        display3: TypeStyle {
-            size_px: 29.0,
-            line_height_px: 40.0,
-            weight: 400,
-            family: "Figtree, sans-serif",
-        },
-        heading1: TypeStyle {
-            size_px: 24.0,
-            line_height_px: 32.0,
-            weight: 600,
-            family: "Figtree, sans-serif",
-        },
-        heading2: TypeStyle {
-            size_px: 20.0,
-            line_height_px: 28.0,
-            weight: 600,
-            family: "Figtree, sans-serif",
-        },
-        heading3: TypeStyle {
-            size_px: 17.0,
-            line_height_px: 24.0,
-            weight: 700,
-            family: "Figtree, sans-serif",
-        },
-        heading4: TypeStyle {
-            size_px: 14.0,
-            line_height_px: 20.0,
-            weight: 700,
-            family: "Figtree, sans-serif",
-        },
-        heading5: TypeStyle {
-            size_px: 12.0,
-            line_height_px: 20.0,
-            weight: 600,
-            family: "Figtree, sans-serif",
-        },
-        heading6: TypeStyle {
-            size_px: 10.0,
-            line_height_px: 16.0,
-            weight: 600,
-            family: "Figtree, sans-serif",
-        },
-        large: TypeStyle {
-            size_px: 17.0,
-            line_height_px: 24.0,
-            weight: 600,
-            family: "Figtree, sans-serif",
-        },
-        body: TypeStyle {
-            size_px: 14.0,
-            line_height_px: 20.0,
-            weight: 400,
-            family: "Figtree, sans-serif",
-        },
-        label: TypeStyle {
-            size_px: 14.0,
-            line_height_px: 20.0,
-            weight: 500,
-            family: "Figtree, sans-serif",
-        },
-        code: TypeStyle {
-            size_px: 14.0,
-            line_height_px: 20.0,
-            weight: 400,
-            family: "ui-monospace, SF Mono, Monaco, Consolas, Liberation Mono, Courier New, monospace",
-        },
-        supporting: TypeStyle {
-            size_px: 12.0,
-            line_height_px: 20.0,
-            weight: 400,
-            family: "Figtree, sans-serif",
-        },
-        letter_spacing: 0.0,
-    };
+fn set_colors_base_more_2(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(
+            &BORDER_EMPHASIZED_VAR,
+            if dark { rgb(0x525252) } else { rgb(0xd4d4d4) },
+        )
+        .set(
+            &SKELETON_VAR,
+            if dark { rgb(0x525252) } else { rgb(0xf1f1f1) },
+        )
+        .set(&TRACK_VAR, if dark { rgb(0x5a5e66) } else { rgb(0xccd3db) })
+        .set(
+            &SHADOW_VAR,
+            if dark {
+                rgba(0x000000, 77.0 / 255.0)
+            } else {
+                rgba(0x000000, 26.0 / 255.0)
+            },
+        )
+        .set(
+            &TINT_HOVER_VAR,
+            if dark { rgb(0xffffff) } else { rgb(0x000000) },
+        )
+        .set(
+            &OVERLAY_SCRIM_VAR,
+            if dark {
+                rgba(0x000000, 204.0 / 255.0)
+            } else {
+                rgba(0x000000, 128.0 / 255.0)
+            },
+        )
+        .set(&OVERLAY_LIGHT_SCRIM_VAR, rgba(0xffffff, 0.6))
+        .set(
+            &OVERLAY_HOVER_VAR,
+            if dark {
+                rgba(0xffffff, 13.0 / 255.0)
+            } else {
+                rgba(0x000000, 13.0 / 255.0)
+            },
+        )
 }
 
-/// Neutral spacing steps in logical pixels.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SpaceTokens {
-    /// Spacing step 0 in logical pixels; defaults to 0.
-    pub s0: f64,
-    /// Spacing step 0.5 in logical pixels; defaults to 2.
-    pub s0_5: f64,
-    /// Spacing step 1 in logical pixels; defaults to 4.
-    pub s1: f64,
-    /// Spacing step 1.5 in logical pixels; defaults to 6.
-    pub s1_5: f64,
-    /// Spacing step 2 in logical pixels; defaults to 8.
-    pub s2: f64,
-    /// Spacing step 3 in logical pixels; defaults to 12.
-    pub s3: f64,
-    /// Spacing step 4 in logical pixels; defaults to 16.
-    pub s4: f64,
-    /// Spacing step 5 in logical pixels; defaults to 20.
-    pub s5: f64,
-    /// Spacing step 6 in logical pixels; defaults to 24.
-    pub s6: f64,
-    /// Spacing step 7 in logical pixels; defaults to 28.
-    pub s7: f64,
-    /// Spacing step 8 in logical pixels; defaults to 32.
-    pub s8: f64,
-    /// Spacing step 9 in logical pixels; defaults to 36.
-    pub s9: f64,
-    /// Spacing step 10 in logical pixels; defaults to 40.
-    pub s10: f64,
-    /// Spacing step 11 in logical pixels; defaults to 44.
-    pub s11: f64,
-    /// Spacing step 12 in logical pixels; defaults to 48.
-    pub s12: f64,
-    /// Inner padding of cards in logical pixels; defaults to 12.
-    pub card_padding: f64,
-    /// Content inset of sections in logical pixels; defaults to 12.
-    pub section_padding: f64,
-    /// Inner padding of dialogs in logical pixels; defaults to 16.
-    pub dialog_padding: f64,
-    /// Minimum overlay-to-viewport inset in logical pixels; defaults to 16.
-    pub layer_viewport_gutter: f64,
+fn set_colors_base_more_3(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(
+            &OVERLAY_PRESSED_VAR,
+            if dark {
+                rgba(0xffffff, 26.0 / 255.0)
+            } else {
+                rgba(0x000000, 26.0 / 255.0)
+            },
+        )
+        .set(
+            &FOCUS_RING_VAR,
+            if dark { rgb(0xf1f1f1) } else { rgb(0x1b1b1b) },
+        )
 }
 
-impl SpaceTokens {
-    const NEUTRAL: Self = Self {
-        s0: 0.0,
-        s0_5: 2.0,
-        s1: 4.0,
-        s1_5: 6.0,
-        s2: 8.0,
-        s3: 12.0,
-        s4: 16.0,
-        s5: 20.0,
-        s6: 24.0,
-        s7: 28.0,
-        s8: 32.0,
-        s9: 36.0,
-        s10: 40.0,
-        s11: 44.0,
-        s12: 48.0,
-        card_padding: 12.0,
-        section_padding: 12.0,
-        dialog_padding: 16.0,
-        layer_viewport_gutter: 16.0,
-    };
+fn set_colors_status_1(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(&INFO_VAR, if dark { rgb(0x6d9cfe) } else { rgb(0x0074e2) })
+        .set(
+            &ON_INFO_VAR,
+            if dark { rgb(0x111111) } else { rgb(0xffffff) },
+        )
+        .set(
+            &INFO_MUTED_VAR,
+            if dark {
+                rgba(0x88bcff, 61.0 / 255.0)
+            } else {
+                rgb(0xb9d7ff)
+            },
+        )
+        .set(
+            &ON_INFO_MUTED_VAR,
+            if dark { rgb(0xa1caff) } else { rgb(0x003978) },
+        )
+        .set(
+            &TEXT_INFO_VAR,
+            if dark { rgb(0xa1caff) } else { rgb(0x0067ce) },
+        )
+        .set(
+            &SUCCESS_VAR,
+            if dark { rgb(0x64af4c) } else { rgb(0x198100) },
+        )
+        .set(
+            &ON_SUCCESS_VAR,
+            if dark { rgb(0x111111) } else { rgb(0xffffff) },
+        )
+        .set(
+            &SUCCESS_MUTED_VAR,
+            if dark {
+                rgba(0x90ca90, 61.0 / 255.0)
+            } else {
+                rgb(0xbce0bb)
+            },
+        )
 }
 
-/// Neutral corner radii in logical pixels.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct RadiusTokens {
-    /// Square corners: zero logical-pixel radius.
-    pub none: f64,
-    /// Radius for nested inner surfaces; defaults to 6 logical pixels.
-    pub inner: f64,
-    /// Radius for controls and small elements; defaults to 10 logical pixels.
-    pub element: f64,
-    /// Radius for containing surfaces; defaults to 12 logical pixels.
-    pub container: f64,
-    /// Radius for page-scale surfaces; defaults to 28 logical pixels.
-    pub page: f64,
-    /// Radius for chat surfaces; defaults to 28 logical pixels.
-    pub chat: f64,
-    /// Pill or circular rounding radius; defaults to 9999 logical pixels.
-    pub full: f64,
+fn set_colors_status_2(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(
+            &ON_SUCCESS_MUTED_VAR,
+            if dark { rgb(0x90ca90) } else { rgb(0x00490b) },
+        )
+        .set(
+            &TEXT_SUCCESS_VAR,
+            if dark { rgb(0x90ca90) } else { rgb(0x2f7d33) },
+        )
+        .set(&WARNING_VAR, rgb(0xffce2f))
+        .set(&ON_WARNING_VAR, rgb(0x111111))
+        .set(
+            &WARNING_MUTED_VAR,
+            if dark {
+                rgba(0xe2b623, 61.0 / 255.0)
+            } else {
+                rgb(0xfae19e)
+            },
+        )
+        .set(
+            &ON_WARNING_MUTED_VAR,
+            if dark { rgb(0xeec448) } else { rgb(0x4b3900) },
+        )
+        .set(
+            &TEXT_WARNING_VAR,
+            if dark { rgb(0xeec448) } else { rgb(0x836700) },
+        )
+        .set(&ERROR_VAR, if dark { rgb(0xff705d) } else { rgb(0xc9303a) })
 }
 
-impl RadiusTokens {
-    const NEUTRAL: Self = Self {
-        none: 0.0,
-        inner: 6.0,
-        element: 10.0,
-        container: 12.0,
-        page: 28.0,
-        chat: 28.0,
-        full: 9999.0,
-    };
+fn set_colors_status_3(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(
+            &ON_ERROR_VAR,
+            if dark { rgb(0x111111) } else { rgb(0xffffff) },
+        )
+        .set(
+            &ERROR_MUTED_VAR,
+            if dark {
+                rgba(0xff9890, 61.0 / 255.0)
+            } else {
+                rgb(0xffc4be)
+            },
+        )
+        .set(
+            &ON_ERROR_MUTED_VAR,
+            if dark { rgb(0xffaea7) } else { rgb(0x76000c) },
+        )
+        .set(
+            &TEXT_ERROR_VAR,
+            if dark { rgb(0xffaea7) } else { rgb(0xc0262c) },
+        )
 }
 
-/// Neutral control metrics and state amounts.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Sizes {
-    /// Extra-small control height; defaults to 24 logical pixels.
-    pub control_xs: f64,
-    /// Small control height; defaults to 28 logical pixels.
-    pub control_sm: f64,
-    /// Medium control height; defaults to 32 logical pixels.
-    pub control_md: f64,
-    /// Large control height; defaults to 36 logical pixels.
-    pub control_lg: f64,
-    /// Default outline thickness; defaults to 1 logical pixel.
-    pub border_width: f64,
-    /// Focus-outline thickness; defaults to 2 logical pixels.
-    pub focus_ring_width: f64,
-    /// Gap between a control and its focus outline; defaults to 3 logical pixels.
-    pub focus_ring_offset: f64,
-    /// Extra-small icon side length; defaults to 12 logical pixels.
-    pub icon_xsm: f64,
-    /// Small icon side length; defaults to 16 logical pixels.
-    pub icon_sm: f64,
-    /// Medium icon side length; defaults to 20 logical pixels.
-    pub icon_md: f64,
-    /// Large icon side length; defaults to 24 logical pixels.
-    pub icon_lg: f64,
-    /// Icon stroke width as a fraction of its side length; defaults to 2/24.
-    pub icon_stroke_ratio: f64,
-    /// Default badge height; defaults to 20 logical pixels.
-    pub badge_height: f64,
-    /// Minimum touch-target side length; defaults to 44 logical pixels.
-    pub min_touch_target: f64,
-    /// Opacity multiplier for disabled controls; defaults to 0.5.
-    pub disabled_opacity: f64,
-    /// Scale multiplier during a press; defaults to 0.98.
-    pub press_scale: f64,
+fn set_colors_hue_1(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(
+            &HUE_RED_BG_VAR,
+            if dark { rgb(0x5b2b28) } else { rgb(0xffc4be) },
+        )
+        .set(
+            &HUE_RED_BORDER_VAR,
+            if dark { rgb(0xfa6762) } else { rgb(0xffaea7) },
+        )
+        .set(
+            &HUE_RED_ICON_VAR,
+            if dark { rgb(0xff9890) } else { rgb(0x76000c) },
+        )
+        .set(
+            &HUE_RED_TEXT_VAR,
+            if dark { rgb(0xffaea7) } else { rgb(0x76000c) },
+        )
+        .set(
+            &HUE_ORANGE_BG_VAR,
+            if dark { rgb(0x503424) } else { rgb(0xffc7a1) },
+        )
+        .set(
+            &HUE_ORANGE_BORDER_VAR,
+            if dark { rgb(0xdf843f) } else { rgb(0xffc7a1) },
+        )
+        .set(
+            &HUE_ORANGE_ICON_VAR,
+            if dark { rgb(0xff9e55) } else { rgb(0x622700) },
+        )
+        .set(
+            &HUE_ORANGE_TEXT_VAR,
+            if dark { rgb(0xffb37e) } else { rgb(0x622700) },
+        )
 }
 
-impl Sizes {
-    const NEUTRAL: Self = Self {
-        control_xs: 24.0,
-        control_sm: 28.0,
-        control_md: 32.0,
-        control_lg: 36.0,
-        border_width: 1.0,
-        focus_ring_width: 2.0,
-        focus_ring_offset: 3.0,
-        icon_xsm: 12.0,
-        icon_sm: 16.0,
-        icon_md: 20.0,
-        icon_lg: 24.0,
-        icon_stroke_ratio: 2.0 / 24.0,
-        badge_height: 20.0,
-        min_touch_target: 44.0,
-        disabled_opacity: 0.5,
-        press_scale: 0.98,
-    };
+fn set_colors_hue_2(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(
+            &HUE_YELLOW_BG_VAR,
+            if dark { rgb(0x453a1c) } else { rgb(0xfae19e) },
+        )
+        .set(
+            &HUE_YELLOW_BORDER_VAR,
+            if dark { rgb(0xc29900) } else { rgb(0xe3c36c) },
+        )
+        .set(
+            &HUE_YELLOW_ICON_VAR,
+            if dark { rgb(0xe2b623) } else { rgb(0x4b3900) },
+        )
+        .set(
+            &HUE_YELLOW_TEXT_VAR,
+            if dark { rgb(0xeec448) } else { rgb(0x4b3900) },
+        )
+        .set(
+            &HUE_GREEN_BG_VAR,
+            if dark { rgb(0x2b422b) } else { rgb(0xbce0bb) },
+        )
+        .set(
+            &HUE_GREEN_BORDER_VAR,
+            if dark { rgb(0x6ab26b) } else { rgb(0xaad4a9) },
+        )
+        .set(
+            &HUE_GREEN_ICON_VAR,
+            if dark { rgb(0x90ca90) } else { rgb(0x00490b) },
+        )
+        .set(
+            &HUE_GREEN_TEXT_VAR,
+            if dark { rgb(0x90ca90) } else { rgb(0x00490b) },
+        )
 }
 
-const STANDARD: Easing = Easing::CubicBezier(0.24, 1.0, 0.4, 1.0);
-
-/// Neutral motion durations in milliseconds and easing curves.
-#[derive(Clone, Debug, PartialEq)]
-pub struct MotionTokens {
-    /// Shortest fast-transition duration in milliseconds; defaults to 95.
-    pub fast_min: u64,
-    /// Standard fast-transition duration in milliseconds; defaults to 125.
-    pub fast: u64,
-    /// Longest fast-transition duration in milliseconds; defaults to 165.
-    pub fast_max: u64,
-    /// Shortest medium-transition duration in milliseconds; defaults to 225.
-    pub medium_min: u64,
-    /// Standard medium-transition duration in milliseconds; defaults to 300.
-    pub medium: u64,
-    /// Longest medium-transition duration in milliseconds; defaults to 400.
-    pub medium_max: u64,
-    /// Shortest slow-transition duration in milliseconds; defaults to 525.
-    pub slow_min: u64,
-    /// Standard slow-transition duration in milliseconds; defaults to 700.
-    pub slow: u64,
-    /// Longest slow-transition duration in milliseconds; defaults to 935.
-    pub slow_max: u64,
-    /// Default easing for ordinary state transitions.
-    pub ease_standard: Easing,
-    /// Easing used when content enters.
-    pub ease_entrance: Easing,
-    /// Easing used when content changes position.
-    pub ease_move: Easing,
-    /// Easing used when content leaves.
-    pub ease_exit: Easing,
-    /// Press feedback onset duration in milliseconds; defaults to 150.
-    pub press_onset: u64,
-    /// Press feedback release duration in milliseconds; defaults to 200.
-    pub press_release: u64,
-    /// Decelerating easing for the release of press feedback.
-    pub ease_press_release: Easing,
+fn set_colors_hue_3(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(
+            &HUE_TEAL_BG_VAR,
+            if dark { rgb(0x28413c) } else { rgb(0xa9e2d6) },
+        )
+        .set(
+            &HUE_TEAL_BORDER_VAR,
+            if dark { rgb(0x4fb1a0) } else { rgb(0x90d7c8) },
+        )
+        .set(
+            &HUE_TEAL_ICON_VAR,
+            if dark { rgb(0x81c9bb) } else { rgb(0x00463d) },
+        )
+        .set(
+            &HUE_TEAL_TEXT_VAR,
+            if dark { rgb(0x90d7c8) } else { rgb(0x00463d) },
+        )
+        .set(
+            &HUE_CYAN_BG_VAR,
+            if dark { rgb(0x274046) } else { rgb(0x9ae2f4) },
+        )
+        .set(
+            &HUE_CYAN_BORDER_VAR,
+            if dark { rgb(0x49adc4) } else { rgb(0x85d5e9) },
+        )
+        .set(
+            &HUE_CYAN_ICON_VAR,
+            if dark { rgb(0x71c7dd) } else { rgb(0x004351) },
+        )
+        .set(
+            &HUE_CYAN_TEXT_VAR,
+            if dark { rgb(0x85d5e9) } else { rgb(0x004351) },
+        )
 }
 
-impl MotionTokens {
-    const NEUTRAL: Self = Self {
-        fast_min: 95,
-        fast: 125,
-        fast_max: 165,
-        medium_min: 225,
-        medium: 300,
-        medium_max: 400,
-        slow_min: 525,
-        slow: 700,
-        slow_max: 935,
-        ease_standard: STANDARD,
-        ease_entrance: STANDARD,
-        ease_move: STANDARD,
-        ease_exit: Easing::CubicBezier(0.3, 0.0, 0.6, 0.6),
-        press_onset: 150,
-        press_release: 200,
-        ease_press_release: Easing::CubicBezier(0.0, 0.0, 0.2, 1.0),
-    };
+fn set_colors_hue_4(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(
+            &HUE_BLUE_BG_VAR,
+            if dark { rgb(0x253c5a) } else { rgb(0xb9d7ff) },
+        )
+        .set(
+            &HUE_BLUE_BORDER_VAR,
+            if dark { rgb(0x5aa0f8) } else { rgb(0xa1caff) },
+        )
+        .set(
+            &HUE_BLUE_ICON_VAR,
+            if dark { rgb(0x88bcff) } else { rgb(0x003978) },
+        )
+        .set(
+            &HUE_BLUE_TEXT_VAR,
+            if dark { rgb(0xa1caff) } else { rgb(0x003978) },
+        )
+        .set(
+            &HUE_PURPLE_BG_VAR,
+            if dark { rgb(0x4a2f51) } else { rgb(0xf7d5ff) },
+        )
+        .set(
+            &HUE_PURPLE_BORDER_VAR,
+            if dark { rgb(0xd885eb) } else { rgb(0xf3bfff) },
+        )
+        .set(
+            &HUE_PURPLE_ICON_VAR,
+            if dark { rgb(0xe496f6) } else { rgb(0x5c0e6c) },
+        )
+        .set(
+            &HUE_PURPLE_TEXT_VAR,
+            if dark { rgb(0xeaacf8) } else { rgb(0x5c0e6c) },
+        )
 }
 
-impl Shadows {
-    pub(super) fn new(dark: bool) -> Self {
-        let outside = |y, blur, alpha| Shadow::new(0, y, blur, rgba(0, alpha));
-        let inset = |spread, color| Shadow::new(0, 0, 0, color).spread(spread).inset();
-        let (low, med, high) = if dark {
-            (
-                vec![
-                    outside(2, 4, 64.0 / 255.0),
-                    outside(4, 8, 102.0 / 255.0),
-                    inset(1, rgba(0xffffff, 20.0 / 255.0)),
-                ],
-                vec![
-                    outside(2, 4, 89.0 / 255.0),
-                    outside(4, 12, 128.0 / 255.0),
-                    inset(1, rgba(0xffffff, 31.0 / 255.0)),
-                ],
-                vec![
-                    outside(4, 6, 128.0 / 255.0),
-                    outside(12, 24, 179.0 / 255.0),
-                    inset(1, rgba(0xffffff, 38.0 / 255.0)),
-                ],
-            )
-        } else {
-            (
-                vec![outside(2, 4, 13.0 / 255.0), outside(4, 8, 26.0 / 255.0)],
-                vec![outside(2, 4, 13.0 / 255.0), outside(4, 12, 26.0 / 255.0)],
-                vec![outside(4, 6, 26.0 / 255.0), outside(12, 24, 38.0 / 255.0)],
-            )
-        };
-        Self {
-            low,
-            med,
-            high,
-            inset_hover: inset(2, rgba(0x0074e2, 77.0 / 255.0)),
-            inset_selected: inset(2, rgba(0x0074e2, 128.0 / 255.0)),
-            inset_success: inset(2, rgba(0x2f7d33, 77.0 / 255.0)),
-            inset_warning: inset(2, rgba(0xf8d36a, 77.0 / 255.0)),
-            inset_error: inset(2, rgba(0xde4745, 77.0 / 255.0)),
-            input_hover_ring: inset(2, rgba(if dark { 0x525252 } else { 0xd4d4d4 }, 0.3)),
-            input_focus_ring: inset(2, rgb(if dark { 0x262626 } else { 0xf1f1f1 })),
-        }
-    }
+fn set_colors_hue_5(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(
+            &HUE_PINK_BG_VAR,
+            if dark { rgb(0x572b3d) } else { rgb(0xffc0d7) },
+        )
+        .set(
+            &HUE_PINK_BORDER_VAR,
+            if dark { rgb(0xfc78b1) } else { rgb(0xffc0d7) },
+        )
+        .set(
+            &HUE_PINK_ICON_VAR,
+            if dark { rgb(0xfd92bd) } else { rgb(0x70003f) },
+        )
+        .set(
+            &HUE_PINK_TEXT_VAR,
+            if dark { rgb(0xffa9ca) } else { rgb(0x70003f) },
+        )
+        .set(
+            &HUE_GRAY_BG_VAR,
+            if dark { rgb(0x303030) } else { rgb(0xe2e2e2) },
+        )
+        .set(
+            &HUE_GRAY_BORDER_VAR,
+            if dark { rgb(0x262626) } else { rgb(0xd4d4d4) },
+        )
+        .set(
+            &HUE_GRAY_ICON_VAR,
+            if dark { rgb(0x9e9e9e) } else { rgb(0x474747) },
+        )
+        .set(
+            &HUE_GRAY_TEXT_VAR,
+            if dark { rgb(0xd4d4d4) } else { rgb(0x1b1b1b) },
+        )
+}
+
+fn set_colors_data_1(theme: Theme) -> Theme {
+    theme
+        .set(&DATA_BLUE_VAR, rgb(0x0171e3))
+        .set(&DATA_CYAN_VAR, rgb(0x0171a4))
+        .set(&DATA_ORANGE_VAR, rgb(0xeb6e00))
+        .set(&DATA_RED_VAR, rgb(0xf5394f))
+        .set(&DATA_PURPLE_VAR, rgb(0x6b1efd))
+        .set(&DATA_TEAL_VAR, rgb(0x08a3a3))
+        .set(&DATA_GREEN_VAR, rgb(0x0b991f))
+        .set(&DATA_BROWN_VAR, rgb(0x965e03))
+}
+
+fn set_colors_data_2(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(&DATA_PINK_VAR, rgb(0xf351c0))
+        .set(&DATA_INDIGO_VAR, rgb(0x6f8aff))
+        .set(
+            &DATA_NEUTRAL_VAR,
+            if dark { rgb(0x8c939b) } else { rgb(0x8494a3) },
+        )
+        .set(&DATA_BLUE_RAMP_1_VAR, rgb(0x02165e))
+        .set(&DATA_BLUE_RAMP_2_VAR, rgb(0x004cbc))
+        .set(&DATA_BLUE_RAMP_3_VAR, rgb(0x2694fe))
+        .set(&DATA_BLUE_RAMP_4_VAR, rgb(0x78beff))
+        .set(&DATA_BLUE_RAMP_5_VAR, rgb(0xdbecff))
+}
+
+fn set_colors_data_3(theme: Theme) -> Theme {
+    theme
+        .set(&DATA_SHAMROCK_RAMP_1_VAR, rgb(0x0b603d))
+        .set(&DATA_SHAMROCK_RAMP_2_VAR, rgb(0x138546))
+        .set(&DATA_SHAMROCK_RAMP_3_VAR, rgb(0x24bb5e))
+        .set(&DATA_SHAMROCK_RAMP_4_VAR, rgb(0x8ef7aa))
+        .set(&DATA_SHAMROCK_RAMP_5_VAR, rgb(0xd6fee4))
+        .set(&DATA_ORANGE_RAMP_1_VAR, rgb(0xa13f04))
+        .set(&DATA_ORANGE_RAMP_2_VAR, rgb(0xd66100))
+        .set(&DATA_ORANGE_RAMP_3_VAR, rgb(0xfd9537))
+}
+
+fn set_colors_data_4(theme: Theme) -> Theme {
+    theme
+        .set(&DATA_ORANGE_RAMP_4_VAR, rgb(0xfdb876))
+        .set(&DATA_ORANGE_RAMP_5_VAR, rgb(0xffe6cf))
+        .set(&DATA_PINK_RAMP_1_VAR, rgb(0x8e1073))
+        .set(&DATA_PINK_RAMP_2_VAR, rgb(0xd123a1))
+        .set(&DATA_PINK_RAMP_3_VAR, rgb(0xf989d3))
+        .set(&DATA_PINK_RAMP_4_VAR, rgb(0xfeade3))
+        .set(&DATA_PINK_RAMP_5_VAR, rgb(0xfce3f4))
+        .set(&DATA_PURPLE_RAMP_1_VAR, rgb(0x3e0697))
+}
+
+fn set_colors_data_5(theme: Theme) -> Theme {
+    theme
+        .set(&DATA_PURPLE_RAMP_2_VAR, rgb(0x6b1efd))
+        .set(&DATA_PURPLE_RAMP_3_VAR, rgb(0x9081ff))
+        .set(&DATA_PURPLE_RAMP_4_VAR, rgb(0xb3b0fe))
+        .set(&DATA_PURPLE_RAMP_5_VAR, rgb(0xe8e8fb))
+        .set(&DATA_RED_RAMP_1_VAR, rgb(0x9d0519))
+        .set(&DATA_RED_RAMP_2_VAR, rgb(0xd31130))
+        .set(&DATA_RED_RAMP_3_VAR, rgb(0xfb7d87))
+        .set(&DATA_RED_RAMP_4_VAR, rgb(0xffb2b8))
+}
+
+fn set_colors_data_6(theme: Theme) -> Theme {
+    theme
+        .set(&DATA_RED_RAMP_5_VAR, rgb(0xfee4e6))
+        .set(&DATA_TEAL_RAMP_1_VAR, rgb(0x08767d))
+        .set(&DATA_TEAL_RAMP_2_VAR, rgb(0x0c9293))
+        .set(&DATA_TEAL_RAMP_3_VAR, rgb(0x0db7af))
+        .set(&DATA_TEAL_RAMP_4_VAR, rgb(0x6ce6d8))
+        .set(&DATA_TEAL_RAMP_5_VAR, rgb(0xd7fcf8))
+        .set(&DATA_YELLOW_RAMP_1_VAR, rgb(0x8a5001))
+        .set(&DATA_YELLOW_RAMP_2_VAR, rgb(0xd69804))
+}
+
+fn set_colors_data_7(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(&DATA_YELLOW_RAMP_3_VAR, rgb(0xfbce03))
+        .set(&DATA_YELLOW_RAMP_4_VAR, rgb(0xfcec85))
+        .set(&DATA_YELLOW_RAMP_5_VAR, rgb(0xfdf6ba))
+        .set(
+            &DATA_GRAY_RAMP_1_VAR,
+            if dark { rgb(0x333338) } else { rgb(0x25363f) },
+        )
+        .set(
+            &DATA_GRAY_RAMP_2_VAR,
+            if dark { rgb(0x666a72) } else { rgb(0x5d6c7b) },
+        )
+        .set(
+            &DATA_GRAY_RAMP_3_VAR,
+            if dark { rgb(0xb2b8be) } else { rgb(0xafb9c4) },
+        )
+        .set(
+            &DATA_GRAY_RAMP_4_VAR,
+            if dark { rgb(0xd0d3d6) } else { rgb(0xccd3db) },
+        )
+        .set(
+            &DATA_GRAY_RAMP_5_VAR,
+            if dark { rgb(0xf2f4f6) } else { rgb(0xf1f4f7) },
+        )
+}
+
+fn set_colors_syntax(theme: Theme, dark: bool) -> Theme {
+    theme
+        .set(
+            &SYNTAX_BACKGROUND_VAR,
+            if dark { rgb(0x111111) } else { rgb(0xffffff) },
+        )
+        .set(
+            &SYNTAX_ADDED_VAR,
+            if dark {
+                rgba(0x90ca90, 15.0 / 255.0)
+            } else {
+                rgba(0xbce0bb, 64.0 / 255.0)
+            },
+        )
+        .set(
+            &SYNTAX_REMOVED_VAR,
+            if dark {
+                rgba(0xff9890, 15.0 / 255.0)
+            } else {
+                rgba(0xffc4be, 64.0 / 255.0)
+            },
+        )
+        .set(&SYNTAX_DIFF_HEADER_VAR, Color::TRANSPARENT)
+        .set(
+            &SYNTAX_ADDED_MARKER_VAR,
+            if dark { rgb(0x9e9e9e) } else { rgb(0x6a6a6a) },
+        )
+        .set(
+            &SYNTAX_REMOVED_MARKER_VAR,
+            if dark { rgb(0x9e9e9e) } else { rgb(0x6a6a6a) },
+        )
+}
+
+/// Black at `alpha`: the color of the outer elevation shadows.
+pub(crate) fn shadow_black(alpha: f64) -> Color {
+    rgba(0x000000, alpha)
+}
+
+/// White at `alpha`: the inner edge of a dark elevation shadow.
+pub(crate) fn shadow_white(alpha: f64) -> Color {
+    rgba(0xffffff, alpha)
+}
+
+/// The error red at `alpha`: the error edge shadow.
+pub(crate) fn shadow_error(alpha: f64) -> Color {
+    rgba(0xde4745, alpha)
+}
+
+/// The outline of an input under the pointer.
+pub(crate) fn input_hover_color(dark: bool) -> Color {
+    rgba(if dark { 0x525252 } else { 0xd4d4d4 }, 0.3)
+}
+
+/// The outline of a focused input.
+pub(crate) fn input_focus_color(dark: bool) -> Color {
+    rgb(if dark { 0x262626 } else { 0xf1f1f1 })
 }

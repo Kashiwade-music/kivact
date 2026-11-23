@@ -37,10 +37,7 @@
 //! - A disabled text input takes no edit. A read-only one takes no change
 //!   of its text and no composition (they are taken back), only of its
 //!   selection.
-//! - A change of the text an entry point does not report is taken back
-//!   (a behavior that returns `changed: false`): the edit's `Journal` takes
-//!   it back, and the text the core copied by its reported changes stays the
-//!   editor's.
+//! - A change of the text is reported when the text changed (`close_edit`), whatever the behavior answered.
 //! - Every entry point ([`Model::edit_input_with`]), a behavior's
 //!   included, holds the editor to its maximum length in scalars of
 //!   committed text: after it the value is cut to the larger of the limit
@@ -64,24 +61,22 @@ use std::ops::Range;
 use crate::contract::HostEvent;
 use kivact_types::{A11yAction, Key, KeyCode, KeyPhase, Modifiers, NodeId, Role};
 
-use crate::measure::editor::EditorNode;
+use crate::measure::editor::{ControlledValue, EditorNode};
 use crate::model::Model;
 use crate::model::changes::Dirty;
-use crate::text_input::{EditLines, Shaping};
-use kivact_editing::Journal;
-use kivact_editing::{EditContext, EditLayout, EditOutcome, EditRequest, EditState};
+use crate::text_input::{EditLines, SharedLines};
+use kivact_editing::host::{EditLayout, Journal, Limits};
+use kivact_editing::{EditContext, EditOutcome, EditRequest, EditState};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// What became of a key press ([`Model::handle_key`]).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum KeyResult {
     /// Reported to the core as `Key`.
     Reported,
-    /// Used by the host: a focus move, an edit, or the IME's while
-    /// composing.
+    /// Used by the host: a focus move, an edit (typed text included), or the IME's while composing.
     Consumed,
-    /// Text for the focused text input: the platform's text input inserts
-    /// it; a host without one calls [`Model::insert_text`].
-    Text(String),
     /// Copy or cut: the host writes this to its clipboard.
     Copy(String),
     /// Paste: the host reads its clipboard and calls [`Model::paste_input`].
@@ -128,7 +123,7 @@ impl Model {
         &mut self,
         input: kivact_types::KeyInput,
         physical: Option<char>,
-        engine: &mut arvane::Engine,
+        engine: &Rc<RefCell<arvane_text::TextEngine>>,
     ) -> KeyResult {
         let kivact_types::KeyInput {
             key,
@@ -143,7 +138,7 @@ impl Model {
             return KeyResult::Reported;
         };
         let text = text.filter(|t| !t.is_empty() && !t.chars().any(char::is_control));
-        let result = self.handle_key(
+        self.handle_key(
             key,
             physical,
             code,
@@ -152,18 +147,17 @@ impl Model {
             text.as_deref(),
             pointer,
             engine,
-        );
-        if let KeyResult::Text(text) = &result {
-            self.insert_text(text);
-        }
-        self.sync();
-        result
+        )
     }
 
     /// Clipboard text pasted into the text input `id` (as is).
-    pub(crate) fn paste(&mut self, id: NodeId, text: &str, engine: &mut arvane::Engine) {
+    pub(crate) fn paste(
+        &mut self,
+        id: NodeId,
+        text: &str,
+        engine: &Rc<RefCell<arvane_text::TextEngine>>,
+    ) {
         self.paste_input(id, text, engine);
-        self.sync();
     }
 
     /// A key release, reported to its key down target or the current focus.
@@ -191,6 +185,7 @@ impl Model {
                 .map(|(point, node)| self.pointer_local(node, point))
                 .unwrap_or_default(),
             activation: None,
+            origin: self.frame.origin(),
             input: kivact_types::KeyInput {
                 key,
                 code,
@@ -203,7 +198,7 @@ impl Model {
 
     /// The focused text input, if it takes edits (not disabled).
     pub(crate) fn focused_input(&self) -> Option<NodeId> {
-        match self.edits.target {
+        match self.ime_target() {
             crate::model::edit::state::ImeTarget::Native(slot) => {
                 Some(self.tree.nodes.id_at(slot.0))
             }
@@ -212,80 +207,80 @@ impl Model {
         }
     }
 
-    /// Edit the text input `id` with `f`, which says whether the value
-    /// changed (then `TextChanged` is queued). `None`: not a text input
-    /// that takes edits.
+    /// Edit the text input `id` with `f`; `TextChanged` is queued when the
+    /// text changed. `None`: not a text input that takes edits.
     pub(crate) fn edit_input(
         &mut self,
         id: NodeId,
-        f: impl FnOnce(&mut EditState) -> bool,
+        f: impl FnOnce(&mut EditState),
     ) -> Option<bool> {
         self.edit_editor_with(id, |journal, _| f(journal.state_mut()))
     }
 
     /// Run `f` (a behavior's request) on the text input `id`, its lines
-    /// brought up to its text first and shaped as the behavior asks,
-    /// aligned in a box the given width wide.
+    /// brought up to its text first and shared with `f`'s context: the
+    /// lines a query asks about are shaped then.
     pub(crate) fn edit_input_with(
         &mut self,
         id: NodeId,
-        engine: &mut arvane::Engine,
-        f: impl FnOnce(&mut EditState, &Shaping<'_>, f64) -> bool,
+        engine: &Rc<RefCell<arvane_text::TextEngine>>,
+        f: impl FnOnce(&mut EditState, Option<EditLayout>),
     ) -> Option<bool> {
-        let width = self.lay_out_lines(id, engine);
+        let width = self.lay_out_lines(id, &mut engine.borrow_mut());
         self.edit_editor_with(id, |journal, lines| {
-            let lines = lines.expect("invariant: lay_out_lines made the input's lines");
-            let lines = Shaping::new(lines, engine);
-            f(journal.state_mut(), &lines, width)
+            let revision = lines.borrow().as_ref().map(|l| l.revision());
+            let layout = revision.map(|revision| {
+                EditLayout::new(
+                    SharedLines::new(Rc::clone(lines), Rc::clone(engine), revision),
+                    revision,
+                    width,
+                )
+            });
+            f(journal.state_mut(), layout);
         })
+    }
+
+    /// The selection and caret of input `id`'s editor.
+    fn input_caret(&self, id: NodeId) -> Option<(Range<usize>, usize)> {
+        let n = self.tree.get(id)?;
+        let editor = &self.slots.editors[n.index.0].as_deref()?.editor;
+        Some((editor.state().selection(), editor.state().caret()))
     }
 
     pub(super) fn edit_editor_with(
         &mut self,
         id: NodeId,
-        f: impl FnOnce(&mut Journal<'_>, Option<&mut EditLines>) -> bool,
+        f: impl FnOnce(&mut Journal<'_>, &Rc<RefCell<Option<EditLines>>>),
     ) -> Option<bool> {
         let n = self.tree.get_mut(id)?;
         if n.disabled() {
             return None;
         }
-        let read_only = n.read_only();
-        let max_length = n.max_length();
+        let limits = Limits {
+            max_length: n.max_length(),
+            read_only: n.read_only(),
+        };
         let report = n.reports_text();
         let EditorNode {
             editor,
             lines,
             controlled,
             ..
-        } = self.editors[n.index.0].as_deref_mut()?;
-        let mut journal = editor.journal(max_length);
-        let limit = max_length.map(|max| {
+        } = self.slots.editors[n.index.0].as_deref_mut()?;
+        let mut journal = editor.journal(limits);
+        // Counted only under a limit: the edit never cuts below the scalars
+        // the text holds now (a composition is never cut).
+        let limit = limits.max_length.map(|max| {
             if journal.state().is_composing() {
                 max
             } else {
                 max.max(journal.state().value().chars().count())
             }
         });
-        let mut reported = f(&mut journal, lines.get_mut().as_mut());
-        // A change of the text must be reported: an unreported one (a
-        // behavior that changed the text and said it did not) is taken back.
-        if !reported && journal.text_changed() {
-            journal.revert();
-        }
-        if !journal.state().is_composing()
-            && let Some(max) = limit
-            && let Some((end, _)) = journal.state().value().char_indices().nth(max)
-        {
-            journal.truncate(end);
-            reported = true;
-        }
-        if read_only && (journal.text_changed() || journal.state().is_composing()) {
-            journal.revert();
-        }
-        if EditorNode::adopt_pending_controlled(controlled, &mut journal) {
-            reported = true;
-        }
-        let changed = !read_only && reported;
+        f(&mut journal, lines);
+        close_edit(&mut journal, controlled, limit);
+        // A read-only editor reports nothing (an adopted core value included).
+        let changed = journal.text_changed() && !limits.read_only;
         let changes = journal.finish();
         let event = changed.then(|| HostEvent::TextChanged {
             node: id,
@@ -293,9 +288,6 @@ impl Model {
             session: editor.state().session().clone(),
             text: report.then(|| editor.state().value().to_string()),
         });
-        if let Some(editor) = self.editor_node_mut(id) {
-            editor.flush_damage();
-        }
         self.repaint_text(id);
         if let Some(e) = event {
             self.changes.mark(id, Dirty::MEASURE);
@@ -327,12 +319,12 @@ impl Model {
         repeat: bool,
         text: Option<&str>,
         pointer: Option<kivact_types::Point>,
-        engine: &mut arvane::Engine,
+        engine: &Rc<RefCell<arvane_text::TextEngine>>,
     ) -> KeyResult {
         let key = shortcut_key(key, physical, modifiers);
         let input = self.focused_input();
         let editor = input.and_then(|i| self.tree.get(i)).and_then(|n| {
-            self.editors[n.index.0]
+            self.slots.editors[n.index.0]
                 .as_deref()
                 .map(|editor| editor.editor.state())
         });
@@ -354,27 +346,32 @@ impl Model {
                         ancestor.role() == Some(Role::SpinButton)
                             && ancestor.actions().contains(&A11yAction::SetValue)
                             && (ancestor.index == node.index
-                                || !ancestor.focusable(self.editors[ancestor.index.0].is_some()))
+                                || !ancestor
+                                    .focusable(self.slots.editors[ancestor.index.0].is_some()))
                     })
                     .is_some();
             let read_only = flags.1;
             let mut outcome = EditOutcome::NotEditing;
+            let mut before = None;
+            let mut changed = false;
             if let Some(behavior) = behavior.filter(|_| !spin_boundary) {
-                self.edit_input_with(i, engine, |state, lines, width| {
-                    let context = context(flags, lines, width);
-                    let request = EditRequest::Key { key, modifiers };
-                    outcome = behavior.invoke(state, request, &context);
-                    matches!(
-                        outcome,
-                        EditOutcome::Done { changed: true }
-                            | EditOutcome::Copy { changed: true, .. }
-                    )
-                });
+                changed = self
+                    .edit_input_with(i, engine, |state, layout| {
+                        before = Some((state.selection(), state.caret()));
+                        let (multiline, read_only, password) = flags;
+                        let context = EditContext::new(multiline, read_only, password, layout);
+                        outcome =
+                            behavior.invoke(state, EditRequest::Key { key, modifiers }, &context);
+                    })
+                    .unwrap_or(false);
             }
             match outcome {
                 EditOutcome::NotEditing => {}
-                EditOutcome::Done { .. } => return KeyResult::Consumed,
-                EditOutcome::Copy { text, .. } => return KeyResult::Copy(text),
+                // The limits took the whole edit back and nothing moved: the
+                // key goes on to the next handler (a full field's Enter).
+                EditOutcome::Done if !changed && before == self.input_caret(i) => {}
+                EditOutcome::Done => return KeyResult::Consumed,
+                EditOutcome::Copy(text) => return KeyResult::Copy(text),
                 EditOutcome::Paste => return KeyResult::Paste(i),
             }
             let command = modifiers.ctrl || modifiers.alt || modifiers.meta;
@@ -384,7 +381,9 @@ impl Model {
                 && !focus_key
                 && key != Key::Enter
             {
-                return KeyResult::Text(t.to_string());
+                // Text for the focused text input: inserted here, as typed.
+                self.insert_text(t);
+                return KeyResult::Consumed;
             }
         }
         if focus_key {
@@ -424,6 +423,7 @@ impl Model {
                 .map(|(point, node)| self.pointer_local(node, point))
                 .unwrap_or_default(),
             activation: None,
+            origin: self.frame.origin(),
             input: kivact_types::KeyInput {
                 key,
                 code,
@@ -494,10 +494,7 @@ impl Model {
     /// commit): replaces the composition, else the selection.
     pub(crate) fn insert_text(&mut self, text: &str) {
         if let Some(i) = self.focused_input() {
-            self.edit_input(i, |e| {
-                e.commit(None, text);
-                true
-            });
+            self.edit_input(i, |e| e.commit(None, text));
         }
     }
 
@@ -511,10 +508,7 @@ impl Model {
         selected: Option<Range<usize>>,
     ) {
         if let Some(i) = self.focused_input() {
-            self.edit_input(i, |e| {
-                e.compose(range, text, selected);
-                true
-            });
+            self.edit_input(i, |e| e.compose(range, text, selected));
         }
     }
 
@@ -528,15 +522,27 @@ impl Model {
         let report = n.reports_text();
         let Some(EditorNode {
             editor, controlled, ..
-        }) = self.editors[n.index.0].as_deref_mut()
+        }) = self.slots.editors[n.index.0].as_deref_mut()
         else {
             return;
         };
-        let mut journal = editor.journal(n.max_length());
+        let limits = Limits {
+            max_length: n.max_length(),
+            read_only: n.read_only(),
+        };
+        let mut journal = editor.journal(limits);
+        // Counted only under a limit: never below the text the composition was typed into.
+        let limit = limits.max_length.map(|max| {
+            let state = journal.state();
+            let marked = state
+                .marked()
+                .map_or(0, |r| state.value()[r].chars().count());
+            max.max(state.value().chars().count() - marked)
+        });
         if !journal.state_mut().unmark() {
             return;
         }
-        EditorNode::adopt_pending_controlled(controlled, &mut journal);
+        close_edit(&mut journal, controlled, limit);
         let changes = journal.finish();
         let event = HostEvent::TextChanged {
             node: id,
@@ -544,9 +550,6 @@ impl Model {
             session: editor.state().session().clone(),
             text: report.then(|| editor.state().value().to_string()),
         };
-        if let Some(editor) = self.editor_node_mut(id) {
-            editor.flush_damage();
-        }
         self.repaint_text(id);
         // A controlled value held during the composition may be adopted.
         self.remeasure(id);
@@ -554,7 +557,12 @@ impl Model {
     }
 
     /// Paste `text` from the clipboard into the text input `id`.
-    pub(crate) fn paste_input(&mut self, id: NodeId, text: &str, engine: &mut arvane::Engine) {
+    pub(crate) fn paste_input(
+        &mut self,
+        id: NodeId,
+        text: &str,
+        engine: &Rc<RefCell<arvane_text::TextEngine>>,
+    ) {
         let Some(node) = self.tree.get(id) else {
             return;
         };
@@ -562,22 +570,17 @@ impl Model {
         let Some(behavior) = node.input_data().and_then(|data| data.behavior.clone()) else {
             return;
         };
-        self.edit_input_with(id, engine, |state, lines, width| {
-            let context = context(flags, lines, width);
-            matches!(
-                behavior.invoke(state, EditRequest::Paste(text), &context),
-                EditOutcome::Done { changed: true } | EditOutcome::Copy { changed: true, .. }
-            )
+        self.edit_input_with(id, engine, |state, layout| {
+            let (multiline, read_only, password) = flags;
+            let context = EditContext::new(multiline, read_only, password, layout);
+            behavior.invoke(state, EditRequest::Paste(text.to_string()), &context);
         });
     }
 
     /// Put the caret of the text input `id` at byte offset `at` (`extend`:
     /// select from the anchor). Changes no value.
     pub(crate) fn place_caret(&mut self, id: NodeId, at: usize, extend: bool) {
-        self.edit_input(id, |e| {
-            e.move_to(at, extend);
-            false
-        });
+        self.edit_input(id, |e| e.move_to(at, extend));
     }
 
     /// Replace the whole value of the text input `id` (assistive
@@ -586,7 +589,6 @@ impl Model {
         self.edit_input(id, |e| {
             let len = e.value().len();
             e.replace(0..len, value);
-            true
         });
     }
 }
@@ -594,20 +596,27 @@ impl Model {
 impl Model {
     /// Bring the lines of the text input `id` up to its text for a
     /// behavior to read; the width of the box they are aligned in.
-    fn lay_out_lines(&self, id: NodeId, engine: &mut arvane::Engine) -> f64 {
+    fn lay_out_lines(&self, id: NodeId, engine: &mut arvane_text::TextEngine) -> f64 {
         drop(self.edit_lines(id, engine));
         crate::model::interact::visual::text_box(self, id).width
     }
 }
 
-/// What a behavior is given: the input's `(multiline, read_only,
-/// password)` and its `lines`, aligned in a box `width` wide.
-fn context<'a>(flags: (bool, bool, bool), lines: &'a Shaping<'_>, width: f64) -> EditContext<'a> {
-    let (multiline, read_only, password) = flags;
-    let layout = EditLayout {
-        lines,
-        revision: lines.revision(),
-        width,
-    };
-    EditContext::new(multiline, read_only, password, Some(layout))
+/// The end of every edit, in the host's fixed order: a composition is
+/// never cut; the text is cut to `limit` scalars (the editor's limit,
+/// never below what the text held when the edit began; `None` without a
+/// limit); a read-only editor takes every change of the text back; a
+/// value the core set during a composition is adopted. Whether the text
+/// changed is the journal's answer afterwards.
+fn close_edit(journal: &mut Journal<'_>, controlled: &mut ControlledValue, limit: Option<usize>) {
+    if !journal.state().is_composing()
+        && let Some(max) = limit
+        && let Some((end, _)) = journal.state().value().char_indices().nth(max)
+    {
+        journal.truncate(end);
+    }
+    if journal.limits().read_only && (journal.text_changed() || journal.state().is_composing()) {
+        journal.revert();
+    }
+    EditorNode::adopt_pending_controlled(controlled, journal);
 }

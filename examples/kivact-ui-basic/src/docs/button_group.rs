@@ -1,43 +1,37 @@
-//! Role: Catalog page of Button Group: horizontal, vertical, separator and text.
+//! Catalog page of Button Group: horizontal, vertical, separator and text.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
+use kivact::view::Orientation;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "button-group",
-        name: "Button Group",
-        description: "関連するボタンを隣り合わせにまとめる部品です。2 つ目からの子は前の子と接する枠線を消すので、境界の線は 1 本になります。子を 1 つずつ整えるため、button_group には 1 つの view ではなく、子の tuple（種類が違ってもよい）か Vec を渡します。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("button_group.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "button_group にボタンの tuple を渡します。",
-                default,
-            ),
-            Example::new(
-                "vertical",
-                "Vertical",
-                "orientation に Orientation::Vertical を渡すと縦に積みます。区切りの線も向きに合わせて横線になります。",
-                vertical,
-            ),
-            Example::new(
-                "separator",
-                "Separator",
-                "button_group_separator でボタンの間に --input の色の線を入れます。枠のない Secondary のボタンを区切るときに使います。横に並べたグループでは縦線になります。",
-                separator,
-            ),
-            Example::new(
-                "text",
-                "Text",
-                "button_group_text は、グループの中の操作ではない文字の区画です（shadcn の ButtonGroupText）。URL の欄の前の https:// や、数値の後ろの単位のような前置き・後置きに使います。グループが高さをそろえるので、隣のボタンや入力欄と同じ高さで、文字は縦の中央に来ます。",
-                with_text,
-            ),
-        ],
-    }
+    Page::new("button-group", "Button Group", "Components", include_str!("button_group.rs"))
+        .description("Groups related buttons side by side. Each child after the first drops the border that touches the one before it, so the boundary is one line. button_group takes a tuple of buttons (the kinds may differ) or a Vec, not one view, because it lays out each child.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "Pass a tuple of buttons to button_group.",
+            default,
+        ))
+        .example(Example::new(
+            "vertical",
+            "Vertical",
+            "Pass Orientation::Vertical to orientation to stack them. The separators turn into horizontal lines.",
+            vertical,
+        ))
+        .example(Example::new(
+            "separator",
+            "Separator",
+            "button_group_separator puts a line of the input color between the buttons. Use it to separate Secondary buttons that have no border. In a row group the line is vertical.",
+            separator,
+        ))
+        .example(Example::new(
+            "text",
+            "Text",
+            "button_group_text is a text cell that is not an action of the group (shadcn's ButtonGroupText). Use it for a prefix or a suffix, such as https:// before a URL field or a unit after a number. The group gives it the height of the neighboring buttons and fields, and the text is centered vertically.",
+            with_text,
+        ))
 }
 
 // example: default
@@ -88,7 +82,7 @@ fn with_text() -> impl IntoView {
         "Actions",
         (
             kivact::ui::button_group_text("https://"),
-            text_input("URL", url).style(style().width(160)),
+            text_input(url).label("URL").style(style().width(160)),
             button("Go").variant(ButtonVariant::Outline),
         ),
     )

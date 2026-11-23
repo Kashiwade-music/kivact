@@ -19,17 +19,18 @@ brightness, contrast, saturate and opacity, and `0` for grayscale, sepia and
 invert. Angles are in degrees and lengths in logical pixels.
 
 ```rust,no_run
-use kivact::draw::Filter;
+use kivact::style::Filter;
 use kivact::prelude::*;
 use kivact::style::rgba;
 
-fn lit_badge() -> impl IntoView {
+#[component]
+fn lit_badge() -> impl Element {
     column(text("Online"))
         .style(
             style()
                 .padding(12)
-                .radius(8)
-                .background(ColorToken::Accent)
+                .border_radius(8)
+                .background(color::ACCENT)
                 .filter(
                     Filter::new()
                         .brightness(1.12)
@@ -53,18 +54,19 @@ of an earlier primitive as an input of a later one. `FilterInput::SOURCE` is the
 element's own pixels. `Filter::graph` consumes the graph.
 
 ```rust,no_run
-use kivact::draw::filter::Channel;
-use kivact::draw::{Filter, FilterGraph, FilterInput};
+use kivact::style::filter::Channel;
+use kivact::style::{Filter, FilterGraph, FilterInput};
 use kivact::prelude::*;
 
-fn glitch_title() -> impl IntoView {
+#[component]
+fn glitch_title() -> impl Element {
     // Displace the element's pixels by noise: a glitch.
     let mut graph = FilterGraph::new();
     let noise = graph.turbulence(0.02, 2, 3.0);
     graph.displacement_map(FilterInput::SOURCE, noise, 12.0, Channel::R, Channel::G);
 
     text("GLITCH")
-        .style(style().font_size(32).weight(700).filter(Filter::new().graph(graph)))
+        .style(style().font_size(32).font_weight(700).filter(Filter::new().graph(graph)))
 }
 # fn main() -> kivact::Result<()> { App::new("Glitch").run(glitch_title) }
 ```
@@ -74,8 +76,8 @@ fn glitch_title() -> impl IntoView {
   `erode`, `dilate`, `convolve`, `drop_shadow`, `flood`, `image`, `tile`,
   `turbulence`, `fractal_noise`, `displacement_map` and the lighting pair
   `diffuse_lighting` and `specular_lighting`.
-- Colors are theme-dependent: `flood` and `drop_shadow` take a `ThemeColor`, so
-  a graph follows the active theme.
+- Colors may be theme variables: `flood` and `drop_shadow` take a `Color`, so
+  `color::ACCENT` makes a graph follow the active theme.
 - The filter region reaches 10% of the element's size beyond its box by
   default. `graph.margin(..)` sets another extent, which matters for glows.
 - A graph computes in linear RGB, as SVG does by default. Call `graph.srgb()`
@@ -89,11 +91,12 @@ A `mask` keeps the alpha of its layers: where the mask is transparent, the
 element and its children disappear. A gradient is the usual mask.
 
 ```rust,no_run
-use kivact::draw::{MaskComposite, MaskLayer};
+use kivact::style::{MaskComposite, MaskLayer};
 use kivact::prelude::*;
-use kivact::draw::linear_gradient;
+use kivact::style::linear_gradient;
 
-fn fading_list() -> impl IntoView {
+#[component]
+fn fading_list() -> impl Element {
     let fade = linear_gradient(180).colors([Color::BLACK, Color::TRANSPARENT]);
     column((text("First"), text("Second"), text("Third")))
         .style(style().gap(8).height(160).mask(fade))
@@ -101,7 +104,7 @@ fn fading_list() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Fade").run(fading_list) }
 ```
 
-- Use `kivact::draw::MaskLayer` for more control: `MaskLayer::new(paint)`,
+- Use `kivact::style::MaskLayer` for more control: `MaskLayer::new(paint)`,
   `.mode(MaskMode::Luminance)` to mask by brightness instead of alpha, and
   `.composite(MaskComposite::Intersect)` to combine it with the layers below.
   Several layers are a tuple: `style().mask((first, second))`, with the first
@@ -117,14 +120,15 @@ fn fading_list() -> impl IntoView {
 decides which pixels an element blends with.
 
 ```rust,no_run
-use kivact::draw::BlendMode;
+use kivact::style::BlendMode;
 use kivact::prelude::*;
 use kivact::style::Isolation;
 
-fn duotone_card() -> impl IntoView {
+#[component]
+fn duotone_card() -> impl Element {
     stack((
         column(text("Image"))
-            .style(style().size(200, 120).padding(12).background(ColorToken::Accent)),
+            .style(style().size(200, 120).padding(12).background(color::ACCENT)),
         column(text("Tint"))
             .style(
                 style()
@@ -157,7 +161,8 @@ translucent panel looks like glass. `backdrop_blur(px)` is the short form of
 use kivact::prelude::*;
 use kivact::style::rgba;
 
-fn glass_panel() -> impl IntoView {
+#[component]
+fn glass_panel() -> impl Element {
     stack((
         column(text("Behind the glass"))
             .style(style().size(260, 160).padding(16).background(rgb(0x3e63dd))),
@@ -166,7 +171,7 @@ fn glass_panel() -> impl IntoView {
                 style()
                     .size(180, 80)
                     .padding(12)
-                    .radius(12)
+                    .border_radius(12)
                     .background(rgba(0xffffff, 0.2))
                     .backdrop_blur(12.0),
             ),
@@ -189,17 +194,18 @@ repeat along the border. Use it for frames and rounded decoration that should
 scale without distortion.
 
 ```rust,no_run
-use kivact::draw::{BorderImage, BorderImageRepeat};
+use kivact::style::{BorderImage, BorderImageRepeat};
 use kivact::prelude::*;
 
-fn framed_panel() -> impl IntoView {
+#[component]
+fn framed_panel() -> impl Element {
     // A 36 px picture with a 12 px frame. The border is 12 px wide.
     let frame = BorderImage::new(br##"<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><rect x="2" y="2" width="32" height="32" rx="6" fill="none" stroke="#3e63dd" stroke-width="4"/></svg>"##)
         .slice(12)
         .repeat(BorderImageRepeat::Round);
 
     column(text("Framed"))
-        .style(style().padding(16).border(12, ColorToken::Border).border_image(frame))
+        .style(style().padding(16).border(12, color::BORDER).border_image(frame))
 }
 # fn main() -> kivact::Result<()> { App::new("Frame").run(framed_panel) }
 ```
@@ -218,11 +224,12 @@ On a canvas, `Draw::border_image(rect, &frame)` draws the same nine pieces in
 a rectangle. A canvas has no border, so set the frame's `width` yourself:
 
 ```rust,no_run
-use kivact::draw::{BorderImage, BorderImageRepeat};
+use kivact::style::{BorderImage, BorderImageRepeat};
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 
-fn framed_canvas() -> impl IntoView {
+#[component]
+fn framed_canvas() -> impl Element {
     let frame = BorderImage::new(br##"<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><rect x="2" y="2" width="32" height="32" rx="6" fill="none" stroke="#3e63dd" stroke-width="4"/></svg>"##)
         .slice(12)
         .width(12)
@@ -245,12 +252,13 @@ painted in. Both default to the padding box, and the clip defaults to the border
 box, as in CSS.
 
 ```rust,no_run
-use kivact::draw::{BackgroundClip, BackgroundOrigin, Paint};
+use kivact::style::{BackgroundClip, BackgroundOrigin, Paint};
 use kivact::prelude::*;
 use kivact::style::rgba;
-use kivact::draw::linear_gradient;
+use kivact::style::linear_gradient;
 
-fn padded_tint() -> impl IntoView {
+#[component]
+fn padded_tint() -> impl Element {
     let tint = linear_gradient(90).colors([rgb(0x3e63dd), rgb(0x30a46c)]);
 
     column(text("Tinted content box"))
@@ -281,17 +289,18 @@ element that holds the text. A container with `BackgroundClip::Text` has no
 text of its own, so nothing is painted.
 
 ```rust,no_run
-use kivact::draw::{BackgroundClip, Paint};
+use kivact::style::{BackgroundClip, Paint};
 use kivact::prelude::*;
-use kivact::draw::linear_gradient;
+use kivact::style::linear_gradient;
 
-fn gradient_title() -> impl IntoView {
+#[component]
+fn gradient_title() -> impl Element {
     let fill = linear_gradient(90).colors([rgb(0xe5484d), rgb(0xffb020), rgb(0x30a46c)]);
 
     text("Gradient text").style(
         style()
             .font_size(40)
-            .weight(800)
+            .font_weight(800)
             .color(Color::TRANSPARENT)
             .background(Paint::from(fill).clip(BackgroundClip::Text)),
     )
@@ -322,4 +331,4 @@ fn gradient_title() -> impl IntoView {
 - [Write shaders](shaders.md): WGSL filters and paints.
 - [Draw with a canvas](canvas.md): the same effects on a `Layer`.
 - [Change the theme and the look of components](theming.md): colors and gradients from tokens.
-- API reference: `cargo doc -p kivact --open`, then `kivact::draw::Filter`, `FilterGraph`, `Mask`, `BorderImage` and `BackgroundClip`.
+- API reference: `cargo doc -p kivact --open`, then `kivact::style::Filter`, `FilterGraph`, `Mask`, `BorderImage` and `BackgroundClip`.

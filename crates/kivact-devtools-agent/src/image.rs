@@ -1,7 +1,10 @@
 //! Role: PNG and base64 bytes for screenshots.
 
-/// An 8-bit RGBA PNG of `rgba` (`width * height * 4` bytes, row by row).
+/// An 8-bit RGBA PNG of premultiplied `rgba` (`width * height * 4` bytes,
+/// row by row), written as straight alpha.
 pub fn encode_png(width: u32, height: u32, rgba: &[u8]) -> std::io::Result<Vec<u8>> {
+    let mut straight = rgba.to_vec();
+    kivact_types::color::unpremultiply(&mut straight);
     let mut out = Vec::new();
     {
         let mut encoder = png::Encoder::new(&mut out, width, height);
@@ -9,7 +12,7 @@ pub fn encode_png(width: u32, height: u32, rgba: &[u8]) -> std::io::Result<Vec<u
         encoder.set_depth(png::BitDepth::Eight);
         let mut writer = encoder.write_header().map_err(std::io::Error::other)?;
         writer
-            .write_image_data(rgba)
+            .write_image_data(&straight)
             .map_err(std::io::Error::other)?;
         writer.finish().map_err(std::io::Error::other)?;
     }

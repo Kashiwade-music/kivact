@@ -32,7 +32,7 @@ const SAMPLED: D3D12_RESOURCE_STATES = D3D12_RESOURCE_STATES(
 );
 
 /// Whether the Direct3D 12 adapter `found` is `adapter` (its LUID).
-pub(super) fn is_adapter(found: &::wgpu::Adapter, adapter: &GpuAdapter) -> Result<bool, Error> {
+pub(crate) fn is_adapter(found: &::wgpu::Adapter, adapter: &GpuAdapter) -> Result<bool, Error> {
     let wanted = backend::luid(adapter)?;
     // SAFETY: only reads the adapter's description while the guard lives.
     let Some(hal) = (unsafe { found.as_hal::<Dx12>() }) else {
@@ -40,11 +40,11 @@ pub(super) fn is_adapter(found: &::wgpu::Adapter, adapter: &GpuAdapter) -> Resul
     };
     // SAFETY: a live DXGI adapter.
     let desc = unsafe { hal.raw_adapter().GetDesc2() }.map_err(api("GetDesc2"))?;
-    Ok(crate::d3d12_contract::luid_bytes(desc.AdapterLuid) == wanted)
+    Ok(crate::d3d12::luid_bytes(desc.AdapterLuid) == wanted)
 }
 
 /// `adapter.request_device(desc)`: a Direct3D 12 device shares as it is.
-pub(super) fn open(
+pub(crate) fn open(
     adapter: ::wgpu::Adapter,
     desc: &::wgpu::DeviceDescriptor<'_>,
 ) -> Result<(::wgpu::Adapter, ::wgpu::Device, ::wgpu::Queue), Error> {

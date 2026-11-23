@@ -14,7 +14,9 @@ The open state of a dialog is a `bool` you own. Write `true` to open it, and the
 dialog writes `false` when the user closes it.
 
 ```rust,test_harness
+use kivact::interaction::DismissOn;
 use kivact::prelude::*;
+use kivact::ui::DialogKind;
 
 fn app() -> impl IntoView {
     let open = signal(false);
@@ -24,7 +26,7 @@ fn app() -> impl IntoView {
         button("Delete note").on_press(move || open.set(true)),
         text(move || if deleted.get() { "Deleted" } else { "Kept" }),
         dialog("Delete this note?", open)
-            .mode(DialogMode::AlertModal)
+            .mode(DialogKind::AlertModal)
             .dismiss(DismissOn { escape: true, outside: false })
             .description("This cannot be undone.")
             .content(|| text("The note and its attachments will be removed."))
@@ -87,14 +89,13 @@ What the dialog does for you:
   `.description(..)` adds a description.
 - **Width.** `.width(480)` overrides the theme's width.
 
-`DialogMode` chooses the style:
+`DialogKind` chooses the style:
 
 | Kind | Looks like | Outside press |
 | --- | --- | --- |
 | `Modal` (default) | a centered dialog | closes |
 | `AlertModal` | a centered dialog that asks for an answer (`Role::AlertDialog`) | does not close unless `Dismiss` says so |
 | `Drawer(Edge::Right)` | a sheet fixed to an edge (`Left`, `Right`, `Top`, `Bottom`) | closes |
-| `Popover` | a non-modal panel next to its trigger | closes |
 
 ### The content is rebuilt on every open
 
@@ -106,7 +107,8 @@ text of a form, **outside** the factory and capture the handle:
 ```rust,no_run
 use kivact::prelude::*;
 
-fn rename(name: Signal<String>) -> impl IntoView {
+#[component]
+fn rename(name: Signal<String>) -> impl Element {
     let open = signal(false);
     let draft = signal(String::new()); // survives the dialog closing
 
@@ -116,7 +118,7 @@ fn rename(name: Signal<String>) -> impl IntoView {
             open.set(true);
         }),
         dialog("Rename", open)
-            .content(move || text_input("Name", draft))
+            .content(move || text_input(draft).label("Name"))
             .footer(move || {
                 button("Save").on_press(move || {
                     name.set(draft.get());
@@ -134,18 +136,24 @@ fn main() -> kivact::Result<()> {
 ### Open from a trigger, or as a popover
 
 `.attach(trigger)` makes the trigger open the dialog and returns the trigger and
-dialog together. A `Popover` needs it: the panel is placed at the trigger and a
-second press on the trigger closes it again.
+the dialog together. For a non-modal panel next to its trigger, use the popup
+behavior: `use_popup(open)` gives the trigger its Part, and `surface(placement,
+content)` places the panel at the trigger. A second press on the trigger closes
+it again.
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::interaction::use_popup;
+use kivact::view::Placement;
 
-fn help() -> impl IntoView {
+#[component]
+fn help() -> impl Element {
     let open = signal(false);
-    dialog("Help", open)
-        .mode(DialogMode::Popover)
-        .content(|| text("Press Tab to move between fields."))
-        .attach(button("Help"))
+    let popup = use_popup(open);
+    row((
+        button("Help").with_node(move |n| n.part(popup.trigger())),
+        popup.surface(Placement::Below, || text("Press Tab to move between fields.")),
+    ))
 }
 
 fn main() -> kivact::Result<()> {
@@ -153,13 +161,12 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-Use `.placement(Placement::Above)` and `.align(OverlayAlign::End)` (both in
-`kivact::view`) to choose the side and the alignment. If the panel does not fit,
-Kivact flips it to the other side.
+Pass `Placement::Above` to `surface` to choose the side (`Placement` is in
+`kivact::view`). If the panel does not fit, Kivact flips it to the other side.
 
 ## Add a tooltip
 
-`tooltip(text).attach(trigger)` shows a hint after a short delay when the
+`tooltip(text, trigger)` shows a hint after a short delay when the
 pointer rests on the trigger or the trigger has keyboard focus, and hides it on
 Escape or when the pointer leaves. Only one tooltip is shown at a time. The hint
 also becomes the trigger's description for assistive technology, unless the
@@ -170,8 +177,41 @@ use kivact::prelude::*;
 
 fn app() -> impl IntoView {
     row((
-        tooltip("Save the document (Ctrl+S)").attach(button("Save")),
-        tooltip("Open another file").attach(button("Open")),
+        tooltip("Save the document (Ctrl+S)", button("Save")),
+        tooltip("Open another file", button("Open")),
+    ))
+    .style(style().gap(8).padding(16))
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Tooltips").run(app)
+}
+```
+
+Four setters on the tooltip, all optional, adjust where the hint goes and what
+it shows. They are set on the tooltip, not on the trigger:
+
+- `.placement(side)` sets the side of the trigger the hint shows on. The default
+  is `Placement::Above`.
+- `.align(align)` aligns the hint along the trigger's edge: `OverlayAlign::Start`,
+  `Center` or `End`. Without it, the overlay's default alignment applies.
+- `.offset(px)` sets the gap between the trigger and the hint in logical pixels.
+  The default is 4.
+- `.content(factory)` shows rich content instead of the text. The factory runs
+  on each opening, in a fresh owner, so the content starts clean every time.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::view::{OverlayAlign, Placement};
+
+fn app() -> impl IntoView {
+    row((
+        tooltip("Save the document (Ctrl+S)", button("Save"))
+            .placement(Placement::Below)
+            .align(OverlayAlign::End)
+            .offset(8.0),
+        tooltip("Open another file", button("Open"))
+            .content(|| text("Opens a file from disk")),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -182,9 +222,7 @@ fn main() -> kivact::Result<()> {
 ```
 
 A tooltip is a short hint. It is not for text people must read or for anything
-they must click; use a popover for that. `.placement(..)`, `.align(..)` and
-`.offset(px)` position it, and `.content(|| view)` replaces the plain text with
-your own view.
+they must click; use a popover for that.
 
 ## Show a menu
 
@@ -290,15 +328,16 @@ A toast is a short notification that disappears by itself. Mount one
 ```rust,test_harness
 use std::time::Duration;
 
+use kivact::interaction::{Tone, use_toaster};
 use kivact::prelude::*;
 
 fn app() -> impl IntoView {
-    let toaster = toaster();
+    let toasts = use_toaster();
     let count = signal(0);
 
     column((
         button("Save").on_press(move || {
-            toaster.push(
+            toasts.push(
                 Toast::new("Saved")
                     .body("Your changes were written to disk.")
                     .tone(Tone::Success),
@@ -306,7 +345,7 @@ fn app() -> impl IntoView {
         }),
         button("Delete").on_press(move || {
             count.update(|n| *n += 1);
-            toaster.push(
+            toasts.push(
                 Toast::new("Deleted")
                     .tone(Tone::Danger)
                     .duration(Some(Duration::from_secs(10)))
@@ -314,7 +353,7 @@ fn app() -> impl IntoView {
             );
         }),
         text(move || format!("deleted: {}", count.get())),
-        toast_region(toaster),
+        toast_region(toasts),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -341,7 +380,7 @@ mod tests {
 }
 ```
 
-- `toaster()` returns the app's single shared queue, so you can call it in any
+- `use_toaster()` returns the app's single shared queue, so you can call it in any
   component and every call gets the same queue. Pass it to a handler by capturing
   it in a closure; it is a `Copy` handle.
 - A toast stays 5 seconds by default. `.duration(Some(d))` changes it and
@@ -351,8 +390,8 @@ mod tests {
   icon and how it is announced: `Warning` and `Danger` are announced at once,
   the others politely.
 - `.action(label, f)` adds one button that runs `f` and dismisses the toast.
-- At most three toasts show at a time (`toaster.max_visible(n)`); the rest wait.
-  `toaster.dismiss(id)` removes one early, where `id` is what `push` returned.
+- At most three toasts show at a time (`toasts.max_visible(n)`); the rest wait.
+  `toasts.dismiss(id)` removes one early, where `id` is what `push` returned.
 - The theme places the region at the bottom right of the window. Mount one
   region near the root of the app.
 

@@ -31,5 +31,5 @@ mod compile;
 mod describe;
 mod paint;
 
-pub use compile::{CompiledStyle, ForcedStates, Interactive, compile_style};
+pub use compile::{CompiledStyle, Interactive, compile_style};
 pub use describe::{describe_state_styles, describe_style};

@@ -1,13 +1,16 @@
 //! Role: The `ListApi` handle: setup options, reads, selection commands and parts.
 
 use super::data::{ListGesture, ListItem, ListItemState, ListOptions};
+use super::machine;
 use super::state::State;
 use super::{input, parts, state, typeahead};
 use crate::Selection;
 use crate::axis::check_list_axis;
+use crate::collection::{Index, Membership};
 use kivact_core::custom::{Owned, Part, PartState, require_effectful, require_setup};
-use kivact_core::state::{Binding, Value};
+use kivact_core::state::Selector;
 use kivact_core::state::{IntoValue, callback};
+use kivact_core::state::{Signal, Value};
 use kivact_core::view::{Handled, HandlerResult, Key, KeyEvent};
 use std::rc::Rc;
 
@@ -45,34 +48,27 @@ pub fn use_list<K: kivact_core::state::ItemKey>(
     let selection = selected.into_selection();
     check_list_axis(policy.axis, "use_list");
     ListApi {
-        state: state::create(items.into_value(), selection, policy),
+        state: state::create(items.into_value(), selection, policy, false.into_value()),
+    }
+}
+
+/// A list whose items leave the focus on another node while `retained`
+/// is true: a select's trigger keeps the focus and shows the active item
+/// as its `active_descendant`. Setup only.
+#[track_caller]
+pub(crate) fn use_list_retaining<K: kivact_core::state::ItemKey>(
+    items: Value<Vec<ListItem<K>>>,
+    selection: Selection<K>,
+    policy: ListOptions,
+    retained: Value<bool>,
+) -> ListApi<K> {
+    check_list_axis(policy.axis, "use_list");
+    ListApi {
+        state: state::create(items, selection, policy, retained),
     }
 }
 
 impl<K: kivact_core::state::ItemKey> ListApi<K> {
-    /// Drawing state of the mounted list container.
-    pub fn list_state(self) -> Value<PartState> {
-        let observed = self.state().container_state;
-        kivact_core::state::memo(move || {
-            observed.get().map(|state| state.get()).unwrap_or_default()
-        })
-    }
-    /// Drawing state of the actual mounted item, or its logical selection before mounting.
-    pub fn item_state(self, key: K) -> Value<ListItemState> {
-        let state = self.state();
-        kivact_core::state::memo(move || {
-            state
-                .item_states
-                .with(|states| states.get(&key).copied())
-                .map(|part| part.get())
-                .unwrap_or_else(|| ListItemState {
-                    input: PartState::default(),
-                    selected: state.selected.with(|keys| keys.contains(&key)),
-                    active: state.active.with(|active| active.as_ref() == Some(&key)),
-                })
-        })
-    }
-
     #[track_caller]
     fn state(self) -> Rc<State<K>> {
         self.state.get()
@@ -128,10 +124,9 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
     /// Share an authoritative range anchor with other list instances.
     /// Setup only; later binding writes remain reactive.
     #[track_caller]
-    pub fn with_anchor(self, anchor: impl kivact_core::state::IntoBinding<Option<K>>) -> Self {
+    pub fn with_anchor(self, anchor: kivact_core::state::Signal<Option<K>>) -> Self {
         let state = self.state();
         require_setup("ListApi::anchor");
-        let anchor = anchor.into_binding();
         state.options.update(|options| options.anchor = anchor);
         self
     }
@@ -243,11 +238,17 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
         parts::item(state, key, retain_disabled_focus).0
     }
 
-    pub(crate) fn retain_focus(self, enabled: impl IntoValue<bool>) {
-        let enabled = enabled.into_value();
-        self.state()
-            .options
-            .update(|options| options.retained_focus = enabled);
+    /// The list's index of its items, read per key in O(1), for composites.
+    pub(crate) fn index(self) -> Value<Index<K>> {
+        self.state().index
+    }
+    /// Which keys the selection holds, per key, for composites.
+    pub(crate) fn membership(self) -> Membership<K> {
+        self.state().membership
+    }
+    /// Whether a key is the active one, per key, for composites.
+    pub(crate) fn active_key(self) -> Selector<K> {
+        self.state().active_key
     }
 
     pub(crate) fn active_ref(self) -> Option<kivact_core::view::NodeRef> {
@@ -268,7 +269,9 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
     pub(crate) fn reset_highlight(self) {
         let state = self.state();
         state.roving.requested.set(None);
-        state.typed.get().set(typeahead::Typeahead::default());
+        state
+            .typeahead_owner()
+            .send(machine::Event::Typeahead(typeahead::Typeahead::Idle));
     }
 
     pub(crate) fn route_focused_key(
@@ -302,7 +305,7 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
         self.state().holds_focus(key)
     }
     #[track_caller]
-    pub(crate) fn shared_highlight(self, highlight: Binding<Option<K>>) -> Self {
+    pub(crate) fn shared_highlight(self, highlight: Signal<Option<K>>) -> Self {
         let state = self.state();
         state.roving.requested.bind(highlight);
         // Composite owners decide when their shared highlight resets.
@@ -311,11 +314,25 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
             .update(|options| options.reset_on_exit = false);
         self
     }
+    /// Type into `owner`'s type-to-find prefix instead of one of this
+    /// list's own: a select's open list continues the search begun at its
+    /// closed trigger. Setup only.
     #[track_caller]
-    pub(crate) fn shared_typeahead(self, typed: Binding<typeahead::Typeahead>) -> Self {
-        let state = self.state();
-        require_setup("ListApi::shared_typeahead");
-        state.typed.set(typed);
+    pub(crate) fn typeahead_from(self, owner: ListApi<K>) -> Self {
+        require_setup("ListApi::typeahead_from");
+        let owner = owner.state().pending;
+        self.state()
+            .options
+            .update(|options| options.typeahead = Some(owner));
         self
+    }
+    /// End the type-to-find prefix this list types into. Nothing happens
+    /// once the list is gone.
+    pub(crate) fn clear_typeahead(self) {
+        if let Some(state) = self.state.try_get() {
+            state
+                .typeahead_owner()
+                .send(machine::Event::Typeahead(typeahead::Typeahead::Idle));
+        }
     }
 }

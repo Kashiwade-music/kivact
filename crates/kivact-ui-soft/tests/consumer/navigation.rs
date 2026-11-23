@@ -1,4 +1,5 @@
 //! Role: Exercise responsive Soft navigation through the public facade.
+use kivact::interaction::ListItem;
 use kivact::state::signal;
 use kivact::style::ThemeMode;
 use kivact::style::style;
@@ -45,29 +46,33 @@ fn rtl_toolbar_moves_between_unwrapped_slots_in_visual_order() {
 }
 
 fn fixture_layout(resize: kivact::state::Signal<f64>) -> impl IntoView {
-    kivact::ui::card(soft::with_card_insets(Default::default(), move || {
-        soft::layout()
-            .height(soft::LayoutHeight::Auto)
-            .header(soft::layout_header(text("Header")).divider(true))
-            .start(
-                soft::layout_panel(text("Panel"))
-                    .width(move || kivact::style::Length::Px(resize.get())),
-            )
-            .start_resize_handle(kivact::ui::splitter(
-                "Resize panel",
-                resize,
-                kivact::interaction::ScalarRange::new(50.0, 600.0).expect("valid range"),
-            ))
-            .content({
-                soft::layout_content(soft::section(soft::vstack((
-                    soft::layout_grid((text("First"), text("Second")))
-                        .columns(soft::GridColumns::Fixed(2)),
-                    soft::divider().label_text("or"),
-                    soft::form_layout(soft::form_row(text("Label"), text("Value"))),
-                ))))
-                .scrollable(false)
-            })
-    }))
+    kivact::ui::card(soft::with_card_insets(
+        Default::default(),
+        None,
+        move || {
+            soft::layout()
+                .height(soft::LayoutHeight::Auto)
+                .header(soft::layout_header(text("Header")).divider(true))
+                .start(
+                    soft::layout_panel(text("Panel"))
+                        .width(move || kivact::style::Length::Px(resize.get())),
+                )
+                .start_resize(kivact::ui::splitter(
+                    "Resize panel",
+                    resize,
+                    kivact::interaction::ScalarRange::new(50.0, 600.0).expect("valid range"),
+                ))
+                .content({
+                    soft::layout_content(soft::section(soft::vstack((
+                        soft::layout_grid((text("First"), text("Second")))
+                            .columns(soft::GridColumns::Fixed(2)),
+                        soft::divider().label_text("or"),
+                        soft::form_layout(soft::form_row(text("Label"), text("Value"))),
+                    ))))
+                    .scrollable(false)
+                })
+        },
+    ))
 }
 
 fn fixture_carousel() -> impl IntoView {
@@ -106,20 +111,18 @@ fn layout_components_mount_and_interact() {
                     .selected(selected),
                 kivact::ui::disclosure("Disclosure", open).content(|| text("Disclosure body")),
                 kivact::ui::pagination(20usize, page)
-                    .window(kivact::ui::PaginationWindow::Buffered)
-                    .summary(soft::pagination_status),
-                soft::tab_list("Test tabs", tab)
-                    .tabs([soft::tab("one", "One"), soft::tab("two", "Two")])
-                    .menu(soft::tab_menu(
-                        "More",
-                        vec![soft::TabMenuOption::new("three", "Three")],
-                    )),
+                    .window(kivact::ui::PaginationWindow::Buffered),
+                kivact::ui::tabs(
+                    "Test tabs",
+                    vec![ListItem::new("one", "One"), ListItem::new("two", "Two")],
+                    tab,
+                ),
                 kivact::ui::stepper(
                     vec![
                         kivact::ui::StepperItem::new("One"),
                         kivact::ui::StepperItem::new("Two"),
                     ],
-                    1usize,
+                    signal(1usize),
                 ),
                 fixture_carousel(),
                 row((
@@ -154,7 +157,7 @@ fn layout_components_mount_and_interact() {
     assert!(screen.query_by_text("Disclosure body").is_some());
     screen.get_by_role(Role::Button, "11").click();
     assert!(screen.query_by_text("Page state 11").is_some());
-    screen.get_by_role(Role::Button, "Two").click();
+    screen.get_by_role(Role::Tab, "Two").click();
     assert!(screen.query_by_text("Tab state two").is_some());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
@@ -170,25 +173,26 @@ fn shell_adapts_navigation_and_opens_the_mobile_drawer() {
                         .heading(soft::top_nav_heading("Acme").icon(soft::nav_icon(icon("menu"))))
                         .start(soft::top_nav_item("Documents").on_press(|| {}))
                 })
-                .side_nav(|| {
-                    soft::side_nav(
-                        soft::side_nav_item("Files")
+                .sidebar(|| {
+                    let mobile = soft::use_app_shell_mobile();
+                    kivact::ui::sidebar_menu(vec![
+                        kivact::ui::sidebar_menu_button("Files")
                             .icon(icon("menu"))
-                            .on_press(|| {}),
-                    )
-                    .collapsible(soft::SideNavCollapse::Uncontrolled { default: false })
+                            .on_press(move || mobile.hide())
+                            .into_view(),
+                    ])
                 })
                 .into_view()
         },
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-    assert!(screen.query_by_role(Role::Link, "Files").is_some());
+    assert!(screen.query_by_role(Role::Button, "Files").is_some());
     screen.resize(600.0, 600.0);
-    assert!(screen.query_by_role(Role::Link, "Files").is_none());
+    assert!(screen.query_by_role(Role::Button, "Files").is_none());
     screen.get_by_role(Role::Button, "Open navigation").click();
     assert!(screen.query_by_role(Role::Dialog, "Navigation").is_some());
     screen.advance(std::time::Duration::from_millis(350));
-    screen.get_by_role(Role::Link, "Files").click();
+    screen.get_by_role(Role::Button, "Files").click();
     screen.advance(std::time::Duration::from_millis(350));
     assert!(screen.query_by_role(Role::Dialog, "Navigation").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
@@ -294,7 +298,6 @@ fn compact_steps_skip_disabled_items_and_all_keeps_its_structure() {
                     ],
                     current,
                 )
-                .on_step_press(move |at| current.set(at))
                 .style(style().width(170)),
             )
         },
@@ -313,7 +316,7 @@ fn compact_steps_skip_disabled_items_and_all_keeps_its_structure() {
                     kivact::ui::StepperItem::new("First"),
                     kivact::ui::StepperItem::new("Last"),
                 ],
-                0usize,
+                signal(0usize),
             )
             .collapsed_steps(kivact::ui::CollapsedSteps::All)
             .style(style().width(100))
@@ -512,126 +515,6 @@ fn domain_navigation_shares_hover_pinned_and_menu_focus_authority() {
 }
 
 #[test]
-fn rail_navigation_has_one_actual_panel_and_rearms_after_expansion() {
-    use kivact::state::IntoBinding;
-    let (screen, collapsed) = kivact::test::render_with_handle(
-        RenderOptions::with_theme(soft::theme(ThemeMode::Light)).window_size(900.0, 650.0),
-        || {
-            let collapsed = signal(true);
-            (
-                collapsed,
-                column((
-                    soft::side_nav((
-                        soft::side_nav_item("Documents")
-                            .icon(icon("menu"))
-                            .children(|| soft::side_nav_item("Document leaf").on_press(|| {})),
-                        soft::side_nav_item("Activity")
-                            .icon(icon("clock"))
-                            .children(|| soft::side_nav_item("Activity leaf").on_press(|| {})),
-                    ))
-                    .collapsible(soft::SideNavCollapse::Controlled(collapsed.into_binding()))
-                    .style(style().height(220)),
-                    kivact::ui::button("Outside"),
-                )),
-            )
-        },
-    );
-    let documents = screen.get_by_role(Role::Button, "Documents");
-    documents.hover();
-    screen.advance(std::time::Duration::from_millis(160));
-    assert!(screen.get_by_role(Role::Link, "Document leaf").is_visible());
-    documents.click();
-    screen.get_by_role(Role::Button, "Outside").hover();
-    screen.advance(std::time::Duration::from_millis(240));
-    assert!(screen.get_by_role(Role::Link, "Document leaf").is_visible());
-    screen.get_by_role(Role::Button, "Activity").hover();
-    screen.advance(std::time::Duration::from_millis(160));
-    assert!(screen.query_by_role(Role::Link, "Document leaf").is_none());
-    assert!(screen.get_by_role(Role::Link, "Activity leaf").is_visible());
-    collapsed.set(false);
-    screen.run_until_idle();
-    collapsed.set(true);
-    screen.run_until_idle();
-    assert!(screen.query_by_role(Role::Link, "Activity leaf").is_none());
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn controlled_menu_uses_only_accepted_opening_and_dismissal() {
-    use kivact::interaction::{MenuEntry, use_menu_with_open};
-    use kivact::state::binding;
-    use kivact::view::{Placement, overlay};
-    let (screen, (accepted, allow)) = kivact::test::render_with_handle(
-        RenderOptions::with_theme(soft::theme(ThemeMode::Light)).window_size(500.0, 650.0),
-        || {
-            let accepted = signal(false);
-            let allow = signal(false);
-            let anchor = node_ref();
-            let menu = use_menu_with_open(
-                vec![MenuEntry::item(0, "Choice")],
-                binding(
-                    move || accepted.get(),
-                    move |next| {
-                        if allow.get() {
-                            accepted.set(next);
-                        }
-                    },
-                ),
-            );
-            (
-                (accepted, allow),
-                column((
-                    node()
-                        .node_ref(anchor)
-                        .part(menu.trigger())
-                        .name("Controlled")
-                        .child(text("Controlled")),
-                    menu.while_open(move || {
-                        overlay(
-                            anchor,
-                            Placement::Below,
-                            node().child(
-                                node()
-                                    .part(menu.item(0))
-                                    .name("Choice")
-                                    .child(text("Choice")),
-                            ),
-                        )
-                        .with_node(move |node| node.part(menu.content()))
-                        .name("Controlled menu")
-                    }),
-                )),
-            )
-        },
-    );
-    let trigger = screen.get_by_role(Role::Button, "Controlled");
-    trigger.focus();
-    trigger.press_key(Key::ArrowDown);
-    assert!(!accepted.get_untracked());
-    assert!(trigger.is_focused());
-    assert!(screen.query_by_role(Role::MenuItem, "Choice").is_none());
-    allow.set(true);
-    trigger.press_key(Key::ArrowDown);
-    assert!(accepted.get_untracked());
-    assert!(screen.get_by_role(Role::MenuItem, "Choice").is_focused());
-    allow.set(false);
-    screen.press_key(Key::Escape);
-    assert!(accepted.get_untracked());
-    assert!(screen.get_by_role(Role::MenuItem, "Choice").is_focused());
-    allow.set(true);
-    screen.press_key(Key::Escape);
-    assert!(!accepted.get_untracked());
-    assert!(trigger.is_focused());
-    accepted.set(true);
-    screen.run_until_idle();
-    assert!(screen.get_by_role(Role::MenuItem, "Choice").is_visible());
-    assert!(trigger.is_focused());
-    trigger.press_key(Key::ArrowDown);
-    assert!(screen.get_by_role(Role::MenuItem, "Choice").is_focused());
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
 fn panel_disposal_cancels_only_its_actual_pending_command() {
     use kivact::interaction::{NavOpen, use_navigation_menu};
     use kivact::state::on_cleanup;
@@ -641,27 +524,29 @@ fn panel_disposal_cancels_only_its_actual_pending_command() {
         let (screen, (state, present, b)) = kivact::test::render_with_handle(
             RenderOptions::with_theme(soft::theme(ThemeMode::Light)).window_size(500.0, 650.0),
             || {
-                let api = use_navigation_menu();
-                let a = api.panel_key();
-                let b = api.panel_key();
+                let open = signal(false);
+                let api = use_navigation_menu(open);
+                let a = api.panel();
+                let b = api.panel();
+                let (key_a, key_b) = (a.key(), b.key());
                 let state = api.state();
                 let present = signal(true);
                 (
-                    (state, present, b),
+                    (state, present, key_b),
                     column((
                         show(present, move || {
-                            on_cleanup(move || api.panel_removed(a));
+                            on_cleanup(move || a.removed());
                             (
-                                pending_panel_button(api, a, "Panel A"),
+                                pending_panel_button(a, "Panel A"),
                                 show(
-                                    move || matches!(state.get(),NavOpen::Hover(key)|NavOpen::Pinned(key) if key==a),
+                                    move || matches!(state.get(),NavOpen::Hover(key)|NavOpen::Pinned(key) if key==key_a),
                                     || text("A surface"),
                                 ),
                             )
                         }),
-                        pending_panel_button(api, b, "Panel B"),
+                        pending_panel_button(b, "Panel B"),
                         show(
-                            move || matches!(state.get(),NavOpen::Hover(key)|NavOpen::Pinned(key) if key==b),
+                            move || matches!(state.get(),NavOpen::Hover(key)|NavOpen::Pinned(key) if key==key_b),
                             || text("B surface"),
                         ),
                     )),
@@ -691,18 +576,17 @@ fn panel_disposal_cancels_only_its_actual_pending_command() {
 }
 
 fn pending_panel_button(
-    api: kivact::interaction::NavigationMenuApi,
-    key: usize,
+    panel: kivact::interaction::NavigationPanelApi,
     label: &'static str,
 ) -> kivact::ui::Button {
     use kivact::view::{Handled, PointerPhase};
     use std::time::Duration;
     kivact::ui::button(label)
-        .on_press(move || api.toggle(key))
+        .on_press(move || panel.toggle())
         .on_pointer(move |event| {
             match event.phase() {
-                PointerPhase::Enter => api.hover_after(key, Duration::from_millis(150)),
-                PointerPhase::Leave => api.leave_after(key, Duration::from_millis(200)),
+                PointerPhase::Enter => panel.hover_after(Duration::from_millis(150)),
+                PointerPhase::Leave => panel.leave_after(Duration::from_millis(200)),
                 _ => (),
             };
             Handled::No
@@ -711,10 +595,8 @@ fn pending_panel_button(
 
 #[test]
 fn layout_padding_and_pixel_content_width_place_the_content() {
-    let s6 = soft::theme(ThemeMode::Light)
-        .ext::<soft::Tokens>()
-        .spacing
-        .s6;
+    // The Soft spacing `s6` (`SPACE_S6_VAR`).
+    let s6 = 24.0;
     let screen = render_with(
         RenderOptions::with_theme(soft::theme(ThemeMode::Light)).window_size(800.0, 400.0),
         || {
@@ -737,4 +619,21 @@ fn layout_padding_and_pixel_content_width_place_the_content() {
         "{body:?}"
     );
     assert!(screen.errors().is_empty());
+}
+
+#[test]
+fn an_open_given_inside_a_navigation_group_is_reported() {
+    let screen = render_with(
+        RenderOptions::with_theme(soft::theme(ThemeMode::Light)).window_size(900.0, 650.0),
+        || {
+            soft::top_nav().start((soft::top_nav_mega_menu("Resources")
+                .open(signal(false))
+                .items(|| soft::top_nav_mega_menu_item("Guide").on_press(|| {})),))
+        },
+    );
+    assert!(
+        format!("{:?}", screen.errors()).contains("open is ignored inside a navigation group"),
+        "{:?}",
+        screen.errors()
+    );
 }

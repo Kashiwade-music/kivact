@@ -1,13 +1,11 @@
 //! Role: The engine's Direct3D 12 export pool: shared textures, fences, hand-off.
 
 use super::adapter::luid;
+use super::contract::{HAND_OFF_STATE, luid_bytes, resource_flags as flags};
 use super::raw::FORMAT;
 use super::raw::{transition, wait};
 use super::read_back::read_back;
 use crate::common::{Error, api};
-use crate::d3d12_contract::HAND_OFF_STATE;
-use crate::d3d12_contract::luid_bytes;
-use crate::d3d12_contract::resource_flags as flags;
 use crate::pool::{Acquired, DROP_WAIT, FrameReady, PoolConfig, Slots};
 use kivact_types::{
     AdapterMatch, GpuAdapter, GpuBackend, SharedHandle, SharedTextureFormat, SharedTextures,
@@ -357,7 +355,7 @@ impl Pool {
         }
     }
 
-    /// Texture `slot`'s last frame as straight-alpha RGBA8 (`width` ×
+    /// Texture `slot`'s last frame as premultiplied RGBA8 (as `Pixels`) (`width` ×
     /// `height` × 4 bytes, rows top to bottom), once its `ready` arrived
     /// (each wait at most `timeout`), copied on `queue`. A thin wrapper of
     /// [`read_back`].

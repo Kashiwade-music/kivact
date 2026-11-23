@@ -2,153 +2,79 @@
 //!
 //! The look of the shadcn/ui "Lyra" preset: Neutral colors, square corners,
 //! 12 px controls and Lucide icons. The only dependency is the public
-//! `kivact` facade; behavior comes from `kivact::interaction` and the
-//! standard `kivact::ui` components. A builder that draws one box accepts the
-//! public [`kivact::view::Element`] modifiers, and the style and
-//! semantics it installs are only defaults: what the caller sets wins. A
-//! dialog, an alert dialog, a sheet and a popover are the standard
-//! `kivact::ui::dialog` of the kinds `Modal`, `AlertModal` (its width class
-//! is [`AlertDialogSize`]), `Drawer(side)` and `Popover`, and a dropdown or
-//! context menu is the standard `kivact::ui::menu` (`.attach(trigger)` or
-//! `.attach_context(target)`), all in this look. Standard dialogs draw
-//! their overlay away from the place they are used; a
-//! standard `kivact::ui::hover_card` is attached to the caller's own trigger with
-//! `.attach(trigger)`, which returns the trigger and the overlay.
+//! `kivact` facade. Install [`theme`] on the App or a `kivact::style::provide_theme`
+//! boundary: it sets the kit's color variables and the core variables that
+//! draw every standard component of `kivact::ui` in this look.
 //!
-//! A slot method that places content in a component (`content`, `header`,
-//! `footer`, `action`, `actions`, `media`, ...) takes `impl IntoView`; a
-//! container's children (`column((..))`, `field(label, control)`) are views.
-//!
-//! Icons follow one rule. Every icon is drawn with the core
-//! `kivact::view::icon("name")`, and [`theme`] puts every Lucide name of
-//! [`ICON_NAMES`] in the theme's icon set. A slot that holds one view on a
-//! single component takes `impl IntoView` (`alert(..).icon(icon("info"))`);
-//! records, which are data rather than views (`ListItem`, `MenuEntry`,
-//! `Command`), and the helper [`attachment_action`] take the name. Every per-item function argument is
-//! `impl Fn(..) + 'static`.
-//!
-//! Install [`theme`] on the App or a `kivact::style::provide_theme`
-//! boundary: it carries the typed [`Tokens`] and the recipes that draw every
-//! standard component of `kivact::ui` (`button`, `toggle`, `checkbox`,
-//! `switch`, `text_input`, `text_area`, `select`, `menu`, `dialog`, `tooltip`,
-//! `tabs`, `radio_group`, `slider`, `range_slider`, `toast_region`, `splitter`,
-//! `split`, `progress` and `disclosure`) in this look; the kit has no copies
-//! of them. A few looks are values you give with `.variant(..)`, such as
-//! [`ToggleVariant`] for a `toggle`. Docs import the crate as
-//! `use kivact_ui_basic as basic;`.
-//!
-//! # Texts
-//!
-//! Kit-owned texts, such as questionnaire actions and the sidebar toggle,
-//! use three-part `basic.*.*` keys through `kivact::i18n::message`. Standard
-//! Core components keep their standard keys. The README lists both; an App
-//! replaces messages with `App::messages`.
+//! Messages are localized under the keys `basic.breadcrumb.more`,
+//! `basic.chart.{bar, stacked_bar, line, area, pie, donut, radar, radial, summary,
+//! total}` and `basic.questionnaire.{label, next, previous, progress, skip, submit}`.
 
-mod alert;
-mod alert_dialog;
 mod attachment;
-mod avatar;
-mod badge;
-mod breadcrumb;
-mod button;
-mod card;
 mod card_header;
 mod chart;
-mod chat;
-mod chat_colors;
-mod choice;
 mod code_block;
 mod color;
-mod date_picker;
-mod disclosure;
-mod drawer;
-mod empty;
 mod field;
 mod icons;
-mod input_group;
 mod input_otp;
-mod item;
-mod layers;
-mod line_tabs;
-mod list_popup;
 mod marker;
 mod menubar;
-mod message_scroller;
 mod native_select;
-mod navigation_menu;
-mod nice;
-mod pagination;
-mod parts;
-mod plot;
 mod primitives;
 mod questionnaire;
-mod recipes;
+mod recipe_parts;
 mod recipes_calendar;
+mod recipes_chat;
+mod recipes_code;
 mod recipes_collections;
-mod recipes_combobox;
-mod recipes_command;
 mod recipes_controls;
-mod recipes_dialog;
-mod recipes_field;
-mod recipes_groups;
-mod recipes_menu;
+mod recipes_controls_button;
+mod recipes_controls_check;
+mod recipes_controls_field;
+mod recipes_feedback;
+mod recipes_feedback_avatar;
+mod recipes_input;
 mod recipes_metrics;
-mod recipes_popup;
+mod recipes_navigation;
+mod recipes_navigation_sidebar;
+mod recipes_overlays;
+mod recipes_overlays_combobox;
+mod recipes_overlays_command;
+mod recipes_overlays_dialog;
 mod scroll_area;
-mod sidebar;
-mod table;
 mod theme;
-mod theme_access;
-mod tokens;
 mod trace;
 mod typography;
+mod variants;
 
-pub use alert::AlertLook;
 pub use attachment::{
-    Attachment, AttachmentMediaVariant, AttachmentSize, AttachmentState, attachment,
-    attachment_action, attachment_group,
+    Attachment, AttachmentState, attachment, attachment_action, attachment_group,
 };
-pub use badge::BadgeVariant;
-pub use card::{CardLook, CardSize};
 pub use card_header::{CardHeader, card_header};
 pub use chart::{Chart, ChartConfig, ChartKind, ChartRow, ChartSeries, chart};
-pub use chat::ChatLayout;
-pub use chat_colors::BubbleVariant;
-pub use empty::EmptyMediaVariant;
-pub use item::{ItemLook, ItemMediaVariant, ItemSize, ItemVariant};
-pub use line_tabs::TabsVariant;
-pub use marker::{Marker, MarkerVariant, marker};
-pub use menubar::{Menubar, menubar};
-pub use recipes_menu::MenuVariant;
-pub use scroll_area::{ScrollArea, scroll_area};
-pub use sidebar::{
-    Sidebar, SidebarCollapsible, SidebarGroup, SidebarMenuButton, SidebarMenuButtonSize,
-    SidebarMenuSubButton, SidebarSide, SidebarTrigger, SidebarVariant, sidebar, sidebar_group,
-    sidebar_input, sidebar_menu, sidebar_menu_button, sidebar_menu_skeleton,
-    sidebar_menu_sub_button, sidebar_provider, sidebar_separator, sidebar_trigger,
+pub use code_block::rust_lines;
+pub use color::{
+    ACCENT, ACCENT_FOREGROUND, ACCENT_FOREGROUND_VAR, ACCENT_VAR, BACKGROUND, BACKGROUND_VAR,
+    BORDER, BORDER_VAR, BUBBLE_TINTED, BUBBLE_TINTED_HOVER, BUBBLE_TINTED_HOVER_VAR,
+    BUBBLE_TINTED_VAR, CARD, CARD_FOREGROUND, CARD_FOREGROUND_VAR, CARD_VAR, CHART_1, CHART_1_VAR,
+    CHART_2, CHART_2_VAR, CHART_3, CHART_3_VAR, CHART_4, CHART_4_VAR, CHART_5, CHART_5_VAR,
+    DESTRUCTIVE, DESTRUCTIVE_VAR, FOREGROUND, FOREGROUND_VAR, INPUT, INPUT_VAR, MUTED,
+    MUTED_FOREGROUND, MUTED_FOREGROUND_VAR, MUTED_VAR, POPOVER, POPOVER_FOREGROUND,
+    POPOVER_FOREGROUND_VAR, POPOVER_VAR, PRIMARY, PRIMARY_FOREGROUND, PRIMARY_FOREGROUND_VAR,
+    PRIMARY_VAR, RING, RING_VAR, SECONDARY, SECONDARY_FOREGROUND, SECONDARY_FOREGROUND_VAR,
+    SECONDARY_VAR, SIDEBAR, SIDEBAR_ACCENT, SIDEBAR_ACCENT_FOREGROUND,
+    SIDEBAR_ACCENT_FOREGROUND_VAR, SIDEBAR_ACCENT_VAR, SIDEBAR_BORDER, SIDEBAR_BORDER_VAR,
+    SIDEBAR_FOREGROUND, SIDEBAR_FOREGROUND_VAR, SIDEBAR_PRIMARY, SIDEBAR_PRIMARY_FOREGROUND,
+    SIDEBAR_PRIMARY_FOREGROUND_VAR, SIDEBAR_PRIMARY_VAR, SIDEBAR_RING, SIDEBAR_RING_VAR,
+    SIDEBAR_VAR, SWITCH_THUMB, SWITCH_THUMB_VAR,
 };
-
-pub use alert_dialog::AlertDialogSize;
-pub use choice::ToggleVariant;
-pub use code_block::{
-    CodeBlockLook, CodeBlockSize, CodeLine, CodeSpan, CodeTone, rust_lines, rust_source,
-};
-pub use color::ColorName;
-pub use date_picker::DatePickerVariant;
-pub use disclosure::DisclosureVariant;
-pub use drawer::DrawerVariant;
-pub use field::{
-    FieldLegendVariant, FieldSeparator, FieldSet, field_content, field_group, field_separator,
-    field_set,
-};
+pub use field::{FieldSeparator, FieldSet, field_content, field_group, field_separator, field_set};
 pub use icons::ICON_NAMES;
-pub use input_group::{InputGroupButtonLook, InputGroupButtonSize, InputGroupControl};
 pub use input_otp::{InputOtp, OtpPattern, input_otp};
+pub use marker::{Marker, marker};
+pub use menubar::{Menubar, menubar};
 pub use native_select::{NativeSelect, NativeSelectSize, native_select};
-pub use plot::{
-    AxisScale, LineDash, Plot, PlotAxis, PlotData, PlotModel, PlotRange, PlotSeries, PlotView,
-    TickFormat, plot,
-};
 pub use primitives::{
     Label, Separator, breadcrumb_ellipsis, item_separator, kbd_group, label, separator,
     table_caption,
@@ -156,7 +82,14 @@ pub use primitives::{
 pub use questionnaire::{
     Questionnaire, QuestionnaireAnswer, QuestionnaireChoice, QuestionnaireStep, questionnaire,
 };
+pub use scroll_area::{ScrollArea, scroll_area};
 pub use theme::theme;
-pub use tokens::{CodeColors, Tokens};
 pub use trace::{TraceLine, trace, trace_collapsible, trace_line};
 pub use typography::{blockquote, bullet_list, inline_code, large, lead, muted, paragraph, small};
+pub use variants::{
+    AlertDialogSize, AlertTone, AttachmentMediaVariant, AttachmentSize, BadgeVariant,
+    CardHeaderBordered, CardSize, ChatBubbleVariant, ChatLayout, CodeBlockSize, DatePickerVariant,
+    DisclosureVariant, DrawerVariant, EmptyMediaVariant, FieldLegendVariant, InputGroupButtonSize,
+    InputGroupControl, ItemMediaVariant, ItemSize, ItemVariant, MarkerVariant, MenuVariant,
+    TabsVariant, ToggleVariant,
+};

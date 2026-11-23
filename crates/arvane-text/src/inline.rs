@@ -1,8 +1,10 @@
 //! Role: Shape one paragraph around caller-measured in-flow objects.
+use crate::error::{TextError, failure};
 use crate::text_engine::{TextEngine, crlf_as_one_break, crlf_spans};
-use crate::{TextError, build, metrics, output, transform};
+use crate::{build, metrics, output, transform};
+use arvane_protocol::RichText;
 use kivact_types::ComputedTextStyle;
-use kivact_types::render::{InlineBox, InlineBoxPlacement, RichText, ShapedInlineText, ShapedText};
+use kivact_types::shaped::{InlineBox, InlineBoxPlacement, ShapedInlineText, ShapedText};
 use kivact_types::{Rect, TextAlign};
 use parley::{Alignment, AlignmentOptions, InlineBoxKind, PositionedLayoutItem};
 use std::collections::HashSet;
@@ -16,16 +18,28 @@ impl TextEngine {
     /// This returns drawing geometry. The objects have no text offsets of
     /// their own and the returned text does not expose editing carets.
     /// Ellipsis and line clamping with objects are unsupported.
-    pub fn shape_inline(
+    pub fn shape_inline<'t>(
+        &mut self,
+        text: impl Into<RichText<'t>>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
+        boxes: &[InlineBox],
+    ) -> Result<ShapedInlineText, kivact_types::Failure> {
+        self.shape_inline_text(text.into(), style, max_width, boxes)
+            .map_err(failure)
+    }
+
+    fn shape_inline_text(
         &mut self,
         text: RichText<'_>,
         style: &ComputedTextStyle,
         max_width: Option<f64>,
         boxes: &[InlineBox],
     ) -> Result<ShapedInlineText, TextError> {
+        self.join_system_fonts();
         if boxes.is_empty() {
             return Ok(ShapedInlineText {
-                text: self.shape_glyphs(text, style, max_width)?,
+                text: self.shape_cached(text, style, max_width, false)?,
                 boxes: Vec::new(),
             });
         }

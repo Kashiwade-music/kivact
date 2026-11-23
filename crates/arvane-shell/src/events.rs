@@ -6,7 +6,7 @@ use kivact_types::{FileDrop, ImeInput, KeyInput, Modifiers, PointerSample, Reque
 #[derive(Clone, Debug, PartialEq)]
 pub enum ShellEvent {
     /// Software keyboard occlusion in logical pixels.
-    KeyboardInset(kivact_types::Insets),
+    KeyboardInset(kivact_types::Edges<f64>),
     /// Ask the application to preserve state for its next launch.
     SaveState,
     /// CPU framebuffer should be drawn.
@@ -34,6 +34,8 @@ pub enum ShellEvent {
     /// generation reported by the backend): draw the
     /// window again.
     SurfaceCreated,
+    /// An embedded window was shown (`true`) or hidden by its host. Its surface is kept.
+    Visibility(bool),
     /// The platform is short of memory (Android, iOS): release what can be
     /// made again.
     MemoryWarning,

@@ -27,7 +27,7 @@ pub(crate) fn edit_lines<'a>(
     editors: &'a [Option<Box<EditorNode>>],
     id: NodeId,
     viewport: LineViewport,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
 ) -> Option<(RefMut<'a, EditLines>, &'a str)> {
     let refreshed = refresh_lines(
         tree,
@@ -52,7 +52,7 @@ pub(crate) fn refresh_lines<'a>(
     editors: &'a [Option<Box<EditorNode>>],
     id: NodeId,
     viewport: LineViewport,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     mode: RefreshMode,
 ) -> Result<Option<RefreshedLines<'a>>, RefreshError> {
     let Some(n) = tree.get(id) else {
@@ -73,7 +73,7 @@ pub(crate) fn refresh_lines<'a>(
     let cache = if measurement {
         &node.measure_lines
     } else {
-        &node.lines
+        &*node.lines
     };
     let mut slot = cache
         .try_borrow_mut()
@@ -81,11 +81,9 @@ pub(crate) fn refresh_lines<'a>(
     let source = Source {
         value: edit.value(),
         revision: editor.revision(),
-        damage: if measurement {
-            None
-        } else {
-            slot.as_mut().and_then(|lines| lines.damage.take())
-        },
+        damage: slot
+            .as_ref()
+            .and_then(|lines| edit.damage_since(lines.revision)),
         placeholder: n.placeholder(),
         password: n.password(),
         breaks: if n.multiline() {

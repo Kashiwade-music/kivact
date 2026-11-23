@@ -1,6 +1,6 @@
 //! Role: Canvas hit regions: their declaration and transformed geometry.
 
-use super::recorder::{Draw, RegionSemantics};
+use super::recorder::Draw;
 use crate::effect::{Shape, basic};
 use crate::geometry::{Point, Rect};
 use crate::path::Path;
@@ -8,12 +8,6 @@ use kivact_types as p;
 use kivact_types::RegionId;
 
 impl Draw {
-    /// Supply the node's declared regions before the drawing callbacks run;
-    /// a region drawn without a declaration is reported and dropped.
-    pub fn declare_regions(&mut self, declarations: Vec<(RegionId, RegionSemantics)>) {
-        self.declarations = declarations.into_iter().collect();
-    }
-
     /// Paint the hit geometry of a region declared by the canvas node's setup.
     ///
     /// Semantics and input come from the attached part. Regions follow the
@@ -92,10 +86,11 @@ impl Draw {
     /// A shaped region resolved against `rect`, following the current transform.
     /// Draw clips do not restrict the region's hit area.
     pub fn region_shape(&mut self, id: RegionId, rect: Rect, shape: &Shape) {
-        if self.push_region(id, rect)
-            && let Some(region) = self.regions.last_mut()
-        {
-            region.shape = Some(basic(rect, shape));
+        if self.push_region(id, rect) {
+            let shape = self.resolving(|cx| basic(rect, shape, cx));
+            if let Some(region) = self.regions.last_mut() {
+                region.shape = Some(shape);
+            }
         }
     }
 

@@ -3,7 +3,6 @@ use super::conn::Native;
 use super::event::Input;
 use super::keyboard::Keyboard;
 use super::notifier::{MAX_DIMENSION, Notifier, UiThread};
-use super::poll::Waiter;
 use super::window::{ChildRedraw, Window};
 use crate::port::embed::child::{ChildPort, Command, Handle, Shared};
 use crate::port::embed::keys::Verdict;
@@ -13,6 +12,7 @@ use arvane_shell::{
     ShellEvent, ShellWaker, ShellWindow,
 };
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::rc::Rc;
 use std::sync::{Arc, mpsc};
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::ConnectionExt;
@@ -193,7 +193,7 @@ fn run(
         options.visibility,
     )?;
     let keyboard = Keyboard::new(&native.connection)?;
-    let waiter = Waiter::new()?;
+    let session = Rc::new(Session::new(shared.clone(), waker(&backend), make));
     let mut window = Window::new(
         native,
         shared.clone(),
@@ -203,28 +203,26 @@ fn run(
         options.visibility,
         options.unhandled_keys,
         hooks.on_resize_request,
-        waker(&backend),
+        session.clone(),
     )?;
-    let session = window.session.clone();
     let _watch = crate::port::linux_settings::watch(session.waker());
     // The App's start and event loop run inside this panic boundary. A panic is
     // kept as the child's message and never resumed on this thread.
     let result = match catch_unwind(AssertUnwindSafe(|| {
-        session.start(make, &mut window);
-        session.opened();
+        session.start(&mut window);
         if let Some(ChildStop::Failed(error)) = shared.stop() {
             let _ = ready.send(Err(error.clone()));
             Err(error)
         } else if shared.panicked() {
             Err(ShellError::new("the embedded App panicked while opening"))
-        } else if options.visibility == kivact_types::embed::Visibility::Shown
+        } else if options.visibility == kivact_types::embed::EmbedVisibility::Shown
             && let Err(error) = window.native.show()
         {
             Err(error)
         } else if ready.send(Ok(())).is_err() {
             Ok(())
         } else {
-            event_loop(&session, &mut window, Input::new(keyboard), waiter)
+            event_loop(&session, &mut window, Input::new(keyboard))
         }
     })) {
         Ok(result) => result,
@@ -237,9 +235,10 @@ fn run(
         shared.fail(error.clone());
     }
     shared.request_close();
+    session.stopped_outside_callback();
     // The shutdown runs inside its own boundary too: after a panic, the session
     // forgets the App instead of closing or dropping it.
-    let closed = match catch_unwind(AssertUnwindSafe(|| session.close(&mut window))) {
+    let closed = match catch_unwind(AssertUnwindSafe(|| session.dispose(&mut window))) {
         Ok(closed) => closed,
         Err(payload) => {
             shared.keep_panic(payload);
@@ -286,12 +285,7 @@ fn deliver_wake(
     closed(window)
 }
 
-fn event_loop(
-    session: &Session,
-    window: &mut Window,
-    mut input: Input,
-    waiter: Waiter,
-) -> Result<(), ShellError> {
+fn event_loop(session: &Session, window: &mut Window, mut input: Input) -> Result<(), ShellError> {
     let mut pending = Vec::new();
     loop {
         if closed(window) {
@@ -331,9 +325,13 @@ fn event_loop(
                 return Ok(());
             }
         }
-        window
-            .accessibility
-            .publish(&window.native, window.width, window.height, window.scale)?;
+        let applied = window.shared.applied();
+        window.accessibility.publish(
+            &window.native,
+            applied.width,
+            applied.height,
+            applied.scale,
+        )?;
         if closed(window) {
             return Ok(());
         }
@@ -369,7 +367,7 @@ fn event_loop(
         .into_iter()
         .flatten()
         .min();
-        waiter.wait(&*window.native.connection, &window.backend.wake, remaining)?;
+        super::poll::wait(&*window.native.connection, &window.backend.wake, remaining)?;
     }
 }
 
@@ -532,8 +530,11 @@ fn deliver_commands(
             Command::SetScale(scale) => {
                 // `Handle::set_scale` rejects other values before queuing.
                 debug_assert!(scale.is_finite() && scale > 0.0);
-                window.scale = scale;
-                window.resized(window.width, window.height);
+                let applied = window.shared.applied();
+                window
+                    .shared
+                    .update(applied.width, applied.height, scale, applied.visibility);
+                window.resized(applied.width, applied.height);
                 session.deliver(ShellEvent::Resized, window);
             }
             Command::SetVisibility(visibility) => {
@@ -560,23 +561,25 @@ fn deliver_commands(
 fn visibility_events(
     window: &mut Window,
     input: &mut Input,
-    visibility: kivact_types::embed::Visibility,
+    visibility: kivact_types::embed::EmbedVisibility,
 ) -> Result<Vec<ShellEvent>, ShellError> {
     let mut events = Vec::new();
     match visibility {
-        kivact_types::embed::Visibility::Hidden => {
+        kivact_types::embed::EmbedVisibility::Hidden => {
             window.native.hide()?;
             events.extend(input.blur_events());
         }
-        kivact_types::embed::Visibility::Shown => {
+        kivact_types::embed::EmbedVisibility::Shown => {
             window.native.show()?;
             window.redraw.set(ChildRedraw::Needed);
         }
     }
-    if let Some(event) = window.set_surface(visibility) {
-        events.push(event);
+    if window.set_visibility(visibility) {
+        events.push(ShellEvent::Visibility(
+            visibility == kivact_types::embed::EmbedVisibility::Shown,
+        ));
     }
-    if visibility == kivact_types::embed::Visibility::Shown {
+    if visibility == kivact_types::embed::EmbedVisibility::Shown {
         events.push(ShellEvent::Redraw);
     }
     Ok(events)

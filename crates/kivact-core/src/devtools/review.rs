@@ -4,15 +4,16 @@ use std::panic::Location;
 
 use kivact_devtools_agent::{NewComment, Responder};
 use kivact_devtools_protocol as p;
-use kivact_runtime::{Owner, Runtime};
+use kivact_runtime::Owner;
+use kivact_runtime::driver::Runtime;
 use kivact_types::{NodeId, WindowId};
 
 use super::convert;
 use super::node;
 use super::styles;
 use super::tree;
-use crate::view::devtools_apply;
-use crate::view::devtools_state::{DevtoolsState, Inspector};
+use crate::devtools::apply;
+use crate::devtools::state::{DevtoolsState, Inspector};
 use crate::view::state::ViewState;
 
 /// The window title, target and options of one comment, read before a screenshot wait.
@@ -29,7 +30,7 @@ struct PreparedComment {
 pub(super) fn get_review(rt: &Runtime, _: p::Empty) -> Result<p::ReviewDocument, p::RpcError> {
     let i = DevtoolsState::inspector(rt);
     sync_environment(i);
-    Ok(i.agent.borrow_mut().review().document().clone())
+    Ok(i.ready_agent().review().document().clone())
 }
 
 pub(super) fn add_comment(rt: &Runtime, params: p::AddCommentParams, reply: Responder) {
@@ -66,8 +67,7 @@ pub(super) fn edit_comment(
 ) -> Result<p::ReviewItem, p::RpcError> {
     let i = DevtoolsState::inspector(rt);
     sync_environment(i);
-    i.agent
-        .borrow_mut()
+    i.ready_agent()
         .review()
         .edit(&params.comment, params.text, now_ms())
         .map_err(|error| p::RpcError::new(p::code::INVALID_PARAMS, error))
@@ -79,8 +79,7 @@ pub(super) fn remove_comment(
 ) -> Result<p::Empty, p::RpcError> {
     let i = DevtoolsState::inspector(rt);
     sync_environment(i);
-    i.agent
-        .borrow_mut()
+    i.ready_agent()
         .review()
         .remove(&params.comment, now_ms())
         .map_err(|error| p::RpcError::new(p::code::INVALID_PARAMS, error))?;
@@ -90,8 +89,7 @@ pub(super) fn remove_comment(
 pub(super) fn export_review(rt: &Runtime, _: p::Empty) -> Result<p::ExportedReview, p::RpcError> {
     let i = DevtoolsState::inspector(rt);
     sync_environment(i);
-    i.agent
-        .borrow_mut()
+    i.ready_agent()
         .review()
         .export()
         .map_err(|error| internal(error.to_string()))
@@ -120,7 +118,7 @@ fn prepare(rt: &Runtime, params: &p::AddCommentParams) -> Result<PreparedComment
     };
     Ok(PreparedComment {
         window,
-        window_title: record.title.get_untracked(),
+        window_title: record.decl.title.get_untracked(),
         target,
         style_changes,
         text: params.text.clone(),
@@ -186,7 +184,7 @@ fn node_style_changes(rt: &Runtime, id: NodeId) -> Vec<p::StyleChange> {
             return Vec::new();
         };
         let all = DevtoolsState::inspector(rt).hooks.overrides.get_untracked();
-        (devtools_apply::call_sites(rt, entry.owner, entry.at), all)
+        (apply::call_sites(rt, entry.owner, entry.at), all)
     };
     all.into_iter()
         .filter(|entry| scope_applies(&entry.scope, id, &sites))
@@ -252,8 +250,7 @@ fn submit(
         image_png,
         text: prepared.text,
     };
-    i.agent
-        .borrow_mut()
+    i.ready_agent()
         .review()
         .add(comment, now_ms())
         .map_err(|error| internal(error.to_string()))
@@ -262,7 +259,7 @@ fn submit(
 /// Record the current emulation in the review document.
 fn sync_environment(i: &Inspector) {
     let environment = i.hooks.emulation.get_untracked();
-    i.agent.borrow_mut().review().set_environment(environment);
+    i.ready_agent().review().set_environment(environment);
 }
 
 fn internal(message: impl Into<String>) -> p::RpcError {

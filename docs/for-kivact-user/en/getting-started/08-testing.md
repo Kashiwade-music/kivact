@@ -21,7 +21,6 @@ This is the program from step 7 with a `tests` module added at the end. Everythi
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::style::provide_theme;
 
 const LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#336699"/><path d="M6 12.5l4 4 8-9" stroke="white" stroke-width="2.5" fill="none"/></svg>"##;
 
@@ -32,24 +31,25 @@ struct Task {
     done: bool,
 }
 
+#[component]
 fn header(dark: Signal<bool>) -> impl Element {
     row((
         image(LOGO).name("Tasks logo").style(style().size(32, 32)),
         column((
-            text("Tasks").role(Role::Heading).level(1).style(style().font_size(28).weight(700)),
-            text("Things to do today").style(style().color(ColorToken::TextMuted)),
+            text("Tasks").role(Role::Heading).level(1).style(style().font_size(28).font_weight(700)),
+            text("Things to do today").style(style().color(color::TEXT_MUTED)),
         ))
-        .style(style().gap(2).grow(1)),
+        .style(style().gap(2).flex_grow(1)),
         switch("Dark mode", dark),
     ))
     .style(style().gap(12).align_items(Align::Center))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Element {
-    let id = task.get_untracked().id;
-    let done = bind!(task.done);
+#[component]
+fn task_row(tasks: Signal<Vec<Task>>, task: Signal<Task>) -> impl Element {
+    let id = task.get().id;
     row((
-        checkbox(move || task.get().title, done),
+        checkbox(move || task.get().title, bind!(task.done)),
         button("Remove")
             .name(move || format!("Remove {}", task.get().title))
             .variant(ButtonVariant::Ghost)
@@ -59,6 +59,7 @@ fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Element {
     .style(style().gap(8).align_items(Align::Center).justify_content(Justify::SpaceBetween))
 }
 
+#[component]
 fn task_list(tasks: Signal<Vec<Task>>) -> impl Element {
     column(for_each(
         tasks,
@@ -70,20 +71,21 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl Element {
     .style(
         style()
             .gap(8)
-            .padding(12)
-            .radius(8)
-            .background(ColorToken::SurfaceAlt)
-            .border(1, ColorToken::Border),
+            .padding(space::MD)
+            .border_radius(radius::MD)
+            .background(color::SURFACE_ALT)
+            .border(1, color::BORDER),
     )
 }
 
+#[component]
 fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Element {
     let next_id = var(saved.iter().map(|task| task.id).max().unwrap_or(0) + 1);
     let tasks = signal(saved);
     let draft = signal(String::new());
     let left = memo(move || tasks.with(|list| list.iter().filter(|task| !task.done).count()));
 
-    let add = move || {
+    let add = callback(move |_| {
         let title = draft.get().trim().to_owned();
         if !title.is_empty() {
             let id = next_id.get();
@@ -91,12 +93,13 @@ fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Element {
             tasks.update(|list| list.push(Task { id, title, done: false }));
             draft.set(String::new());
         }
-    };
+    });
 
     column((
         header(dark),
         row((
-            text_input("New task", draft)
+            text_input(draft)
+                .label("New task")
                 .placeholder("What needs doing?")
                 .on_submit(add)
                 .style(style().width(240)),
@@ -107,7 +110,7 @@ fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Element {
         .style(style().gap(8)),
         show(move || tasks.with(|list| !list.is_empty()), move || task_list(tasks))
             .fallback(|| text("Nothing to do. Add a task above.")),
-        text(move || format!("{} left", left.get())).style(style().color(ColorToken::TextMuted)),
+        text(move || format!("{} left", left.get())).style(style().color(color::TEXT_MUTED)),
     ))
     .style(
         style()
@@ -115,8 +118,8 @@ fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Element {
             .gap(16)
             .width(pct(100))
             .height(pct(100))
-            .background(ColorToken::Surface)
-            .color(ColorToken::Text),
+            .background(color::SURFACE)
+            .color(color::TEXT),
     )
 }
 
@@ -134,31 +137,31 @@ async fn load_tasks(attempt: u32) -> kivact::Result<Vec<Task>> {
     ])
 }
 
-fn loading_screen(dark: Signal<bool>, attempt: Signal<u32>) -> impl IntoView {
-    let saved = resource(attempt, load_tasks);
-    dynamic(
-        move || saved.state(),
-        move |state| match state {
-            AsyncState::Idle | AsyncState::Pending => text("Loading tasks...")
-                .role(Role::Status)
-                .style(style().padding(24))
-                .into_view(),
-            AsyncState::Failed(error) => column((
+#[component]
+fn loading_screen(dark: Signal<bool>) -> impl Element {
+    // Counts the loads, so that the fake loader can fail only the first one.
+    let attempts = var(0);
+    let saved = resource((), move |()| {
+        attempts.update(|n| *n += 1);
+        load_tasks(attempts.get())
+    });
+    async_view(saved, move |tasks| tasks_screen(dark, tasks))
+        .loading(|| text("Loading tasks...").role(Role::Status).style(style().padding(24)))
+        .fallback(|error, retry| {
+            column((
                 text(format!("Error: {error}")).role(Role::Alert),
-                button("Try again").on_press(move || attempt.update(|n| *n += 1)),
+                button("Try again").on_press(retry),
             ))
             .style(style().padding(24).gap(12))
-            .into_view(),
-            AsyncState::Ready(tasks) => tasks_screen(dark, tasks).into_view(),
-        },
-    )
+        })
 }
 
 fn app() -> impl IntoView {
     let dark = signal(false);
-    let attempt = signal(1);
-    let theme = memo(move || if dark.get() { Theme::dark() } else { Theme::light() });
-    provide_theme(theme, move || loading_screen(dark, attempt))
+    provide_theme(
+        move || if dark.get() { Theme::dark() } else { Theme::light() },
+        move || loading_screen(dark),
+    )
 }
 
 fn main() -> kivact::Result<()> {

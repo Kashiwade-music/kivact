@@ -9,7 +9,5 @@
 #[doc(inline)]
 pub use kivact_style::facade::*;
 
-pub mod theme;
-
 #[doc(inline)]
 pub use crate::view::boundary::provide_theme;

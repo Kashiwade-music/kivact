@@ -2,27 +2,27 @@
 
 [日本語](../../../jp/soft/how-to-guide/motion.md)
 
-For custom paint feedback, use the motion tokens from the active theme. This example transitions a background color on hover. The default decorative transition respects reduced motion.
+For custom paint feedback, use the kit's values: the fast duration of 125 ms and the standard easing of the kit. This example transitions a background color on hover. The default decorative transition respects reduced motion.
 
 ```rust,no_run
-use kivact::motion::Transition;
+use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 use kivact_ui_soft as soft;
 
-fn hover_surface() -> impl IntoView {
-    soft::styled_text("Build information").style(|| {
-        let p = kivact::style::use_tokens::<soft::Tokens>();
+#[component]
+fn hover_surface() -> impl Element {
+    soft::styled_text("Build information").style(
         style()
-            .padding(p.spacing.s2)
-            .radius(p.radius.element)
-            .background(p.colors.bg_surface)
-            .hover(style().background(p.colors.bg_muted))
+            .padding(soft::SPACE_S2)
+            .border_radius(soft::RADIUS_ELEMENT)
+            .background(soft::BG_SURFACE)
+            .hover(style().background(soft::BG_MUTED))
             .transition(
                 TransitionProp::All,
-                Transition::tween(p.motion.fast as f64, p.motion.ease_standard.clone()),
-            )
-    })
+                Transition::tween(125.0, Easing::CubicBezier(0.24, 1.0, 0.4, 1.0)),
+            ),
+    )
 }
 ```
 

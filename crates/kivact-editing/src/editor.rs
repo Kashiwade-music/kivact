@@ -1,8 +1,7 @@
 //! Role: Native editor ownership: the document, its edits and the states given back.
 
-use crate::change::Damage;
 use crate::edit_state::{EditState, Taken};
-use crate::journal::{Incoming, Journal};
+use crate::journal::{Incoming, Journal, Limits};
 
 /// A native host's editor, owning the behavior-facing document. The host changes it by
 /// recorded edits ([`Editor::journal`]), controlled values ([`Editor::set_controlled`]) and
@@ -36,11 +35,6 @@ impl Editor {
         self.state.set_controlled(value)
     }
 
-    /// Consume the damage accumulated since the line cache last refreshed.
-    pub fn take_damage(&mut self) -> Option<Damage> {
-        self.state.take_damage()
-    }
-
     /// A copy of the document that records the changes made to it from here, so it can be
     /// given back by range ([`Editor::incoming`]).
     pub fn snapshot(&self) -> EditState {
@@ -49,22 +43,21 @@ impl Editor {
         copy
     }
 
-    /// Open the journal of one edit, its mutations held to `max_length` scalars.
-    pub fn journal(&mut self, max_length: Option<usize>) -> Journal<'_> {
-        self.state.set_max_length(max_length);
+    /// Open the journal of one edit, held to `limits`.
+    pub fn journal(&mut self, limits: Limits) -> Journal<'_> {
         self.state.start_log();
         let (revision, session) = (self.state.revision(), self.state.session().clone());
         Journal {
             state: &mut self.state,
             revision,
             session,
+            limits,
         }
     }
 
     /// `state`, given back by kivact: cut to `max_length` scalars unless composing, and
     /// classified against this editor's text.
     pub fn incoming(&self, mut state: EditState, max_length: Option<usize>) -> Incoming {
-        state.set_max_length(max_length);
         if !state.is_composing()
             && let Some(max) = max_length
             && let Some((end, _)) = state.value().char_indices().nth(max)

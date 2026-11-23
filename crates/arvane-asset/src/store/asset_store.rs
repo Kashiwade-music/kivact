@@ -35,6 +35,8 @@ const RECHECK_INTERVAL: Duration = Duration::from_secs(2);
 pub(super) enum Runner {
     Inline,
     Worker(Worker),
+    /// No job yet: the worker thread is made by the first job (PERF-10).
+    Idle(Box<dyn Fn() + Send>),
 }
 
 /// The host's frame clock (`begin_frame`, counted from 1).
@@ -57,6 +59,7 @@ impl FrameClock {
     }
 }
 
+// xtask-allow(state): identity: next_id allocates AssetImage ids (new_pixels) and next_generation allocates entry generations (start_load, reparse) that drop stale job results; neither derives from the other
 /// Loads, decodes and keeps images for one host instance (see the module
 /// invariants).
 pub struct AssetStore {
@@ -69,9 +72,7 @@ pub struct AssetStore {
     pub(super) frame: FrameClock,
     /// Ticks once per use; orders uses within a frame.
     pub(super) tick: u64,
-    // xtask-allow(state-fields): identity: the next image id, given to each image the store makes
     pub(super) next_id: u64,
-    // xtask-allow(state-fields): identity: the next entry generation; a job result of another generation is dropped
     pub(super) next_generation: u64,
     pub(super) budget: usize,
     pub(super) bytes: usize,
@@ -86,8 +87,7 @@ impl AssetStore {
     /// calls [`AssetStore::poll`]. When the system cannot start a thread,
     /// jobs run inline instead.
     pub fn new(waker: impl Fn() + Send + 'static) -> AssetStore {
-        let runner = Worker::spawn(waker).map_or(Runner::Inline, Runner::Worker);
-        AssetStore::with_runner(runner)
+        AssetStore::with_runner(Runner::Idle(Box::new(waker)))
     }
 
     /// A store that runs every job synchronously inside the call that needs
@@ -170,7 +170,7 @@ impl AssetStore {
     /// or parsed is parsed again with the new fonts (its rasters are dropped,
     /// and the results of the parses of the old fonts are dropped when they
     /// land).
-    pub fn register_font(&mut self, font: kivact_types::render::FontSource) {
+    pub fn register_font(&mut self, font: kivact_types::shaped::FontSource) {
         self.fonts = Arc::new(self.fonts.with_font(font));
         let stale: Vec<Asset> = self
             .entries
@@ -316,7 +316,7 @@ impl AssetStore {
         loop {
             let done = match &mut self.runner {
                 Runner::Worker(worker) => worker.try_recv(),
-                Runner::Inline => None,
+                Runner::Inline | Runner::Idle(_) => None,
             };
             let Some(done) = done else {
                 return changed;
@@ -346,9 +346,15 @@ impl AssetStore {
     }
 
     fn submit(&mut self, job: Job) {
+        if let Runner::Idle(_) = &self.runner {
+            let Runner::Idle(waker) = std::mem::replace(&mut self.runner, Runner::Inline) else {
+                unreachable!("invariant: matched Idle just above");
+            };
+            self.runner = Worker::spawn(waker).map_or(Runner::Inline, Runner::Worker);
+        }
         match &mut self.runner {
             Runner::Worker(worker) => worker.submit(job),
-            Runner::Inline => {
+            Runner::Inline | Runner::Idle(_) => {
                 let done = super::worker::run_on_job_stack(job);
                 self.apply(done);
             }

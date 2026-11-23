@@ -11,11 +11,6 @@ use kivact_core::view::{Key, Modifiers};
 /// the next one.
 ///
 /// ```
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub use kivact_core::view;
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::GridMove;
 /// use kivact::view::{Key, Modifiers};
 /// let ctrl = Modifiers { ctrl: true, ..Modifiers::default() };

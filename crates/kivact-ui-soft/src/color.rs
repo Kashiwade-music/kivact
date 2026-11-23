@@ -1,660 +1,576 @@
-//! Role: Define the Astryx Neutral palette for light and dark appearances.
-use kivact::style::Color;
-use kivact::style::rgb;
-use kivact::style::rgba;
+//! Role: The Astryx Neutral colors: a theme variable for each color of the kit,
+//! with the value each appearance sets it to, in `tokens`.
+use kivact::style::{Color, ThemeVar, rgb, rgba};
 
-/// Neutral surface, semantic, categorical, data and syntax colors.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Colors {
-    /// Application canvas behind content surfaces.
-    pub bg_body: Color,
-    /// Default content surface background.
-    pub bg_surface: Color,
-    /// Card surface background.
-    pub bg_card: Color,
-    /// Floating popover surface background.
-    pub bg_popover: Color,
-    /// Subdued background for secondary regions.
-    pub bg_muted: Color,
-    /// High-contrast inverted surface background.
-    pub bg_inverted: Color,
-    /// Inverted error surface background.
-    pub bg_error_inverted: Color,
-    /// Translucent neutral fill for secondary controls and placeholders.
-    pub neutral: Color,
-    /// Primary action and selection fill.
-    pub accent: Color,
-    /// Primary action fill on hover.
-    pub accent_hover: Color,
-    /// Hover border for checkboxes and radio indicators.
-    pub choice_border_hover: Color,
-    /// Hover surface for checkboxes and radio indicators.
-    pub choice_surface_hover: Color,
-    /// Hover track fill for an unchecked switch.
-    pub switch_off_hover: Color,
-    /// Subdued accent background.
-    pub accent_muted: Color,
-    /// Foreground for content over the accent fill.
-    pub on_accent: Color,
-    /// Foreground for content over dark media or surfaces.
-    pub on_dark: Color,
-    /// Foreground for content over light media or surfaces.
-    pub on_light: Color,
-    /// Text color for primary content.
-    pub text_primary: Color,
-    /// Text color for secondary content.
-    pub text_secondary: Color,
-    /// Text color for disabled content.
-    pub text_disabled: Color,
-    /// Text color for accented content.
-    pub text_accent: Color,
-    /// Icon color for primary content.
-    pub icon_primary: Color,
-    /// Icon color for secondary content.
-    pub icon_secondary: Color,
-    /// Icon color for disabled content.
-    pub icon_disabled: Color,
-    /// Icon color for accented content.
-    pub icon_accent: Color,
-    /// Default low-emphasis separator and outline color.
-    pub border: Color,
-    /// Stronger outline for emphasized boundaries.
-    pub border_emphasized: Color,
-    /// Placeholder fill for loading skeletons.
-    pub skeleton: Color,
-    /// Unfilled slider track color.
-    pub track: Color,
-    /// Base color for surface shadow effects.
-    pub shadow: Color,
-    /// Tint applied to hovered surfaces.
-    pub tint_hover: Color,
-    /// Scrim behind modal or overlaid content.
-    pub overlay_scrim: Color,
-    /// Light scrim for media overlays in either appearance.
-    pub overlay_light_scrim: Color,
-    /// Translucent hover layer over an existing surface.
-    pub overlay_hover: Color,
-    /// Translucent pressed layer over an existing surface.
-    pub overlay_pressed: Color,
-    /// Outline color identifying keyboard focus.
-    pub focus_ring: Color,
-    /// Solid fill for informational status indicators.
-    pub info: Color,
-    /// Foreground on the solid info fill.
-    pub on_info: Color,
-    /// Subdued background for informational messages.
-    pub info_muted: Color,
-    /// Foreground on the subdued info background.
-    pub on_info_muted: Color,
-    /// Text color for informational status messages.
-    pub text_info: Color,
-    /// Solid fill for successful status indicators.
-    pub success: Color,
-    /// Foreground on the solid success fill.
-    pub on_success: Color,
-    /// Subdued background for successful messages.
-    pub success_muted: Color,
-    /// Foreground on the subdued success background.
-    pub on_success_muted: Color,
-    /// Text color for successful status messages.
-    pub text_success: Color,
-    /// Solid fill for warning status indicators.
-    pub warning: Color,
-    /// Foreground on the solid warning fill.
-    pub on_warning: Color,
-    /// Subdued background for warning messages.
-    pub warning_muted: Color,
-    /// Foreground on the subdued warning background.
-    pub on_warning_muted: Color,
-    /// Text color for warning status messages.
-    pub text_warning: Color,
-    /// Solid fill for error status indicators.
-    pub error: Color,
-    /// Foreground on the solid error fill.
-    pub on_error: Color,
-    /// Subdued background for error messages.
-    pub error_muted: Color,
-    /// Foreground on the subdued error background.
-    pub on_error_muted: Color,
-    /// Text color for error status messages.
-    pub text_error: Color,
-    /// Coordinated categorical background, border, icon and text palettes.
-    pub hue: Hues,
-    /// Chart categories and ordered sequential color ramps.
-    pub data: DataColors,
-    /// Code-token and diff-highlighting palette.
-    pub syntax: SyntaxColors,
-}
+pub static BG_BODY_VAR: ThemeVar<Color> = ThemeVar::new("soft.bg_body", rgb(0xf1f1f1));
+pub const BG_BODY: Color = Color::var(&BG_BODY_VAR);
 
-impl Colors {
-    pub(super) fn light() -> Self {
-        Self {
-            bg_body: rgb(0xf1f1f1),
-            bg_surface: rgb(0xffffff),
-            bg_card: rgb(0xffffff),
-            bg_popover: rgb(0xffffff),
-            bg_muted: rgb(0xf1f1f1),
-            bg_inverted: rgb(0x0a1317),
-            bg_error_inverted: rgb(0xaa071e),
-            neutral: rgba(0x000000, 15.0 / 255.0),
-            accent: rgb(0x1b1b1b),
-            accent_hover: rgb(0x171717),
-            choice_border_hover: rgb(0xaaaaaa),
-            choice_surface_hover: rgb(0xf2f2f2),
-            switch_off_hover: rgb(0xc9c9c9),
-            accent_muted: rgb(0xf1f1f1),
-            on_accent: rgb(0xffffff),
-            on_dark: rgb(0xffffff),
-            on_light: rgb(0x111111),
-            text_primary: rgb(0x000000),
-            text_secondary: rgb(0x474747),
-            text_disabled: rgb(0x919191),
-            text_accent: rgb(0x1b1b1b),
-            icon_primary: rgb(0x000000),
-            icon_secondary: rgb(0x6a6a6a),
-            icon_disabled: rgb(0x919191),
-            icon_accent: rgb(0x1b1b1b),
-            border: rgba(0x000000, 20.0 / 255.0),
-            border_emphasized: rgb(0xd4d4d4),
-            skeleton: rgb(0xf1f1f1),
-            track: rgb(0xccd3db),
-            shadow: rgba(0x000000, 26.0 / 255.0),
-            tint_hover: rgb(0x000000),
-            overlay_light_scrim: rgba(0xffffff, 0.6),
-            overlay_scrim: rgba(0x000000, 128.0 / 255.0),
-            overlay_hover: rgba(0x000000, 13.0 / 255.0),
-            overlay_pressed: rgba(0x000000, 26.0 / 255.0),
-            focus_ring: rgb(0x1b1b1b),
-            info: rgb(0x0074e2),
-            on_info: rgb(0xffffff),
-            info_muted: rgb(0xb9d7ff),
-            on_info_muted: rgb(0x003978),
-            text_info: rgb(0x0067ce),
-            success: rgb(0x198100),
-            on_success: rgb(0xffffff),
-            success_muted: rgb(0xbce0bb),
-            on_success_muted: rgb(0x00490b),
-            text_success: rgb(0x2f7d33),
-            warning: rgb(0xffce2f),
-            on_warning: rgb(0x111111),
-            warning_muted: rgb(0xfae19e),
-            on_warning_muted: rgb(0x4b3900),
-            text_warning: rgb(0x836700),
-            error: rgb(0xc9303a),
-            on_error: rgb(0xffffff),
-            error_muted: rgb(0xffc4be),
-            on_error_muted: rgb(0x76000c),
-            text_error: rgb(0xc0262c),
-            hue: Hues::light(),
-            data: DataColors::new(false),
-            syntax: SyntaxColors::light(),
-        }
-    }
+pub static BG_SURFACE_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.bg_surface", &kivact::style::color::SURFACE_VAR);
+pub const BG_SURFACE: Color = Color::var(&BG_SURFACE_VAR);
 
-    pub(super) fn dark() -> Self {
-        Self {
-            bg_body: rgb(0x1b1b1b),
-            bg_surface: rgb(0x262626),
-            bg_card: rgb(0x1b1b1b),
-            bg_popover: rgb(0x1b1b1b),
-            bg_muted: rgb(0x1b1b1b),
-            bg_inverted: rgb(0xffffff),
-            bg_error_inverted: rgb(0xe3193b),
-            neutral: rgba(0xffffff, 26.0 / 255.0),
-            accent: rgb(0xf1f1f1),
-            accent_hover: rgb(0xf3f3f3),
-            choice_border_hover: rgb(0x757575),
-            choice_surface_hover: rgb(0x313131),
-            switch_off_hover: rgb(0x5b5b5b),
-            accent_muted: rgb(0x262626),
-            on_accent: rgb(0x111111),
-            on_dark: rgb(0xffffff),
-            on_light: rgb(0x111111),
-            text_primary: rgb(0xffffff),
-            text_secondary: rgb(0x9e9e9e),
-            text_disabled: rgb(0x525252),
-            text_accent: rgb(0xf1f1f1),
-            icon_primary: rgb(0xffffff),
-            icon_secondary: rgb(0x9e9e9e),
-            icon_disabled: rgb(0x525252),
-            icon_accent: rgb(0xf1f1f1),
-            border: rgba(0xffffff, 26.0 / 255.0),
-            border_emphasized: rgb(0x525252),
-            skeleton: rgb(0x525252),
-            track: rgb(0x5a5e66),
-            shadow: rgba(0x000000, 77.0 / 255.0),
-            tint_hover: rgb(0xffffff),
-            overlay_light_scrim: rgba(0xffffff, 0.6),
-            overlay_scrim: rgba(0x000000, 204.0 / 255.0),
-            overlay_hover: rgba(0xffffff, 13.0 / 255.0),
-            overlay_pressed: rgba(0xffffff, 26.0 / 255.0),
-            focus_ring: rgb(0xf1f1f1),
-            info: rgb(0x6d9cfe),
-            on_info: rgb(0x111111),
-            info_muted: rgba(0x88bcff, 61.0 / 255.0),
-            on_info_muted: rgb(0xa1caff),
-            text_info: rgb(0xa1caff),
-            success: rgb(0x64af4c),
-            on_success: rgb(0x111111),
-            success_muted: rgba(0x90ca90, 61.0 / 255.0),
-            on_success_muted: rgb(0x90ca90),
-            text_success: rgb(0x90ca90),
-            warning: rgb(0xffce2f),
-            on_warning: rgb(0x111111),
-            warning_muted: rgba(0xe2b623, 61.0 / 255.0),
-            on_warning_muted: rgb(0xeec448),
-            text_warning: rgb(0xeec448),
-            error: rgb(0xff705d),
-            on_error: rgb(0x111111),
-            error_muted: rgba(0xff9890, 61.0 / 255.0),
-            on_error_muted: rgb(0xffaea7),
-            text_error: rgb(0xffaea7),
-            hue: Hues::dark(),
-            data: DataColors::new(true),
-            syntax: SyntaxColors::dark(),
-        }
-    }
-}
+pub static BG_CARD_VAR: ThemeVar<Color> = ThemeVar::new("soft.bg_card", rgb(0xffffff));
+pub const BG_CARD: Color = Color::var(&BG_CARD_VAR);
 
-/// Colors associated with one categorical hue.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct HueColors {
-    /// Subdued background for this categorical hue.
-    pub bg: Color,
-    /// Outline color paired with this hue background.
-    pub border: Color,
-    /// Icon foreground for this categorical hue.
-    pub icon: Color,
-    /// Text foreground for this categorical hue.
-    pub text: Color,
-}
+pub static BG_POPOVER_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.bg_popover", &kivact::style::color::RAISED_VAR);
+pub const BG_POPOVER: Color = Color::var(&BG_POPOVER_VAR);
 
-/// Neutral categorical hue palettes.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Hues {
-    /// Red categorical palette with coordinated surface and foreground colors.
-    pub red: HueColors,
-    /// Orange categorical palette with coordinated surface and foreground colors.
-    pub orange: HueColors,
-    /// Yellow categorical palette with coordinated surface and foreground colors.
-    pub yellow: HueColors,
-    /// Green categorical palette with coordinated surface and foreground colors.
-    pub green: HueColors,
-    /// Teal categorical palette with coordinated surface and foreground colors.
-    pub teal: HueColors,
-    /// Cyan categorical palette with coordinated surface and foreground colors.
-    pub cyan: HueColors,
-    /// Blue categorical palette with coordinated surface and foreground colors.
-    pub blue: HueColors,
-    /// Purple categorical palette with coordinated surface and foreground colors.
-    pub purple: HueColors,
-    /// Pink categorical palette with coordinated surface and foreground colors.
-    pub pink: HueColors,
-    /// Gray categorical palette with coordinated surface and foreground colors.
-    pub gray: HueColors,
-}
+pub static BG_MUTED_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.bg_muted", &kivact::style::color::SURFACE_ALT_VAR);
+pub const BG_MUTED: Color = Color::var(&BG_MUTED_VAR);
 
-impl Hues {
-    fn light() -> Self {
-        Self {
-            red: HueColors {
-                bg: rgb(0xffc4be),
-                border: rgb(0xffaea7),
-                icon: rgb(0x76000c),
-                text: rgb(0x76000c),
-            },
-            orange: HueColors {
-                bg: rgb(0xffc7a1),
-                border: rgb(0xffc7a1),
-                icon: rgb(0x622700),
-                text: rgb(0x622700),
-            },
-            yellow: HueColors {
-                bg: rgb(0xfae19e),
-                border: rgb(0xe3c36c),
-                icon: rgb(0x4b3900),
-                text: rgb(0x4b3900),
-            },
-            green: HueColors {
-                bg: rgb(0xbce0bb),
-                border: rgb(0xaad4a9),
-                icon: rgb(0x00490b),
-                text: rgb(0x00490b),
-            },
-            teal: HueColors {
-                bg: rgb(0xa9e2d6),
-                border: rgb(0x90d7c8),
-                icon: rgb(0x00463d),
-                text: rgb(0x00463d),
-            },
-            cyan: HueColors {
-                bg: rgb(0x9ae2f4),
-                border: rgb(0x85d5e9),
-                icon: rgb(0x004351),
-                text: rgb(0x004351),
-            },
-            blue: HueColors {
-                bg: rgb(0xb9d7ff),
-                border: rgb(0xa1caff),
-                icon: rgb(0x003978),
-                text: rgb(0x003978),
-            },
-            purple: HueColors {
-                bg: rgb(0xf7d5ff),
-                border: rgb(0xf3bfff),
-                icon: rgb(0x5c0e6c),
-                text: rgb(0x5c0e6c),
-            },
-            pink: HueColors {
-                bg: rgb(0xffc0d7),
-                border: rgb(0xffc0d7),
-                icon: rgb(0x70003f),
-                text: rgb(0x70003f),
-            },
-            gray: HueColors {
-                bg: rgb(0xe2e2e2),
-                border: rgb(0xd4d4d4),
-                icon: rgb(0x474747),
-                text: rgb(0x1b1b1b),
-            },
-        }
-    }
+pub static BG_INVERTED_VAR: ThemeVar<Color> = ThemeVar::new("soft.bg_inverted", rgb(0x0a1317));
+pub const BG_INVERTED: Color = Color::var(&BG_INVERTED_VAR);
 
-    fn dark() -> Self {
-        Self {
-            red: HueColors {
-                bg: rgb(0x5b2b28),
-                border: rgb(0xfa6762),
-                icon: rgb(0xff9890),
-                text: rgb(0xffaea7),
-            },
-            orange: HueColors {
-                bg: rgb(0x503424),
-                border: rgb(0xdf843f),
-                icon: rgb(0xff9e55),
-                text: rgb(0xffb37e),
-            },
-            yellow: HueColors {
-                bg: rgb(0x453a1c),
-                border: rgb(0xc29900),
-                icon: rgb(0xe2b623),
-                text: rgb(0xeec448),
-            },
-            green: HueColors {
-                bg: rgb(0x2b422b),
-                border: rgb(0x6ab26b),
-                icon: rgb(0x90ca90),
-                text: rgb(0x90ca90),
-            },
-            teal: HueColors {
-                bg: rgb(0x28413c),
-                border: rgb(0x4fb1a0),
-                icon: rgb(0x81c9bb),
-                text: rgb(0x90d7c8),
-            },
-            cyan: HueColors {
-                bg: rgb(0x274046),
-                border: rgb(0x49adc4),
-                icon: rgb(0x71c7dd),
-                text: rgb(0x85d5e9),
-            },
-            blue: HueColors {
-                bg: rgb(0x253c5a),
-                border: rgb(0x5aa0f8),
-                icon: rgb(0x88bcff),
-                text: rgb(0xa1caff),
-            },
-            purple: HueColors {
-                bg: rgb(0x4a2f51),
-                border: rgb(0xd885eb),
-                icon: rgb(0xe496f6),
-                text: rgb(0xeaacf8),
-            },
-            pink: HueColors {
-                bg: rgb(0x572b3d),
-                border: rgb(0xfc78b1),
-                icon: rgb(0xfd92bd),
-                text: rgb(0xffa9ca),
-            },
-            gray: HueColors {
-                bg: rgb(0x303030),
-                border: rgb(0x262626),
-                icon: rgb(0x9e9e9e),
-                text: rgb(0xd4d4d4),
-            },
-        }
-    }
-}
+pub static BG_ERROR_INVERTED_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.bg_error_inverted", rgb(0xaa071e));
+pub const BG_ERROR_INVERTED: Color = Color::var(&BG_ERROR_INVERTED_VAR);
 
-/// Neutral syntax and diff colors.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SyntaxColors {
-    /// Language keywords and control-flow words.
-    pub keyword: Color,
-    /// Type names in highlighted source code.
-    pub r#type: Color,
-    /// Quoted strings and string literals.
-    pub string: Color,
-    /// Source-code comments.
-    pub comment: Color,
-    /// Arithmetic, logical and other operator tokens.
-    pub operator: Color,
-    /// Source delimiters and punctuation.
-    pub punctuation: Color,
-    /// Numeric literals in source code.
-    pub number: Color,
-    /// Named constants in source code.
-    pub constant: Color,
-    /// Function names in highlighted source code.
-    pub function: Color,
-    /// Variable names in highlighted source code.
-    pub variable: Color,
-    /// Markup tag names.
-    pub tag: Color,
-    /// Markup attribute names.
-    pub attribute: Color,
-    /// Object property and member names.
-    pub property: Color,
-    /// Background behind highlighted source code.
-    pub background: Color,
-    /// Background highlighting for added diff lines.
-    pub added: Color,
-    /// Background highlighting for removed diff lines.
-    pub removed: Color,
-    /// Diff hunk-header highlighting.
-    pub diff_header: Color,
-    /// Foreground for the added-line marker in a diff.
-    pub added_marker: Color,
-    /// Foreground for the removed-line marker in a diff.
-    pub removed_marker: Color,
-}
+pub static NEUTRAL_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.neutral", rgba(0x000000, 15.0 / 255.0));
+pub const NEUTRAL: Color = Color::var(&NEUTRAL_VAR);
 
-impl SyntaxColors {
-    fn light() -> Self {
-        Self {
-            keyword: rgb(0x6b187c),
-            r#type: rgb(0x6b187c),
-            string: rgb(0x0b5615),
-            comment: rgb(0x6a6a6a),
-            operator: rgb(0x6a6a6a),
-            punctuation: rgb(0x6a6a6a),
-            number: rgb(0x733100),
-            constant: rgb(0x733100),
-            function: rgb(0x00458c),
-            variable: rgb(0x111111),
-            tag: rgb(0x8a0011),
-            attribute: rgb(0x584400),
-            property: rgb(0x005348),
-            background: rgb(0xffffff),
-            added: rgba(0xbce0bb, 64.0 / 255.0),
-            removed: rgba(0xffc4be, 64.0 / 255.0),
-            diff_header: Color::TRANSPARENT,
-            added_marker: rgb(0x6a6a6a),
-            removed_marker: rgb(0x6a6a6a),
-        }
-    }
+pub static ACCENT_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.accent", &kivact::style::color::ACCENT_VAR);
+pub const ACCENT: Color = Color::var(&ACCENT_VAR);
 
-    fn dark() -> Self {
-        Self {
-            keyword: rgb(0xefa8ff),
-            r#type: rgb(0xefa8ff),
-            string: rgb(0xa4d6a3),
-            comment: rgb(0x9e9e9e),
-            operator: rgb(0x9e9e9e),
-            punctuation: rgb(0x9e9e9e),
-            number: rgb(0xffb37e),
-            constant: rgb(0xffb37e),
-            function: rgb(0xa1caff),
-            variable: rgb(0xe2e2e2),
-            tag: rgb(0xffaea7),
-            attribute: rgb(0xeec448),
-            property: rgb(0x90d7c8),
-            background: rgb(0x111111),
-            added: rgba(0x90ca90, 15.0 / 255.0),
-            removed: rgba(0xff9890, 15.0 / 255.0),
-            diff_header: Color::TRANSPARENT,
-            added_marker: rgb(0x9e9e9e),
-            removed_marker: rgb(0x9e9e9e),
-        }
-    }
-}
+pub static ACCENT_HOVER_VAR: ThemeVar<Color> = ThemeVar::new("soft.accent_hover", rgb(0x171717));
+pub const ACCENT_HOVER: Color = Color::var(&ACCENT_HOVER_VAR);
 
-/// Categorical data colors and five-stop ramps, darkest stop first.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct DataColors {
-    /// Blue category color for data series.
-    pub blue: Color,
-    /// Cyan category color for data series.
-    pub cyan: Color,
-    /// Orange category color for data series.
-    pub orange: Color,
-    /// Red category color for data series.
-    pub red: Color,
-    /// Purple category color for data series.
-    pub purple: Color,
-    /// Teal category color for data series.
-    pub teal: Color,
-    /// Green category color for data series.
-    pub green: Color,
-    /// Brown category color for data series.
-    pub brown: Color,
-    /// Pink category color for data series.
-    pub pink: Color,
-    /// Indigo category color for data series.
-    pub indigo: Color,
-    /// Neutral category color for data series.
-    pub neutral: Color,
-    /// Five-stop blue data ramp, ordered from darkest to lightest.
-    pub blue_ramp: [Color; 5],
-    /// Five-stop shamrock data ramp, ordered from darkest to lightest.
-    pub shamrock_ramp: [Color; 5],
-    /// Five-stop orange data ramp, ordered from darkest to lightest.
-    pub orange_ramp: [Color; 5],
-    /// Five-stop pink data ramp, ordered from darkest to lightest.
-    pub pink_ramp: [Color; 5],
-    /// Five-stop purple data ramp, ordered from darkest to lightest.
-    pub purple_ramp: [Color; 5],
-    /// Five-stop red data ramp, ordered from darkest to lightest.
-    pub red_ramp: [Color; 5],
-    /// Five-stop teal data ramp, ordered from darkest to lightest.
-    pub teal_ramp: [Color; 5],
-    /// Five-stop yellow data ramp, ordered from darkest to lightest.
-    pub yellow_ramp: [Color; 5],
-    /// Five-stop gray data ramp, ordered from darkest to lightest.
-    pub gray_ramp: [Color; 5],
-}
+pub static CHOICE_BORDER_HOVER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.choice_border_hover", rgb(0xaaaaaa));
+pub const CHOICE_BORDER_HOVER: Color = Color::var(&CHOICE_BORDER_HOVER_VAR);
 
-impl DataColors {
-    fn new(dark: bool) -> Self {
-        Self {
-            blue: rgb(0x0171e3),
-            cyan: rgb(0x0171a4),
-            orange: rgb(0xeb6e00),
-            red: rgb(0xf5394f),
-            purple: rgb(0x6b1efd),
-            teal: rgb(0x08a3a3),
-            green: rgb(0x0b991f),
-            brown: rgb(0x965e03),
-            pink: rgb(0xf351c0),
-            indigo: rgb(0x6f8aff),
-            neutral: if dark { rgb(0x8c939b) } else { rgb(0x8494a3) },
-            blue_ramp: [
-                rgb(0x02165e),
-                rgb(0x004cbc),
-                rgb(0x2694fe),
-                rgb(0x78beff),
-                rgb(0xdbecff),
-            ],
-            shamrock_ramp: [
-                rgb(0x0b603d),
-                rgb(0x138546),
-                rgb(0x24bb5e),
-                rgb(0x8ef7aa),
-                rgb(0xd6fee4),
-            ],
-            orange_ramp: [
-                rgb(0xa13f04),
-                rgb(0xd66100),
-                rgb(0xfd9537),
-                rgb(0xfdb876),
-                rgb(0xffe6cf),
-            ],
-            pink_ramp: [
-                rgb(0x8e1073),
-                rgb(0xd123a1),
-                rgb(0xf989d3),
-                rgb(0xfeade3),
-                rgb(0xfce3f4),
-            ],
-            purple_ramp: [
-                rgb(0x3e0697),
-                rgb(0x6b1efd),
-                rgb(0x9081ff),
-                rgb(0xb3b0fe),
-                rgb(0xe8e8fb),
-            ],
-            red_ramp: [
-                rgb(0x9d0519),
-                rgb(0xd31130),
-                rgb(0xfb7d87),
-                rgb(0xffb2b8),
-                rgb(0xfee4e6),
-            ],
-            teal_ramp: [
-                rgb(0x08767d),
-                rgb(0x0c9293),
-                rgb(0x0db7af),
-                rgb(0x6ce6d8),
-                rgb(0xd7fcf8),
-            ],
-            yellow_ramp: [
-                rgb(0x8a5001),
-                rgb(0xd69804),
-                rgb(0xfbce03),
-                rgb(0xfcec85),
-                rgb(0xfdf6ba),
-            ],
-            gray_ramp: gray_data_ramp(dark),
-        }
-    }
-}
+pub static CHOICE_SURFACE_HOVER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.choice_surface_hover", rgb(0xf2f2f2));
+pub const CHOICE_SURFACE_HOVER: Color = Color::var(&CHOICE_SURFACE_HOVER_VAR);
 
-fn gray_data_ramp(dark: bool) -> [Color; 5] {
-    if dark {
-        [
-            rgb(0x333338),
-            rgb(0x666a72),
-            rgb(0xb2b8be),
-            rgb(0xd0d3d6),
-            rgb(0xf2f4f6),
-        ]
-    } else {
-        [
-            rgb(0x25363f),
-            rgb(0x5d6c7b),
-            rgb(0xafb9c4),
-            rgb(0xccd3db),
-            rgb(0xf1f4f7),
-        ]
-    }
-}
+pub static SWITCH_OFF_HOVER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.switch_off_hover", rgb(0xc9c9c9));
+pub const SWITCH_OFF_HOVER: Color = Color::var(&SWITCH_OFF_HOVER_VAR);
+
+pub static ACCENT_MUTED_VAR: ThemeVar<Color> = ThemeVar::new("soft.accent_muted", rgb(0xf1f1f1));
+pub const ACCENT_MUTED: Color = Color::var(&ACCENT_MUTED_VAR);
+
+pub static ON_ACCENT_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.on_accent", &kivact::style::color::ACCENT_TEXT_VAR);
+pub const ON_ACCENT: Color = Color::var(&ON_ACCENT_VAR);
+
+pub static ON_DARK_VAR: ThemeVar<Color> = ThemeVar::new("soft.on_dark", rgb(0xffffff));
+pub const ON_DARK: Color = Color::var(&ON_DARK_VAR);
+
+pub static WHITE_VAR: ThemeVar<Color> = ThemeVar::new("soft.white", rgb(0xffffff));
+
+pub static ON_LIGHT_VAR: ThemeVar<Color> = ThemeVar::new("soft.on_light", rgb(0x111111));
+pub const ON_LIGHT: Color = Color::var(&ON_LIGHT_VAR);
+
+pub static TEXT_PRIMARY_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.text_primary", &kivact::style::color::TEXT_VAR);
+pub const TEXT_PRIMARY: Color = Color::var(&TEXT_PRIMARY_VAR);
+
+pub static TEXT_SECONDARY_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.text_secondary", &kivact::style::color::TEXT_MUTED_VAR);
+pub const TEXT_SECONDARY: Color = Color::var(&TEXT_SECONDARY_VAR);
+
+pub static TEXT_DISABLED_VAR: ThemeVar<Color> = ThemeVar::new("soft.text_disabled", rgb(0x919191));
+pub const TEXT_DISABLED: Color = Color::var(&TEXT_DISABLED_VAR);
+
+pub static TEXT_ACCENT_VAR: ThemeVar<Color> = ThemeVar::new("soft.text_accent", rgb(0x1b1b1b));
+pub const TEXT_ACCENT: Color = Color::var(&TEXT_ACCENT_VAR);
+
+pub static ICON_PRIMARY_VAR: ThemeVar<Color> = ThemeVar::new("soft.icon_primary", rgb(0x000000));
+pub const ICON_PRIMARY: Color = Color::var(&ICON_PRIMARY_VAR);
+
+pub static ICON_SECONDARY_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.icon_secondary", rgb(0x6a6a6a));
+pub const ICON_SECONDARY: Color = Color::var(&ICON_SECONDARY_VAR);
+
+pub static ICON_DISABLED_VAR: ThemeVar<Color> = ThemeVar::new("soft.icon_disabled", rgb(0x919191));
+pub const ICON_DISABLED: Color = Color::var(&ICON_DISABLED_VAR);
+
+pub static ICON_ACCENT_VAR: ThemeVar<Color> = ThemeVar::new("soft.icon_accent", rgb(0x1b1b1b));
+pub const ICON_ACCENT: Color = Color::var(&ICON_ACCENT_VAR);
+
+pub static BORDER_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.border", &kivact::style::color::BORDER_VAR);
+pub(crate) const BORDER: Color = Color::var(&BORDER_VAR);
+
+pub static BORDER_EMPHASIZED_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.border_emphasized", rgb(0xd4d4d4));
+pub const BORDER_EMPHASIZED: Color = Color::var(&BORDER_EMPHASIZED_VAR);
+
+pub static SKELETON_VAR: ThemeVar<Color> = ThemeVar::new("soft.skeleton", rgb(0xf1f1f1));
+pub const SKELETON: Color = Color::var(&SKELETON_VAR);
+
+pub static TRACK_VAR: ThemeVar<Color> = ThemeVar::new("soft.track", rgb(0xccd3db));
+pub const TRACK: Color = Color::var(&TRACK_VAR);
+
+pub static SHADOW_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.shadow", &kivact::style::color::SHADOW_VAR);
+pub const SHADOW: Color = Color::var(&SHADOW_VAR);
+
+pub static TINT_HOVER_VAR: ThemeVar<Color> = ThemeVar::new("soft.tint_hover", rgb(0x000000));
+pub const TINT_HOVER: Color = Color::var(&TINT_HOVER_VAR);
+
+pub static OVERLAY_SCRIM_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.overlay_scrim", &kivact::style::color::OVERLAY_VAR);
+pub const OVERLAY_SCRIM: Color = Color::var(&OVERLAY_SCRIM_VAR);
+
+pub static OVERLAY_LIGHT_SCRIM_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.overlay_light_scrim", rgba(0xffffff, 0.6));
+pub const OVERLAY_LIGHT_SCRIM: Color = Color::var(&OVERLAY_LIGHT_SCRIM_VAR);
+
+pub static OVERLAY_HOVER_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.overlay_hover", &kivact::style::color::HOVER_VAR);
+pub const OVERLAY_HOVER: Color = Color::var(&OVERLAY_HOVER_VAR);
+
+pub static OVERLAY_PRESSED_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.overlay_pressed", &kivact::style::color::PRESSED_VAR);
+pub const OVERLAY_PRESSED: Color = Color::var(&OVERLAY_PRESSED_VAR);
+
+pub static FOCUS_RING_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.focus_ring", &kivact::style::color::FOCUS_VAR);
+pub(crate) const FOCUS_RING: Color = Color::var(&FOCUS_RING_VAR);
+
+pub static INFO_VAR: ThemeVar<Color> = ThemeVar::new("soft.info", rgb(0x0074e2));
+pub const INFO: Color = Color::var(&INFO_VAR);
+
+pub static ON_INFO_VAR: ThemeVar<Color> = ThemeVar::new("soft.on_info", rgb(0xffffff));
+pub const ON_INFO: Color = Color::var(&ON_INFO_VAR);
+
+pub static INFO_MUTED_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.info_muted", &kivact::style::color::SELECTION_VAR);
+pub const INFO_MUTED: Color = Color::var(&INFO_MUTED_VAR);
+
+pub static ON_INFO_MUTED_VAR: ThemeVar<Color> = ThemeVar::new("soft.on_info_muted", rgb(0x003978));
+pub const ON_INFO_MUTED: Color = Color::var(&ON_INFO_MUTED_VAR);
+
+pub static TEXT_INFO_VAR: ThemeVar<Color> = ThemeVar::new("soft.text_info", rgb(0x0067ce));
+pub const TEXT_INFO: Color = Color::var(&TEXT_INFO_VAR);
+
+pub static SUCCESS_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.success", &kivact::style::color::SUCCESS_VAR);
+pub const SUCCESS: Color = Color::var(&SUCCESS_VAR);
+
+pub static ON_SUCCESS_VAR: ThemeVar<Color> = ThemeVar::new("soft.on_success", rgb(0xffffff));
+pub const ON_SUCCESS: Color = Color::var(&ON_SUCCESS_VAR);
+
+pub static SUCCESS_MUTED_VAR: ThemeVar<Color> = ThemeVar::new("soft.success_muted", rgb(0xbce0bb));
+pub const SUCCESS_MUTED: Color = Color::var(&SUCCESS_MUTED_VAR);
+
+pub static ON_SUCCESS_MUTED_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.on_success_muted", rgb(0x00490b));
+pub const ON_SUCCESS_MUTED: Color = Color::var(&ON_SUCCESS_MUTED_VAR);
+
+pub static TEXT_SUCCESS_VAR: ThemeVar<Color> = ThemeVar::new("soft.text_success", rgb(0x2f7d33));
+pub const TEXT_SUCCESS: Color = Color::var(&TEXT_SUCCESS_VAR);
+
+pub static WARNING_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.warning", &kivact::style::color::WARNING_VAR);
+pub const WARNING: Color = Color::var(&WARNING_VAR);
+
+pub static ON_WARNING_VAR: ThemeVar<Color> = ThemeVar::new("soft.on_warning", rgb(0x111111));
+pub const ON_WARNING: Color = Color::var(&ON_WARNING_VAR);
+
+pub static WARNING_MUTED_VAR: ThemeVar<Color> = ThemeVar::new("soft.warning_muted", rgb(0xfae19e));
+pub const WARNING_MUTED: Color = Color::var(&WARNING_MUTED_VAR);
+
+pub static ON_WARNING_MUTED_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.on_warning_muted", rgb(0x4b3900));
+pub const ON_WARNING_MUTED: Color = Color::var(&ON_WARNING_MUTED_VAR);
+
+pub static TEXT_WARNING_VAR: ThemeVar<Color> = ThemeVar::new("soft.text_warning", rgb(0x836700));
+pub const TEXT_WARNING: Color = Color::var(&TEXT_WARNING_VAR);
+
+pub static ERROR_VAR: ThemeVar<Color> =
+    ThemeVar::alias("soft.error", &kivact::style::color::DANGER_VAR);
+pub const ERROR: Color = Color::var(&ERROR_VAR);
+
+pub static ON_ERROR_VAR: ThemeVar<Color> = ThemeVar::new("soft.on_error", rgb(0xffffff));
+pub const ON_ERROR: Color = Color::var(&ON_ERROR_VAR);
+
+pub static ERROR_MUTED_VAR: ThemeVar<Color> = ThemeVar::new("soft.error_muted", rgb(0xffc4be));
+pub const ERROR_MUTED: Color = Color::var(&ERROR_MUTED_VAR);
+
+pub static ON_ERROR_MUTED_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.on_error_muted", rgb(0x76000c));
+pub const ON_ERROR_MUTED: Color = Color::var(&ON_ERROR_MUTED_VAR);
+
+pub static TEXT_ERROR_VAR: ThemeVar<Color> = ThemeVar::new("soft.text_error", rgb(0xc0262c));
+pub const TEXT_ERROR: Color = Color::var(&TEXT_ERROR_VAR);
+
+pub static HUE_RED_BG_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_red_bg", rgb(0xffc4be));
+pub const HUE_RED_BG: Color = Color::var(&HUE_RED_BG_VAR);
+
+pub static HUE_RED_BORDER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_red_border", rgb(0xffaea7));
+pub const HUE_RED_BORDER: Color = Color::var(&HUE_RED_BORDER_VAR);
+
+pub static HUE_RED_ICON_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_red_icon", rgb(0x76000c));
+pub const HUE_RED_ICON: Color = Color::var(&HUE_RED_ICON_VAR);
+
+pub static HUE_RED_TEXT_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_red_text", rgb(0x76000c));
+pub const HUE_RED_TEXT: Color = Color::var(&HUE_RED_TEXT_VAR);
+
+pub static HUE_ORANGE_BG_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_orange_bg", rgb(0xffc7a1));
+pub const HUE_ORANGE_BG: Color = Color::var(&HUE_ORANGE_BG_VAR);
+
+pub static HUE_ORANGE_BORDER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_orange_border", rgb(0xffc7a1));
+pub const HUE_ORANGE_BORDER: Color = Color::var(&HUE_ORANGE_BORDER_VAR);
+
+pub static HUE_ORANGE_ICON_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_orange_icon", rgb(0x622700));
+pub const HUE_ORANGE_ICON: Color = Color::var(&HUE_ORANGE_ICON_VAR);
+
+pub static HUE_ORANGE_TEXT_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_orange_text", rgb(0x622700));
+pub const HUE_ORANGE_TEXT: Color = Color::var(&HUE_ORANGE_TEXT_VAR);
+
+pub static HUE_YELLOW_BG_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_yellow_bg", rgb(0xfae19e));
+pub const HUE_YELLOW_BG: Color = Color::var(&HUE_YELLOW_BG_VAR);
+
+pub static HUE_YELLOW_BORDER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_yellow_border", rgb(0xe3c36c));
+pub const HUE_YELLOW_BORDER: Color = Color::var(&HUE_YELLOW_BORDER_VAR);
+
+pub static HUE_YELLOW_ICON_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_yellow_icon", rgb(0x4b3900));
+pub const HUE_YELLOW_ICON: Color = Color::var(&HUE_YELLOW_ICON_VAR);
+
+pub static HUE_YELLOW_TEXT_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_yellow_text", rgb(0x4b3900));
+pub const HUE_YELLOW_TEXT: Color = Color::var(&HUE_YELLOW_TEXT_VAR);
+
+pub static HUE_GREEN_BG_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_green_bg", rgb(0xbce0bb));
+pub const HUE_GREEN_BG: Color = Color::var(&HUE_GREEN_BG_VAR);
+
+pub static HUE_GREEN_BORDER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_green_border", rgb(0xaad4a9));
+pub const HUE_GREEN_BORDER: Color = Color::var(&HUE_GREEN_BORDER_VAR);
+
+pub static HUE_GREEN_ICON_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_green_icon", rgb(0x00490b));
+pub const HUE_GREEN_ICON: Color = Color::var(&HUE_GREEN_ICON_VAR);
+
+pub static HUE_GREEN_TEXT_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_green_text", rgb(0x00490b));
+pub const HUE_GREEN_TEXT: Color = Color::var(&HUE_GREEN_TEXT_VAR);
+
+pub static HUE_TEAL_BG_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_teal_bg", rgb(0xa9e2d6));
+pub const HUE_TEAL_BG: Color = Color::var(&HUE_TEAL_BG_VAR);
+
+pub static HUE_TEAL_BORDER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_teal_border", rgb(0x90d7c8));
+pub const HUE_TEAL_BORDER: Color = Color::var(&HUE_TEAL_BORDER_VAR);
+
+pub static HUE_TEAL_ICON_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_teal_icon", rgb(0x00463d));
+pub const HUE_TEAL_ICON: Color = Color::var(&HUE_TEAL_ICON_VAR);
+
+pub static HUE_TEAL_TEXT_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_teal_text", rgb(0x00463d));
+pub const HUE_TEAL_TEXT: Color = Color::var(&HUE_TEAL_TEXT_VAR);
+
+pub static HUE_CYAN_BG_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_cyan_bg", rgb(0x9ae2f4));
+pub const HUE_CYAN_BG: Color = Color::var(&HUE_CYAN_BG_VAR);
+
+pub static HUE_CYAN_BORDER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_cyan_border", rgb(0x85d5e9));
+pub const HUE_CYAN_BORDER: Color = Color::var(&HUE_CYAN_BORDER_VAR);
+
+pub static HUE_CYAN_ICON_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_cyan_icon", rgb(0x004351));
+pub const HUE_CYAN_ICON: Color = Color::var(&HUE_CYAN_ICON_VAR);
+
+pub static HUE_CYAN_TEXT_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_cyan_text", rgb(0x004351));
+pub const HUE_CYAN_TEXT: Color = Color::var(&HUE_CYAN_TEXT_VAR);
+
+pub static HUE_BLUE_BG_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_blue_bg", rgb(0xb9d7ff));
+pub const HUE_BLUE_BG: Color = Color::var(&HUE_BLUE_BG_VAR);
+
+pub static HUE_BLUE_BORDER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_blue_border", rgb(0xa1caff));
+pub const HUE_BLUE_BORDER: Color = Color::var(&HUE_BLUE_BORDER_VAR);
+
+pub static HUE_BLUE_ICON_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_blue_icon", rgb(0x003978));
+pub const HUE_BLUE_ICON: Color = Color::var(&HUE_BLUE_ICON_VAR);
+
+pub static HUE_BLUE_TEXT_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_blue_text", rgb(0x003978));
+pub const HUE_BLUE_TEXT: Color = Color::var(&HUE_BLUE_TEXT_VAR);
+
+pub static HUE_PURPLE_BG_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_purple_bg", rgb(0xf7d5ff));
+pub const HUE_PURPLE_BG: Color = Color::var(&HUE_PURPLE_BG_VAR);
+
+pub static HUE_PURPLE_BORDER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_purple_border", rgb(0xf3bfff));
+pub const HUE_PURPLE_BORDER: Color = Color::var(&HUE_PURPLE_BORDER_VAR);
+
+pub static HUE_PURPLE_ICON_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_purple_icon", rgb(0x5c0e6c));
+pub const HUE_PURPLE_ICON: Color = Color::var(&HUE_PURPLE_ICON_VAR);
+
+pub static HUE_PURPLE_TEXT_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_purple_text", rgb(0x5c0e6c));
+pub const HUE_PURPLE_TEXT: Color = Color::var(&HUE_PURPLE_TEXT_VAR);
+
+pub static HUE_PINK_BG_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_pink_bg", rgb(0xffc0d7));
+pub const HUE_PINK_BG: Color = Color::var(&HUE_PINK_BG_VAR);
+
+pub static HUE_PINK_BORDER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_pink_border", rgb(0xffc0d7));
+pub const HUE_PINK_BORDER: Color = Color::var(&HUE_PINK_BORDER_VAR);
+
+pub static HUE_PINK_ICON_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_pink_icon", rgb(0x70003f));
+pub const HUE_PINK_ICON: Color = Color::var(&HUE_PINK_ICON_VAR);
+
+pub static HUE_PINK_TEXT_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_pink_text", rgb(0x70003f));
+pub const HUE_PINK_TEXT: Color = Color::var(&HUE_PINK_TEXT_VAR);
+
+pub static HUE_GRAY_BG_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_gray_bg", rgb(0xe2e2e2));
+pub const HUE_GRAY_BG: Color = Color::var(&HUE_GRAY_BG_VAR);
+
+pub static HUE_GRAY_BORDER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.hue_gray_border", rgb(0xd4d4d4));
+pub const HUE_GRAY_BORDER: Color = Color::var(&HUE_GRAY_BORDER_VAR);
+
+pub static HUE_GRAY_ICON_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_gray_icon", rgb(0x474747));
+pub const HUE_GRAY_ICON: Color = Color::var(&HUE_GRAY_ICON_VAR);
+
+pub static HUE_GRAY_TEXT_VAR: ThemeVar<Color> = ThemeVar::new("soft.hue_gray_text", rgb(0x1b1b1b));
+pub const HUE_GRAY_TEXT: Color = Color::var(&HUE_GRAY_TEXT_VAR);
+
+pub static DATA_BLUE_VAR: ThemeVar<Color> = ThemeVar::new("soft.data_blue", rgb(0x0171e3));
+pub const DATA_BLUE: Color = Color::var(&DATA_BLUE_VAR);
+
+pub static DATA_CYAN_VAR: ThemeVar<Color> = ThemeVar::new("soft.data_cyan", rgb(0x0171a4));
+pub const DATA_CYAN: Color = Color::var(&DATA_CYAN_VAR);
+
+pub static DATA_ORANGE_VAR: ThemeVar<Color> = ThemeVar::new("soft.data_orange", rgb(0xeb6e00));
+pub const DATA_ORANGE: Color = Color::var(&DATA_ORANGE_VAR);
+
+pub static DATA_RED_VAR: ThemeVar<Color> = ThemeVar::new("soft.data_red", rgb(0xf5394f));
+pub const DATA_RED: Color = Color::var(&DATA_RED_VAR);
+
+pub static DATA_PURPLE_VAR: ThemeVar<Color> = ThemeVar::new("soft.data_purple", rgb(0x6b1efd));
+pub const DATA_PURPLE: Color = Color::var(&DATA_PURPLE_VAR);
+
+pub static DATA_TEAL_VAR: ThemeVar<Color> = ThemeVar::new("soft.data_teal", rgb(0x08a3a3));
+pub const DATA_TEAL: Color = Color::var(&DATA_TEAL_VAR);
+
+pub static DATA_GREEN_VAR: ThemeVar<Color> = ThemeVar::new("soft.data_green", rgb(0x0b991f));
+pub const DATA_GREEN: Color = Color::var(&DATA_GREEN_VAR);
+
+pub static DATA_BROWN_VAR: ThemeVar<Color> = ThemeVar::new("soft.data_brown", rgb(0x965e03));
+pub const DATA_BROWN: Color = Color::var(&DATA_BROWN_VAR);
+
+pub static DATA_PINK_VAR: ThemeVar<Color> = ThemeVar::new("soft.data_pink", rgb(0xf351c0));
+pub const DATA_PINK: Color = Color::var(&DATA_PINK_VAR);
+
+pub static DATA_INDIGO_VAR: ThemeVar<Color> = ThemeVar::new("soft.data_indigo", rgb(0x6f8aff));
+pub const DATA_INDIGO: Color = Color::var(&DATA_INDIGO_VAR);
+
+pub static DATA_NEUTRAL_VAR: ThemeVar<Color> = ThemeVar::new("soft.data_neutral", rgb(0x8494a3));
+pub const DATA_NEUTRAL: Color = Color::var(&DATA_NEUTRAL_VAR);
+
+pub static DATA_BLUE_RAMP_1_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_blue_ramp_1", rgb(0x02165e));
+pub const DATA_BLUE_RAMP_1: Color = Color::var(&DATA_BLUE_RAMP_1_VAR);
+
+pub static DATA_BLUE_RAMP_2_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_blue_ramp_2", rgb(0x004cbc));
+pub const DATA_BLUE_RAMP_2: Color = Color::var(&DATA_BLUE_RAMP_2_VAR);
+
+pub static DATA_BLUE_RAMP_3_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_blue_ramp_3", rgb(0x2694fe));
+pub const DATA_BLUE_RAMP_3: Color = Color::var(&DATA_BLUE_RAMP_3_VAR);
+
+pub static DATA_BLUE_RAMP_4_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_blue_ramp_4", rgb(0x78beff));
+pub const DATA_BLUE_RAMP_4: Color = Color::var(&DATA_BLUE_RAMP_4_VAR);
+
+pub static DATA_BLUE_RAMP_5_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_blue_ramp_5", rgb(0xdbecff));
+pub const DATA_BLUE_RAMP_5: Color = Color::var(&DATA_BLUE_RAMP_5_VAR);
+
+pub static DATA_SHAMROCK_RAMP_1_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_shamrock_ramp_1", rgb(0x0b603d));
+pub const DATA_SHAMROCK_RAMP_1: Color = Color::var(&DATA_SHAMROCK_RAMP_1_VAR);
+
+pub static DATA_SHAMROCK_RAMP_2_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_shamrock_ramp_2", rgb(0x138546));
+pub const DATA_SHAMROCK_RAMP_2: Color = Color::var(&DATA_SHAMROCK_RAMP_2_VAR);
+
+pub static DATA_SHAMROCK_RAMP_3_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_shamrock_ramp_3", rgb(0x24bb5e));
+pub const DATA_SHAMROCK_RAMP_3: Color = Color::var(&DATA_SHAMROCK_RAMP_3_VAR);
+
+pub static DATA_SHAMROCK_RAMP_4_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_shamrock_ramp_4", rgb(0x8ef7aa));
+pub const DATA_SHAMROCK_RAMP_4: Color = Color::var(&DATA_SHAMROCK_RAMP_4_VAR);
+
+pub static DATA_SHAMROCK_RAMP_5_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_shamrock_ramp_5", rgb(0xd6fee4));
+pub const DATA_SHAMROCK_RAMP_5: Color = Color::var(&DATA_SHAMROCK_RAMP_5_VAR);
+
+pub static DATA_ORANGE_RAMP_1_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_orange_ramp_1", rgb(0xa13f04));
+pub const DATA_ORANGE_RAMP_1: Color = Color::var(&DATA_ORANGE_RAMP_1_VAR);
+
+pub static DATA_ORANGE_RAMP_2_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_orange_ramp_2", rgb(0xd66100));
+pub const DATA_ORANGE_RAMP_2: Color = Color::var(&DATA_ORANGE_RAMP_2_VAR);
+
+pub static DATA_ORANGE_RAMP_3_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_orange_ramp_3", rgb(0xfd9537));
+pub const DATA_ORANGE_RAMP_3: Color = Color::var(&DATA_ORANGE_RAMP_3_VAR);
+
+pub static DATA_ORANGE_RAMP_4_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_orange_ramp_4", rgb(0xfdb876));
+pub const DATA_ORANGE_RAMP_4: Color = Color::var(&DATA_ORANGE_RAMP_4_VAR);
+
+pub static DATA_ORANGE_RAMP_5_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_orange_ramp_5", rgb(0xffe6cf));
+pub const DATA_ORANGE_RAMP_5: Color = Color::var(&DATA_ORANGE_RAMP_5_VAR);
+
+pub static DATA_PINK_RAMP_1_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_pink_ramp_1", rgb(0x8e1073));
+pub const DATA_PINK_RAMP_1: Color = Color::var(&DATA_PINK_RAMP_1_VAR);
+
+pub static DATA_PINK_RAMP_2_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_pink_ramp_2", rgb(0xd123a1));
+pub const DATA_PINK_RAMP_2: Color = Color::var(&DATA_PINK_RAMP_2_VAR);
+
+pub static DATA_PINK_RAMP_3_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_pink_ramp_3", rgb(0xf989d3));
+pub const DATA_PINK_RAMP_3: Color = Color::var(&DATA_PINK_RAMP_3_VAR);
+
+pub static DATA_PINK_RAMP_4_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_pink_ramp_4", rgb(0xfeade3));
+pub const DATA_PINK_RAMP_4: Color = Color::var(&DATA_PINK_RAMP_4_VAR);
+
+pub static DATA_PINK_RAMP_5_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_pink_ramp_5", rgb(0xfce3f4));
+pub const DATA_PINK_RAMP_5: Color = Color::var(&DATA_PINK_RAMP_5_VAR);
+
+pub static DATA_PURPLE_RAMP_1_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_purple_ramp_1", rgb(0x3e0697));
+pub const DATA_PURPLE_RAMP_1: Color = Color::var(&DATA_PURPLE_RAMP_1_VAR);
+
+pub static DATA_PURPLE_RAMP_2_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_purple_ramp_2", rgb(0x6b1efd));
+pub const DATA_PURPLE_RAMP_2: Color = Color::var(&DATA_PURPLE_RAMP_2_VAR);
+
+pub static DATA_PURPLE_RAMP_3_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_purple_ramp_3", rgb(0x9081ff));
+pub const DATA_PURPLE_RAMP_3: Color = Color::var(&DATA_PURPLE_RAMP_3_VAR);
+
+pub static DATA_PURPLE_RAMP_4_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_purple_ramp_4", rgb(0xb3b0fe));
+pub const DATA_PURPLE_RAMP_4: Color = Color::var(&DATA_PURPLE_RAMP_4_VAR);
+
+pub static DATA_PURPLE_RAMP_5_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_purple_ramp_5", rgb(0xe8e8fb));
+pub const DATA_PURPLE_RAMP_5: Color = Color::var(&DATA_PURPLE_RAMP_5_VAR);
+
+pub static DATA_RED_RAMP_1_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_red_ramp_1", rgb(0x9d0519));
+pub const DATA_RED_RAMP_1: Color = Color::var(&DATA_RED_RAMP_1_VAR);
+
+pub static DATA_RED_RAMP_2_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_red_ramp_2", rgb(0xd31130));
+pub const DATA_RED_RAMP_2: Color = Color::var(&DATA_RED_RAMP_2_VAR);
+
+pub static DATA_RED_RAMP_3_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_red_ramp_3", rgb(0xfb7d87));
+pub const DATA_RED_RAMP_3: Color = Color::var(&DATA_RED_RAMP_3_VAR);
+
+pub static DATA_RED_RAMP_4_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_red_ramp_4", rgb(0xffb2b8));
+pub const DATA_RED_RAMP_4: Color = Color::var(&DATA_RED_RAMP_4_VAR);
+
+pub static DATA_RED_RAMP_5_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_red_ramp_5", rgb(0xfee4e6));
+pub const DATA_RED_RAMP_5: Color = Color::var(&DATA_RED_RAMP_5_VAR);
+
+pub static DATA_TEAL_RAMP_1_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_teal_ramp_1", rgb(0x08767d));
+pub const DATA_TEAL_RAMP_1: Color = Color::var(&DATA_TEAL_RAMP_1_VAR);
+
+pub static DATA_TEAL_RAMP_2_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_teal_ramp_2", rgb(0x0c9293));
+pub const DATA_TEAL_RAMP_2: Color = Color::var(&DATA_TEAL_RAMP_2_VAR);
+
+pub static DATA_TEAL_RAMP_3_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_teal_ramp_3", rgb(0x0db7af));
+pub const DATA_TEAL_RAMP_3: Color = Color::var(&DATA_TEAL_RAMP_3_VAR);
+
+pub static DATA_TEAL_RAMP_4_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_teal_ramp_4", rgb(0x6ce6d8));
+pub const DATA_TEAL_RAMP_4: Color = Color::var(&DATA_TEAL_RAMP_4_VAR);
+
+pub static DATA_TEAL_RAMP_5_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_teal_ramp_5", rgb(0xd7fcf8));
+pub const DATA_TEAL_RAMP_5: Color = Color::var(&DATA_TEAL_RAMP_5_VAR);
+
+pub static DATA_YELLOW_RAMP_1_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_yellow_ramp_1", rgb(0x8a5001));
+pub const DATA_YELLOW_RAMP_1: Color = Color::var(&DATA_YELLOW_RAMP_1_VAR);
+
+pub static DATA_YELLOW_RAMP_2_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_yellow_ramp_2", rgb(0xd69804));
+pub const DATA_YELLOW_RAMP_2: Color = Color::var(&DATA_YELLOW_RAMP_2_VAR);
+
+pub static DATA_YELLOW_RAMP_3_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_yellow_ramp_3", rgb(0xfbce03));
+pub const DATA_YELLOW_RAMP_3: Color = Color::var(&DATA_YELLOW_RAMP_3_VAR);
+
+pub static DATA_YELLOW_RAMP_4_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_yellow_ramp_4", rgb(0xfcec85));
+pub const DATA_YELLOW_RAMP_4: Color = Color::var(&DATA_YELLOW_RAMP_4_VAR);
+
+pub static DATA_YELLOW_RAMP_5_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_yellow_ramp_5", rgb(0xfdf6ba));
+pub const DATA_YELLOW_RAMP_5: Color = Color::var(&DATA_YELLOW_RAMP_5_VAR);
+
+pub static DATA_GRAY_RAMP_1_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_gray_ramp_1", rgb(0x25363f));
+pub const DATA_GRAY_RAMP_1: Color = Color::var(&DATA_GRAY_RAMP_1_VAR);
+
+pub static DATA_GRAY_RAMP_2_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_gray_ramp_2", rgb(0x5d6c7b));
+pub const DATA_GRAY_RAMP_2: Color = Color::var(&DATA_GRAY_RAMP_2_VAR);
+
+pub static DATA_GRAY_RAMP_3_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_gray_ramp_3", rgb(0xafb9c4));
+pub const DATA_GRAY_RAMP_3: Color = Color::var(&DATA_GRAY_RAMP_3_VAR);
+
+pub static DATA_GRAY_RAMP_4_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_gray_ramp_4", rgb(0xccd3db));
+pub const DATA_GRAY_RAMP_4: Color = Color::var(&DATA_GRAY_RAMP_4_VAR);
+
+pub static DATA_GRAY_RAMP_5_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.data_gray_ramp_5", rgb(0xf1f4f7));
+pub const DATA_GRAY_RAMP_5: Color = Color::var(&DATA_GRAY_RAMP_5_VAR);
+
+pub static SYNTAX_BACKGROUND_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.syntax_background", rgb(0xffffff));
+pub const SYNTAX_BACKGROUND: Color = Color::var(&SYNTAX_BACKGROUND_VAR);
+
+pub static SYNTAX_ADDED_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.syntax_added", rgba(0xbce0bb, 64.0 / 255.0));
+pub const SYNTAX_ADDED: Color = Color::var(&SYNTAX_ADDED_VAR);
+
+pub static SYNTAX_REMOVED_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.syntax_removed", rgba(0xffc4be, 64.0 / 255.0));
+pub const SYNTAX_REMOVED: Color = Color::var(&SYNTAX_REMOVED_VAR);
+
+pub static SYNTAX_DIFF_HEADER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.syntax_diff_header", Color::TRANSPARENT);
+pub const SYNTAX_DIFF_HEADER: Color = Color::var(&SYNTAX_DIFF_HEADER_VAR);
+
+pub static SYNTAX_ADDED_MARKER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.syntax_added_marker", rgb(0x6a6a6a));
+pub const SYNTAX_ADDED_MARKER: Color = Color::var(&SYNTAX_ADDED_MARKER_VAR);
+
+pub static SYNTAX_REMOVED_MARKER_VAR: ThemeVar<Color> =
+    ThemeVar::new("soft.syntax_removed_marker", rgb(0x6a6a6a));
+pub const SYNTAX_REMOVED_MARKER: Color = Color::var(&SYNTAX_REMOVED_MARKER_VAR);

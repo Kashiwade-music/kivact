@@ -13,8 +13,9 @@
 
 use std::sync::Arc;
 
-use arvane::Engine;
-use kivact_types::render::{RichText, ShapedTextSnapshot, SpanStyle, TextSpan};
+use arvane_protocol::{ResolvedSpan, ResolvedSpanStyle, RichText};
+use arvane_text::TextEngine;
+use kivact_types::shaped::ShapedTextSnapshot;
 use kivact_types::{ComputedTextStyle, TextDecoration};
 use kivact_types::{DecorationLines, Rgba};
 
@@ -22,8 +23,8 @@ use crate::support::engine;
 
 static INTER: &[u8] = include_bytes!("../fonts/InterVariable.ttf");
 
-fn inter() -> Engine {
-    Engine::with_fonts_only(&[Arc::from(INTER)]).expect("Inter is usable")
+fn inter() -> TextEngine {
+    TextEngine::isolated(&[Arc::from(INTER)]).expect("Inter is usable")
 }
 
 fn style(font_size: f64) -> ComputedTextStyle {
@@ -43,13 +44,16 @@ const RED: Rgba = Rgba {
 /// Measuring gives what shaping draws (glyphs and carets alike).
 #[track_caller]
 fn shaped<'t>(
-    engine: &mut Engine,
+    engine: &mut TextEngine,
     text: impl Into<RichText<'t>>,
     style: &ComputedTextStyle,
     width: Option<f64>,
 ) -> ShapedTextSnapshot {
     let text = text.into();
-    let measured = engine.measure_text(text, style, width).expect("measure");
+    let measured = engine
+        .measure(text, style, width)
+        .map(|metrics| metrics.size)
+        .expect("measure");
     let glyphs = engine.shape_glyphs(text, style, width).expect("shape");
     let shaped = engine.shape(text, style, width).expect("shape");
     assert_eq!(measured, glyphs.size, "measured as drawn: {:?}", text.text);
@@ -89,7 +93,7 @@ fn letter_spacing_adds_its_space_after_every_character() {
     let mut engine = engine();
     let plain = shaped(&mut engine, "spacing", &style(16.0), None);
     let spaced = ComputedTextStyle {
-        letter_spacing: kivact_types::TextLen::Px(3.0),
+        letter_spacing: kivact_types::TextLength::Px(3.0),
         ..style(16.0)
     };
     let wide = shaped(&mut engine, "spacing", &spaced, None);
@@ -100,7 +104,7 @@ fn letter_spacing_adds_its_space_after_every_character() {
     );
     // A negative spacing tightens.
     let tight = ComputedTextStyle {
-        letter_spacing: kivact_types::TextLen::Px(-1.0),
+        letter_spacing: kivact_types::TextLength::Px(-1.0),
         ..style(16.0)
     };
     assert!(shaped(&mut engine, "spacing", &tight, None).size.width < plain.size.width);
@@ -111,23 +115,23 @@ fn spans_style_their_ranges_and_highlight_across_lines() {
     let mut engine = inter();
     let text = "find the matching words in a wrapped line";
     let spans = [
-        TextSpan {
+        ResolvedSpan {
             range: 9..17,
-            style: SpanStyle {
+            style: ResolvedSpanStyle {
                 weight: Some(700),
                 color: Some(RED),
-                ..SpanStyle::default()
+                ..ResolvedSpanStyle::default()
             },
         },
-        TextSpan {
+        ResolvedSpan {
             range: 18..32,
-            style: SpanStyle {
+            style: ResolvedSpanStyle {
                 highlight: true,
                 decoration: Some(TextDecoration {
                     lines: DecorationLines::UNDERLINE,
                     ..TextDecoration::default()
                 }),
-                ..SpanStyle::default()
+                ..ResolvedSpanStyle::default()
             },
         },
     ];
@@ -152,8 +156,8 @@ fn spans_style_their_ranges_and_highlight_across_lines() {
     assert!(narrow.highlights[1].rect.y > narrow.highlights[0].rect.y);
     // Colors draw only: the same extent, no new shaping key for layout.
     let recolored = [
-        TextSpan {
-            style: SpanStyle {
+        ResolvedSpan {
+            style: ResolvedSpanStyle {
                 color: Some(Rgba { r: 0.0, ..RED }),
                 ..spans[0].style.clone()
             },

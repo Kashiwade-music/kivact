@@ -5,13 +5,16 @@ use crate::contract::{
 };
 use crate::model::AppModel;
 use kivact_types::{
-    ComputedTextStyle, DrawList, FocusTarget, LayoutCheck, LayoutFinding, LayoutProps, NodeId,
-    PaintProps, Point, Rect, WindowId,
+    ComputedTextStyle, DrawList, FocusTarget, LayoutProps, NodeId, PaintProps, Point, Rect,
+    WindowId,
 };
+#[cfg(feature = "devtools")]
+use kivact_types::{LayoutCheck, LayoutFinding};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
+// xtask-allow(state): independent: app (the window models) and engine (Arvane's text) are shared handles cloned from Writer and never reassigned; each call borrows one for its duration
 /// Read access to the engine's trees (kivact's view of the props and
 /// scenes it wrote): each window's tree is the one store of its node props,
 /// so kivact asks it for a prop's current value instead of keeping a copy.
@@ -20,7 +23,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct Reader {
     pub(super) app: Rc<RefCell<AppModel>>,
-    pub(super) engine: Rc<RefCell<arvane::Engine>>,
+    pub(super) engine: Rc<RefCell<arvane_text::TextEngine>>,
 }
 
 impl Reader {
@@ -64,29 +67,13 @@ impl Reader {
         let app = self.app.borrow();
         app.windows
             .values()
+            .map(|w| &w.model)
             .find_map(|model| model.pointer_capture(pointer))
     }
 
     /// Client mutation totals and the last committed revision.
     pub fn stats(&self) -> crate::mutation::WriteStats {
-        let app = self.app.borrow();
-        let stats = app.writes.stats;
-        #[cfg(feature = "testing")]
-        let stats = crate::mutation::WriteStats {
-            a11y_constructed: app
-                .windows
-                .values()
-                .map(|model| model.a11y.constructed)
-                .sum(),
-            a11y_published: app.windows.values().map(|model| model.a11y.published).sum(),
-            a11y_enumerated: app
-                .windows
-                .values()
-                .map(|model| model.a11y.enumerated)
-                .sum(),
-            ..stats
-        };
-        stats
+        super::stats::stats_of(&self.app.borrow())
     }
 
     /// The current display lifetime phase; missing nodes have left.
@@ -140,7 +127,7 @@ impl Reader {
 
     /// Registered and system font family names, sorted and unique, preserving case.
     pub fn font_families(&self) -> Vec<String> {
-        self.engine.borrow().font_families()
+        self.engine.borrow_mut().family_names()
     }
 
     /// A copy of the editing state of the text input `id` (its text
@@ -301,14 +288,24 @@ impl Reader {
             .is_none_or(|model| model.admit_input(event))
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reads the recorded syncs and frames
     #[doc(hidden)]
     /// Take the sync and frame records collected since the last call.
     pub fn take_engine_records(&self) -> EngineRecords {
         self.app.borrow().log.take()
     }
 
-    // xtask-allow(internal-contract): the core's DevTools shows the box model of a node
+    #[doc(hidden)]
+    /// Start (keeping what is recorded) or stop recording the tree changes.
+    pub fn record_tree_changes(&self, on: bool) {
+        self.app.borrow().log.record_tree(on);
+    }
+
+    #[doc(hidden)]
+    /// The tree changes recorded since the last call (empty when not recording).
+    pub fn take_tree_changes(&self) -> crate::contract::TreeChanges {
+        self.app.borrow().log.take_tree()
+    }
+
     #[doc(hidden)]
     /// The margin, border, padding and content rectangles of `id` in window
     /// coordinates.
@@ -342,7 +339,6 @@ impl Reader {
         })
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reads a node's effective paint
     #[doc(hidden)]
     /// The paint of `id` with its state styles applied.
     pub fn effective_paint(&self, id: NodeId) -> PaintProps {
@@ -350,7 +346,6 @@ impl Reader {
             .unwrap_or_default()
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reads a node's computed text
     #[doc(hidden)]
     /// The computed text style of `id`.
     pub fn computed_text(&self, id: NodeId) -> ComputedTextStyle {
@@ -358,7 +353,6 @@ impl Reader {
             .unwrap_or_default()
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reads a node's layout props
     #[doc(hidden)]
     /// The layout props of `id`.
     pub fn layout_props(&self, id: NodeId) -> LayoutProps {
@@ -369,7 +363,6 @@ impl Reader {
         .unwrap_or_default()
     }
 
-    // xtask-allow(internal-contract): the core's DevTools picks a node under a point without the modal
     #[doc(hidden)]
     /// The node under `point` in `window`, ignoring modals.
     pub fn hit_any(&self, window: WindowId, point: Point) -> Option<NodeId> {
@@ -379,7 +372,6 @@ impl Reader {
             .and_then(|model| model.hit_any(point))
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reports the focused node of a window
     #[doc(hidden)]
     /// The focused target of `window`.
     pub fn focused(&self, window: WindowId) -> Option<FocusTarget> {
@@ -389,7 +381,6 @@ impl Reader {
             .and_then(|model| model.focused())
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reports the Tab order of a window
     #[doc(hidden)]
     /// The Tab order of `window`.
     pub fn tab_order(&self, window: WindowId) -> Vec<FocusTarget> {
@@ -400,7 +391,6 @@ impl Reader {
             .unwrap_or_default()
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reports hover and press of a node
     #[doc(hidden)]
     /// Whether `id` is hovered and whether it is pressed.
     pub fn pointer_state(&self, id: NodeId) -> (bool, bool) {
@@ -408,8 +398,8 @@ impl Reader {
             .unwrap_or_default()
     }
 
-    // xtask-allow(internal-contract): the core's DevTools lists a window's layout findings
     #[doc(hidden)]
+    #[cfg(feature = "devtools")]
     /// The layout defects of the texts of `window`.
     pub fn layout_findings(&self, window: WindowId, check: &LayoutCheck) -> Vec<LayoutFinding> {
         let app = self.app.borrow();
@@ -417,10 +407,9 @@ impl Reader {
             return Vec::new();
         };
         let mut engine = self.engine.borrow_mut();
-        crate::check::layout_findings(model, &mut engine, check, None, false)
+        crate::check::layout_findings(model, &mut engine, check, None)
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reports the IME state of a window
     #[doc(hidden)]
     /// The IME state of `window`.
     pub fn ime_state(&self, window: WindowId) -> ImeStateInfo {
@@ -430,11 +419,11 @@ impl Reader {
             return ImeStateInfo::Inactive;
         };
         let purpose = model.ime_purpose();
-        let (node, composition) = match model.edits.target {
+        let (node, composition) = match model.ime_target() {
             ImeTarget::None => return ImeStateInfo::Inactive,
             ImeTarget::Native(slot) => {
                 let id = model.tree.nodes.id_at(slot.0);
-                let Some(editor) = model.editors[slot.0.0].as_deref() else {
+                let Some(editor) = model.slots.editors[slot.0.0].as_deref() else {
                     return ImeStateInfo::Focused {
                         node: id,
                         purpose,
@@ -448,7 +437,7 @@ impl Reader {
             }
             ImeTarget::Session(id) => (id, None),
         };
-        let cursor_area = if matches!(model.edits.target, ImeTarget::Native(_)) {
+        let cursor_area = if matches!(model.ime_target(), ImeTarget::Native(_)) {
             let mut engine = self.engine.borrow_mut();
             let caret = crate::model::interact::text_geometry::caret_rect(model, node, &mut engine);
             Some(model.drawn_rect(node, caret))
@@ -480,6 +469,31 @@ impl Reader {
         let app = self.app.borrow();
         let window = app.window_of(id)?;
         app.model(window).map(f)
+    }
+
+    /// The last layout report of `id` (the values of its last `HostEvent::LayoutChanged`).
+    pub fn layout_report(&self, id: NodeId) -> Option<crate::contract::LayoutReport> {
+        self.with_model(id, |model| {
+            let n = model.tree.get(id)?;
+            let sent = n.sent.as_ref()?.layout.get()?;
+            Some(crate::contract::LayoutReport {
+                rect: sent.0,
+                layout_rect: sent.3,
+                text_truncated: sent.2 == crate::tree::node::Clipping::Yes,
+            })
+        })
+        .flatten()
+    }
+
+    /// The visibility facts of `id` now.
+    pub fn node_flags(&self, id: NodeId) -> crate::contract::NodeFlags {
+        self.with_model(id, |model| model.node_flags(id))
+            .unwrap_or_default()
+    }
+
+    /// How many times the font database changed (the families change with it).
+    pub fn font_generation(&self) -> u64 {
+        self.app.borrow().font_generation
     }
 
     /// CPU pixels of the current subtree; absent when the node has no layout.

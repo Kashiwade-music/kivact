@@ -1,40 +1,34 @@
-//! Role: Catalog page of Aspect Ratio: a photo at 16:9, square and portrait boxes.
+//! Catalog page of Aspect Ratio: a photo at 16:9, square and portrait boxes.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact::view::Asset;
 use kivact::view::ImageFit;
+use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "aspect-ratio",
-        name: "Aspect Ratio",
-        description: "利用できる幅いっぱいの箱を、指定した縦横比（幅 / 高さ）で作ります。子は箱の大きさに合わせて伸びます。",
-        usage: "use kivact::prelude::*;
-use kivact_ui_basic as basic;",
-        source: include_str!("aspect_ratio.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "wide",
-                "16 / 9",
-                "画像を 16:9 の箱に収めます。`ImageFit::Cover` で、はみ出す部分を箱が切り取ります。",
-                wide,
-            ),
-            Example::new(
-                "square",
-                "Square",
-                "比率に 1.0 を渡すと正方形になります。同じ画像が中央で切り取られます。",
-                square,
-            ),
-            Example::new(
-                "portrait",
-                "Portrait",
-                "1 未満の比率は縦長の箱になります。中身は画像でなくてもかまいません。",
-                portrait,
-            ),
-        ],
-    }
+    Page::new("aspect-ratio", "Aspect Ratio", "Components", include_str!("aspect_ratio.rs"))
+        .description("A box of the full available width with the given aspect ratio (width / height). Its child grows to fill the box.")
+        .usage("use kivact::prelude::*;
+use kivact_ui_basic as basic;")
+        .example(Example::new(
+            "wide",
+            "16 / 9",
+            "Fit an image in a 16:9 box. With ImageFit::Cover the box cuts off the part that overflows.",
+            wide,
+        ))
+        .example(Example::new(
+            "square",
+            "Square",
+            "A ratio of 1.0 gives a square. The same image is cut to the center.",
+            square,
+        ))
+        .example(Example::new(
+            "portrait",
+            "Portrait",
+            "A ratio below 1 gives a tall box. The content need not be an image.",
+            portrait,
+        ))
 }
 
 // example: wide
@@ -44,7 +38,7 @@ fn wide() -> impl IntoView {
         node()
             .style(
                 style()
-                    .direction(kivact::style::Direction::Column)
+                    .flex_direction(kivact::style::FlexDirection::Column)
                     .width(pct(100))
                     .aspect_ratio(16.0 / 9.0)
                     .overflow(kivact::style::Overflow::Hidden),
@@ -67,7 +61,7 @@ fn square() -> impl IntoView {
         node()
             .style(
                 style()
-                    .direction(kivact::style::Direction::Column)
+                    .flex_direction(kivact::style::FlexDirection::Column)
                     .width(pct(100))
                     .aspect_ratio(1.0)
                     .overflow(kivact::style::Overflow::Hidden),
@@ -89,7 +83,7 @@ fn portrait() -> impl IntoView {
         node()
             .style(
                 style()
-                    .direction(kivact::style::Direction::Column)
+                    .flex_direction(kivact::style::FlexDirection::Column)
                     .width(pct(100))
                     .aspect_ratio(3.0 / 4.0)
                     .overflow(kivact::style::Overflow::Hidden),
@@ -100,7 +94,7 @@ fn portrait() -> impl IntoView {
                         .height(pct(100))
                         .align_items(Align::Center)
                         .justify_content(Justify::Center)
-                        .background(ColorToken::SurfaceAlt),
+                        .background(basic::MUTED),
                 ),
             ),
     )

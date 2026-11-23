@@ -1,6 +1,30 @@
-//! Role: Share text styles used by standard control labels.
+//! Role: Share text styles and the accessible-name check of standard controls.
 
+use kivact_core::ErrorKind;
+use kivact_core::custom::Owner;
 use kivact_core::style::{Style, TextOverflow, style};
+use kivact_core::view::Node;
+use std::panic::Location;
+
+/// Whether a focusable control has a name: a `.label(..)` on it, or a
+/// `field(..)` that labels it.
+pub(crate) fn is_named(node: &mut Node) -> bool {
+    node.accessible_name().is_some() || !node.accessible_labelled_by().is_empty()
+}
+
+/// Report a focusable input that nothing names (`named` is false). Debug
+/// builds only; the message names the constructor (`what`) and its call
+/// site (`at`).
+pub(crate) fn report_unnamed(named: bool, what: &str, at: &Location<'_>) {
+    if cfg!(debug_assertions) && !named {
+        Owner::current().report(
+            ErrorKind::Message,
+            format!(
+                "{what} at {at} has no accessible name: call .label(..) or put it in field(..)"
+            ),
+        );
+    }
+}
 
 /// The text style of a control that shows one line: the text does not wrap
 /// and ends in an ellipsis where it does not fit. It is the first style
@@ -60,5 +84,5 @@ pub(super) fn label_and_description(
             },
         ),
     ))
-    .style(style().grow(1).min_width(0))
+    .style(style().flex_grow(1).min_width(0))
 }

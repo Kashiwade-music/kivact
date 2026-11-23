@@ -23,13 +23,13 @@ use std::rc::Rc;
 
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{IntoView, View, view_fn};
-use kivact_runtime::EffectKind;
-use kivact_runtime::Retry;
 use kivact_runtime::UiError;
+use kivact_runtime::driver::EffectKind;
+use kivact_runtime::{Callback, Handler};
 
 use crate::view::flow::branch::{Branch, Build, build, mount_branch, unmount_branch};
 
-type FallbackFn = crate::view::ViewFn<(UiError, Retry)>;
+type FallbackFn = crate::view::ViewFn<(UiError, Callback<()>)>;
 
 /// A boundary catching the errors of its child. Built by
 /// [`error_boundary`]; see the module documentation for the semantics.
@@ -46,7 +46,7 @@ pub struct ErrorBoundary {
 /// ```ignore
 /// error_boundary(editor)
 ///     .on_error(move |e| log.push(e))
-///     .fallback(|e, reset| column((text(e.to_string()), button("Retry").on_press(move || reset.run()))))
+///     .fallback(|e, reset| column((text(e.to_string()), button("Retry").on_press(reset))))
 /// ```
 #[track_caller]
 pub fn error_boundary<V: IntoView>(child: impl crate::view::IntoViewFn<V>) -> ErrorBoundary {
@@ -60,8 +60,11 @@ pub fn error_boundary<V: IntoView>(child: impl crate::view::IntoViewFn<V>) -> Er
 
 impl ErrorBoundary {
     /// On the first error, replace the child with `f(err, reset)`;
-    /// calling `reset.run()` mounts a fresh child again.
-    pub fn fallback<V: IntoView>(mut self, f: impl Fn(UiError, Retry) -> V + 'static) -> Self {
+    /// calling `reset.call(())` mounts a fresh child again.
+    pub fn fallback<V: IntoView>(
+        mut self,
+        f: impl Fn(UiError, Callback<()>) -> V + 'static,
+    ) -> Self {
         self.fallback = Some(crate::view::ViewFn::from(move |(e, retry)| f(e, retry)));
         self
     }
@@ -169,7 +172,9 @@ impl IntoView for ErrorBoundary {
                     Shown::Fallback(e) => {
                         let fallback = fallback.clone();
                         mount_branch(&rt, boundary.child(at), window, frag, move || {
-                            let reset = Retry::new(move || shown.set(Shown::Child));
+                            let reset = Callback::from_handler(Handler::from_fn(move |()| {
+                                shown.set(Shown::Child)
+                            }));
                             fallback.call((e, reset))
                         })
                     }

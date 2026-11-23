@@ -15,6 +15,7 @@ struct Adoption {
     region: Option<RegionId>,
 }
 
+// xtask-allow(state): record: drags (press, end) and adoptions (adopt, take_adoption, forget_adoption) are separate per-pointer tables; forget_missing prunes both
 /// The node whose `Down` admitted each pointer's drag in progress, and the
 /// gesture each pointer's client adopted, by pointer id (`PointerId::0`).
 /// Both follow the order the events are dispatched in (admission is asked

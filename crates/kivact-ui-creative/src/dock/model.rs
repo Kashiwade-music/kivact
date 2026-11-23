@@ -53,9 +53,7 @@ impl DockSide {
 pub struct DockTab<K> {
     pub id: K,
     pub title: String,
-    // xtask-allow(state-fields): option: absent means the tab shows no icon
     pub icon: Option<Icon>,
-    // xtask-allow(state-fields): option: the application's DockTab::closable (default true), a constant inside the layout value; false hides the close button and makes the close commands skip the tab
     /// Whether the tab shows a close button and the close commands remove it.
     pub closable: bool,
 }
@@ -288,7 +286,7 @@ pub enum DockPlacement<K> {
 
 /// The complete workspace: the split tree and an optional maximized container.
 ///
-/// Keep it in a consumer `Binding` to persist, diff or undo it. Ids are the
+/// Keep it in a consumer `Signal` to persist, diff or undo it. Ids are the
 /// consumer's stable tab keys; a container is addressed through any of its tabs.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DockLayout<K> {

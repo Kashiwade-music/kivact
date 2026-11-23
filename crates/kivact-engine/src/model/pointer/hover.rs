@@ -114,11 +114,11 @@ impl Model {
             .chain(mouse.chain().iter().copied())
         {
             if let Some(n) = self.tree.get(id) {
-                let specified = self.effective_paint(id).cursor;
+                let specified = self.cursor_now(id);
                 if specified != CursorKind::Auto {
                     return specified;
                 }
-                if self.editors[n.index.0].is_some() && !n.disabled() {
+                if self.slots.editors[n.index.0].is_some() && !n.disabled() {
                     return CursorKind::Text;
                 }
                 if n.activatable() {

@@ -12,9 +12,9 @@ use kivact_types::{FocusTarget, NodeId};
 use crate::view::state::{
     Bound, NodeRefState, RefObservation, RefState, ViewState, current_window,
 };
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{
-    AppId, ErrorKind, Owned, Owner, Runtime, Signal, UiError, Value, require_effectful,
-    require_setup,
+    AppId, ErrorKind, Owned, Owner, Signal, UiError, Value, require_effectful, require_setup,
 };
 use kivact_style::draw::Rect;
 use kivact_types::WindowId;
@@ -46,7 +46,7 @@ pub(crate) enum RovingMove {
 #[track_caller]
 pub fn node_ref() -> NodeRef {
     let at = Location::caller();
-    NodeRef::owned_by(Owner::current("node_ref", at), at)
+    NodeRef::owned_by(Owner::setup("node_ref", at), at)
 }
 
 impl NodeRef {
@@ -70,7 +70,7 @@ impl NodeRef {
     /// `SourcesAndLayout`, the engine's layout reports of it. The node bound
     /// now gets them at once; a node bound later gets them in `bind_target`.
     pub(crate) fn require_observation(&self, need: RefObservation, at: &'static Location<'static>) {
-        let (rt, s) = self.state(at);
+        let (rt, s) = self.state();
         if s.observation.get() >= need {
             return;
         }
@@ -90,6 +90,16 @@ impl NodeRef {
 }
 
 impl NodeRef {
+    /// The engine's visibility facts of the bound node (tracked).
+    pub(crate) fn node_flags(
+        &self,
+        at: &'static Location<'static>,
+    ) -> Option<kivact_engine::contract::NodeFlags> {
+        self.require_observation(RefObservation::Sources, at);
+        let target = self.target_value()?;
+        observation(self.app, target).map(|observation| observation.flags.get())
+    }
+
     /// The shared observation of the bound node. Reading it in a memo also
     /// follows a rebinding of the reference.
     pub(crate) fn tracked_observation(&self) -> Option<crate::view::tree::NodeObservation> {
@@ -102,13 +112,13 @@ impl NodeRef {
         &self,
         read: impl FnOnce(crate::view::tree::NodeObservation) -> T,
     ) -> Option<T> {
-        let (_, state) = self.state(Location::caller());
+        let (_, state) = self.state();
         let bound = state.bound.try_get().and_then(RefState::bound)?;
         observation(self.app, bound.target()).map(read)
     }
 
     /// The runtime and state of this ref; located `WrongApp` and `Disposed`.
-    pub(crate) fn state(&self, _at: &'static Location<'static>) -> (Rc<Runtime>, Rc<NodeRefState>) {
+    pub(crate) fn state(&self) -> (Rc<Runtime>, Rc<NodeRefState>) {
         let s = self.state.get();
         let rt = Runtime::get(self.app).expect("invariant: a resolved handle's App is registered");
         (rt, s)
@@ -234,13 +244,13 @@ impl NodeRef {
     }
 
     /// Reactive node id (tracked).
-    pub(crate) fn node_value(&self, at: &'static Location<'static>) -> Option<NodeId> {
-        self.target_value(at).map(|t| t.node)
+    pub(crate) fn node_value(&self) -> Option<NodeId> {
+        self.target_value().map(|t| t.node)
     }
 
     /// The exact live binding, tracking rebinding and region scene changes.
-    pub(crate) fn target_value(&self, at: &'static Location<'static>) -> Option<FocusTarget> {
-        let (rt, s) = self.state(at);
+    pub(crate) fn target_value(&self) -> Option<FocusTarget> {
+        let (rt, s) = self.state();
         let bound = s.bound.get().bound()?;
         if matches!(bound, Bound::Region { .. })
             && let Some(observation) = ViewState::tree(&rt)
@@ -253,7 +263,7 @@ impl NodeRef {
         self.target()
     }
 
-    /// Render this node and its descendants into straight-alpha RGBA pixels.
+    /// Render this node and its descendants into premultiplied RGBA pixels.
     ///
     /// Coordinates are logical pixels at scale 1, cropped to the node's layout
     /// size. Rendering uses the CPU, including when the window uses a GPU.
@@ -305,7 +315,7 @@ impl NodeRef {
     /// Whether the frontmost hit at a window point belongs to this node or its descendants.
     #[track_caller]
     pub fn hit_test(&self, point: crate::geometry::Point) -> bool {
-        let (rt, _) = self.state(Location::caller());
+        let (rt, _) = self.state();
         let Some(id) = self.node() else { return false };
         ViewState::tree(&rt).reader().hit_test(id, point)
     }
@@ -313,7 +323,7 @@ impl NodeRef {
     /// Select every character in the bound text input.
     #[track_caller]
     pub fn select_all(&self) {
-        let (rt, _) = self.state(Location::caller());
+        let (rt, _) = self.state();
         require_effectful("NodeRef::select_all");
         if let Some(id) = self.node() {
             ViewState::tree(&rt).engine().select_all(id);
@@ -325,7 +335,7 @@ impl NodeRef {
     #[track_caller]
     pub fn presence(&self) -> Value<kivact_types::Presence> {
         let at = Location::caller();
-        let (_, state) = self.state(at);
+        let (_, state) = self.state();
         require_setup("NodeRef::presence");
         let binding = state.bound;
         let app = self.app;
@@ -346,7 +356,7 @@ impl NodeRef {
     pub fn scroll_offset(&self) -> Value<crate::geometry::Point> {
         let at = Location::caller();
         self.require_observation(RefObservation::Sources, at);
-        let (_, state) = self.state(at);
+        let (_, state) = self.state();
         if let Some(value) = state.scroll_value.get() {
             return value;
         }
@@ -373,7 +383,7 @@ impl NodeRef {
         relative: bool,
         behavior: ScrollBehavior,
     ) {
-        let (rt, _) = self.state(Location::caller());
+        let (rt, _) = self.state();
         require_effectful("NodeRef scroll");
         if let Some(id) = self.node() {
             ViewState::tree(&rt).engine().scroll(
@@ -400,7 +410,7 @@ impl NodeRef {
     #[track_caller]
     pub fn focus(&self) {
         let at = Location::caller();
-        let (rt, s) = self.state(at);
+        let (rt, s) = self.state();
         require_effectful("NodeRef::focus");
         let owner = s.owner;
         super::requests::request_focus(
@@ -447,7 +457,16 @@ impl NodeRef {
         let target = ViewState::tree(&rt).first_focus_target(root);
         if let Some(node) = target {
             super::requests::request_restore_focus(&rt, node, None, false);
-            super::requests::request_activation(&rt, node);
+            let app = self.app;
+            rt.defer(
+                rt.root(),
+                Location::caller(),
+                Box::new(move || {
+                    if let Some(rt) = Runtime::get(app) {
+                        (crate::app_state::AppState::of(&rt).activate)(&rt, node);
+                    }
+                }),
+            );
         }
     }
 
@@ -574,8 +593,7 @@ impl NodeRef {
     /// not mounted yet).
     #[track_caller]
     pub fn scroll_into_view(&self) {
-        let at = Location::caller();
-        let (rt, _) = self.state(at);
+        let (rt, _) = self.state();
         require_effectful("NodeRef::scroll_into_view");
         if let Some(id) = self.node() {
             ViewState::tree(&rt).engine().scroll_into_view(id);
@@ -589,7 +607,7 @@ impl NodeRef {
     pub fn text_truncated(&self) -> Value<bool> {
         let _ = self.rect();
         let app = self.app;
-        let binding = self.state(Location::caller()).1.bound;
+        let binding = self.state().1.bound;
         kivact_runtime::memo(move || {
             binding
                 .try_get()
@@ -608,7 +626,7 @@ impl NodeRef {
     pub fn rect(&self) -> Value<Option<Rect>> {
         let at = Location::caller();
         self.require_observation(RefObservation::SourcesAndLayout, at);
-        let (_, s) = self.state(at);
+        let (_, s) = self.state();
         if let Some(value) = s.rect_value.get() {
             return value;
         }
@@ -637,8 +655,7 @@ impl NodeRef {
     /// ```
     #[track_caller]
     pub fn focused(&self) -> Value<bool> {
-        let at = Location::caller();
-        let (rt, s) = self.state(at);
+        let (rt, s) = self.state();
         require_setup("NodeRef::focused");
         let window = current_window(s.owner);
         let keys = ViewState::of(&rt)
@@ -655,8 +672,7 @@ impl NodeRef {
     /// Whether this exact target has focus that requests a visible indicator.
     #[track_caller]
     pub fn focus_visible(&self) -> Value<bool> {
-        let at = Location::caller();
-        let (rt, s) = self.state(at);
+        let (rt, s) = self.state();
         let focused = self.focused();
         let window = current_window(s.owner);
         let keys = ViewState::of(&rt)
@@ -673,8 +689,7 @@ impl NodeRef {
     /// state). Setup only.
     #[track_caller]
     pub(crate) fn focus_memo<T: PartialEq + 'static>(&self, of: fn(Option<bool>) -> T) -> Value<T> {
-        let at = Location::caller();
-        let (rt, s) = self.state(at);
+        let (rt, s) = self.state();
         require_setup("NodeRef::focus_memo");
         let window = current_window(s.owner);
         let keys = ViewState::of(&rt)
@@ -708,8 +723,7 @@ impl NodeRef {
     /// memo).
     #[track_caller]
     pub fn focus_within(&self) -> Value<bool> {
-        let at = Location::caller();
-        let (rt, s) = self.state(at);
+        let (rt, s) = self.state();
         require_setup("NodeRef::focus_within");
         let window = current_window(s.owner);
         let keys = ViewState::of(&rt)
@@ -757,10 +771,9 @@ impl NodeRef {
     /// memo).
     #[track_caller]
     pub fn hovered(&self) -> Value<bool> {
-        let at = Location::caller();
-        let (rt, s) = self.state(at);
+        let (rt, s) = self.state();
         require_setup("NodeRef::hovered");
-        let hover = crate::view::hover::source(&rt, current_window(s.owner), at);
+        let hover = crate::view::hover::source(&rt, current_window(s.owner));
         let app = rt.id();
         let node = s.bound;
         drop(rt);
@@ -888,8 +901,8 @@ fn live_target(app: AppId, target: FocusTarget) -> Option<FocusTarget> {
 
 /// The node `r` is bound to, as a reactive read (tracked; `None` while
 /// unbound or unmounted).
-pub(crate) fn node_value(r: &NodeRef, at: &'static Location<'static>) -> Option<NodeId> {
-    r.node_value(at)
+pub(crate) fn node_value(r: &NodeRef) -> Option<NodeId> {
+    r.node_value()
 }
 
 /// How a requested scroll reaches its target.

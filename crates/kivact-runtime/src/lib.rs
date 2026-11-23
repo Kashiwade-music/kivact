@@ -13,35 +13,31 @@ mod motion;
 mod reactive;
 mod task;
 
-pub use host::RuntimeConfig;
+// xtask-allow(internal-contract): the host driver contract of kivact-core and kivact-test; applications use the facade
+#[doc(hidden)]
+pub mod driver;
+
 pub use machine::{Machine, MachineCx, MachineHandle, Step, machine};
 pub use motion::{
-    AnimInfo, AnimKind, Animatable, Animated, At, Easing, FrameInfo, FrameLoop, FrameRate,
-    Keyframe, MotionEnv, MotionState, MotionStats, Repeat, Retarget, RunStatus, Segment, Spring,
-    Stagger, StaggerFrom, StepPosition, Timeline, TimelineTrack, Transition, animated, frame_loop,
-    timeline,
+    Animatable, Animated, At, Easing, FrameInfo, FrameLoop, FrameRate, Keyframe, Repeat, Retarget,
+    Segment, Spring, Stagger, StaggerFrom, StepPosition, Timeline, TimelineTrack, Transition,
+    animated, frame_loop, timeline,
 };
 pub use reactive::{
-    AppId, Binding, Callback, CauseEntry, CauseTag, DetailEdge, DetailRun, DetailWrite, EffectKind,
-    ErrorKind, ExitState, Extensions, Handled, Handler, HandlerResult, Host, IntoBinding,
-    IntoReactive, IntoText, IntoValue, ItemKey, Kind, LiveCounts, LiveObject, LiveOwner,
-    LiveSnapshot, NodeId, NodeInfo, Notifier, Owned, Owner, OwnerId, OwnerInfo, Pending, Prop,
-    PropValue, Reactive, Reported, Result, Runtime, Selector, Signal, Stage, StageSpan,
-    ThreadWaker, TraceRun, TraceWrite, Turn, TurnDetail, TurnGuard, TurnRecord, TurnReport,
-    UiError, UiThreadOnly, Value, Var, binding, callback, clock_now, effect, effect_on, memo,
-    notifier, on_cleanup, on_mount, pure, raise, require_effectful, require_setup, selector,
-    signal, try_use_context, untrack, use_context, var,
+    AppId, Callback, Cause, CauseTag, ErrorKind, Handled, Handler, HandlerResult, IntoHandler,
+    IntoText, IntoValue, ItemKey, NodeId, Owned, Owner, OwnerId, Prop, PropValue, ReportKind,
+    Reported, Result, Selector, Signal, Stage, StageSpan, TraceEdge, TraceRun, TraceWrite, Trigger,
+    Turn, TurnRecord, UiError, UiThreadOnly, Value, Var, binding, callback, clock_now, effect,
+    effect_on, memo, on_cleanup, on_mount, pure, raise, require_effectful, require_setup, selector,
+    signal, trigger, try_use_context, untrack, use_context, var,
 };
 pub use reactive::{handler, keyed};
 pub use task::{
-    Action, ActionFn, ActionMode, ActionOutcome, AsyncState, BlockingWork, CancelToken, Completion,
-    DEFAULT_DRAIN_NS, Resource, Task, TaskEntry, TaskState, TaskStats, action, blocking, resource,
-    sleep, spawn, spawn_in, timeout,
+    Action, ActionFn, AsyncState, BlockingWork, CancelToken, Completion, Remote, RemoteTrigger,
+    Resource, Task, action, blocking, clock, queued_action, remote, remote_trigger, resource,
+    sleep, spawn, timeout,
 };
 
+pub use task::AsyncSource;
 #[cfg(feature = "tokio")]
 pub use task::on_tokio;
-pub use task::{AsyncSource, Retry};
-// xtask-allow(internal-contract): Standard async views consume sealed source publication identities.
-#[doc(hidden)]
-pub use task::AsyncSnapshot;

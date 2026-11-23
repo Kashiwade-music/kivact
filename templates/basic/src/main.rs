@@ -1,17 +1,15 @@
-//! Role: Counter app template on the standard components, with a test.
+//! Counter app template on the standard components, with a test.
 //!
 //! `cargo run -p kivact-template-basic` opens a window;
 //! `cargo test -p kivact-template-basic` drives the same UI in a test window
 //! of the Arvane host (`kivact::test`).
-#![warn(redundant_imports)]
 
 use kivact::prelude::*;
 
-/// A component is a function returning a view; `#[component]` also makes a
-/// builder for its props. The setup runs once; dynamic parts are closures
-/// over Copy handles.
+/// A component: a function marked `#[component]`. Its body runs once;
+/// the parts that change are closures over Copy handles.
 #[component]
-fn counter(initial: i32) -> impl IntoView {
+fn counter(initial: i32) -> impl Element {
     let count = signal(initial);
     let doubled = memo(move || count.get() * 2);
     column((
@@ -32,7 +30,7 @@ fn main() -> kivact::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    //! Role: Tests for the counter template's buttons.
+    //! Tests for the counter template's buttons.
 
     use super::*;
 

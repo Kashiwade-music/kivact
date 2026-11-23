@@ -4,14 +4,13 @@ use kivact_core::geometry::Point;
 use kivact_core::state::{MachineHandle, Value, Var, machine, on_cleanup, var};
 use kivact_core::view::NodeRef;
 
-pub use crate::menu_policy::MenuPress;
-
 #[derive(Clone, Copy)]
 struct Row {
     reference: NodeRef,
     disabled: Value<bool>,
 }
 
+// xtask-allow(state): record: surfaces and rows are separate registries of mounted nodes, each written only by its own registrar (Press::surface, Press::row) and that registrar's cleanup; the gesture state is the machine
 #[derive(Clone, Copy)]
 pub(super) struct Press {
     pub(super) machine: MachineHandle<Machine>,

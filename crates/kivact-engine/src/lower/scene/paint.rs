@@ -8,7 +8,7 @@ use crate::lower::SceneOut;
 use crate::lower::context::Context;
 use crate::lower::effects::Tint;
 use crate::lower::scene_cache::Entry;
-use kivact_types::render::RenderCmd as D;
+use arvane_protocol::RenderCmd as D;
 use kivact_types::{ComputedTextStyle, DrawList, Rect};
 use std::sync::Arc;
 
@@ -20,7 +20,26 @@ impl Context<'_> {
         inherited: Option<&ComputedTextStyle>,
         origin: Rect,
         tint: &Tint,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
+        out: &mut SceneOut,
+    ) {
+        let start = self.checkpoint();
+        self.paint_scene_lowered(scene, inherited, origin, tint, engine, out);
+        // A scene that could not draw all of itself (an image still loading)
+        // draws differently once it can: its node's drawing is not kept.
+        if !self.succeeded_since(&start) {
+            out.spoil();
+        }
+    }
+
+    /// `paint_scene` without the check of what it could not draw.
+    fn paint_scene_lowered(
+        &self,
+        scene: &Arc<DrawList>,
+        inherited: Option<&ComputedTextStyle>,
+        origin: Rect,
+        tint: &Tint,
+        engine: &mut arvane_text::TextEngine,
         out: &mut SceneOut,
     ) {
         let (layer, item) = super::scene_layers(scene);
@@ -38,7 +57,7 @@ impl Context<'_> {
             .borrow_mut()
             .get(scene, inherited, raster, tint);
         if let Some(entry) = cached {
-            if prefix + entry.max_depth + 1 > arvane::MAX_SCENE_DEPTH {
+            if prefix + entry.max_depth + 1 > arvane_render::MAX_SCENE_DEPTH {
                 self.lower_scene(scene, inherited, origin, tint, engine, out);
                 return;
             }
@@ -65,7 +84,7 @@ impl Context<'_> {
         let dependencies = self.dependencies.borrow()[mark..].to_vec();
         let max_depth = lowered.deepest();
         let lowered = lowered.into_scene();
-        if prefix + max_depth + 1 > arvane::MAX_SCENE_DEPTH {
+        if prefix + max_depth + 1 > arvane_render::MAX_SCENE_DEPTH {
             self.restore(checkpoint);
             self.lower_scene(scene, inherited, origin, tint, engine, out);
             return;
@@ -91,7 +110,7 @@ impl Context<'_> {
         inherited: Option<&ComputedTextStyle>,
         origin: Rect,
         tint: &Tint,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut crate::lower::SceneOut,
     ) {
         let raster = self.raster.get();
@@ -113,10 +132,10 @@ impl Context<'_> {
 }
 
 fn append(out: &mut SceneOut, local: &[D], origin: Rect) {
-    out.push(D::PushTransform(kivact_types::Transform {
+    out.push(D::PushTransform(kivact_types::Affine {
         e: origin.x,
         f: origin.y,
-        ..kivact_types::Transform::IDENTITY
+        ..kivact_types::Affine::IDENTITY
     }));
     out.extend(local.iter().cloned());
     out.push(D::PopTransform);

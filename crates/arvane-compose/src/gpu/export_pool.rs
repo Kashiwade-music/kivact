@@ -5,8 +5,8 @@
 
 use std::collections::HashMap;
 
+use arvane_protocol::ExportMode;
 use kivact_types::ids::DrawableId;
-use kivact_types::render::ExportMode;
 
 /// The export pool of a sink (feature `gpu-interop`).
 #[cfg(feature = "gpu-interop")]

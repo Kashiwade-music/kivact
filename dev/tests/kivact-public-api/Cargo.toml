@@ -5,10 +5,10 @@ edition.workspace = true
 license.workspace = true
 publish = false
 autotests = false
-description = "Public Kivact API consumer tests: one real-window E2E binary and the windowless Offscreen tests"
+description = "Public Kivact API consumer tests: E2E binaries e2e_core, e2e_ui and e2e_native, and the windowless Offscreen tests"
 
 [features]
-# Starts the DevTools agent of the test App (tests/e2e/devtools.rs).
+# Starts the DevTools agent of the test App (tests/e2e_native/devtools.rs).
 devtools = ["kivact/devtools"]
 embed = ["kivact/embed"]
 default = ["gpu", "complex-scripts"]
@@ -16,30 +16,25 @@ complex-scripts = ["kivact/complex-scripts"]
 tokio = ["kivact/tokio"]
 # The consumer selects the renderer independently of the testing API.
 gpu = ["kivact/gpu"]
-# GPU texture sharing (`kivact::gpu_interop`, tests/e2e/gpu_interop.rs).
+# GPU texture sharing (`kivact::gpu_interop`, tests/e2e_native/gpu_interop.rs).
 gpu-interop = ["gpu", "kivact/gpu-interop"]
+
+# The E2E helpers (`support`, `paint`) that the test binaries share.
+[dependencies]
+kivact = { path = "../../../crates/kivact", default-features = false, features = ["test"] }
 
 [dev-dependencies]
 async-channel = { workspace = true }
-kivact = { path = "../../../crates/kivact", default-features = false, features = ["test"] }
-kivact-devtools-client = { path = "../../../crates/kivact-devtools-client" }
-kivact-devtools-protocol = { path = "../../../crates/kivact-devtools-protocol" }
+kivact-devtools-protocol = { path = "../../../crates/kivact-devtools-protocol", features = ["client"] }
 # Encodes the GIF, APNG and WebP fixtures of the image tests
-# (tests/e2e/images_animated.rs).
+# (tests/e2e_core/images_animated.rs).
 image = { version = "0.25.10", default-features = false, features = ["png", "gif", "webp"] }
-# The standard components are drawn like a kit's own once the kit's theme is
-# installed (tests/e2e/ui_standard.rs).
-kivact-ui-basic = { path = "../../../crates/kivact-ui-basic" }
-kivact-ui-game = { path = "../../../crates/kivact-ui-game" }
-kivact-ui-pop = { path = "../../../crates/kivact-ui-pop" }
-kivact-ui-creative = { path = "../../../crates/kivact-ui-creative" }
-kivact-ui-soft = { path = "../../../crates/kivact-ui-soft" }
 
 # The render engine standing in for an application's in the GPU texture
-# sharing tests (tests/e2e/gpu_interop.rs).
+# sharing tests (tests/e2e_native/gpu_interop.rs).
 [target.'cfg(any(windows, target_os = "linux"))'.dev-dependencies]
 gpu-interop-producer = { path = "../gpu-interop-producer", features = ["wgpu"] }
-# The consumer of a drawable's export on its own thread (tests/e2e/
+# The consumer of a drawable's export on its own thread (tests/e2e_native/
 # drawable_export_gpu.rs): a device on the window's adapter and
 # `Import`, which the consumer names through wgpu.
 kivact-gpu-share = { path = "../../../crates/kivact-gpu-share", features = ["import", "wgpu"] }
@@ -50,8 +45,16 @@ windows = { workspace = true, features = ["Win32_System_Com", "Win32_System_Ole"
 windows-sys = { workspace = true, features = ["Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
 
 [[test]]
-name = "e2e"
-path = "tests/e2e/main.rs"
+name = "e2e_core"
+path = "tests/e2e_core/main.rs"
+
+[[test]]
+name = "e2e_ui"
+path = "tests/e2e_ui/main.rs"
+
+[[test]]
+name = "e2e_native"
+path = "tests/e2e_native/main.rs"
 
 [[test]]
 name = "foreign_window_run"

@@ -1,6 +1,6 @@
 //! Role: 3D matrices, plane projections and polygons for 3D transforms.
 
-use crate::geometry::{Point, Rect, Transform};
+use crate::geometry::{Affine, Point, Rect};
 
 /// Tolerance for "is this entry the identity's entry" tests.
 const NEAR: f64 = 1e-12;
@@ -121,7 +121,7 @@ impl Matrix4 {
     }
 
     /// The 2D affine map `t` acting on the plane z = 0 (z passes through).
-    pub fn from_affine(t: Transform) -> Matrix4 {
+    pub fn from_affine(t: Affine) -> Matrix4 {
         let mut out = Self::IDENTITY;
         out.m[0] = [t.a, t.c, 0.0, t.e];
         out.m[1] = [t.b, t.d, 0.0, t.f];
@@ -142,7 +142,7 @@ impl Matrix4 {
         }
     }
 
-    /// `self` first, then `next` (= next · self), as `Transform::then`.
+    /// `self` first, then `next` (= next · self), as `Affine::then`.
     pub fn then(self, next: Matrix4) -> Matrix4 {
         let mut out = [[0.0; 4]; 4];
         for (i, row) in out.iter_mut().enumerate() {
@@ -205,12 +205,12 @@ impl Matrix4 {
 
     /// Some when row 2, row 3 and column 2 are those of the identity
     /// (within 1e-12): the matrix is a 2D affine map.
-    pub fn as_affine(&self) -> Option<Transform> {
+    pub fn as_affine(&self) -> Option<Affine> {
         let m = &self.m;
         let identity = Self::IDENTITY.m;
         let rows_ok = (2..4).all(|r| (0..4).all(|c| near(m[r][c], identity[r][c])));
         let col_ok = (0..4).all(|r| near(m[r][2], identity[r][2]));
-        (rows_ok && col_ok).then_some(Transform {
+        (rows_ok && col_ok).then_some(Affine {
             a: m[0][0],
             b: m[1][0],
             c: m[0][1],
@@ -420,16 +420,16 @@ impl Projective {
     };
 
     /// The 2D affine map `t` as a homography with bottom row [0, 0, 1].
-    pub fn from_affine(t: Transform) -> Projective {
+    pub fn from_affine(t: Affine) -> Projective {
         Projective {
             m: [[t.a, t.c, t.e], [t.b, t.d, t.f], [0.0, 0.0, 1.0]],
         }
     }
 
     /// Some when `m[2] == [0, 0, 1]` within 1e-12.
-    pub fn as_affine(&self) -> Option<Transform> {
+    pub fn as_affine(&self) -> Option<Affine> {
         let m = &self.m;
-        (near(m[2][0], 0.0) && near(m[2][1], 0.0) && near(m[2][2], 1.0)).then_some(Transform {
+        (near(m[2][0], 0.0) && near(m[2][1], 0.0) && near(m[2][2], 1.0)).then_some(Affine {
             a: m[0][0],
             b: m[1][0],
             c: m[0][1],

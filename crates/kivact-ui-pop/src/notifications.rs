@@ -1,18 +1,19 @@
 //! Role: Notification history with application-owned read state.
-use crate::ColorName;
 
-use kivact::ui::{ButtonVariant, button};
-
-use crate::{Hue, Tokens};
-use kivact::draw::Shadow;
+use crate::Hue;
+use crate::color;
+use kivact::component;
 use kivact::i18n::message;
 use kivact::interaction::use_popup;
-use kivact::state::IntoValue;
-use kivact::state::signal;
-use kivact::style::use_theme;
-use kivact::style::{Align, ColorToken, Justify, Position, pct, style};
-use kivact::view::{Element, Node, column, icon, node, row, text};
-use kivact::view::{IntoView, Placement, Role, for_each, overlay, show};
+use kivact::state::{Callback, Value, callback, signal};
+use kivact::style::Shadow;
+use kivact::style::color as core;
+use kivact::style::{Align, Justify, Position, pct, style};
+use kivact::ui::{ButtonVariant, button};
+use kivact::view::{
+    Element, IntoView, Node, Placement, Role, column, for_each, icon, node, overlay, row, show,
+    text,
+};
 
 /// One notification; its identifier survives read-state updates.
 #[derive(Clone, Debug, PartialEq)]
@@ -45,150 +46,118 @@ impl NotificationItem {
     }
 }
 
-/// Anchored notification history. Marking read calls the owner and keeps it open.
-/// The trigger dot and row backgrounds derive from the same reactive read state.
-pub struct NotificationMenu<V: IntoView + Element> {
-    trigger: V,
-    root: Node,
-    items: kivact::state::Value<Vec<NotificationItem>>,
-    mark_read: kivact::state::Callback<()>,
-}
-#[track_caller]
+/// Anchored notification history. Marking read calls `on_mark_read` and
+/// keeps the history open. The trigger dot and row backgrounds derive from
+/// the same reactive read state.
+#[component]
 pub fn notification_menu<V: IntoView + Element>(
     trigger: V,
-    items: impl IntoValue<Vec<NotificationItem>>,
-) -> NotificationMenu<V> {
-    NotificationMenu {
-        trigger,
-        root: column(()),
-        items: items.into_value(),
-        mark_read: kivact::state::callback(|_| ()),
-    }
-}
-impl<V: IntoView + Element> NotificationMenu<V> {
-    pub fn on_mark_read(mut self, mark_read: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.mark_read = mark_read.into();
-        self
-    }
-}
-impl<V: IntoView + Element> Element for NotificationMenu<V> {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl<V: IntoView + Element> IntoView for NotificationMenu<V> {
-    fn into_view(self) -> kivact::view::View {
-        let items = self.items;
-        let trigger = self.trigger;
-        let mark_read = self.mark_read;
-        let title = message("pop.notifications.title", "Notifications");
-        let unread = message("pop.notifications.unread", "Unread notifications");
-        let mark_read_label = message("pop.notifications.mark_read", "Mark all as read");
-        let open = signal(false);
-        let popup = use_popup(open);
-        let trigger_part = popup.trigger();
-        let anchor = kivact::view::node_ref();
-        let read = mark_read;
-        let trigger = trigger.with_node(|root| {
-            root.with_node(|root| root.part(trigger_part))
-                .node_ref(anchor)
-                .child(show(
-                    move || items.with(|v| v.iter().any(|item| item.unread)),
-                    move || {
-                        node()
-                            .with_node(|root| root.role(Role::Status))
-                            .name(unread)
-                            .style(
-                                style()
-                                    .position(Position::Absolute)
-                                    .right(7)
-                                    .top(7)
-                                    .size(7, 7)
-                                    .radius(4)
-                                    .background(ColorToken::Danger),
-                            )
-                    },
-                ))
-        });
-        self.root
-            .child((
-                trigger,
-                show(popup.is_open(), move || {
-                    overlay(
-                        anchor,
-                        Placement::Below,
-                        column((
-                            row((
-                                text(title).style(style().grow(1).weight(600)),
-                                button(mark_read_label)
-                                    .variant(ButtonVariant::Ghost)
-                                    .style(style().height(28).padding_x(4).font_size(12))
-                                    .on_press(move || read.call(())),
-                            ))
-                            .style(
-                                style()
-                                    .padding_x(12)
-                                    .padding_y(10)
-                                    .align_items(Align::Center)
-                                    .border_bottom(1, ColorToken::Border),
-                            ),
-                            for_each(items, |item| item.id, notification_row),
+    items: Value<Vec<NotificationItem>>,
+    on_mark_read: Option<Callback<()>>,
+) -> impl Element {
+    let title = message("pop.notifications.title", "Notifications");
+    let unread = message("pop.notifications.unread", "Unread notifications");
+    let mark_read_label = message("pop.notifications.mark_read", "Mark all as read");
+    let open = signal(false);
+    let popup = use_popup(open);
+    let trigger_part = popup.trigger();
+    let anchor = kivact::view::node_ref();
+    let read = on_mark_read.unwrap_or_else(|| callback(|_| ()));
+    let trigger = trigger.with_node(|root| {
+        root.with_node(|root| root.part(trigger_part))
+            .node_ref(anchor)
+            .child(show(
+                move || items.with(|v| v.iter().any(|item| item.unread)),
+                move || {
+                    node()
+                        .with_node(|root| root.role(Role::Status))
+                        .name(unread)
+                        .style(
+                            style()
+                                .position(Position::Absolute)
+                                .right(7)
+                                .top(7)
+                                .size(7, 7)
+                                .border_radius(4)
+                                .background(core::DANGER),
+                        )
+                },
+            ))
+    });
+    column(())
+        .child((
+            trigger,
+            show(popup.is_open(), move || {
+                overlay(
+                    anchor,
+                    Placement::Below,
+                    column((
+                        row((
+                            text(title).style(style().flex_grow(1).font_weight(600)),
+                            button(mark_read_label)
+                                .variant(ButtonVariant::Ghost)
+                                .style(style().height(28).padding_x(4).font_size(12))
+                                .on_press(move || read.call(())),
                         ))
                         .style(
                             style()
-                                .width(340)
-                                .max_width(pct(95))
-                                .padding(4)
-                                .radius(8)
-                                .clip(true),
-                        )
-                        .style(
-                            style()
-                                .background(ColorName::Surface)
-                                .border(1, ColorName::Line)
-                                .shadow(Shadow::new(0, 10, 15, ColorToken::Shadow)),
+                                .padding_x(12)
+                                .padding_y(10)
+                                .align_items(Align::Center)
+                                .border_bottom(1, core::BORDER),
                         ),
+                        for_each(items, |item| item.id, notification_row),
+                    ))
+                    .style(
+                        style()
+                            .width(340)
+                            .max_width(pct(95))
+                            .padding(4)
+                            .border_radius(8)
+                            .clip(true),
                     )
-                    .with_node(|root| root.role(Role::Group))
-                    .name(title)
-                    .offset(4)
-                    .with_node(|root| root.part(popup.content()))
-                }),
-            ))
-            .style(style().align_items(Align::Start))
-            .into_view()
-    }
+                    .style(
+                        style()
+                            .background(color::SURFACE)
+                            .border(1, color::LINE)
+                            .shadow(Shadow::new(0, 10, 15, core::SHADOW)),
+                    ),
+                )
+                .with_node(|root| root.role(Role::Group))
+                .name(title)
+                .offset(4)
+                .with_node(|root| root.part(popup.content()))
+            }),
+        ))
+        .style(style().align_items(Align::Start))
 }
 
-fn notification_row(item: kivact::state::Value<NotificationItem>) -> Node {
+fn notification_row(item: Value<NotificationItem>) -> Node {
     let initial = item.get_untracked();
     row((
         node()
             .child(icon(initial.icon))
             .style(move || {
-                let theme = &use_theme().get();
-                let p = theme.ext::<Tokens>();
-                let (background, color) = p.hue(item.get().hue);
+                let (background, color) = item.get().hue.colors();
                 style().background(background).color(color)
             })
             .style(
                 style()
                     .size(32, 32)
-                    .radius(6)
+                    .border_radius(6)
                     .align_items(Align::Center)
                     .justify_content(Justify::Center)
-                    .shrink(0),
+                    .flex_shrink(0),
             ),
         column((
             text(move || item.get().title)
-                .style(style().font_size(13.5).weight(500).padding_right(16)),
-            text(move || item.get().body).style(style().font_size(13).color(ColorToken::TextMuted)),
+                .style(style().font_size(13.5).font_weight(500).padding_right(16)),
+            text(move || item.get().body).style(style().font_size(13).color(core::TEXT_MUTED)),
             text(move || item.get().timestamp)
                 .style(style().font_size(12))
-                .style(style().color(ColorName::TextFaint)),
+                .style(style().color(color::TEXT_FAINT)),
         ))
-        .style(style().grow(1).gap(0)),
+        .style(style().flex_grow(1).gap(0)),
         show(
             move || item.get().unread,
             || {
@@ -198,8 +167,8 @@ fn notification_row(item: kivact::state::Value<NotificationItem>) -> Node {
                         .right(10)
                         .top(14)
                         .size(6, 6)
-                        .radius(3)
-                        .background(ColorToken::Accent),
+                        .border_radius(3)
+                        .background(core::ACCENT),
                 )
             },
         ),
@@ -212,7 +181,7 @@ fn notification_row(item: kivact::state::Value<NotificationItem>) -> Node {
             .padding(8)
             .gap(10)
             .align_items(Align::Start)
-            .radius(6)
-            .hover(style().background(ColorToken::SurfaceAlt)),
+            .border_radius(6)
+            .hover(style().background(core::SURFACE_ALT)),
     )
 }

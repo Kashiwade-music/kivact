@@ -5,8 +5,8 @@ use crate::editors::shared::targets::Scene;
 use kivact::UiError;
 use kivact::draw::RegionId;
 use kivact::geometry::Point;
-use kivact::interaction::{DragApi as Gesture, EditSession, ListApi, ViewTransform, ZoomPanApi};
-use kivact::state::{Binding, Callback, Machine, MachineHandle, Step, Value, machine};
+use kivact::interaction::{DragApi as Gesture, EditSession, ListApi, ZoomPan, ZoomPanApi};
+use kivact::state::{Callback, Machine, MachineHandle, Signal, Step, Value, machine};
 use kivact::view::{NodeRef, Role};
 use std::rc::Rc;
 
@@ -126,14 +126,6 @@ enum ModeEvent {
         slot: NodeControl,
     },
     Cancel,
-    Inputs {
-        focused: bool,
-        blocked: bool,
-        data_valid: bool,
-        editing: bool,
-        dragging: bool,
-        rollback: Rc<dyn Fn()>,
-    },
 }
 struct ModeMachine;
 impl Machine for ModeMachine {
@@ -179,22 +171,6 @@ impl Machine for ModeMachine {
                 _ => Step::stay(),
             },
             ModeEvent::Cancel => Step::to(NodeMode::Idle),
-            ModeEvent::Inputs {
-                focused,
-                blocked,
-                data_valid,
-                editing,
-                dragging,
-                rollback,
-            } => {
-                if blocked || !data_valid || (!focused && (editing || dragging)) {
-                    Step::to(NodeMode::Idle).with(rollback)
-                } else if !focused && matches!(state, NodeMode::Connecting { .. }) {
-                    Step::to(NodeMode::Idle)
-                } else {
-                    Step::stay()
-                }
-            }
         }
     }
 }
@@ -237,24 +213,6 @@ impl NodeController {
     pub(crate) fn get_untracked(self) -> NodeMode {
         self.machine.state().get_untracked()
     }
-    pub(crate) fn inputs(
-        self,
-        focused: bool,
-        blocked: bool,
-        data_valid: bool,
-        editing: bool,
-        dragging: bool,
-        rollback: impl Fn() + 'static,
-    ) {
-        self.machine.send(ModeEvent::Inputs {
-            focused,
-            blocked,
-            data_valid,
-            editing,
-            dragging,
-            rollback: Rc::new(rollback),
-        });
-    }
 }
 
 /// The primary drag the press chose; the payload of `State::press`.
@@ -274,7 +232,6 @@ pub(crate) enum DragMode {
     Link {
         to: Point,
         source: LinkSource,
-        // xtask-allow(state-fields): independent: the socket under the pointer at release, for either source
         released: Option<(u64, usize)>,
     },
     Marquee {
@@ -314,6 +271,7 @@ pub(crate) enum DragSnapshot {
     None,
 }
 
+// xtask-allow(state): selected, selected_link and transform are the caller's bindings (public API): the editor clears selected_link when it selects nodes, and the caller may set both; active is the port of the link drag in progress
 #[derive(Clone, Copy)]
 pub(crate) struct State {
     pub(crate) on_edit: Option<
@@ -324,13 +282,13 @@ pub(crate) struct State {
     pub(crate) can_connect: ConnectGuard,
     pub(crate) nodes: Value<Vec<NodeData>>,
     pub(crate) links: Value<Vec<NodeLink>>,
-    pub(crate) selected: Binding<Vec<u64>>,
-    pub(crate) selected_link: Binding<Option<NodeLink>>,
+    pub(crate) selected: Signal<Vec<u64>>,
+    pub(crate) selected_link: Signal<Option<NodeLink>>,
     pub(crate) choose: ListApi<u64>,
-    pub(crate) transform: Binding<ViewTransform>,
+    pub(crate) transform: Signal<ZoomPan>,
     pub(crate) scene: Value<Result<Rc<Scene<Target>>, UiError>>,
     pub(crate) snap: Value<bool>,
-    pub(crate) active: kivact::state::Binding<Option<(u64, usize)>>,
+    pub(crate) active: kivact::state::Signal<Option<(u64, usize)>>,
     pub(crate) mode: NodeController,
     pub(crate) reference: NodeRef,
     pub(crate) texts: crate::editors::shared::texts::Texts,

@@ -13,7 +13,7 @@ use kivact::prelude::*;
 use kivact::style::{ThemeMode, rgb};
 use kivact_ui_creative as ui;
 
-/// `lane` の `start..start + duration` に置いたクリップは、ほかのクリップと重なるか。
+/// Would a clip at `start..start + duration` on `lane` collide with another clip?
 fn collides(clips: &[ui::Clip], id: u64, lane: u64, start: f64, duration: f64) -> bool {
     clips.iter().any(|other| {
         other.id != id
@@ -31,7 +31,7 @@ fn apply(clips: &mut Vec<ui::Clip>, request: ui::TimeRequest) {
                     continue;
                 };
                 let lane = clips[index].lane;
-                // アプリの規則: 開始が負にならない、同じレーンで重ならない。
+                // The app's rules: no negative start, no overlap in a lane.
                 if time.time >= 0.0 && !collides(clips, time.id, lane, time.time, time.duration) {
                     clips[index].start = time.time;
                     clips[index].duration = time.duration;
@@ -42,34 +42,37 @@ fn apply(clips: &mut Vec<ui::Clip>, request: ui::TimeRequest) {
     }
 }
 
-fn timeline_panel() -> impl IntoView {
+#[component]
+fn timeline_panel() -> impl Element {
     let clips = signal(vec![
-        ui::Clip::new(1, 10, 0.0, 48.0, "イントロ").color(rgb(0x8b7cff)),
-        ui::Clip::new(2, 10, 60.0, 72.0, "Aメロ").color(rgb(0x3ad3e0)),
-        ui::Clip::new(3, 20, 24.0, 96.0, "ナレーション").color(rgb(0xffb224)),
+        ui::Clip::new(1, 10, 0.0, 48.0, "Intro").color(rgb(0x8b7cff)),
+        ui::Clip::new(2, 10, 60.0, 72.0, "Verse").color(rgb(0x3ad3e0)),
+        ui::Clip::new(3, 20, 24.0, 96.0, "Voice").color(rgb(0xffb224)),
     ]);
-    let lanes = signal(vec![ui::Lane::new(10, "ビデオ 1"), ui::Lane::new(20, "オーディオ 1")]);
+    let lanes = signal(vec![ui::Lane::new(10, "Video 1"), ui::Lane::new(20, "Audio 1")]);
 
-    // アプリが持つ表示状態: 再生ヘッドはアプリの時間。
+    // View state the app owns: the playhead is the app's time.
     let playhead = signal(0.0);
     let state = ui::TimeState {
-        playhead: playhead.into_binding(),
+        playhead,
         ..ui::TimeState::new()
     };
 
-    // ジェスチャー 1 回につき元に戻す手順を 1 つ記録する。
+    // One undo step per gesture.
     let snapshot = signal(None::<Vec<ui::Clip>>);
     let undo = signal(Vec::<Vec<ui::Clip>>::new());
     let on_edit = move |event: ui::EditorEvent<ui::TimeRequest>| match event {
-        ui::EditorEvent::Begin => snapshot.set(Some(clips.get_untracked())),
+        ui::EditorEvent::Begin => snapshot.set(Some(clips.get())),
         ui::EditorEvent::Request(request) => clips.update(|all| apply(all, request)),
         ui::EditorEvent::Commit => {
-            if let Some(before) = snapshot.update(|saved| saved.take()) {
+            if let Some(before) = snapshot.with(|saved| saved.clone()) {
+                snapshot.set(None);
                 undo.update(|steps| steps.push(before));
             }
         }
         ui::EditorEvent::Cancel => {
-            if let Some(before) = snapshot.update(|saved| saved.take()) {
+            if let Some(before) = snapshot.with(|saved| saved.clone()) {
+                snapshot.set(None);
                 clips.set(before);
             }
         }
@@ -82,14 +85,14 @@ fn timeline_panel() -> impl IntoView {
             .snap(true)
             .time_format(|frame| format!("{:.1}s", frame / 24.0))
             .on_edit(on_edit)
-            .name("タイムライン"),
-        text(move || format!("フレーム {:.0}、元に戻せる手順 {} 件", playhead.get(), undo.get().len())),
+            .name("Timeline"),
+        text(move || format!("Frame {:.0}, {} undo step(s)", playhead.get(), undo.get().len())),
     ))
     .style(style().gap(8).padding(12))
 }
 
 fn main() -> kivact::Result<()> {
-    App::new("タイムライン")
+    App::new("Timeline")
         .theme(ui::theme(ThemeMode::Dark))
         .run(timeline_panel)
 }
@@ -108,7 +111,7 @@ fn main() -> kivact::Result<()> {
 
 ### 時間はアプリのものです
 
-エディタが時間を進めることはありません。再生ヘッドは、*あなたが*渡す `TimeState` のバインディングです。
+エディタが時間を進めることはありません。再生ヘッドは、*あなたが*渡す `TimeState` のシグナルです。
 
 - 利用者が再生ヘッドを動かすと、エディタがそれに書き込みます。プレイヤーのシークなどのために読み取ってください。
 - 時計が進むときは、あなたが書き込みます。再生中は、プレイヤーからこれを更新します。
@@ -120,7 +123,7 @@ use std::time::Duration;
 async fn run_clock(playing: Signal<bool>, playhead: Signal<f64>) {
     loop {
         kivact::task::sleep(Duration::from_millis(1000 / 24)).await;
-        if playing.get_untracked() {
+        if playing.get() {
             playhead.update(|frame| *frame += 1.0);
         }
     }
@@ -152,11 +155,12 @@ fn start_clock(playing: Signal<bool>, playhead: Signal<f64>) {
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
-fn keys_panel() -> impl IntoView {
+#[component]
+fn keys_panel() -> impl Element {
     let keys = signal(vec![
-        ui::Keyframe::new(1, 1, 0.0, "開始"),
-        ui::Keyframe::new(2, 1, 24.0, "ホールド").duration(12.0),
-        ui::Keyframe::new(3, 2, 12.0, "ポップ").glyph(ui::KeyGlyph::Circle),
+        ui::Keyframe::new(1, 1, 0.0, "Start"),
+        ui::Keyframe::new(2, 1, 24.0, "Hold").duration(12.0),
+        ui::Keyframe::new(3, 2, 12.0, "Pop").glyph(ui::KeyGlyph::Circle),
     ]);
     ui::dope_sheet(keys, ui::TimeState::new()).on_edit(move |event| {
         if let ui::EditorEvent::Request(request) = event {
@@ -210,14 +214,15 @@ fn apply(curves: &mut [ui::Curve], request: &ui::GraphRequest) {
     }
 }
 
-fn graph_panel() -> impl IntoView {
+#[component]
+fn graph_panel() -> impl Element {
     let curves = signal(vec![ui::Curve::new(
         1,
-        "不透明度",
+        "Opacity",
         vec![ui::CurveKey::new(1, 0.0, 0.0), ui::CurveKey::new(2, 48.0, 1.0)],
     )]);
     ui::graph_editor(curves, ui::GraphState::new())
-        .step(1.0, 0.01)
+        .time_step(1.0).value_step(0.01)
         .on_edit(move |event| {
             if let ui::EditorEvent::Request(request) = event {
                 curves.update(|all| apply(all, &request));
@@ -254,7 +259,7 @@ fn apply(
         }
         R::Delete(ids) => clips.retain(|c| !ids.contains(&c.id)),
         R::Split { clip, at } => {
-            // 新しいクリップの ID と名前はアプリが決める。
+            // The app owns the new clip's id and name.
             let new_id = clips.iter().map(|c| c.id).max().unwrap_or(0) + 1;
             if let Some(left) = clips.iter_mut().find(|c| c.id == clip) {
                 if at > left.start && at < left.start + left.duration {
@@ -277,25 +282,26 @@ fn apply(
                 }
             }
         }
-        // Erase・ToggleClipMute・AddPoint・MovePoint・DeletePoint は残りの要求。
-        // このアプリはまだ対応していない。
+        // Erase, ToggleClipMute, AddPoint, MovePoint and DeletePoint are the
+        // rest of the requests; this app does not support them yet.
         _ => {}
     }
 }
 
-fn arrangement_panel() -> impl IntoView {
+#[component]
+fn arrangement_panel() -> impl Element {
     let clips = signal(vec![
-        ui::Clip::new(1, 1, 0.0, 8.0, "ドラム"),
-        ui::Clip::new(2, 2, 4.0, 8.0, "ベース"),
+        ui::Clip::new(1, 1, 0.0, 8.0, "Drums"),
+        ui::Clip::new(2, 2, 4.0, 8.0, "Bass"),
     ]);
     let tracks = signal(vec![
-        ui::TimelineTrack::new(1, "ドラム", ui::TrackKind::Audio, rgb(0x8b7cff)),
-        ui::TimelineTrack::new(2, "ベース", ui::TrackKind::Midi, rgb(0x3ad3e0)),
+        ui::TimelineTrack::new(1, "Drums", ui::TrackKind::Audio, rgb(0x8b7cff)),
+        ui::TimelineTrack::new(2, "Bass", ui::TrackKind::Midi, rgb(0x3ad3e0)),
     ]);
     let state = ui::ArrangementState::new();
     ui::arrangement(clips, tracks, state)
         .length(32.0)
-        .markers(vec![ui::TimelineMarker::new(16.0, "サビ", rgb(0xffb224))])
+        .markers(vec![ui::TimelineMarker::new(16.0, "Chorus", rgb(0xffb224))])
         .on_edit(move |event| {
             if let ui::EditorEvent::Request(request) = event {
                 clips.update(|c| tracks.update(|t| apply(c, t, request)));
@@ -313,26 +319,28 @@ fn arrangement_panel() -> impl IntoView {
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::rgb;
+use kivact::view::Orientation;
 use kivact_ui_creative as ui;
 
-fn mixer_panel() -> impl IntoView {
+#[component]
+fn mixer_panel() -> impl Element {
     let transport = signal(ui::TransportState::default());
     let drums = ui::ChannelState::new();
-    let level = signal(0.4); // オーディオエンジンが測った最終レベル（0..1）
+    let level = signal(0.4); // the final level your audio engine measures, 0..1
     row((
         ui::transport(transport).on_to_start(move || {
-            // ここでプレイヤーを先頭へシークする。
+            // Seek your player to the start here.
         }),
-        ui::mixer_strip("ドラム", rgb(0x8b7cff), drums)
+        ui::mixer_strip("Drums", rgb(0x8b7cff), drums)
             .gain_range(kivact::interaction::ScalarRange::new(-60.0, 6.0).expect("valid range"))
             .level(level),
-        ui::meter("マスター", level).orientation(Orientation::Horizontal),
+        ui::meter("Master", level).orientation(Orientation::Horizontal),
     ))
     .style(style().gap(12).padding(12))
 }
 ```
 
-`TransportState` が持つのは `playing`・`recording`・`cycling` だけです。`ChannelState` は `gain`・`pan`・`mute`・`solo` をバインディングとして持ちます。ストリップは渡された `level` を、ゲインやミュートを掛けずにそのまま表示します。DSP はエンジン側で行い、その結果を渡してください。ルーティングの選択肢とインサートの名前もアプリのものです。`.routes(labels, route)` は `labels` が空でないときだけセレクターを表示し、`.inserts(names)` は名前を一覧します。
+`TransportState` が持つのは `playing`・`recording`・`cycling` だけです。`ChannelState` は `gain`・`pan`・`mute`・`solo` をシグナルとして持ちます。ストリップは渡された `level` を、ゲインやミュートを掛けずにそのまま表示します。DSP はエンジン側で行い、その結果を渡してください。ルーティングの選択肢とインサートの名前もアプリのものです。`.routes(labels, route)` は `labels` が空でないときだけセレクターを表示し、`.inserts(names)` は名前を一覧します。
 
 ## 関連項目
 
@@ -342,4 +350,4 @@ fn mixer_panel() -> impl IntoView {
 - API の全体: `cargo doc -p kivact-ui-creative --open`
 - カタログのタイムライン・アニメーション・ミキサーの章: `cargo run -p kivact-ui-creative-catalog`
 
-時間エディタと arrangement は、単一の `transform: Binding<kivact::interaction::ViewTransform>` を使います。`scale` は論理時間単位あたりの横方向のピクセル数（arrangement では拍あたり）、`offset` はピクセル単位のスクロールです。レーンの高さは拡大縮小しません。セットアップ時に `transform.project(|pose| &pose.scale, |pose| &mut pose.scale)` を作ると、ズームスライダーも同じ表示状態に接続できます。ホイールの割り当てとサイドバーを基準にしたズームは時間エディタが保持します。
+時間エディタと arrangement は、単一の `transform: Signal<kivact::interaction::ZoomPan>` を使います。`scale` は論理時間単位あたりの横方向のピクセル数（arrangement では拍あたり）、`offset` はピクセル単位のスクロールです。レーンの高さは拡大縮小しません。セットアップ時に `bind!(transform.scale)` のシグナルを作ると、ズームスライダーも同じ表示状態に接続できます。ホイールの割り当てとサイドバーを基準にしたズームは時間エディタが保持します。

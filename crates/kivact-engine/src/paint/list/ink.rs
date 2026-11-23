@@ -4,7 +4,7 @@ use crate::contract::NodeType;
 use crate::model::EVERYWHERE;
 use crate::model::Model;
 use crate::model::transform::map_rect;
-use crate::paint::state::{Drawn, Ink, Look};
+use crate::paint::state::{Drawn, Ink, LayerTraits};
 use crate::tree::node::HostNode;
 use kivact_layout::NodeLayout;
 use kivact_types::cell::Generation;
@@ -18,14 +18,20 @@ pub(super) fn reach(
     id: NodeId,
     n: &HostNode,
     layout: &NodeLayout,
-    look: &Look,
+    look: &LayerTraits,
 ) -> Rect {
     grow(reach_local(host, id, n, layout, look), look.fx)
 }
 
 /// Everything one node itself can draw on, before its own filters (the
 /// box, its content, shadows, glyphs and canvas scenes).
-fn reach_local(host: &Model, id: NodeId, n: &HostNode, layout: &NodeLayout, look: &Look) -> Rect {
+fn reach_local(
+    host: &Model,
+    id: NodeId,
+    n: &HostNode,
+    layout: &NodeLayout,
+    look: &LayerTraits,
+) -> Rect {
     let bounds = Rect {
         x: 0.0,
         y: 0.0,
@@ -38,7 +44,7 @@ fn reach_local(host: &Model, id: NodeId, n: &HostNode, layout: &NodeLayout, look
         ..bounds
     };
     let glyphs = match n.kind() {
-        _ if n.kind() == NodeType::Text || host.editors[n.index.0].is_some() => {
+        _ if n.kind() == NodeType::Text || host.slots.editors[n.index.0].is_some() => {
             text_reach(host, id)
         }
         _ => 0.0,
@@ -62,7 +68,7 @@ fn reach_local(host: &Model, id: NodeId, n: &HostNode, layout: &NodeLayout, look
 
 /// `r` (relative to a box's top-left corner) mapped by the box's transform
 /// `t`, placed at the box's origin `at` in its parent's space.
-pub(super) fn placed(t: Option<&kivact_types::Transform>, r: Rect, at: Point) -> Rect {
+pub(super) fn placed(t: Option<&kivact_types::Affine>, r: Rect, at: Point) -> Rect {
     let r = map_rect(t, r);
     Rect {
         x: r.x + at.x,
@@ -83,7 +89,7 @@ pub(super) fn drawn(
     layout: &NodeLayout,
     generation: Generation,
 ) -> Option<Drawn> {
-    if let Some(kept) = host.paint.ink[n.index.0].get()
+    if let Some(kept) = host.slots.ink[n.index.0].get()
         && kept.generation == generation
         && kept.size == layout.size
         && kept.content == layout.content_size
@@ -95,7 +101,7 @@ pub(super) fn drawn(
         return kept.rect;
     }
     let drawn = host.tree().drawn(id).then(|| {
-        let look = Look::now(host, id, n);
+        let look = LayerTraits::now(host, id, n);
         let local = drawn_local(host, id, n, layout, generation);
         // Blurred by the node's own filters, then transformed by it.
         let rect = map_rect(
@@ -110,7 +116,7 @@ pub(super) fn drawn(
             beyond: local.beyond || spatial,
         }
     });
-    host.paint.ink[n.index.0].set(Some(Ink {
+    host.slots.ink[n.index.0].set(Some(Ink {
         rect: drawn,
         size: layout.size,
         content: layout.content_size,
@@ -141,11 +147,11 @@ fn drawn_local(
     layout: &NodeLayout,
     generation: Generation,
 ) -> Drawn {
-    let look = Look::now(host, id, n);
+    let look = LayerTraits::now(host, id, n);
     let mut rect = reach_local(host, id, n, layout, &look);
     let mut beyond = false;
     if !n.clips() {
-        let scroll = n.scroll();
+        let scroll = host.tree().scroll_of(id);
         for child in host.tree().flat_children(host.tree().nodes.id_at(n.index)) {
             let Some(c) = host.node(child).filter(|c| !c.is_layer()) else {
                 continue;
@@ -222,7 +228,7 @@ fn scene_reach(scene: &DrawList, canvas: Rect) -> Option<Rect> {
     {
         return plain_scene_reach(&scene.cmds, canvas);
     }
-    let mut transform = kivact_types::Transform::IDENTITY;
+    let mut transform = kivact_types::Affine::IDENTITY;
     let mut transforms = Vec::new();
     let mut reach = 0.0;
     let mut layers = Vec::new();
@@ -311,7 +317,7 @@ fn plain_scene_reach(cmds: &[DrawCmd], canvas: Rect) -> Option<Rect> {
                 });
             }
             DrawCmd::Shape(p) => add(grow(
-                at(crate::lower::scene_shape::shape(&p.shape).bounds()),
+                at(p.shape.to_shape().bounds()),
                 p.stroke
                     .as_ref()
                     .map_or(0.0, |s| s.width.abs() * s.miter_limit.max(1.0)),
@@ -364,7 +370,7 @@ pub(super) fn local_transform(
     id: NodeId,
     n: &HostNode,
     layout: &NodeLayout,
-) -> Option<kivact_types::Transform> {
+) -> Option<kivact_types::Affine> {
     if n.place.transformed || host.layout_motion_transform(id).is_some() {
         host.local_transform(id, layout.size)
     } else {

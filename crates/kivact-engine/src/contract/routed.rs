@@ -7,17 +7,27 @@ use kivact_types::{NodeId, Point, RegionId, WindowId};
 pub struct Routed<T> {
     /// The window the input belongs to.
     pub window: WindowId,
-    // xtask-allow(state-fields): option: absent means the input is window-directed (a key with no receiving node)
     /// The receiving node and region, or no target for a window-directed key
     /// event.
     pub target: Option<RouteTarget>,
     /// Position in the target's untransformed local coordinates.
     pub local: Point,
-    // xtask-allow(state-fields): option: absent until the engine supplies the adoption result before activation dispatch
     /// The result of consuming adoption, once supplied by the engine.
     pub activation: Option<Activation>,
     /// The unchanged normalized input payload.
     pub input: T,
+    /// Whether the input came from the platform or was injected.
+    pub origin: InputOrigin,
+}
+
+/// Where an input event came from.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum InputOrigin {
+    /// The platform's input (or the test driver's raw input).
+    #[default]
+    Platform,
+    /// Injected by the request (the DevTools' `inject_input`, `HostRequest::Inject`).
+    Injected(kivact_types::RequestId),
 }
 
 /// The node that receives an input, and the scene region when it is a region.

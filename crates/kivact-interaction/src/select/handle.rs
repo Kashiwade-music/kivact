@@ -4,9 +4,9 @@
 //! list box of keyed options.
 //!
 //! The closed trigger and the open list are two [`ListApi`]s over
-//! the same options with the listbox policy, sharing one private typeahead
-//! slot for the select's lifetime, so a letter typed at the trigger and one
-//! typed in the list continue the same search. The closed trigger can select
+//! the same options with the listbox policy, and the open list types into
+//! the closed trigger's type-to-find prefix, so a letter typed at the trigger
+//! and one typed in the list continue the same search. The closed trigger can select
 //! options that are not mounted; there is no public raw input dispatch for
 //! it. Choosing uses the list's private mounted selection path, and the
 //! focus after closing is the popup's (see `crate::popup`). Row count, scroll
@@ -17,7 +17,7 @@
 use super::machine;
 
 use crate::Selection;
-use crate::list::typeahead::Typeahead;
+use crate::list::use_list_retaining;
 use crate::options_cell::OptionsCell;
 use kivact_core::custom::{Part, part};
 use kivact_core::state::{MachineHandle, binding, machine};
@@ -29,10 +29,12 @@ use crate::{
 };
 use kivact_core::i18n::message;
 use kivact_core::state::{
-    Binding, Callback, Signal, Value, Var, effect, memo, on_cleanup, on_mount, signal, var,
+    Callback, Signal, Value, Var, effect, memo, on_cleanup, on_mount, signal, var,
 };
 use kivact_core::state::{IntoText, IntoValue, callback};
-use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, Role};
+use kivact_core::view::{
+    Element, Handled, IntoView, Key, KeyEvent, PointerEvent, PointerPhase, Role,
+};
 
 #[derive(Clone, Copy)]
 struct SelectOptions {
@@ -40,6 +42,7 @@ struct SelectOptions {
     keep_trigger_focus: Value<bool>,
 }
 
+// xtask-allow(state): independent: open is the caller's binding, written by the caller, by open_with (show, show_sheet, trigger and the arrow keys), by the sheet's choice and by the popup's close (hide, dismissal); session is the machine that follows open one way (only the feed of open sends Opened and Closed) and holds the opening's surface, highlight, hovered and previewed, noted by Prepare (open_with and the sheet's attach) and by Highlight, Hover and Preview; selected is the caller's selection binding, written by the list's and the closed trigger's choice; hovered is the pointer's hover over the sheet's rows, written by track_preview; placeholder is set once by placeholder(); preview is set once by on_active_change
 /// A select over keyed [`ListItem`]s, without a look of its own.
 ///
 /// `SelectApi` adds the behavior and semantics of a combo box and its list box
@@ -47,7 +50,7 @@ struct SelectOptions {
 /// [`content`](Self::content) the caller's `overlay(..)` holding the list, and
 /// [`item`](Self::item) each row, rendered with `for_each` over the
 /// options while [`shown`](Self::is_open) is true. [`label`](Self::label) is what
-/// the trigger shows. The selection is the caller's `Binding<Option<K>>`; the
+/// the trigger shows. The selection is the caller's `Signal<Option<K>>`; the
 /// select holds no state besides whether the list is open. A selected key
 /// that is not among the options (filtered out, not loaded yet) stays
 /// selected, and the trigger shows the placeholder until the option returns.
@@ -83,19 +86,8 @@ struct SelectOptions {
 /// while the list is open, such as showing a theme before it is chosen.
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// # pub use kivact_core::{view, state, style};
-/// # pub mod prelude {
-/// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-/// # }
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::{ListItem, use_select};
-/// use kivact_core::view::Element;
+/// use kivact::view::Element;
 /// use kivact::prelude::*;
 /// use kivact::view::{Placement, overlay};
 ///
@@ -105,7 +97,7 @@ struct SelectOptions {
 ///         ListItem::new("m", "Medium"),
 ///         ListItem::new("l", "Large").disabled(true),
 ///     ];
-///     let sizes = use_select(options.clone(), size);
+///     let sizes = use_select(options.clone(), size, signal(false));
 ///     let trigger = sizes.trigger();
 ///     let anchor = node_ref();
 ///     (
@@ -126,16 +118,15 @@ struct SelectOptions {
 /// ```
 pub struct SelectApi<K: kivact_core::state::ItemKey> {
     options: Value<Vec<ListItem<K>>>,
-    selected: Binding<Option<K>>,
+    selected: Signal<Option<K>>,
     edit: crate::EditSession<Option<K>>,
-    // xtask-allow(state-fields): independent: set by SelectApi::content_in when the option list or sheet mounts; the preview callback beside it is set by the caller at setup, before or without any surface
-    content_state: Signal<Option<Value<PopupState>>>,
     /// What the trigger shows while nothing is selected; read tracked.
     placeholder: Signal<Value<String>>,
-    // xtask-allow(state-fields): option: the preview callback a setter supplied, absent until set
     /// Reports the option being tried out; read when the surface binds.
     preview: Var<Option<Callback<Option<K>>>>,
     popup: PopupApi,
+    /// The caller's open state, which the popup and the machine both follow.
+    open: kivact_core::state::Signal<bool>,
     /// Moves the selection while the list is closed.
     closed: ListApi<K>,
     settings: OptionsCell<SelectOptions>,
@@ -143,7 +134,7 @@ pub struct SelectApi<K: kivact_core::state::ItemKey> {
     /// The open list's options.
     list: ListApi<K>,
     /// The option the pointer rests on, for the preview.
-    hovered: Binding<Option<K>>,
+    hovered: Signal<Option<K>>,
 }
 
 impl<K: kivact_core::state::ItemKey> Clone for SelectApi<K> {
@@ -157,18 +148,21 @@ impl<K: kivact_core::state::ItemKey> Copy for SelectApi<K> {}
 #[track_caller]
 pub fn use_select<K: kivact_core::state::ItemKey>(
     items: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl kivact_core::state::IntoBinding<Option<K>>,
+    selected: kivact_core::state::Signal<Option<K>>,
+    open: kivact_core::state::Signal<bool>,
 ) -> SelectApi<K> {
     let options = items.into_value();
-    let original = selected.into_binding();
+    let original = selected;
     let edit = crate::EditSession::new(move |value| original.set(value));
     let selected = kivact_core::state::binding(original.into_value(), move |value: Option<K>| {
         edit.once(original.get_untracked(), || original.set(value))
     });
     let preview: Var<Option<kivact_core::state::Callback<Option<K>>>> = var(None);
     let session = machine(
-        machine::State::Closed {
-            typeahead: Typeahead::default(),
+        if open.get_untracked() {
+            machine::State::open_with(machine::Opening::default())
+        } else {
+            machine::State::closed()
         },
         || machine::Machine::<K>::new(),
         move |_, effect| match effect {
@@ -179,24 +173,13 @@ pub fn use_select<K: kivact_core::state::ItemKey>(
             }
         },
     );
-    let open = binding(
-        memo(move || {
-            session
-                .state()
-                .with(|state| matches!(state, machine::State::Open { .. }))
-        }),
-        move |open| {
-            session.send(if open {
-                machine::Event::Open(machine::OpenedBy::Pointer)
-            } else {
-                machine::Event::Close
-            });
-        },
-    );
-    let typed = binding(
-        memo(move || session.state().with(|state| state.typeahead().clone())),
-        move |typed| session.send(machine::Event::Typeahead(typed)),
-    );
+    session.feed(open, |shown| {
+        if shown {
+            machine::Event::Opened
+        } else {
+            machine::Event::Closed
+        }
+    });
     let highlight = binding(
         memo(move || {
             session.state().with(|state| match state {
@@ -215,25 +198,24 @@ pub fn use_select<K: kivact_core::state::ItemKey>(
         }),
         move |key| session.send(machine::Event::Hover(key)),
     );
+    let settings = OptionsCell::new(SelectOptions {
+        arrow_open: false.into_value(),
+        keep_trigger_focus: true.into_value(),
+    });
+    let retained = retained_focus(settings, session);
+    let (closed, list) = trigger_and_list(options, selected, retained, highlight);
     SelectApi {
-        content_state: signal(None),
         edit,
         options,
         selected,
         placeholder: signal(message("select.placeholder", "Select…")),
         preview,
         popup: use_popup(open).anchor_starts_focus_range(true),
-        // The closed trigger moves the selection through the logical order,
-        // including options that are not mounted.
-        closed: group(options, selected).shared_typeahead(typed),
-        settings: OptionsCell::new(SelectOptions {
-            arrow_open: false.into_value(),
-            keep_trigger_focus: true.into_value(),
-        }),
+        open,
+        closed,
+        settings,
         session,
-        list: group(options, selected)
-            .shared_typeahead(typed)
-            .shared_highlight(highlight),
+        list,
         hovered,
     }
 }
@@ -246,26 +228,6 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
     ) -> Self {
         self.edit.on_edit(f);
         self
-    }
-    /// Drawing state of the mounted trigger.
-    pub fn trigger_state(self) -> Value<PopupState> {
-        self.popup.trigger_state()
-    }
-    /// Drawing state of the mounted option surface.
-    pub fn content_state(self) -> Value<PopupState> {
-        memo(move || {
-            self.content_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(PopupState {
-                    input: kivact_core::custom::PartState::default(),
-                    open: self.is_open().get(),
-                })
-        })
-    }
-    /// Drawing state of an individual option.
-    pub fn item_state(self, key: K) -> Value<ListItemState> {
-        self.list.item_state(key)
     }
 
     /// Open on a bare arrow instead of changing the closed selection.
@@ -284,7 +246,6 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
         let enabled = enabled.into_value();
         self.settings
             .update(|options| options.keep_trigger_focus = enabled);
-        self.list.retain_focus(enabled);
         self.popup = self.popup.anchor_starts_focus_range(enabled);
         self
     }
@@ -308,23 +269,12 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
     /// what the binding receives. Setup only.
     ///
     /// ```no_run
-    /// # mod kivact {
-    /// #     //! Role: Supply facade paths for this documentation example.
-    /// # pub use kivact_core::{view, state, style};
-    /// # pub mod prelude {
-    /// # //! Role: Supply the canonical imports used by this documentation example.
-    /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-    /// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-    /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-    /// # }
-    /// #     pub extern crate kivact_interaction as interaction;
-    /// # }
     /// use kivact::interaction::{ListItem, use_select};
     /// use kivact::prelude::*;
     ///
     /// fn theme_picker(chosen: Signal<Option<&'static str>>, shown: Signal<&'static str>) {
     ///     let options = vec![ListItem::new("dark", "Dark"), ListItem::new("light", "Light")];
-    ///     let themes = use_select(options, chosen).on_active_change(move |key| {
+    ///     let themes = use_select(options, chosen, signal(false)).on_active_change(move |key| {
     ///         shown.set(key.or(chosen.get_untracked()).unwrap_or("dark"));
     ///     });
     ///     let _ = themes;
@@ -393,26 +343,49 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
             )
         });
         if !in_sheet {
-            self.session.send(machine::Event::OpenSheet);
+            self.open_with(machine::Opening {
+                opened_by: machine::OpenedBy::Pointer,
+                surface: machine::Surface::Sheet,
+            });
         }
     }
 
     /// Show the options in the popover. Nothing changes while they show.
     pub fn show(self) {
         if !self.is_open().get_untracked() {
-            self.open_binding().set(true);
+            self.open_with(machine::Opening::default());
         }
+    }
+
+    /// Note the details of the next opening, then write the open state. The
+    /// machine follows the write; an open list only takes the surface.
+    fn open_with(self, opening: machine::Opening) {
+        self.session.send(machine::Event::Prepare(opening));
+        if !self.open.get_untracked() {
+            self.open.set(true);
+        }
+    }
+
+    /// The list's floating surface with its content, mounted at the trigger
+    /// while the list is open, in a fresh owner on every opening.
+    #[track_caller]
+    pub fn surface<V: kivact_core::view::IntoView>(
+        self,
+        placement: kivact_core::view::Placement,
+        content: impl Fn() -> V + 'static,
+    ) -> kivact_core::view::View {
+        kivact_core::view::show(self.is_open(), move || {
+            kivact_core::view::overlay(self.popup.anchor_ref(), placement, content())
+                .with_node(|node| node.part(self.content()))
+        })
+        .into_view()
     }
 
     /// Hide the options as [`PopupCloseReason::Programmatic`]. Nothing
     /// changes while they are hidden.
     pub fn hide(self) {
-        self.popup.hide(PopupCloseReason::Programmatic);
-    }
-
-    /// The binding shared with an alternative select surface.
-    pub fn open_binding(self) -> Binding<bool> {
-        self.popup.open_binding()
+        self.session.send(machine::Event::Closing);
+        self.popup.close(PopupCloseReason::Programmatic);
     }
 
     /// Show hidden options and hide shown ones.
@@ -444,7 +417,6 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
         let label = self.label();
         let popup = self.popup;
         let closed = self.closed;
-        let session = self.session;
         let arrow_open = memo(move || {
             self.settings
                 .value()
@@ -471,10 +443,10 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                     }
                 })
                 .a11y_action(kivact_core::view::A11yAction::Expand, move |_| {
-                    popup.open_binding().set(true)
+                    self.open_with(machine::Opening::default())
                 })
                 .a11y_action(kivact_core::view::A11yAction::Collapse, move |_| {
-                    popup.hide(PopupCloseReason::Accessibility)
+                    popup.close(PopupCloseReason::Accessibility)
                 })
                 .role(Role::ComboBox)
                 .value_text(label)
@@ -484,7 +456,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                         // The focus is back on the trigger while the list is open
                         // (Shift+Tab, or a click on it): the list's keys apply.
                         return if event.key() == Key::Escape || is_alt_up(&event) {
-                            popup.hide(PopupCloseReason::Escape);
+                            popup.close(PopupCloseReason::Escape);
                             Handled::Yes
                         } else if retained.get() {
                             retained_key(self.list, popup, event)
@@ -498,7 +470,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                         && matches!(event.key(), Key::ArrowDown | Key::ArrowUp);
                     let f4 = event.key() == Key::F(4) && !m.ctrl && !m.alt && !m.meta;
                     if alt_arrow || f4 {
-                        popup.open_binding().set(true);
+                        self.open_with(machine::Opening::default());
                         return Handled::Yes;
                     }
                     if m.ctrl || m.alt || m.meta {
@@ -508,7 +480,10 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                         && !m.shift
                         && matches!(event.key(), Key::ArrowDown | Key::ArrowUp)
                     {
-                        session.send(machine::Event::Open(machine::OpenedBy::Key(event.key())));
+                        self.open_with(machine::Opening {
+                            opened_by: machine::OpenedBy::Key(event.key()),
+                            surface: machine::Surface::Popover,
+                        });
                         return Handled::Yes;
                     }
                     closed.key_selection(&event)
@@ -603,7 +578,6 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                     .with(|options| options.keep_trigger_focus.get())
             })
         };
-        list.retain_focus(keep_trigger_focus);
         let shown = popup.is_open();
         let base = if sheet {
             let input = part(move |input| PopupState {
@@ -617,14 +591,13 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
             popup.content()
         };
         let part_state = base.state();
-        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             let content = host.part(base);
             let content = content
                 .role(Role::ListBox)
                 .on_key(move |event: KeyEvent| {
                     if !sheet && (event.key() == Key::Escape || is_alt_up(&event)) {
-                        popup.hide(PopupCloseReason::Escape);
+                        popup.close(PopupCloseReason::Escape);
                         return Handled::Yes;
                     }
                     Handled::No
@@ -633,7 +606,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                 // release, aimed at the option that has the focus now.
                 .on_key_up(move |event: KeyEvent| {
                     if !sheet && event.key() == Key::Tab {
-                        popup.hide(PopupCloseReason::Tab);
+                        popup.close(PopupCloseReason::Tab);
                         Handled::Yes
                     } else {
                         Handled::No
@@ -641,7 +614,10 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                 })
                 .on_attach(move |_| {
                     if sheet {
-                        session.send(machine::Event::OpenSheet);
+                        session.send(machine::Event::Prepare(machine::Opening {
+                            opened_by: machine::OpenedBy::Pointer,
+                            surface: machine::Surface::Sheet,
+                        }));
                     }
                     if preview.get().is_some() {
                         track_preview(list, hovered, session);
@@ -684,32 +660,27 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
     fn item_in(self, key: K, sheet: bool) -> Part<ListItemState> {
         let SelectApi {
             popup,
+            open,
             list,
             hovered,
+            settings,
             ..
         } = self;
-        let keep_trigger_focus = if sheet {
-            false.into_value()
-        } else {
-            memo(move || {
-                self.settings
+        let keep_trigger_focus = move || {
+            !sheet
+                && settings
                     .value()
                     .with(|options| options.keep_trigger_focus.get())
-            })
         };
         let member = list.base_item(key.clone(), false);
-        let base = member;
-        let active_key = key.clone();
-        let popup_selected = memo(move || {
-            list.active()
-                .with(|active| active.as_ref() == Some(&active_key))
-        });
-        let part_state = base.state();
+        let active_key = list.active_key();
+        let part_state = member.state();
         Part::new(part_state, move |host| {
             let option_ref = kivact_core::view::node_ref();
-            let member = host.part(base).node_ref(option_ref);
-            let member = if keep_trigger_focus.get() {
-                member.selected(popup_selected)
+            let member = host.part(member).node_ref(option_ref);
+            let member = if keep_trigger_focus() {
+                let selected_key = key.clone();
+                member.selected(move || active_key.is(&selected_key))
             } else {
                 member
             };
@@ -719,16 +690,16 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                 .on_press(move || {
                     if list.select_mounted(invoke_key.clone()) {
                         if sheet {
-                            popup.open_binding().set(false);
+                            open.set(false);
                         } else {
-                            popup.hide(PopupCloseReason::Selection);
+                            popup.close(PopupCloseReason::Selection);
                         }
                     }
                 })
                 .on_pointer(move |event: PointerEvent| {
                     match event.phase() {
                         PointerPhase::Enter | PointerPhase::Move => {
-                            if keep_trigger_focus.get() {
+                            if keep_trigger_focus() {
                                 list.highlight_mounted(hover_key.clone());
                             } else {
                                 hovered.set(Some(hover_key.clone()));
@@ -770,7 +741,7 @@ fn retained_key<K: kivact_core::state::ItemKey>(
             // Consume even an empty list or a repeat. Otherwise the core's
             // default Activate would reach the trigger and toggle the popup.
             if !event.repeat() && active.is_some_and(|key| list.select_mounted(key)) {
-                popup.hide(PopupCloseReason::Selection);
+                popup.close(PopupCloseReason::Selection);
             }
             return Handled::Yes;
         }
@@ -797,11 +768,57 @@ fn is_alt_up(event: &KeyEvent) -> bool {
     event.key() == Key::ArrowUp && m.alt && !m.ctrl && !m.meta
 }
 
+/// Whether the open list leaves the focus on the trigger: the trigger keeps
+/// it, except in the sheet, whose options take the focus.
+fn retained_focus<K: kivact_core::state::ItemKey>(
+    settings: OptionsCell<SelectOptions>,
+    session: MachineHandle<machine::Machine<K>>,
+) -> Value<bool> {
+    memo(move || {
+        settings
+            .value()
+            .with(|options| options.keep_trigger_focus.get())
+            && !session.state().with(|state| {
+                matches!(
+                    state,
+                    machine::State::Open {
+                        surface: machine::Surface::Sheet,
+                        ..
+                    }
+                )
+            })
+    })
+}
+
+/// The closed trigger and the open list over the same options. The list
+/// leaves the focus on the trigger while `retained` is true, and continues
+/// the closed trigger's type-to-find prefix.
+fn trigger_and_list<K: kivact_core::state::ItemKey>(
+    options: Value<Vec<ListItem<K>>>,
+    selected: Signal<Option<K>>,
+    retained: Value<bool>,
+    highlight: Signal<Option<K>>,
+) -> (ListApi<K>, ListApi<K>) {
+    // The closed trigger moves the selection through the logical order,
+    // including options that are not mounted; the open list continues
+    // its type-to-find prefix.
+    let closed = group(options, selected);
+    let list = use_list_retaining(
+        options,
+        Selection::Single(selected),
+        ListOptions::listbox(),
+        retained,
+    )
+    .typeahead_from(closed)
+    .shared_highlight(highlight);
+    (closed, list)
+}
+
 /// A group over the options with the listbox policy: Up and Down stop at the
 /// ends and moving never selects on its own.
 fn group<K: kivact_core::state::ItemKey>(
     options: Value<Vec<ListItem<K>>>,
-    selected: Binding<Option<K>>,
+    selected: Signal<Option<K>>,
 ) -> ListApi<K> {
     use_list(options, Selection::Single(selected), ListOptions::listbox())
 }
@@ -813,7 +830,7 @@ fn group<K: kivact_core::state::ItemKey>(
 /// This is the only sender of machine::Event::Preview.
 fn track_preview<K: kivact_core::state::ItemKey>(
     list: ListApi<K>,
-    hovered: Binding<Option<K>>,
+    hovered: Signal<Option<K>>,
     session: MachineHandle<machine::Machine<K>>,
 ) {
     let active = list.active();

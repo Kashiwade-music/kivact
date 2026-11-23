@@ -3,8 +3,8 @@
 use std::panic::Location;
 
 use kivact_engine::api::PropValue;
-use kivact_runtime::EffectKind;
 use kivact_runtime::Prop as InputProp;
+use kivact_runtime::driver::EffectKind;
 use kivact_types::NodeId;
 
 use crate::view::descriptor::Mcx;

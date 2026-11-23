@@ -5,10 +5,10 @@
 //! shared; each window keeps its own model.
 
 use super::reader::Reader;
-use crate::contract::{
-    DevtoolsKeys, DevtoolsOverlay, HostEvent, HostRequest, NodeKind, SceneLayer,
-};
-use crate::model::{AppModel, DeferredRequest};
+#[cfg(feature = "devtools")]
+use crate::contract::{DevtoolsKeys, DevtoolsOverlay};
+use crate::contract::{HostEvent, HostRequest, NodeKind, SceneLayer};
+use crate::model::AppModel;
 use crate::mutation::WriteStats;
 use kivact_types::{
     DrawList, NodeId, PlatformResult, Point, PointerId, RegionId, RequestId, Revision, Size,
@@ -18,16 +18,20 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
+// xtask-allow(state): independent: app (the window models) and engine (Arvane's text) are shared handles set by Writer::new and never reassigned; each write borrows them for its duration only
 /// Owned, cloneable write access to the engine's models, given to kivact for
 /// startup. Every write applies at once; [`Writer::commit`] ends a revision.
 #[derive(Clone)]
 pub struct Writer {
     pub(super) app: Rc<RefCell<AppModel>>,
-    pub(super) engine: Rc<RefCell<arvane::Engine>>,
+    pub(super) engine: Rc<RefCell<arvane_text::TextEngine>>,
 }
 
 impl Writer {
-    pub(crate) fn new(app: &Rc<RefCell<AppModel>>, engine: &Rc<RefCell<arvane::Engine>>) -> Self {
+    pub(crate) fn new(
+        app: &Rc<RefCell<AppModel>>,
+        engine: &Rc<RefCell<arvane_text::TextEngine>>,
+    ) -> Self {
         Writer {
             app: Rc::clone(app),
             engine: Rc::clone(engine),
@@ -63,12 +67,13 @@ impl Writer {
         let AppModel {
             windows, writes, ..
         } = &mut *app;
-        let Some(model) = windows.get_mut(&window) else {
+        let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) else {
             return;
         };
         debug_assert!(!model.tree.contains(id), "node ids are unique");
         model.create(id, kind);
         writes.create(id);
+        model.log.tree_upserted(model.window, [id]);
     }
 
     /// Prepare one event immediately before dispatch, after earlier callbacks.
@@ -110,7 +115,7 @@ impl Writer {
     /// another way than a release or a `Cancel` of the engine's).
     pub fn forget_adopted_pointer(&self, pointer: PointerId) {
         let app = self.app.borrow();
-        for model in app.windows.values() {
+        for model in app.windows.values().map(|w| &w.model) {
             model.admission.forget_adoption(pointer);
         }
     }
@@ -125,31 +130,14 @@ impl Writer {
     /// Keep an active touch contact routed to its initial control.
     pub fn reserve_touch_gesture(&self, pointer: PointerId) {
         let mut app = self.app.borrow_mut();
-        for model in app.windows.values_mut() {
+        for model in app.windows.values_mut().map(|w| &mut w.model) {
             model.reserve_touch_gesture(pointer);
         }
     }
 
     /// Totals of the client's mutations and the last committed revision.
     pub fn stats(&self) -> WriteStats {
-        let app = self.app.borrow();
-        let stats = app.writes().stats;
-        #[cfg(feature = "testing")]
-        let stats = WriteStats {
-            a11y_constructed: app
-                .windows
-                .values()
-                .map(|model| model.a11y.constructed)
-                .sum(),
-            a11y_published: app.windows.values().map(|model| model.a11y.published).sum(),
-            a11y_enumerated: app
-                .windows
-                .values()
-                .map(|model| model.a11y.enumerated)
-                .sum(),
-            ..stats
-        };
-        stats
+        super::stats::stats_of(&self.app.borrow())
     }
 
     /// Operations awaiting a revision, grouped by changed node.
@@ -173,7 +161,7 @@ impl Writer {
         let AppModel {
             windows, writes, ..
         } = &mut *app;
-        let Some(m) = windows.get_mut(&window) else {
+        let Some(m) = windows.get_mut(&window).map(|w| &mut w.model) else {
             return;
         };
         debug_assert!(m.tree.contains(parent) && m.tree.contains(id));
@@ -187,14 +175,19 @@ impl Writer {
             return;
         }
         m.insert(parent, id, before, true);
-        writes.structural(id);
+        writes.structural();
+        m.log.tree_upserted(m.window, [parent, id]);
     }
 
     /// Move the attached node `id` before a sibling (append if `None`).
     pub fn move_before(&self, id: NodeId, before: Option<NodeId>) {
         self.app.borrow_mut().with_node(id, |model, writes| {
+            let parent = model.tree().get(id).and_then(|n| model.tree().parent_id(n));
             model.move_before(id, before);
-            writes.structural(id);
+            writes.structural();
+            model
+                .log
+                .tree_upserted(model.window, parent.into_iter().chain([id]));
         });
     }
 
@@ -209,9 +202,11 @@ impl Writer {
         self.app
             .borrow_mut()
             .with_node(id, |model, writes| {
+                let parent = model.tree().get(id).and_then(|n| model.tree().parent_id(n));
                 let removed = model.tree().subtree(id);
                 model.remove(id, pop_layout, notify);
-                writes.structural(id);
+                writes.structural();
+                model.log.tree_upserted(model.window, parent);
                 removed
             })
             .unwrap_or_default()
@@ -228,7 +223,8 @@ impl Writer {
                 return;
             }
             model.set_scene(id, layer, scene);
-            writes.scene(id);
+            writes.scene();
+            model.log.tree_upserted(model.window, [id]);
         });
     }
 
@@ -244,10 +240,10 @@ impl Writer {
         let AppModel {
             windows, writes, ..
         } = &mut *app;
-        let Some(model) = windows.get_mut(&window) else {
+        let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) else {
             return;
         };
-        writes.command(Some(id.node));
+        writes.command();
         model.focus_request(id, request, visible);
     }
 
@@ -257,8 +253,8 @@ impl Writer {
         let AppModel {
             windows, writes, ..
         } = &mut *app;
-        if let Some(model) = windows.get_mut(&window) {
-            writes.command(None);
+        if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
+            writes.command();
             model.set_focus(None);
         }
     }
@@ -272,9 +268,9 @@ impl Writer {
         easing: Option<kivact_types::Easing>,
     ) {
         self.app.borrow_mut().with_node(id, |m, writes| {
-            writes.command(Some(id));
+            writes.command();
             let Some(n) = m.node(id) else { return };
-            let start = n.scroll();
+            let start = m.tree.scroll_of(id);
             let target = if relative {
                 Point {
                     x: start.x + point.x,
@@ -315,11 +311,10 @@ impl Writer {
     /// Select every character of a text input.
     pub fn select_all(&self, id: NodeId) {
         self.app.borrow_mut().with_node(id, |model, writes| {
-            writes.command(Some(id));
+            writes.command();
             model.edit_input(id, |e| {
                 e.move_to(0, false);
                 e.move_to(e.value().len(), true);
-                false
             });
         });
     }
@@ -327,7 +322,7 @@ impl Writer {
     /// Scroll the container `id` to `offset`.
     pub fn scroll_to(&self, id: NodeId, offset: Point) {
         self.app.borrow_mut().with_node(id, |model, writes| {
-            writes.command(Some(id));
+            writes.command();
             model.scroll_to(id, offset);
         });
     }
@@ -339,7 +334,7 @@ impl Writer {
     /// `Wheel` no handler handled with this write.
     pub fn scroll_by(&self, id: NodeId, delta: Point) {
         self.app.borrow_mut().with_node(id, |model, writes| {
-            writes.command(Some(id));
+            writes.command();
             model.scroll_from(id, delta, None);
         });
     }
@@ -347,7 +342,7 @@ impl Writer {
     /// Scroll every scrollable ancestor of `id` so that it is visible.
     pub fn scroll_into_view(&self, id: NodeId) {
         self.app.borrow_mut().with_node(id, |model, writes| {
-            writes.command(Some(id));
+            writes.command();
             model.reveal(id);
         });
     }
@@ -357,7 +352,7 @@ impl Writer {
     pub fn observe_layout(&self, id: NodeId, on: bool) {
         self.app.borrow_mut().with_node(id, |model, writes| {
             if model.observe_layout(id, on) {
-                writes.command(Some(id));
+                writes.command();
             }
         });
     }
@@ -376,8 +371,8 @@ impl Writer {
         let AppModel {
             windows, writes, ..
         } = &mut *app;
-        if let Some(model) = windows.get_mut(&window) {
-            writes.command(None);
+        if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
+            writes.command();
             crate::model::drawables::apply_request(model, request);
         }
     }
@@ -391,10 +386,11 @@ impl Writer {
             .register_font(&mut self.engine.borrow_mut(), &font);
         if matches!(result, PlatformResult::Fonts(_)) {
             let fonts = app.assets.borrow().fonts();
-            for model in app.windows.values_mut() {
+            for model in app.windows.values_mut().map(|w| &mut w.model) {
                 model.fonts_added();
                 model.update_env(|env, _| env.fonts = fonts);
             }
+            app.font_generation += 1;
         }
         app.events.push(HostEvent::EffectResult { request, result });
     }
@@ -411,65 +407,20 @@ impl Writer {
                 let AppModel {
                     windows, writes, ..
                 } = &mut *app;
-                if let Some(model) = windows.get_mut(&window) {
-                    writes.command(None);
+                if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
+                    writes.command();
                     model.snapshots.push((request, node));
                 }
             }
             HostRequest::RegisterFont(font) => self.register_font(&mut app, request, font),
-            HostRequest::Platform {
-                window,
-                request: platform,
-            } => {
-                let AppModel {
-                    windows, writes, ..
-                } = &mut *app;
-                if let Some(model) = windows.get_mut(&window) {
-                    writes.command(None);
-                    model
-                        .effects
-                        .push((request, DeferredRequest::Platform(platform)));
-                }
-            }
             drawable @ (HostRequest::DrawableExport { .. }
             | HostRequest::SetDrawableGeometry { .. }) => apply_drawable_effect(&mut app, drawable),
-            HostRequest::ReducedMotion(value) => {
-                queue_main(&mut app, request, DeferredRequest::ReducedMotion(value))
-            }
-            HostRequest::Inject { window, inputs } => {
-                let AppModel {
-                    windows, writes, ..
-                } = &mut *app;
-                if let Some(model) = windows.get_mut(&window) {
-                    writes.command(None);
-                    model
-                        .effects
-                        .push((request, DeferredRequest::Inject(inputs)));
-                }
-            }
-            HostRequest::Emulate(emulation) => {
-                queue_main(&mut app, request, DeferredRequest::Emulate(emulation))
-            }
-            HostRequest::TimeScale(scale) => {
-                queue_main(&mut app, request, DeferredRequest::TimeScale(scale))
-            }
-            HostRequest::DemandGpu { window } => {
-                if let Some(model) = app.windows.get_mut(&window) {
-                    model.effects.push((request, DeferredRequest::DemandGpu));
-                }
-            }
-            HostRequest::UnhandledKey { window, code } => {
-                if let Some(model) = app.windows.get_mut(&window) {
-                    model
-                        .effects
-                        .push((request, DeferredRequest::UnhandledKey(code)));
-                }
-            }
+            effect => queue_effect(&mut app, request, effect),
         }
     }
 
-    // xtask-allow(internal-contract): the core's DevTools draws its overlay over a window
     #[doc(hidden)]
+    #[cfg(feature = "devtools")]
     /// Set the DevTools overlay of `window`; the host applies it after the
     /// turn.
     pub fn set_devtools_overlay(&self, window: WindowId, overlay: DevtoolsOverlay) {
@@ -478,8 +429,8 @@ impl Writer {
             .push_devtools_change(crate::contract::DevtoolsChange::Overlay(window, overlay));
     }
 
-    // xtask-allow(internal-contract): the core's DevTools owns pick mode
     #[doc(hidden)]
+    #[cfg(feature = "devtools")]
     /// Set the window in pick mode (`None` leaves it).
     pub fn set_pick(&self, pick: Option<WindowId>) {
         self.app
@@ -487,8 +438,8 @@ impl Writer {
             .push_devtools_change(crate::contract::DevtoolsChange::Pick(pick));
     }
 
-    // xtask-allow(internal-contract): the core's DevTools configures the engine keys
     #[doc(hidden)]
+    #[cfg(feature = "devtools")]
     /// Set the keys that open the DevTools and those that open it in pick mode.
     pub fn set_devtools_keys(&self, keys: DevtoolsKeys) {
         self.app
@@ -496,7 +447,6 @@ impl Writer {
             .push_devtools_change(crate::contract::DevtoolsChange::Keys(keys));
     }
 
-    // xtask-allow(internal-contract): the core's DevTools turns the engine records on
     #[doc(hidden)]
     /// Turn the engine's sync and frame records on or off.
     pub fn set_engine_recording(&self, syncs: bool, frames: bool) {
@@ -515,8 +465,8 @@ impl Writer {
         let AppModel {
             windows, writes, ..
         } = &mut *app;
-        if let Some(model) = windows.get_mut(&window) {
-            writes.command(None);
+        if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
+            writes.command();
             model.window_request = Some((title, min_size, resizable));
         }
     }
@@ -538,9 +488,9 @@ impl Writer {
             external_windows,
             ..
         } = &mut *app;
-        if let Some(model) = windows.get_mut(&window) {
+        if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
             external_windows.insert(image, window);
-            writes.command(None);
+            writes.command();
             model
                 .external_writes
                 .push(crate::model::ExternalWrite::Import(image, textures));
@@ -557,8 +507,8 @@ impl Writer {
         let AppModel {
             windows, writes, ..
         } = &mut *app;
-        if let Some(model) = windows.get_mut(&window) {
-            writes.command(None);
+        if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
+            writes.command();
             model
                 .external_writes
                 .push(crate::model::ExternalWrite::Drop(image));
@@ -569,8 +519,30 @@ impl Writer {
     /// which equals the host clock at time scale 1.
     pub fn request_frame(&self, at_ns: u64) {
         let mut app = self.app.borrow_mut();
-        app.writes.command(None);
+        app.writes.command();
         app.client_frames.0.insert(at_ns);
+    }
+
+    /// The client dispatches `event` now (before its handlers run): a text
+    /// edit stops holding back its node's input-value echoes.
+    pub fn deliver(&self, event: &HostEvent) {
+        self.app.borrow_mut().delivered(event);
+    }
+
+    /// Watch (or stop watching) the visibility facts of `id`: a commit that
+    /// changes them queues `HostEvent::NodeFlagsChanged`.
+    pub fn watch_flags(&self, id: NodeId, watch: bool) {
+        let mut app = self.app.borrow_mut();
+        if watch {
+            let flags = app
+                .window_of(id)
+                .and_then(|window| app.model(window))
+                .map(|model| model.node_flags(id))
+                .unwrap_or_default();
+            app.watched.insert(id, flags);
+        } else {
+            app.watched.remove(&id);
+        }
     }
 
     /// End the writes of one revision and return it: every window prepares
@@ -578,15 +550,21 @@ impl Writer {
     /// window syncs.
     pub fn commit(&self) -> Revision {
         let mut app = self.app.borrow_mut();
-        for model in app.windows.values_mut() {
+        for model in app.windows.values_mut().map(|w| &mut w.model) {
             model.prepare_commit();
         }
+        let touched: usize = app
+            .windows
+            .values()
+            .map(|w| w.model.changes.touched().count())
+            .sum();
         let revision = Revision(app.events.applied().0 + 1);
         app.events.commit(revision);
-        app.writes_mut().commit(revision);
-        for model in app.windows.values_mut() {
+        app.writes_mut().commit(revision, touched);
+        for model in app.windows.values_mut().map(|w| &mut w.model) {
             model.sync();
         }
+        app.report_flags();
         revision
     }
 
@@ -596,15 +574,32 @@ impl Writer {
     }
 }
 
-/// Queue `effect` for the main window's model.
-fn queue_main(app: &mut AppModel, request: RequestId, effect: DeferredRequest) {
-    let AppModel {
-        windows, writes, ..
-    } = app;
-    if let Some(model) = windows.get_mut(&WindowId::MAIN) {
-        writes.command(None);
-        model.effects.push((request, effect));
+/// Queue `effect` for the host after the turn; a window's request only
+/// while the window is open. A request that answers (all but a GPU
+/// demand and an unhandled key) is a command of the write.
+fn queue_effect(app: &mut AppModel, request: RequestId, effect: HostRequest) {
+    let window = match &effect {
+        HostRequest::Platform { window, .. }
+        | HostRequest::RequestWindowSize { window, .. }
+        | HostRequest::Inject { window, .. }
+        | HostRequest::DemandGpu { window }
+        | HostRequest::UnhandledKey { window, .. } => Some(*window),
+        _ => None,
+    };
+    if window.is_some_and(|w| !app.windows.contains_key(&w)) {
+        return;
     }
+    if !matches!(
+        effect,
+        HostRequest::DemandGpu { .. } | HostRequest::UnhandledKey { .. }
+    ) {
+        app.writes.command();
+    }
+    // The shell events of the window come from this injection until the shell reports it delivered.
+    if let HostRequest::Inject { window, .. } = &effect {
+        app.injecting.entry(*window).or_default().push_back(request);
+    }
+    app.effects.push((request, effect));
 }
 
 /// Apply a drawable export or geometry request for the drawable's window.
@@ -617,8 +612,8 @@ fn apply_drawable_effect(app: &mut AppModel, drawable: HostRequest) {
     let AppModel {
         windows, writes, ..
     } = app;
-    if let Some(model) = windows.get_mut(&window) {
-        writes.command(None);
+    if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
+        writes.command();
         crate::model::drawables::apply_request(model, drawable);
     }
 }
@@ -627,7 +622,7 @@ fn apply_drawable_effect(app: &mut AppModel, drawable: HostRequest) {
 fn drawable_window(app: &AppModel, id: kivact_types::DrawableId) -> WindowId {
     app.windows
         .iter()
-        .find(|(_, model)| model.drawables.get(id).is_some())
+        .find(|(_, window)| window.model.drawables.get(id).is_some())
         .map(|(id, _)| *id)
         .unwrap_or(WindowId::MAIN)
 }

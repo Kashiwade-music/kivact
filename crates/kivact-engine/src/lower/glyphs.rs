@@ -18,20 +18,17 @@
 //!   so culling never drops a shadow's pixels.
 
 use crate::lower::effects::Tint;
-use kivact_types::render::{GlyphStroke, Paint, RenderCmd as D};
+use arvane_protocol::{GlyphStroke, RasterPaint, RenderCmd as D};
 use kivact_types::{ComputedTextStyle, LineJoin, PaintOrder, Rect, Stroke, TextMetrics, TextRun};
 use kivact_types::{Point, Rgba, TextShadow};
 
 /// How a shaped text is colored as it is drawn.
 #[derive(Default)]
 pub(crate) struct Colors {
-    // xtask-allow(state-fields): option: absent means the shaped run's own color
     /// The paint of every glyph run (`None`: the shaped run's own color).
-    pub(crate) glyphs: Option<Paint>,
-    // xtask-allow(state-fields): option: absent means the text's own color
+    pub(crate) glyphs: Option<RasterPaint>,
     /// Every decoration line's color (plain text's `currentColor`).
     pub(crate) decorations: Option<Rgba>,
-    // xtask-allow(state-fields): option: absent means no outline
     /// The outline of the glyphs (CSS `-webkit-text-stroke`), when there is one.
     pub(crate) outline: Option<GlyphStroke>,
     /// Whether the fill or the outline of the glyphs is painted first.
@@ -47,7 +44,7 @@ impl Colors {
             let width = stroke.width.px(style.font_size);
             width.is_finite().then(|| GlyphStroke {
                 stroke: outline_line(width),
-                paint: Paint::Solid(tint.color(stroke.color)),
+                paint: RasterPaint::Solid(tint.color(stroke.color)),
             })
         });
         self
@@ -66,7 +63,7 @@ fn outline_line(width: f64) -> Stroke {
 /// order (see the module invariants), colored by `colors`.
 pub(crate) fn push_text(
     out: &mut crate::lower::SceneOut,
-    shaped: &kivact_types::render::ShapedText,
+    shaped: &kivact_types::shaped::ShapedText,
     origin: Point,
     colors: &Colors,
     shadows: &[TextShadow],
@@ -87,11 +84,11 @@ pub(crate) fn push_text(
             out.push(crate::lower::effects::blur_group(shadow.blur / 2.0));
         }
         let all = Colors {
-            glyphs: Some(Paint::Solid(color)),
+            glyphs: Some(RasterPaint::Solid(color)),
             decorations: Some(color),
             outline: colors.outline.as_ref().map(|o| GlyphStroke {
                 stroke: o.stroke.clone(),
-                paint: Paint::Solid(color),
+                paint: RasterPaint::Solid(color),
             }),
             order: colors.order,
         };
@@ -112,7 +109,7 @@ pub(crate) fn push_text(
 /// in a shadow (`shadow`) every outline is the shadow's color.
 fn glyphs(
     out: &mut crate::lower::SceneOut,
-    shaped: &kivact_types::render::ShapedText,
+    shaped: &kivact_types::shaped::ShapedText,
     origin: Point,
     colors: &Colors,
     shadow: Option<Rgba>,
@@ -121,7 +118,7 @@ fn glyphs(
         let stroke = match run.stroke {
             Some((width, color)) => Some(GlyphStroke {
                 stroke: outline_line(width),
-                paint: Paint::Solid(shadow.unwrap_or(color)),
+                paint: RasterPaint::Solid(shadow.unwrap_or(color)),
             }),
             None => colors.outline.clone(),
         };
@@ -141,7 +138,7 @@ fn glyphs(
 /// renderers align).
 fn lines(
     out: &mut crate::lower::SceneOut,
-    shaped: &kivact_types::render::ShapedText,
+    shaped: &kivact_types::shaped::ShapedText,
     origin: Point,
     colors: &Colors,
     through: bool,
@@ -162,7 +159,7 @@ fn lines(
             width: line.rect.width,
             height: (line.rect.height * device).round().max(1.0) / device,
         };
-        let paint = kivact_types::render::Paint::Solid(colors.decorations.unwrap_or(line.color));
+        let paint = arvane_protocol::RasterPaint::Solid(colors.decorations.unwrap_or(line.color));
         decoration(out, rect, paint, line.style);
     }
 }
@@ -172,9 +169,7 @@ fn lines(
 pub(crate) fn text_reach(font_size: f64, shadows: &[TextShadow]) -> f64 {
     let shadows = shadows
         .iter()
-        .map(|s| {
-            s.x.abs().max(s.y.abs()) + s.blur.max(0.0) / 2.0 * kivact_types::render::SHADOW_REACH
-        })
+        .map(|s| s.x.abs().max(s.y.abs()) + s.blur.max(0.0) / 2.0 * arvane_protocol::SHADOW_REACH)
         .fold(0.0f64, f64::max);
     font_size + shadows
 }
@@ -189,7 +184,7 @@ pub(crate) fn inherits(run: &TextRun) -> bool {
 /// run without a family or a line height in the `inherited` text style's
 /// (`None`: the defaults).
 pub(crate) fn run_style(
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     run: &TextRun,
     inherited: Option<&ComputedTextStyle>,
 ) -> kivact_types::ComputedTextStyle {
@@ -207,14 +202,14 @@ pub(crate) fn run_style(
         family: crate::lower::assets::family(engine, family),
         italic: run.italic,
         letter_spacing: if run.letter_spacing.is_finite() {
-            kivact_types::TextLen::Px(run.letter_spacing)
+            kivact_types::TextLength::Px(run.letter_spacing)
         } else {
-            kivact_types::TextLen::Px(0.0)
+            kivact_types::TextLength::Px(0.0)
         },
         word_spacing: if run.word_spacing.is_finite() {
-            kivact_types::TextLen::Px(run.word_spacing)
+            kivact_types::TextLength::Px(run.word_spacing)
         } else {
-            kivact_types::TextLen::Px(0.0)
+            kivact_types::TextLength::Px(0.0)
         },
         kerning: run.kerning,
         features: run.features.clone(),
@@ -234,7 +229,7 @@ pub(crate) fn run_style(
 /// the node's inherited ones), so the size and first baseline are those of
 /// what is drawn; `TextMeasurer` and `LeafTextMeasurer` measure the same.
 pub(crate) fn measure_run(
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     run: &TextRun,
     inherited: Option<&ComputedTextStyle>,
 ) -> TextMetrics {
@@ -243,7 +238,7 @@ pub(crate) fn measure_run(
         return TextMetrics::default();
     }
     engine
-        .text_metrics(run.text.as_str(), &style, None)
+        .measure(run.text.as_str(), &style, None)
         .unwrap_or_default()
 }
 
@@ -254,7 +249,7 @@ pub(crate) fn measure_run(
 /// and what `DrawCmd::Paragraph` draws is what was shaped. `None` when it
 /// cannot be shaped.
 pub(crate) fn shape_run(
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     run: &TextRun,
     inherited: Option<&ComputedTextStyle>,
     max_width: Option<f64>,
@@ -267,9 +262,9 @@ pub(crate) fn shape_run(
     engine.shape(run.text.as_str(), &style, max_width).ok()
 }
 
-/// Shape a scene's text around measured objects using its inherited typography.
+/// Outline a scene's text around measured objects using its inherited typography.
 pub(crate) fn shape_inline_run(
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     run: &TextRun,
     inherited: Option<&ComputedTextStyle>,
     max_width: Option<f64>,
@@ -281,15 +276,15 @@ pub(crate) fn shape_inline_run(
         .ok()
 }
 
-/// Paint one resolved decoration band, retaining its pattern.
+/// RasterPaint one resolved decoration band, retaining its pattern.
 pub(crate) fn decoration(
     out: &mut crate::lower::SceneOut,
     rect: Rect,
-    paint: kivact_types::render::Paint,
+    paint: arvane_protocol::RasterPaint,
     style: kivact_types::TextDecorationStyle,
 ) {
-    use kivact_types::scene::Shape;
-    use kivact_types::{FillRule, LineCap, PathCmd, Stroke, TextDecorationStyle};
+    use kivact_types::scene::Outline;
+    use kivact_types::{FillRule, LineCap, PathCmd, TextDecorationStyle};
     if style == TextDecorationStyle::Solid {
         out.push(D::Rect { rect, fill: paint });
         return;
@@ -326,7 +321,7 @@ pub(crate) fn decoration(
         cmds.push(PathCmd::LineTo(Point::new(rect.x + rect.width, y)));
     }
     out.push(D::StrokeShape {
-        shape: Shape::Path {
+        shape: Outline::Path {
             cmds,
             rule: FillRule::NonZero,
         },

@@ -1,6 +1,6 @@
 //! Role: Theme-wide interaction policy and its per-control options.
 use crate::TouchSliderGesture;
-use crate::menu_policy::{DisabledMenuFocus, MenuPress, SubmenuTiming};
+use crate::menu_policy::{DisabledMenuFocus, SubmenuTiming};
 use crate::tooltip_policy::TooltipTiming;
 use kivact_core::geometry::Edge;
 use kivact_core::motion::{Spring, Transition};
@@ -33,18 +33,15 @@ impl ModifierKey {
 /// which click resets it. Read by the Creative kit's numeric controls.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrubPolicy {
-    // xtask-allow(state-fields): option: absent means the policy has no fine modifier
     /// Held for a finer scrub, arrow key or wheel notch (default Ctrl).
     pub fine: Option<ModifierKey>,
     /// What the fine key multiplies the change by (default 0.1).
     pub fine_factor: f64,
-    // xtask-allow(state-fields): option: absent means the policy has no coarse modifier
     /// Held for a coarser scrub or arrow key (default Shift). The wheel ignores
     /// it: Shift turns a wheel sideways on some platforms.
     pub coarse: Option<ModifierKey>,
     /// What the coarse key multiplies the change by (default 10.0).
     pub coarse_factor: f64,
-    // xtask-allow(state-fields): option: absent means no click resets the value
     /// Held with a primary click to reset the value, as a double click does
     /// (default none).
     pub reset_click: Option<ModifierKey>,
@@ -109,10 +106,6 @@ pub enum SliderTouchMotion {
     },
 }
 
-/// Whether switches in this theme use direct manipulation.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct SwitchDrag(pub bool);
-
 /// Theme opt-in for touch and pen dismissal of standard toast cards.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum ToastSwipe {
@@ -124,11 +117,11 @@ pub enum ToastSwipe {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct InteractionPolicy {
     pub menu: MenuPolicy,
     pub tooltip: TooltipTiming,
-    pub hover_card: crate::HoverCardTiming,
+    pub hover_card: crate::Delays,
     pub drawer: crate::DrawerPolicy,
     pub button: ButtonPolicy,
     pub slider: SliderPolicy,
@@ -140,9 +133,30 @@ pub struct InteractionPolicy {
     pub scrub: ScrubPolicy,
 }
 
+impl Default for InteractionPolicy {
+    fn default() -> Self {
+        Self {
+            menu: MenuPolicy::default(),
+            tooltip: TooltipTiming::default(),
+            hover_card: crate::Delays {
+                open: std::time::Duration::from_millis(600),
+                close: std::time::Duration::from_millis(300),
+            },
+            drawer: crate::DrawerPolicy::default(),
+            button: ButtonPolicy::default(),
+            slider: SliderPolicy::default(),
+            switch: SwitchPolicy::default(),
+            toast: ToastPolicy::default(),
+            select: SelectPolicy::default(),
+            scrub: ScrubPolicy::default(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct MenuPolicy {
-    pub press: MenuPress,
+    /// Whether menus use native press, drag and release selection (default off).
+    pub press: bool,
     pub drift: PressDrift,
     pub submenu: SubmenuTiming,
     pub disabled_focus: DisabledMenuFocus,
@@ -160,7 +174,8 @@ pub struct SliderPolicy {
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SwitchPolicy {
-    pub drag: SwitchDrag,
+    /// Whether switches use direct manipulation (default off).
+    pub drag: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]

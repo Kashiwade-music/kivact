@@ -1,38 +1,31 @@
-//! Role: Catalog page of Trace: lines, collapsible detail and several steps.
+//! Catalog page of Trace: lines, collapsible detail and several steps.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "trace",
-        name: "Trace",
-        description: "処理の手順や思考の経過を折りたたんで表示する部品です。開閉は標準の kivact::ui::disclosure で、Enter、Space、クリックで切り替わります。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("trace.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "lines",
-                "Lines",
-                "trace_line にアイコンと所要時間（description）を添えて並べます。",
-                lines,
-            ),
-            Example::new(
-                "collapsible",
-                "Collapsible",
-                "trace_collapsible に開閉の束縛、行、開くたびに内容を作る関数を渡します。",
-                collapsible,
-            ),
-            Example::new(
-                "steps",
-                "Steps",
-                "行と折りたたみを 1 つの trace にまとめます。",
-                steps,
-            ),
-        ],
-    }
+    Page::new("trace", "Trace", "Components", include_str!("trace.rs"))
+        .description("A component that shows the steps or the progress of thinking, folded away. It opens and closes with the standard kivact::ui::disclosure; Enter, Space and a click switch it.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "lines",
+            "Lines",
+            "trace_line rows, each with an icon and a duration (description), in a row.",
+            lines,
+        ))
+        .example(Example::new(
+            "collapsible",
+            "Collapsible",
+            "trace_collapsible takes the open binding, the lines, and a function that makes the content each time it opens.",
+            collapsible,
+        ))
+        .example(Example::new(
+            "steps",
+            "Steps",
+            "Put the lines and the folding together in one trace.",
+            steps,
+        ))
 }
 
 // example: lines
@@ -60,10 +53,9 @@ fn collapsible() -> impl IntoView {
 // end example
 
 // example: steps
+// xtask-allow(state): independent: first and second are the open bindings of two separate trace collapsibles, each toggled only by its own header
 fn steps() -> impl IntoView {
-    // xtask-allow(state-fields): independent: the open binding of the first trace collapsible, toggled only by its header; the second collapsible has its own binding, so both, either or neither can be open
     let first = signal(true);
-    // xtask-allow(state-fields): independent: the open binding of the second trace collapsible, toggled only by its header; the first collapsible has its own binding, so both, either or neither can be open
     let second = signal(false);
     basic::trace((
         basic::trace_collapsible(

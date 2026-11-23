@@ -1,0 +1,119 @@
+//! Role: The code block recipe state, recipe table and default looks.
+use crate::chat_thread::look::viewport;
+use crate::look_common::{column, row};
+
+use crate::recipe::Look;
+use crate::recipe::recipe_table;
+use kivact_core::style::{Align, FlexDirection, LineHeight, Style, Theme, pct, style};
+use kivact_core::style::{Length, ThemeVar};
+
+/// The font size of a code block's code, in logical px.
+pub static FONT_SIZE_VAR: ThemeVar<f64> = ThemeVar::new("code_block.font_size", 14.0);
+/// [`FONT_SIZE_VAR`] as a length for a style.
+pub const FONT_SIZE: Length = Length::var(&FONT_SIZE_VAR);
+
+/// The line height of a code block's code, in logical px.
+pub static LINE_HEIGHT_VAR: ThemeVar<f64> = ThemeVar::new("code_block.line_height", 22.0);
+/// [`LINE_HEIGHT_VAR`] as a length for a style.
+pub const LINE_HEIGHT: Length = Length::var(&LINE_HEIGHT_VAR);
+
+/// How long a copy button shows its copied state, in milliseconds.
+pub static COPY_FEEDBACK_MS_VAR: ThemeVar<f64> =
+    ThemeVar::new("code_block.copy_feedback_ms", 2000.0);
+
+pub(crate) fn code_root(t: &Theme, s: &Look<CodeBlockState>) -> Style {
+    column(t, s)
+        .border(1, kivact_core::style::color::BORDER)
+        .border_radius(t.get(&kivact_core::style::radius::MD_VAR))
+        .background(kivact_core::style::color::SURFACE)
+        .color(kivact_core::style::color::TEXT)
+}
+
+pub(crate) fn code_header(t: &Theme, s: &Look<CodeBlockState>) -> Style {
+    row(t, s).padding(t.get(&kivact_core::style::space::SM_VAR))
+}
+
+pub(crate) fn code_body(t: &Theme, s: &Look<CodeBlockState>) -> Style {
+    row(t, s)
+        .flex_direction(FlexDirection::RowReverse)
+        .align_items(Align::Start)
+        .min_width(pct(100))
+}
+
+pub(crate) fn code_viewport(t: &Theme, s: &Look<CodeBlockState>) -> Style {
+    viewport(t, s).padding(t.get(&kivact_core::style::space::MD_VAR))
+}
+
+pub(crate) fn code_text(t: &Theme, s: &Look<CodeBlockState>) -> Style {
+    style()
+        .font_family("monospace")
+        .font_size(FONT_SIZE)
+        .line_height(LineHeight::px(t.get(&LINE_HEIGHT_VAR)))
+        .text_wrap(s.wrapped)
+        .flex_grow(1)
+        .min_width(0)
+}
+
+pub(crate) fn code_gutter(t: &Theme, s: &Look<CodeBlockState>) -> Style {
+    code_text(t, s)
+        .flex_grow(0)
+        .flex_shrink(0)
+        .min_width(24)
+        .text_wrap(false)
+        .color(kivact_core::style::color::TEXT_MUTED)
+        .text_align(kivact_core::style::TextAlign::End)
+}
+
+/// Rendered source facts supplied to code-block recipes.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CodeBlockState {
+    pub numbered: bool,
+    pub wrapped: bool,
+    pub collapse: CodeCollapse,
+    pub copied: bool,
+    /// The header has a title, a language label, a copy button or end
+    /// content, besides any collapse toggle.
+    pub has_header_content: bool,
+    pub has_footer: bool,
+}
+
+impl CodeBlockState {
+    /// Whether every line shows.
+    pub fn is_expanded(&self) -> bool {
+        self.collapse != CodeCollapse::Collapsed
+    }
+
+    /// Whether the header row shows: it has content or a collapse toggle.
+    pub fn has_header(&self) -> bool {
+        self.has_header_content || self.collapse != CodeCollapse::Fixed
+    }
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of CodeBlock.
+    CodeBlockTheme {
+        root(root_recipe): CodeBlockState = code_root,
+        header(header_recipe): CodeBlockState = code_header,
+        title(title_recipe): CodeBlockState = crate::look_common::slot,
+        collapse(collapse_recipe): CodeBlockState = crate::look_common::slot,
+        language(language_recipe): CodeBlockState = crate::look_common::muted,
+        copy(copy_recipe): CodeBlockState = crate::look_common::slot,
+        end_content(end_content_recipe): CodeBlockState = crate::look_common::slot,
+        body(body_recipe): CodeBlockState = code_body,
+        viewport(viewport_recipe): CodeBlockState = code_viewport,
+        code(code_recipe): CodeBlockState = code_text,
+        gutter(gutter_recipe): CodeBlockState = code_gutter,
+        footer(footer_recipe): CodeBlockState = crate::look_common::row,
+    }
+}
+
+/// Whether a code block can collapse and, if so, whether it shows every line.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CodeCollapse {
+    /// The block cannot collapse; every line shows.
+    Fixed,
+    /// The block can collapse and shows every line.
+    Expanded,
+    /// The block can collapse and shows its first lines only.
+    Collapsed,
+}

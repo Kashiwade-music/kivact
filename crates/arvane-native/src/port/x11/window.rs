@@ -4,11 +4,10 @@ use super::conn::Native;
 use super::notifier::{MAX_DIMENSION, Notifier};
 use crate::port::embed::child::{ChildPort as _, Shared};
 use crate::port::embed::session::Session;
-use crate::port::embed::surface::ChildSurface;
 use crate::present::CpuSurface;
-use arvane_shell::{ShellError, ShellWindow, SizeReply};
+use arvane_shell::{FrameSink, ImeRequest, ShellError, ShellWindow, SizeReply, WindowSurface};
 use kivact_types::Environment;
-use kivact_types::embed::Visibility;
+use kivact_types::embed::EmbedVisibility;
 use kivact_types::{Capabilities, Cursor, Rect, Size, UnhandledKeys};
 use kivact_types::{PlatformRequest, PlatformResult};
 use std::cell::{Cell, RefCell};
@@ -26,18 +25,14 @@ pub(super) enum ChildRedraw {
     Needed,
 }
 
+// xtask-allow(state): independent: redraw is the dirty bit set by Expose, resize and visibility and cleared by the present; ime is the XIM port and ime_driver the shell IME normalizer that drives it; neither stores the other's facts
 pub(super) struct Window {
     pub(super) shared: Arc<Shared>,
     pub(super) backend: Arc<Notifier>,
     pub(super) session: Rc<Session>,
-    pub(super) width: u32,
-    pub(super) height: u32,
-    pub(super) scale: f64,
     /// The frame period (ns) of the display the window's center is on.
     frame_period_ns: u64,
     on_resize_request: Option<Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>>,
-    /// Whether the child can draw; the only source of `surface_generation`.
-    surface: ChildSurface,
     /// What happens to key presses the editor does not handle.
     pub(super) unhandled_keys: UnhandledKeys,
     pub(super) redraw: Cell<ChildRedraw>,
@@ -60,12 +55,12 @@ impl Window {
         backend: Arc<Notifier>,
         size: (u32, u32),
         scale: f64,
-        visibility: Visibility,
+        visibility: EmbedVisibility,
         unhandled_keys: UnhandledKeys,
         on_resize_request: Option<
             Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>,
         >,
-        waker: arvane_shell::ShellWaker,
+        session: Rc<Session>,
     ) -> Result<Self, ShellError> {
         let (width, height) = size;
         shared.update(width, height, scale, visibility);
@@ -74,20 +69,16 @@ impl Window {
         let frame_period_ns = randr_frame_period(&native, (width, height));
         Ok(Self {
             native,
-            session: Rc::new(Session::new(shared.clone(), waker.clone())),
+            accessibility: super::a11y::Bridge::new(scale, session.waker()),
+            session,
             shared,
             backend,
-            width,
-            height,
-            scale,
             frame_period_ns,
             on_resize_request,
-            surface: ChildSurface::new(visibility),
             unhandled_keys,
             redraw: Cell::new(ChildRedraw::Needed),
             started: Instant::now(),
             cpu: CpuSurface::Released,
-            accessibility: super::a11y::Bridge::new(scale, waker),
             services: super::services::Services::default(),
             ime,
             ime_driver: RefCell::default(),
@@ -95,30 +86,79 @@ impl Window {
             cursors: super::cursor::Cursors::default(),
         })
     }
+    /// An embedded editor's window cannot be raised.
+    fn focus(&mut self) -> Result<(), ShellError> {
+        Err(ShellError::unsupported(
+            "focus_window in an embedded editor",
+        ))
+    }
+
+    fn reduced_motion(&self) -> bool {
+        crate::native_input::reduced_motion()
+    }
+
+    fn ime_purpose(&self, _purpose: kivact_types::InputPurpose) {}
+
+    fn ime_allowed(&self, allowed: bool) {
+        self.ime_driver.borrow_mut().set_allowed(
+            &mut super::ime::Port {
+                ime: &mut self.ime.borrow_mut(),
+                scale: self.shared.scale(),
+            },
+            allowed,
+        );
+    }
+
+    fn soft_keyboard(&self, _: bool) {}
+
+    fn ime_cursor_area(&self, area: Rect) {
+        // Native pixels keep a scale change visible to the shared output cache.
+        let scale = self.shared.scale();
+        let area = Rect {
+            x: area.x * scale,
+            y: area.y * scale,
+            width: area.width * scale,
+            height: area.height * scale,
+        };
+        self.ime_driver.borrow_mut().set_cursor_area(
+            &mut super::ime::Port {
+                ime: &mut self.ime.borrow_mut(),
+                scale: 1.0,
+            },
+            area,
+        );
+    }
+
+    fn ime_text(&self, text: Option<arvane_shell::ShellImeText>) {
+        self.ime_driver.borrow_mut().set_text(
+            &mut super::ime::Port {
+                ime: &mut self.ime.borrow_mut(),
+                scale: self.shared.scale(),
+            },
+            text,
+        );
+    }
+
     pub(super) fn resized(&mut self, width: u32, height: u32) {
-        self.width = width;
-        self.height = height;
-        let visibility = self.shared.applied().visibility;
-        self.shared.update(width, height, self.scale, visibility);
+        let applied = self.shared.applied();
+        self.shared
+            .update(width, height, applied.scale, applied.visibility);
         self.redraw.set(ChildRedraw::Needed);
     }
-    /// Apply a show/hide on the UI thread; the boundary event, if it changed.
-    pub(super) fn set_surface(
-        &mut self,
-        visibility: Visibility,
-    ) -> Option<arvane_shell::ShellEvent> {
-        let mut surface = self.surface;
-        let event = surface.apply(visibility);
-        self.surface = surface;
-        if event.is_some() {
+    /// Apply a show/hide on the UI thread; `true` when the visibility changed.
+    pub(super) fn set_visibility(&mut self, visibility: EmbedVisibility) -> bool {
+        let applied = self.shared.applied();
+        let changed = applied.visibility != visibility;
+        if changed {
             self.shared
-                .update(self.width, self.height, self.scale, visibility);
+                .update(applied.width, applied.height, applied.scale, visibility);
         }
-        event
+        changed
     }
     /// Read the frame period again after a configure; `true` when it changed.
     pub(super) fn refresh_frame_period(&mut self) -> bool {
-        let period = randr_frame_period(&self.native, (self.width, self.height));
+        let applied = self.shared.applied();
+        let period = randr_frame_period(&self.native, (applied.width, applied.height));
         let changed = period != self.frame_period_ns;
         self.frame_period_ns = period;
         changed
@@ -173,68 +213,45 @@ impl ShellWindow for Window {
                 crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
             }
             PlatformRequest::FocusWindow => self.focus().map(|()| PlatformResult::Done),
-            PlatformRequest::RequestWindowSize(_) => {
-                unreachable!("invariant: the engine asks sizes through request_size")
-            }
             PlatformRequest::Fullscreen(_) => return PlatformResult::Unsupported,
-            PlatformRequest::ForeignChild => return PlatformResult::Unsupported,
         }
         .unwrap_or_else(|error| match error {
             ShellError::Unsupported(_) => PlatformResult::Unsupported,
             ShellError::Failed(failure) => PlatformResult::Failed(failure),
         })
     }
-    fn cpu_format(&self) -> arvane_shell::CpuFormat {
-        arvane_shell::CpuFormat::Xrgb8888
-    }
 
-    /// An embedded editor's window cannot be raised.
-    fn focus(&mut self) -> Result<(), ShellError> {
-        Err(ShellError::unsupported(
-            "focus_window in an embedded editor",
-        ))
-    }
-
-    fn keeps_frames(&self) -> bool {
-        false
-    }
-    fn keep_frame(&mut self, _frame: arvane_shell::CpuFrame) {
-        unreachable!("invariant: native windows do not retain presented frames");
-    }
-
-    fn recover_surface(&mut self) -> Result<(), ShellError> {
-        self.release_cpu_surface();
-        Ok(())
-    }
-    fn shows_cpu_frame(&self) -> bool {
-        self.cpu.shows_frame()
-    }
-    fn release_cpu_surface(&mut self) {
-        self.cpu.release();
-    }
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::render::SemanticsTree,
+        tree: &arvane_protocol::SemanticsTree,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.tree.replace(tree)
     }
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::render::SemanticsUpdate,
+        update: &arvane_protocol::SemanticsUpdate,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.tree.update(update).map(|_| ())
     }
+    fn request_accessibility_action(
+        &self,
+        node: u64,
+        request: kivact_types::A11yRequest,
+    ) -> Option<arvane_shell::ShellEvent> {
+        self.accessibility.tree.request_action(node, request)
+    }
     fn size(&self) -> Size {
+        let applied = self.shared.applied();
         Size {
-            width: self.width as f64 / self.scale,
-            height: self.height as f64 / self.scale,
+            width: applied.width as f64 / applied.scale,
+            height: applied.height as f64 / applied.scale,
         }
     }
     fn physical_size(&self) -> (u32, u32) {
-        (self.width, self.height)
+        self.shared.size()
     }
     fn scale(&self) -> f64 {
-        self.scale
+        self.shared.scale()
     }
     fn request_size(&mut self, size: Size, request: kivact_types::RequestId) -> SizeReply {
         debug_assert!(!self.session.opening());
@@ -243,7 +260,7 @@ impl ShellWindow for Window {
         session.settle_resize(self.now_ns());
         session.request_size(
             size,
-            self.scale,
+            self.shared.scale(),
             MAX_DIMENSION,
             self.on_resize_request.as_deref(),
             request,
@@ -272,8 +289,21 @@ impl ShellWindow for Window {
             ..Capabilities::default()
         }
     }
-    fn surface_generation(&self) -> Option<u64> {
-        self.surface.generation()
+    fn drawable(&self) -> arvane_shell::Drawable {
+        match self.shared.applied().visibility {
+            EmbedVisibility::Hidden => arvane_shell::Drawable::Hidden,
+            EmbedVisibility::Shown => {
+                let (width, height) = self.physical_size();
+                if width == 0 || height == 0 {
+                    arvane_shell::Drawable::NoPixels
+                } else {
+                    // The embedded surface is never made again: its generation is always 1.
+                    arvane_shell::Drawable::Yes {
+                        generation: std::num::NonZeroU64::MIN,
+                    }
+                }
+            }
+        }
     }
     fn request_redraw(&self) {
         self.redraw.set(ChildRedraw::Needed);
@@ -281,12 +311,9 @@ impl ShellWindow for Window {
     fn set_title(&self, _: &str) {}
     fn set_min_size(&self, _: Option<Size>) {}
     fn set_resizable(&self, _: bool) {}
-    fn reduced_motion(&self) -> bool {
-        crate::native_input::reduced_motion()
-    }
     fn environment(&self) -> Environment {
         Environment {
-            scale_factor: self.scale,
+            scale_factor: self.shared.scale(),
             window_size: self.size(),
             locale: sys_locale::get_locale(),
             frame_period_ns: self.frame_period_ns,
@@ -303,57 +330,40 @@ impl ShellWindow for Window {
             self.shared.fail(error);
         }
     }
-    fn set_ime_purpose(&self, _purpose: kivact_types::InputPurpose) {}
-    fn set_ime_allowed(&self, allowed: bool) {
-        self.ime_driver.borrow_mut().set_allowed(
-            &mut super::ime::Port {
-                ime: &mut self.ime.borrow_mut(),
-                scale: self.scale,
-            },
-            allowed,
-        );
+    fn set_ime(&self, ime: Option<ImeRequest>) {
+        match ime {
+            None => {
+                self.soft_keyboard(false);
+                self.ime_allowed(false);
+            }
+            Some(request) => {
+                self.ime_allowed(true);
+                self.soft_keyboard(request.soft_keyboard);
+                self.ime_cursor_area(request.cursor_area);
+                self.ime_purpose(request.purpose);
+                self.ime_text(request.text);
+            }
+        }
     }
-    fn set_soft_keyboard(&self, _: bool) {}
-    fn set_ime_cursor_area(&self, area: Rect) {
-        // Native pixels keep a scale change visible to the shared output cache.
-        let scale = self.scale;
-        let area = Rect {
-            x: area.x * scale,
-            y: area.y * scale,
-            width: area.width * scale,
-            height: area.height * scale,
-        };
-        self.ime_driver.borrow_mut().set_cursor_area(
-            &mut super::ime::Port {
-                ime: &mut self.ime.borrow_mut(),
-                scale: 1.0,
-            },
-            area,
-        );
+
+    /// The window's presentation surface: this window itself.
+    fn surface(&mut self) -> &mut dyn WindowSurface {
+        self
     }
-    fn set_ime_text(&self, text: Option<arvane_shell::ShellImeText>) {
-        self.ime_driver.borrow_mut().set_text(
-            &mut super::ime::Port {
-                ime: &mut self.ime.borrow_mut(),
-                scale: self.scale,
-            },
-            text,
-        );
-    }
-    fn frame_period_ns(&self) -> u64 {
-        self.frame_period_ns
-    }
+}
+
+impl WindowSurface for Window {
     fn present_with(
         &mut self,
         width: u32,
         height: u32,
-        damage: Option<&[kivact_types::render::PixelRect]>,
+        damage: Option<&[arvane_protocol::PixelRect]>,
         draw: &mut dyn FnMut(&mut [u32], arvane_shell::BufferAge) -> bool,
     ) -> Result<bool, ShellError> {
         let (Some(w), Some(h)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {
             return Ok(false);
         };
-        if (width, height) != (self.width, self.height) {
+        if (width, height) != self.shared.size() {
             return Err(super::error::platform(
                 "CPU frame dimensions differ from the window",
             ));
@@ -372,6 +382,7 @@ impl ShellWindow for Window {
         }
         Ok(presented)
     }
+
     fn with_gpu_target(
         &self,
         make: Box<dyn FnOnce(arvane_shell::GpuTarget) + Send>,
@@ -379,8 +390,27 @@ impl ShellWindow for Window {
         make(self.native.clone());
         Ok(())
     }
+
+    fn recover_surface(&mut self) -> Result<(), ShellError> {
+        self.release_cpu_surface();
+        Ok(())
+    }
+
+    fn shows_cpu_frame(&self) -> bool {
+        self.cpu.shows_frame()
+    }
+
+    fn release_cpu_surface(&mut self) {
+        self.cpu.release();
+    }
+
     fn wait_until(&mut self, ready: &mut dyn FnMut() -> bool, timeout: Duration) -> bool {
         crate::wait::until(ready, timeout)
+    }
+
+    /// Embedded windows keep no presented frames.
+    fn frame_sink(&mut self) -> Option<&mut dyn FrameSink> {
+        None
     }
 }
 

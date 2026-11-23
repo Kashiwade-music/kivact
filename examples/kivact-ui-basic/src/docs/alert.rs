@@ -1,39 +1,31 @@
-//! Role: Catalog page of Alert: default, destructive and with an action.
+//! Catalog page of Alert: default, destructive and with an action.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
-use kivact::ui::ControlSize;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "alert",
-        name: "Alert",
-        description: "ユーザーの注意を引くための短いメッセージを表示する部品です。Role::Alert として公開され、アイコン、説明、操作を添えられます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
-        source: include_str!("alert.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "alert にタイトルを渡し、icon と description を添えます。",
-                default,
-            ),
-            Example::new(
-                "destructive",
-                "Destructive",
-                "variant に Destructive を渡すと、文字とアイコンが警告色になります。",
-                destructive,
-            ),
-            Example::new(
-                "action",
-                "Action",
-                "action で右端に操作を置けます。操作は alert の高さの中央にそろいます（shadcn は右上）。",
-                with_action,
-            ),
-        ],
-    }
+    Page::new("alert", "Alert", "Components", include_str!("alert.rs"))
+        .description("A short message that draws the user's attention. It is published as Role::Alert and can carry an icon, a description and an action.")
+        .usage("use kivact::prelude::*;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "Pass a title to alert, with an icon and a description.",
+            default,
+        ))
+        .example(Example::new(
+            "destructive",
+            "Destructive",
+            "Pass Destructive as the variant to draw the text and the icon in the warning color.",
+            destructive,
+        ))
+        .example(Example::new(
+            "action",
+            "Action",
+            "action puts an action at the right end. The action is centered on the height of the alert (shadcn puts it at the top right).",
+            with_action,
+        ))
 }
 
 // example: default
@@ -48,7 +40,7 @@ fn default() -> impl IntoView {
 // example: destructive
 fn destructive() -> impl IntoView {
     kivact::ui::alert("Unable to process your payment.")
-        .variant(basic::AlertLook::Destructive)
+        .variant(basic::AlertTone::Destructive)
         .icon(icon("circle-alert"))
         .description("Please verify your billing information and try again.")
         .style(style().width(420))

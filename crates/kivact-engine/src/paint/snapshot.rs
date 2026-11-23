@@ -8,7 +8,7 @@ use kivact_types::{NodeId, Rect};
 
 impl Model {
     /// Answer queued captures only from the host's settled layout boundary.
-    pub(crate) fn snapshot_requests(&mut self, engine: &mut arvane::Engine) {
+    pub(crate) fn snapshot_requests(&mut self, engine: &mut arvane_text::TextEngine) {
         for (request, node) in std::mem::take(&mut self.snapshots) {
             let result = match self.snapshot(node, engine) {
                 None => SnapshotResult::Unmounted,
@@ -29,7 +29,7 @@ impl Model {
     pub(crate) fn snapshot(
         &mut self,
         id: NodeId,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Option<Result<OffscreenImage, OffscreenError>> {
         let size = self.computed_layout(id)?.size;
         let width = size.width.ceil() as u32;
@@ -44,8 +44,13 @@ impl Model {
             },
         );
         // The retained window list and raster scale remain the window's.
-        let pass = PaintPass { scale: 1.0, size };
-        let composition = self.compose_list(engine, &list, pass);
+        let pass = PaintPass {
+            scale: 1.0,
+            size,
+            cache: false,
+        };
+        let (mut composition, _) = self.compose_list(engine, &list, pass);
+        crate::lower::content_versions::stamp_fresh(&mut composition);
         self.report_dropped_draws();
         Some(OffscreenRenderer::new().render_composition(&composition, (width, height)))
     }

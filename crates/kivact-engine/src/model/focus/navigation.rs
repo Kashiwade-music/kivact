@@ -3,7 +3,7 @@
 use super::state::{FocusVisibility, Focused, Reveal};
 use crate::contract::{HostEvent, RovingFocus};
 use crate::model::Model;
-use kivact_types::{FocusTarget, NodeId};
+use kivact_types::{FocusTarget, NodeId, StyleState};
 use std::collections::HashSet;
 
 impl Model {
@@ -37,7 +37,7 @@ impl Model {
     pub(crate) fn is_tab_stop(&self, id: NodeId) -> bool {
         self.tree
             .get(id)
-            .is_some_and(|n| n.focusable(self.editors[n.index.0].is_some()))
+            .is_some_and(|n| n.focusable(self.slots.editors[n.index.0].is_some()))
             && self.tree.shown(id)
     }
 
@@ -53,7 +53,7 @@ impl Model {
             return false;
         }
         match target.region {
-            None => node.focusable(self.editors[node.index.0].is_some()),
+            None => node.focusable(self.slots.editors[node.index.0].is_some()),
             Some(id) => {
                 !node.disabled()
                     && node.region(id).is_some_and(|r| {
@@ -63,33 +63,117 @@ impl Model {
         }
     }
 
-    /// All declared targets in node, region, then descendant order.
+    /// The targets of the node `id` alone, in order: the node, then its
+    /// scene regions by their focus order (each region once).
+    pub(in crate::model) fn node_targets(&self, id: NodeId) -> Vec<FocusTarget> {
+        let mut targets = vec![FocusTarget {
+            node: id,
+            region: None,
+        }];
+        let Some(node) = self.tree.get(id) else {
+            return targets;
+        };
+        let mut regions: Vec<_> = node
+            .scenes()
+            .iter()
+            .flatten()
+            .flat_map(|s| &s.regions)
+            .collect();
+        regions.sort_by_key(|r| r.focus_order);
+        let mut seen = std::collections::HashSet::new();
+        for region in regions {
+            if seen.insert(region.id) {
+                targets.push(FocusTarget {
+                    node: id,
+                    region: Some(region.id),
+                });
+            }
+        }
+        targets
+    }
+
+    /// The node after `id` in flat preorder (into its subtree first when
+    /// `into`), or `None` after the last node.
+    fn preorder_next(&self, id: NodeId, into: bool) -> Option<NodeId> {
+        if into && let Some(first) = self.tree.flat_children(id).next() {
+            return Some(first);
+        }
+        let mut at = id;
+        loop {
+            let parent = self.tree.get(at).and_then(|n| self.tree.flat_parent(n))?;
+            let mut siblings = self.tree.flat_children(parent);
+            if siblings.by_ref().any(|c| c == at)
+                && let Some(next) = siblings.next()
+            {
+                return Some(next);
+            }
+            at = parent;
+        }
+    }
+
+    /// The first target `accept` takes on the nodes after `start` in flat
+    /// preorder (into its subtree when `into`), going on from the root once
+    /// the tree ends and stopping at `start`. It walks only as far as the
+    /// first accepted target.
+    fn scan_from(
+        &self,
+        start: NodeId,
+        into: bool,
+        accept: impl Fn(FocusTarget) -> bool,
+    ) -> Option<FocusTarget> {
+        let root = self.tree.root()?;
+        let attached = self.tree.contains(start);
+        let mut next = if attached {
+            self.preorder_next(start, into)
+        } else {
+            Some(root)
+        };
+        let mut wrapped = !attached;
+        loop {
+            let id = match next {
+                Some(id) => id,
+                None if !wrapped => {
+                    wrapped = true;
+                    root
+                }
+                None => return None,
+            };
+            if let Some(t) = self.node_targets(id).into_iter().find(|t| accept(*t)) {
+                return Some(t);
+            }
+            if id == start {
+                return None;
+            }
+            next = self.preorder_next(id, true);
+        }
+    }
+
+    /// The first target after `from` that `accept` takes: the later targets
+    /// of its node (all of them when `from` is not one), then the nodes
+    /// after it, wrapping once.
+    pub(in crate::model) fn next_target_after(
+        &self,
+        from: FocusTarget,
+        accept: impl Fn(FocusTarget) -> bool,
+    ) -> Option<FocusTarget> {
+        if self.tree.contains(from.node) {
+            let own = self.node_targets(from.node);
+            let at = own.iter().position(|t| *t == from).map_or(0, |i| i + 1);
+            if let Some(t) = own[at..].iter().copied().find(|t| accept(*t)) {
+                return Some(t);
+            }
+        }
+        self.scan_from(from.node, true, accept)
+    }
+
+    /// Every declared target in node, region, then descendant order: a
+    /// complete enumeration (PERF-1), used only by the Tab key's listing
+    /// (`tab_stops`, `roving_targets`) and the DevTools' tab order, both
+    /// paced by the user.
     pub(in crate::model) fn focus_order(&self) -> Vec<FocusTarget> {
         let mut targets = Vec::new();
         for id in self.tree.flat_preorder() {
-            targets.push(FocusTarget {
-                node: id,
-                region: None,
-            });
-            let Some(node) = self.tree.get(id) else {
-                continue;
-            };
-            let mut seen = std::collections::HashSet::new();
-            let mut regions: Vec<_> = node
-                .scenes()
-                .iter()
-                .flatten()
-                .flat_map(|s| &s.regions)
-                .collect();
-            regions.sort_by_key(|r| r.focus_order);
-            for region in regions {
-                if seen.insert(region.id) {
-                    targets.push(FocusTarget {
-                        node: id,
-                        region: Some(region.id),
-                    });
-                }
-            }
+            targets.extend(self.node_targets(id));
         }
         targets
     }
@@ -270,12 +354,13 @@ impl Model {
             self.prepare_state_motion(n);
             self.repaint(n);
             if self.tree.get(n).and_then(|x| x.states()).is_some_and(|s| {
-                (s.focus.is_some() || s.focus_visible.is_some()) && crate::tree::states_place(s)
+                (s.wants(StyleState::Focus) || s.wants(StyleState::FocusVisible))
+                    && crate::tree::states_place(s)
             }) {
                 self.changes
                     .layout
                     .insert(crate::model::changes::LayoutReasons::PASS);
-                self.changes.moved();
+                self.changes.moved_node(n);
             }
         }
         if old_target != target {
@@ -298,7 +383,7 @@ impl Model {
                 .chain(new.iter().filter(|x| !left.contains(x)))
                 .copied()
                 .collect();
-            for id in self.group_dependents(&touched, |s| s.group_focus.is_some()) {
+            for id in self.group_dependents(&touched, |s| s.wants(StyleState::GroupFocus)) {
                 self.prepare_state_motion(id);
                 self.restyled(id);
             }
@@ -308,7 +393,10 @@ impl Model {
                 .focus_moved(old_target.map(|t| t.node), target.map(|t| t.node));
         }
         self.focus.focused = new;
-        self.update_ime_target();
+        // The reported states read the new focus, so they follow the assignment.
+        for n in [old_target, target].into_iter().flatten().map(|t| t.node) {
+            self.report_states(n);
+        }
         self.push(HostEvent::FocusChanged {
             window: self.window,
             node: target.map(|t| t.node),
@@ -352,7 +440,7 @@ impl Model {
             .focused()
             .filter(|f| self.tree.is_in_subtree(f.node, removed))?;
         let left = self.tree.chain(Some(focus.node));
-        for x in self.group_dependents(&left, |s| s.group_focus.is_some()) {
+        for x in self.group_dependents(&left, |s| s.wants(StyleState::GroupFocus)) {
             self.prepare_state_motion(x);
         }
         Some(left)
@@ -367,40 +455,24 @@ impl Model {
 
     /// The next target outside a removed subtree and within the remaining modal.
     pub(crate) fn next_tab_stop_outside(&self, removed: NodeId) -> Option<FocusTarget> {
-        let order = self.focus_order();
-        let start = order.iter().position(|t| t.node == removed)?;
         let modal = self.top_modal(Some(removed));
-        order[start..]
-            .iter()
-            .chain(order[..start].iter())
-            .copied()
-            .find(|t| {
-                !self.tree.is_in_subtree(t.node, removed)
-                    && self.is_focus_target(*t)
-                    && modal.is_none_or(|m| self.tree.is_in_subtree(t.node, m))
-            })
+        self.scan_from(removed, false, |t| {
+            !self.tree.is_in_subtree(t.node, removed)
+                && self.is_focus_target(t)
+                && modal.is_none_or(|m| self.tree.is_in_subtree(t.node, m))
+        })
     }
 
     /// Revalidate an exact target after props or scenes change.
     pub(crate) fn revalidate_focus(&mut self) {
-        self.update_ime_target();
         let Some(focus) = self.focus.target() else {
             return;
         };
         if self.is_focus_target(focus) {
             return;
         }
-        let order = self.focus_order();
-        let start = order
-            .iter()
-            .position(|t| *t == focus)
-            .or_else(|| order.iter().position(|t| t.node == focus.node))
-            .unwrap_or(0);
-        let next = order[start..]
-            .iter()
-            .chain(order[..start].iter())
-            .copied()
-            .find(|t| self.is_focus_target(*t) && self.in_scope(t.node));
+        let next =
+            self.next_target_after(focus, |t| self.is_focus_target(t) && self.in_scope(t.node));
         self.move_focus_to(next);
     }
 }

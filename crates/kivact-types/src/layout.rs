@@ -1,4 +1,5 @@
 //! Role: Layout configuration, leaf measurement and overlay constraints.
+use crate::length::Length;
 use crate::{Edges, NodeId, Point, Rect, Size};
 
 /// Main-axis direction and ordering of children in a flex container.
@@ -89,6 +90,59 @@ pub enum OverlayAlign {
     End,
 }
 
+/// Where a surface opens: a [`Placement`] side, with an optional
+/// [`OverlayAlign`] and offset. A bare `Placement` converts into one with
+/// the overlay's own alignment and distance.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SurfacePlacement {
+    /// The side of the anchor the surface asks for.
+    pub side: Placement,
+    /// Where along that side it sits (`None`: the overlay's own alignment).
+    pub align: Option<OverlayAlign>,
+    /// The gap from the anchor in logical px (`None`: the overlay's own offset).
+    pub offset: Option<f64>,
+}
+
+impl From<Placement> for SurfacePlacement {
+    fn from(side: Placement) -> Self {
+        Self {
+            side,
+            align: None,
+            offset: None,
+        }
+    }
+}
+
+impl Placement {
+    /// The side with its alignment along the anchor's edge.
+    pub fn align(self, align: OverlayAlign) -> SurfacePlacement {
+        SurfacePlacement::from(self).align(align)
+    }
+
+    /// The side with its gap from the anchor, in logical px.
+    pub fn offset(self, offset: f64) -> SurfacePlacement {
+        SurfacePlacement::from(self).offset(offset)
+    }
+}
+
+impl SurfacePlacement {
+    /// Aligns the surface along the anchor's edge.
+    pub fn align(self, align: OverlayAlign) -> Self {
+        Self {
+            align: Some(align),
+            ..self
+        }
+    }
+
+    /// Leaves this gap from the anchor, in logical px.
+    pub fn offset(self, offset: f64) -> Self {
+        Self {
+            offset: Some(offset),
+            ..self
+        }
+    }
+}
+
 /// The axes a scroll container scrolls along. An axis that does not scroll
 /// clips.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -130,7 +184,7 @@ pub struct GridContainer {
     /// CSS `grid-auto-rows` (empty: `auto`).
     pub auto_rows: Vec<TrackSize>,
     /// CSS `grid-auto-flow`.
-    pub flow: GridFlow,
+    pub flow: GridAutoFlow,
     /// CSS `justify-items` (`None`: stretch).
     pub justify_items: Option<Align>,
 }
@@ -168,20 +222,24 @@ pub enum Breadth {
     /// px, a percentage of the grid's content box, calc, `auto`,
     /// `min-content`, `max-content` (`fit-content` is `FitContent` of
     /// 100%).
-    Size(Dimension),
+    Size(Length),
     /// A share of the free space (CSS `fr`; as a minimum, `auto`).
     Fr(f64),
     /// CSS `fit-content(limit)` (as a minimum, `auto`).
-    FitContent(Dimension),
+    FitContent(Length),
 }
 
-/// CSS `grid-auto-flow`.
+/// CSS `grid-auto-flow`: where auto-placed items go.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum GridFlow {
+pub enum GridAutoFlow {
+    /// Filling each row (the default).
     #[default]
     Row,
+    /// Filling each column.
     Column,
+    /// Filling rows, back-filling earlier holes with later items.
     RowDense,
+    /// Filling columns, back-filling holes.
     ColumnDense,
 }
 
@@ -390,46 +448,44 @@ pub struct LayoutProps {
     /// Allow children to wrap onto additional flex lines.
     pub wrap: bool,
     /// Between rows (CSS `row-gap`).
-    pub row_gap: Dimension,
+    pub row_gap: Length,
     /// Between columns (CSS `column-gap`).
-    pub column_gap: Dimension,
+    pub column_gap: Length,
     /// Space between border and content.
-    pub padding: Edges<Dimension>,
+    pub padding: Edges<Length>,
     /// The border's widths in px (the paint's `Border::widths`): like
     /// padding, they take room inside the box (CSS `box-sizing:
     /// border-box`), so a change of width is a layout change and one of
     /// color or style is not.
     pub border: Edges<f64>,
     /// Space outside the border box.
-    pub margin: Edges<Dimension>,
+    pub margin: Edges<Length>,
     /// Preferred border-box width.
-    pub width: Dimension,
+    pub width: Length,
     /// Preferred border-box height.
-    pub height: Dimension,
+    pub height: Length,
     /// Minimum border-box width.
-    pub min_width: Dimension,
+    pub min_width: Length,
     /// Minimum border-box height.
-    pub min_height: Dimension,
+    pub min_height: Length,
     /// Maximum border-box width.
-    pub max_width: Dimension,
+    pub max_width: Length,
     /// Maximum border-box height.
-    pub max_height: Dimension,
+    pub max_height: Length,
     /// Share of positive free space assigned to this flex item.
     pub grow: f64,
     /// Relative shrinking factor when flex space is insufficient.
     pub shrink: f64,
     /// Initial main-axis size of this flex item.
-    pub basis: Dimension,
+    pub basis: Length,
     /// Positioning mode relative to parent or window.
     pub position: Position,
     /// Offsets from the reference box edges.
-    pub inset: Edges<Dimension>,
+    pub inset: Edges<Length>,
     /// Horizontal overflow and scrolling behavior.
     pub overflow_x: Overflow,
     /// Vertical overflow and scrolling behavior.
     pub overflow_y: Overflow,
-    /// `display: none`.
-    pub hidden: bool,
     /// Whether this box participates in painting and interaction.
     pub visibility: Visibility,
     /// CSS `aspect-ratio` (width / height; `None`: auto).
@@ -452,52 +508,30 @@ impl Default for LayoutProps {
             justify: None,
             align_content: None,
             wrap: false,
-            row_gap: Dimension::Px(0.0),
-            column_gap: Dimension::Px(0.0),
-            padding: Edges::all(Dimension::Px(0.0)),
+            row_gap: Length::Px(0.0),
+            column_gap: Length::Px(0.0),
+            padding: Edges::all(Length::Px(0.0)),
             border: Edges::all(0.0),
-            margin: Edges::all(Dimension::Px(0.0)),
-            width: Dimension::Auto,
-            height: Dimension::Auto,
-            min_width: Dimension::Auto,
-            min_height: Dimension::Auto,
-            max_width: Dimension::Auto,
-            max_height: Dimension::Auto,
+            margin: Edges::all(Length::Px(0.0)),
+            width: Length::Auto,
+            height: Length::Auto,
+            min_width: Length::Auto,
+            min_height: Length::Auto,
+            max_width: Length::Auto,
+            max_height: Length::Auto,
             grow: 0.0,
             shrink: 1.0,
-            basis: Dimension::Auto,
+            basis: Length::Auto,
             position: Position::Relative,
-            inset: Edges::all(Dimension::Auto),
+            inset: Edges::all(Length::Auto),
             overflow_x: Overflow::Visible,
             overflow_y: Overflow::Visible,
-            hidden: false,
             visibility: Visibility::Visible,
             aspect_ratio: None,
             display: Display::Flex,
             grid: None,
         }
     }
-}
-
-/// A layout length. Percentages (and a calc's) are of the containing
-/// block's size along the axis (padding, margins: its width), like CSS.
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
-pub enum Dimension {
-    #[default]
-    Auto,
-    Px(f64),
-    Percent(f64),
-    /// `percent`% of the reference plus `px` (CSS `calc(p% + npx)`).
-    Calc {
-        percent: f64,
-        px: f64,
-    },
-    /// CSS `min-content`, `max-content` and `fit-content`: a size (width,
-    /// height, flex basis, a grid track) from the content. Elsewhere they
-    /// are `Auto`.
-    MinContent,
-    MaxContent,
-    FitContent,
 }
 
 /// Size hints for boxes whose size does not come from children.

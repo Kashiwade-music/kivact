@@ -1,12 +1,12 @@
 //! Role: Preserve the caller binding as the authoritative requested key.
 use super::machine;
 use crate::options_cell::OptionsCell;
-use kivact_core::state::{Binding, MachineHandle, machine};
+use kivact_core::state::{MachineHandle, Signal, machine};
 
 #[derive(Clone)]
 enum Source<K: kivact_core::state::ItemKey> {
     Local,
-    Shared(Binding<Option<K>>),
+    Shared(Signal<Option<K>>),
 }
 
 pub(crate) struct Requested<K: kivact_core::state::ItemKey> {
@@ -36,7 +36,7 @@ impl<K: kivact_core::state::ItemKey> Requested<K> {
         );
         Self { source, machine }
     }
-    pub(crate) fn bind(self, binding: Binding<Option<K>>) {
+    pub(crate) fn bind(self, binding: Signal<Option<K>>) {
         self.source.update(|slot| *slot = Source::Shared(binding));
         self.machine.send(machine::Event::Share);
     }

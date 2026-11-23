@@ -6,12 +6,12 @@ use std::time::Duration;
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
 use kivact_engine::api::Reader;
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_types::NodeId;
 
 use super::convert;
 use super::tree::tree_node;
-use crate::view::devtools_state::{DevtoolsState, Pending, QueryBy};
+use crate::devtools::state::{DevtoolsState, Pending, QueryBy};
 use crate::view::state::ViewState;
 use crate::view::tree::ViewNodes;
 
@@ -131,7 +131,7 @@ fn search(rt: &Runtime, by: &QueryBy) -> Result<Vec<NodeId>, p::RpcError> {
         if tree.hidden(id) == Some(true) {
             continue;
         }
-        if !tree.is_visible(id) {
+        if !reader.node_flags(id).visible {
             continue;
         }
         if matches_node(&tree, &reader, id, by) {
@@ -241,7 +241,7 @@ fn wait(rt: &Runtime, by: QueryBy, reply: Responder) {
             deadline_ns,
             reply,
         });
-    kivact_runtime::spawn_in(
+    kivact_runtime::driver::spawn_in(
         rt.root(),
         async move {
             kivact_runtime::sleep(Duration::from_millis(u64::from(timeout))).await;
@@ -251,7 +251,8 @@ fn wait(rt: &Runtime, by: QueryBy, reply: Responder) {
 }
 
 /// Answer the `find_*` calls whose element appeared or whose deadline passed.
-pub(super) fn after_turn(rt: &Runtime) {
+/// A turn that changed no node only checks the deadlines.
+pub(super) fn after_turn(rt: &Runtime, tree_changed: bool) {
     let i = DevtoolsState::inspector(rt);
     let pending = std::mem::take(&mut *i.session.pending.borrow_mut());
     for item in pending {
@@ -265,6 +266,19 @@ pub(super) fn after_turn(rt: &Runtime) {
             i.session.pending.borrow_mut().push(item);
             continue;
         };
+        if !tree_changed {
+            if rt.now_ns() >= deadline_ns {
+                reply.send(Err(timed_out()));
+            } else {
+                i.session.pending.borrow_mut().push(Pending::Find {
+                    by,
+                    window,
+                    deadline_ns,
+                    reply,
+                });
+            }
+            continue;
+        }
         let found = match search(rt, &by) {
             Ok(found) => found,
             Err(error) => {

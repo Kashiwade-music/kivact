@@ -1,45 +1,38 @@
-//! Role: Catalog page of Toggle Group: multiple, single, outline and vertical.
+//! Catalog page of Toggle Group: multiple, single, outline and vertical.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
-use kivact::ui::ControlSize;
+use kivact::view::Orientation;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "toggle-group",
-        name: "Toggle Group",
-        description: "関連するトグルをまとめ、一つまたは複数を選ぶ部品です。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
-        source: include_str!("toggle_group.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "multiple",
-                "Multiple",
-                "Vec を受ける toggle_group は複数を同時に押せます。矢印キーでフォーカスを動かし、Space で押します。",
-                multiple,
-            ),
-            Example::new(
-                "single",
-                "Single",
-                "Option を受ける toggle_group は高々一つを押せます。もう一度押すと外れます。",
-                single,
-            ),
-            Example::new(
-                "sizes",
-                "Spacing and size",
-                "spacing は 4 px 単位の間隔、size は全項目の大きさです。",
-                spacing,
-            ),
-            Example::new(
-                "vertical",
-                "Vertical",
-                "orientation を Vertical にすると縦に並べます。",
-                vertical,
-            ),
-        ],
-    }
+    Page::new("toggle-group", "Toggle Group", "Components", include_str!("toggle_group.rs"))
+        .description("A component that groups related toggles and chooses one or several of them.")
+        .usage("use kivact::prelude::*;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "multiple",
+            "Multiple",
+            "A toggle_group that takes a Vec can press several at once. The arrow keys move the focus, and Space presses.",
+            multiple,
+        ))
+        .example(Example::new(
+            "single",
+            "Single",
+            "A toggle_group that takes an Option can press at most one. Pressing it again releases it.",
+            single,
+        ))
+        .example(Example::new(
+            "sizes",
+            "Spacing and size",
+            "spacing is the gap in steps of 4 px, and size is the size of every item.",
+            spacing,
+        ))
+        .example(Example::new(
+            "vertical",
+            "Vertical",
+            "With Vertical as orientation the items stack vertically.",
+            vertical,
+        ))
 }
 
 // example: multiple

@@ -1,11 +1,18 @@
 //! Role: Track visible document headings and navigate their outline.
-use crate::side_navigation::items::logical_row;
+use crate::color as c;
+use crate::motion::{EASE_STANDARD, FAST, FAST_MIN};
+use crate::radius::RADIUS_ELEMENT;
+use crate::radius::RADIUS_FULL;
+use crate::recipe_parts::ring;
+use crate::space::{SPACE_S0_5, SPACE_S1, SPACE_S2, SPACE_S3, SPACE_S7, SPACE_S11, SPACE_S12};
 use crate::stack::rtl;
+use crate::type_scale::{self as t, WEIGHT_SEMIBOLD};
 
+use kivact::component;
 use kivact::geometry::Point;
 use kivact::motion::Transition;
 use kivact::motion::animated;
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 use kivact::view::Element;
 use kivact::view::Node;
 use kivact::view::column;
@@ -13,32 +20,27 @@ use kivact::view::node;
 use kivact::view::row;
 use kivact::view::text;
 
-use kivact::state::Binding;
+use kivact::Prop;
 use kivact::state::Callback;
-use kivact::state::IntoValue;
 use kivact::state::Machine;
 use kivact::state::MachineHandle;
 use kivact::state::Step;
 use kivact::state::Value;
-use kivact::state::callback;
 use kivact::state::effect_on;
 use kivact::state::machine;
 use kivact::state::memo;
 use kivact::style::Align;
-use kivact::style::Direction;
+use kivact::style::FlexDirection;
 use kivact::style::Position;
 use kivact::style::TransitionProp;
 use kivact::style::pct;
 use kivact::style::style;
 use kivact::view::Handled;
-use kivact::view::HandlerResult;
-use kivact::view::IntoView;
 use kivact::view::Key;
 use kivact::view::KeyEvent;
 use kivact::view::NodeRef;
 use kivact::view::Role;
 use kivact::view::ScrollBehavior;
-use kivact::view::View;
 use kivact::view::dynamic;
 use kivact::view::node_ref;
 use std::rc::Rc;
@@ -75,7 +77,7 @@ impl OutlineItem {
 }
 
 /// Vertical spacing of outline links.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum OutlineDensity {
     /// Standard outline spacing, the default.
     #[default]
@@ -85,104 +87,69 @@ pub enum OutlineDensity {
 }
 
 /// Heading navigation with optional scroll tracking and controlled active state.
-pub struct Outline {
-    root: Node,
+///
+/// `scroll_container` observes and scrolls within a viewport instead of the window;
+/// `scroll_content` observes a content node so layout changes update heading tracking.
+#[component]
+pub fn outline(
     items: Value<Vec<OutlineItem>>,
-    active: Option<Binding<Option<String>>>,
-    density: Value<OutlineDensity>,
-    offset: Value<f64>,
-    viewport: Option<NodeRef>,
-    content: Option<NodeRef>,
-    scroll_on_press: Value<bool>,
-    change: Option<Callback<String>>,
-    start: Option<Callback<String>>,
-    end: Option<Callback<String>>,
-}
-
-/// Create a table of contents with standard spacing, zero offset and scrolling enabled.
-pub fn outline(items: impl IntoValue<Vec<OutlineItem>>) -> Outline {
-    Outline {
-        root: node()
-            .with_node(move |node| node.role(Role::Navigation))
-            .name(kivact::i18n::message(
-                "soft.outline.label",
-                "Table of contents",
-            )),
-        items: items.into_value(),
-        active: None,
-        density: (OutlineDensity::Default).into_value(),
-        offset: (0.0).into_value(),
-        viewport: None,
-        content: None,
-        scroll_on_press: (true).into_value(),
-        change: None,
-        start: None,
-        end: None,
+    active: Option<Signal<Option<String>>>,
+    #[prop(default = OutlineDensity::Default)] density: Value<OutlineDensity>,
+    #[prop(default = 0.0)] offset: Value<f64>,
+    scroll_container: Option<NodeRef>,
+    scroll_content: Option<NodeRef>,
+    #[prop(default = true)] scroll_on_press: Value<bool>,
+    on_active_change: Option<Callback<String>>,
+    on_navigate_start: Option<Callback<String>>,
+    on_navigate_end: Option<Callback<String>>,
+) -> impl Element {
+    let root = node()
+        .with_node(move |node| node.role(Role::Navigation))
+        .name(kivact::i18n::message(
+            "soft.outline.label",
+            "Table of contents",
+        ));
+    let viewport = scroll_container;
+    let content = scroll_content;
+    let start = on_navigate_start;
+    let end = on_navigate_end;
+    let pending = machine(
+        OutlineScroll::Idle,
+        || ScrollMachine,
+        move |_, id| {
+            if let Some(end) = end {
+                end.call(id);
+            }
+        },
+    );
+    let navigation = Navigation {
+        viewport,
+        offset: offset.get(),
+        scroll_on_press: scroll_on_press.get(),
+        controlled: active,
+        pending,
+        start,
+        end,
+    };
+    kivact::state::on_cleanup(move || navigation.finish());
+    let active = active_heading(active, pending, items, viewport, content, offset);
+    if let Some(change) = on_active_change {
+        effect_on(active, move |id| {
+            if let Some(id) = id {
+                change.call(id.clone());
+            }
+        });
     }
-}
-
-impl Outline {
-    /// Connect the caller's optional active heading identifier.
-    pub fn active(mut self, active: impl IntoBinding<Option<String>>) -> Self {
-        self.active = Some(active.into_binding());
-        self
-    }
-    /// Choose the link spacing; standard by default.
-    pub fn density(mut self, density: impl IntoValue<OutlineDensity>) -> Self {
-        self.density = density.into_value();
-        self
-    }
-    /// Set the heading activation and scroll inset in logical pixels; defaults to zero.
-    pub fn offset(mut self, offset: impl IntoValue<f64>) -> Self {
-        self.offset = offset.into_value();
-        self
-    }
-    /// Observe and scroll within this viewport instead of the window.
-    pub fn scroll_container(mut self, viewport: NodeRef) -> Self {
-        self.viewport = Some(viewport);
-        self
-    }
-    /// Observe this content node so layout changes update heading tracking.
-    pub fn scroll_content(mut self, content: NodeRef) -> Self {
-        self.content = Some(content);
-        self
-    }
-    /// Enable scrolling on link activation when mounted; true by default.
-    pub fn scroll_on_press(mut self, scroll: impl IntoValue<bool>) -> Self {
-        self.scroll_on_press = scroll.into_value();
-        self
-    }
-    /// Report the heading identifier when scroll tracking changes the active heading.
-    pub fn on_active_change<R: HandlerResult>(
-        mut self,
-        change: impl Fn(String) -> R + 'static,
-    ) -> Self {
-        self.change = Some(callback(change));
-        self
-    }
-    /// Report the destination identifier before navigation begins.
-    pub fn on_navigate_start<R: HandlerResult>(
-        mut self,
-        start: impl Fn(String) -> R + 'static,
-    ) -> Self {
-        self.start = Some(callback(start));
-        self
-    }
-    /// Report the destination identifier when scrolling finishes, or immediately without animated scrolling.
-    pub fn on_navigate_end<R: HandlerResult>(
-        mut self,
-        end: impl Fn(String) -> R + 'static,
-    ) -> Self {
-        self.end = Some(callback(end));
-        self
-    }
-}
-
-impl Element for Outline {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
+    root.with_node(move |node| {
+        node.base_style(
+            style()
+                .flex_direction(FlexDirection::Column)
+                .width(pct(100)),
+        )
+    })
+    .child(dynamic(items, move |items| {
+        outline_list(items, active, density.get(), navigation)
+    }))
 }
 
 #[derive(Clone, PartialEq)]
@@ -248,13 +215,10 @@ impl Machine for FocusMachine {
 
 #[derive(Clone, Copy)]
 struct Navigation {
-    // xtask-allow(state-fields): option: caller viewport from Outline::scroll_container; absent scrolls the window through target.scroll_into_view.
     viewport: Option<NodeRef>,
     offset: f64,
-    // xtask-allow(state-fields): option: caller choice from Outline::scroll_on_press sampled once in into_view; false skips scrolling and reports navigation end immediately.
     scroll_on_press: bool,
-    // xtask-allow(state-fields): option: caller-owned active-heading binding; pending lifecycle belongs to ScrollMachine.
-    controlled: Option<Binding<Option<String>>>,
+    controlled: Option<Signal<Option<String>>>,
     pending: MachineHandle<ScrollMachine>,
     start: Option<Callback<String>>,
     end: Option<Callback<String>>,
@@ -304,59 +268,6 @@ impl Navigation {
         } else if let Some(end) = self.end {
             end.call(item.id.clone());
         }
-    }
-}
-
-impl IntoView for Outline {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            items,
-            active,
-            density,
-            offset,
-            viewport,
-            content,
-            scroll_on_press,
-            change,
-            start,
-            end,
-        } = self;
-        kivact::view::scope(move || {
-            let pending = machine(
-                OutlineScroll::Idle,
-                || ScrollMachine,
-                move |_, id| {
-                    if let Some(end) = end {
-                        end.call(id);
-                    }
-                },
-            );
-            let navigation = Navigation {
-                viewport,
-                offset: offset.get(),
-                scroll_on_press: scroll_on_press.get(),
-                controlled: active,
-                pending,
-                start,
-                end,
-            };
-            kivact::state::on_cleanup(move || navigation.finish());
-            let active = active_heading(active, pending, items, viewport, content, offset);
-            if let Some(change) = change {
-                effect_on(active, move |id| {
-                    if let Some(id) = id {
-                        change.call(id.clone());
-                    }
-                });
-            }
-            root.with_node(move |node| {
-                node.base_style(style().direction(Direction::Column).width(pct(100)))
-            })
-            .child(dynamic(items, move |items| {
-                outline_list(items, active, density.get(), navigation)
-            }))
-        })
     }
 }
 
@@ -422,76 +333,69 @@ fn outline_list(
         column(rows)
             .node_ref(list)
             .with_node(move |node| node.role(Role::List))
-            .style(|| {
-                style()
-                    .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s0_5)
-                    .grow(1)
-                    .min_width(0)
-            }),
+            .style(|| style().gap(SPACE_S0_5).flex_grow(1).min_width(0)),
     ))
     .style(|| {
         style()
-            .direction(logical_row())
-            .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s0_5)
+            .flex_direction(logical_row())
+            .gap(SPACE_S0_5)
             .align_items(Align::Stretch)
     })
 }
 
+/// The row direction that follows the reading direction.
+fn logical_row() -> FlexDirection {
+    if rtl() {
+        FlexDirection::RowReverse
+    } else {
+        FlexDirection::Row
+    }
+}
+
 fn outline_row(level: u8, density: OutlineDensity, active: bool) -> kivact::style::Style {
-    let t = kivact::style::use_tokens::<crate::Tokens>();
-    let role = t.typography.body;
+    let role = t::BODY;
     let indent = match level {
-        3 => t.spacing.s7,
-        4 => t.spacing.s11,
-        5.. => t.spacing.s12,
-        _ => t.spacing.s3,
+        3 => SPACE_S7,
+        4 => SPACE_S11,
+        5.. => SPACE_S12,
+        _ => SPACE_S3,
     };
     let (left, right) = if rtl() {
-        (t.spacing.s2, indent)
+        (SPACE_S2, indent)
     } else {
-        (indent, t.spacing.s2)
+        (indent, SPACE_S2)
     };
     style()
-        .direction(logical_row())
+        .flex_direction(logical_row())
         .align_items(Align::Center)
         .width(pct(100))
-        .radius(t.radius.element)
+        .border_radius(RADIUS_ELEMENT)
         .padding_left(left)
         .padding_right(right)
         .padding_y(if density == OutlineDensity::Compact {
-            t.spacing.s1
+            SPACE_S1
         } else {
-            t.spacing.s2
+            SPACE_S2
         })
         .font_size(role.size_px)
         .line_height(role.line_height_px / role.size_px)
-        .weight(if active {
-            t.typography.weight_semibold
-        } else {
-            role.weight
-        })
+        .font_weight(if active { WEIGHT_SEMIBOLD } else { role.weight })
         .color(if active {
-            t.colors.text_primary
+            c::TEXT_PRIMARY
         } else {
-            t.colors.text_secondary
+            c::TEXT_SECONDARY
         })
-        .hover(
-            style()
-                .background(t.colors.overlay_hover)
-                .color(t.colors.text_primary),
-        )
-        .pressed(style().background(t.colors.overlay_pressed))
-        .focus_visible(crate::recipe_style::ring(&t, t.colors.accent))
+        .hover(style().background(c::OVERLAY_HOVER).color(c::TEXT_PRIMARY))
+        .active(style().background(c::OVERLAY_PRESSED))
+        .focus_visible(ring(c::ACCENT))
         .transition(
             TransitionProp::All,
-            Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
+            Transition::tween(FAST as f64, EASE_STANDARD),
         )
 }
 
-kivact::state::constant_value!(OutlineDensity);
-
 fn active_heading(
-    active: Option<Binding<Option<String>>>,
+    active: Option<Signal<Option<String>>>,
     pending: MachineHandle<ScrollMachine>,
     items: Value<Vec<OutlineItem>>,
     viewport: Option<NodeRef>,
@@ -528,25 +432,22 @@ fn active_heading(
 }
 
 fn outline_track(indicator_rect: Value<Option<(f64, f64)>>) -> Node {
-    let t = kivact::style::use_tokens::<crate::Tokens>();
-    let transition = Transition::tween(t.motion.fast_min as f64, t.motion.ease_standard.clone());
+    let transition = Transition::tween(FAST_MIN as f64, EASE_STANDARD);
     let height = animated(
         move || indicator_rect.get().map_or(0.0, |(_, height)| height),
         transition.clone(),
     );
     node()
         .style(|| {
-            let t = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .position(Position::Relative)
-                .width(t.spacing.s0_5)
-                .shrink(0)
+                .width(SPACE_S0_5)
+                .flex_shrink(0)
                 .align_self(Align::Stretch)
-                .background(t.colors.border)
-                .radius(t.radius.full)
+                .background(c::BORDER)
+                .border_radius(RADIUS_FULL)
         })
         .child(node().style(move || {
-            let t = kivact::style::use_tokens::<crate::Tokens>();
             let offset = indicator_rect.get().map_or(0.0, |(y, _)| y);
             style()
                 .position(Position::Absolute)
@@ -555,8 +456,8 @@ fn outline_track(indicator_rect: Value<Option<(f64, f64)>>) -> Node {
                 .width(pct(100))
                 .height(height.get())
                 .translate_y(offset)
-                .radius(t.radius.full)
-                .background(t.colors.icon_primary)
+                .border_radius(RADIUS_FULL)
+                .background(c::ICON_PRIMARY)
                 .transition(TransitionProp::All, transition.clone())
         }))
 }

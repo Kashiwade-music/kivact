@@ -30,4 +30,4 @@ mod pointer;
 mod text;
 
 pub(crate) use delivery::dispatch;
-pub(crate) use pointer::run_requested_activations;
+pub(crate) use pointer::run_activation;

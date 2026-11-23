@@ -34,6 +34,11 @@ impl Common {
             layout_id,
             at
         );
+        if let Some(later) = later.variants.take() {
+            self.variants
+                .get_or_insert_with(Default::default)
+                .merge(&later);
+        }
         self.part_modal |= later.part_modal;
         self.part_region_events |= later.part_region_events;
         self.append_semantics(&mut later.semantics);
@@ -151,11 +156,8 @@ fn replace<T>(target: &mut Option<T>, incoming: Option<T>) {
 
 /// What a target's final constraints combine: the caller's own modifiers and the parts' requirements.
 pub(super) struct ConstraintSources {
-    // xtask-allow(state-fields): option: a builder input carried to mount; absent means enabled
     pub(super) disabled: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): option: a builder input carried to mount; absent means shown
     pub(super) hidden: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): option: the caller's own last `focusable` modifier; absent lets the parts decide: focusable when a part requires focus, otherwise not
     pub(super) focusable: Option<InputProp<bool>>,
     pub(super) required: PartConstraints,
 }

@@ -1,9 +1,10 @@
 //! Role: Shared node paint, image payloads, effects and state-dependent styling.
 
 use crate::color_space::SpaceColor;
-use crate::effect::FilterGraph;
+use crate::effect::FilterGraphSpec;
 use crate::geometry3d::Matrix4;
 use crate::layout::IntrinsicSize;
+use crate::length::Length;
 use crate::motion::{Transition, TransitionProp};
 use crate::pixel::BlendMode;
 use crate::{Asset, BorderStyle, Edges, Point, Rgba, Size};
@@ -44,6 +45,23 @@ pub struct Len {
     pub px: f64,
     /// The percentage part.
     pub pct: f64,
+}
+
+impl Length {
+    /// The paint form. `Px`, `Percent` and `Calc` are kept; any other value
+    /// (`Auto`, a content size, a variable, `em`, an invalid sum) is zero and
+    /// counts once in `misplaced`, since a paint position cannot take it.
+    pub fn to_len(self, misplaced: &mut u32) -> Len {
+        match self {
+            Length::Px(px) => Len { px, pct: 0.0 },
+            Length::Percent(pct) => Len { px: 0.0, pct },
+            Length::Calc { percent, px, .. } => Len { px, pct: percent },
+            _ => {
+                *misplaced += 1;
+                Len::ZERO
+            }
+        }
+    }
 }
 
 impl Len {
@@ -147,14 +165,13 @@ pub enum FillImage {
     /// A solid color.
     Solid(Rgba),
     /// A CSS gradient image.
-    Gradient(Gradient),
+    Gradient(GradientSpec),
     /// A picture.
     Image(Asset),
     /// A gradient placed by coordinates, not by the area it fills (the
     /// layer's size, position and repeat do not apply to it).
     Coordinate(CoordinateGradient),
     /// A paint shader.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     Shader(std::sync::Arc<ShaderSpec>),
 }
 
@@ -226,7 +243,7 @@ pub enum FillSize {
 
 /// A CSS gradient image.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Gradient {
+pub struct GradientSpec {
     /// Linear, radial or conic.
     pub kind: GradientKind,
     /// Stops in order; a stop without a position is placed as CSS places
@@ -240,7 +257,7 @@ pub struct Gradient {
     pub interpolation: crate::color_space::ColorInterpolation,
 }
 
-/// One color stop of a [`Gradient`], with the authored color.
+/// One color stop of a [`GradientSpec`], with the authored color.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GradientStop {
     /// The color, in the space it was authored in.
@@ -470,10 +487,8 @@ pub enum FilterOp {
         color: Rgba,
     },
     /// CSS `url(#filter)`: an SVG filter graph, images as assets.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
-    Graph(std::sync::Arc<FilterGraph<Asset>>),
+    Graph(std::sync::Arc<FilterGraphSpec<Asset>>),
     /// A filter shader.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     Shader(std::sync::Arc<ShaderSpec>),
 }
 
@@ -575,7 +590,7 @@ pub enum BorderImageRepeat {
 pub struct BorderImage {
     /// Image, gradient or solid color.
     pub source: FillImage,
-    /// Insets into the source: px are source pixels (for gradients and
+    /// Edges into the source: px are source pixels (for gradients and
     /// solid colors, px of the border image area), pct of the source size.
     pub slice: Edges<Len>,
     /// Paint the middle of the slices.
@@ -632,10 +647,8 @@ pub enum ShaderClock {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ShaderSpec {
     /// The validated program.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     pub program: std::sync::Arc<crate::effect::ShaderProgram>,
     /// The parameter bytes, laid out by the program's parameter slots.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     pub params: std::sync::Arc<[u8]>,
     /// Slots 0..=3 of the WGSL `image(slot, uv)` helper.
     pub images: [Option<Asset>; 4],
@@ -814,7 +827,6 @@ pub struct Shadow {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PaintProps {
     /// Per-property paint transitions, absent on ordinary nodes.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     pub transitions: Option<std::sync::Arc<[(TransitionProp, Transition)]>>,
     /// The background fill.
     pub background: Option<Fill>,
@@ -921,36 +933,16 @@ pub struct PaintDelta {
 /// core because the core owns those states.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct StateStyles {
-    /// Applied while hovered.
-    pub hover: Option<Box<PaintDelta>>,
-    /// Applied while pressed.
-    pub pressed: Option<Box<PaintDelta>>,
-    /// Applied while focused.
-    pub focus: Option<Box<PaintDelta>>,
-    /// Applied over `focus` while the focus is visible (the host asks for a
-    /// focus indication: keyboard focus, not a pointer press).
-    pub focus_visible: Option<Box<PaintDelta>>,
-    /// Applied while the nearest ancestor that is a `group` is hovered (in
-    /// the hover chain: the pointer is over it or a node below it), under
-    /// the node's own `hover`.
-    pub group_hover: Option<Box<PaintDelta>>,
-    /// Applied while the focus is on the nearest ancestor that is a `group`
-    /// or on a node below it, under the node's own `focus`.
-    pub group_focus: Option<Box<PaintDelta>>,
+    /// The paint deltas of the host states, indexed by
+    /// [`StyleState::host_slot`](crate::StyleState::host_slot).
+    pub deltas: [Option<Box<PaintDelta>>; 8],
     /// The node is a group for the `group_hover` and `group_focus` of the
     /// nodes below it.
     pub group: bool,
-    /// The paint the node starts from when it is first attached (CSS
-    /// `@starting-style`): its paint transition moves it to its paint. A
-    /// node without a paint transition, or under reduced motion with a
-    /// decorative one, shows its paint at once.
-    pub enter: Option<Box<PaintDelta>>,
-    /// The paint a removed node moves to by its paint transition before it
-    /// goes: until every exit in the removed subtree ends, the subtree is
-    /// drawn where it was but takes no hit, focus or accessibility node.
-    /// Without a transition (or under reduced motion with a decorative
-    /// one) the node goes at once.
-    pub exit: Option<Box<PaintDelta>>,
+    /// The host states whose activation the host reports to the client
+    /// (`HostEvent::StatesChanged`): the states whose style sets more than
+    /// paint, which the core compiles into the node's style.
+    pub report: crate::StateSet,
 }
 
 const _: () = assert!(
@@ -959,20 +951,28 @@ const _: () = assert!(
 );
 
 impl StateStyles {
+    /// The paint delta of `state`, if the style sets one.
+    pub fn delta(&self, state: crate::StyleState) -> Option<&PaintDelta> {
+        state.host_slot().and_then(|i| self.deltas[i].as_deref())
+    }
+
+    /// Set the paint delta of a host state (`Disabled` and `Selected` are
+    /// not host states; setting them does nothing).
+    pub fn set_delta(&mut self, state: crate::StyleState, delta: Option<Box<PaintDelta>>) {
+        if let Some(i) = state.host_slot() {
+            self.deltas[i] = delta;
+        }
+    }
+
+    /// Whether the host must evaluate `state` for this node: it has a delta,
+    /// or the core asked for its reports.
+    pub fn wants(&self, state: crate::StyleState) -> bool {
+        self.delta(state).is_some() || self.report.contains(state)
+    }
+
     /// Every delta it sets.
     pub fn deltas(&self) -> impl Iterator<Item = &PaintDelta> {
-        [
-            self.hover.as_deref(),
-            self.pressed.as_deref(),
-            self.focus.as_deref(),
-            self.focus_visible.as_deref(),
-            self.group_hover.as_deref(),
-            self.group_focus.as_deref(),
-            self.enter.as_deref(),
-            self.exit.as_deref(),
-        ]
-        .into_iter()
-        .flatten()
+        self.deltas.iter().flatten().map(|d| &**d)
     }
 }
 

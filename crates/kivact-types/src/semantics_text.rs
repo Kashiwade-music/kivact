@@ -145,13 +145,11 @@ impl SemanticsTextRuns {
         Arc::ptr_eq(&self.0, &other.0)
     }
     /// Adopt a backend list retaining unchanged per-line run allocations.
-    // xtask-allow(internal-contract): Native editing publishers reuse complete and per-line semantic allocations without copying text or carets.
     #[doc(hidden)]
     pub fn from_shared(runs: Arc<[Arc<SemanticsTextRun>]>) -> Self {
         Self(runs)
     }
     /// Lend the retained list to a native text adapter or publication cache.
-    // xtask-allow(internal-contract): Native editing adapters retain existing per-line semantic allocations across publication boundaries.
     #[doc(hidden)]
     pub fn as_shared(&self) -> &Arc<[Arc<SemanticsTextRun>]> {
         &self.0

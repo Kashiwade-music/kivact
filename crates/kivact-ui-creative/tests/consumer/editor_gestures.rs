@@ -3,8 +3,7 @@ use crate::arrangement_model::arrangement as app_arrangement;
 use crate::graph_support::app_graph;
 use crate::node_support::app_node_editor;
 use crate::time_support::{app_dope_sheet, app_timeline};
-use kivact::geometry::{Point, Size};
-use kivact::interaction::ViewTransform;
+use kivact::interaction::ZoomPan;
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact_ui_creative as ui;
@@ -26,7 +25,7 @@ struct Model {
     nodes: Signal<Vec<ui::NodeData>>,
     selection: Signal<Vec<u64>>,
     frame: Signal<f64>,
-    transform: Signal<ViewTransform>,
+    transform: Signal<ZoomPan>,
     view: Signal<ui::GraphView>,
     activated: Signal<Vec<u64>>,
 }
@@ -161,7 +160,7 @@ fn playhead_arrow_keys_edit_the_time_without_moving_selected_items() {
         let before = model.snapshot();
         let marker = screen.get_by_role(Role::Slider, "Playhead");
         marker.press_key(Key::ArrowRight);
-        // The graph fixture sets an explicit logical-time step (`.step(10.0, 0.01)`).
+        // The graph fixture sets an explicit logical-time step (`.time_step(10.0).value_step(0.01)`).
         assert_eq!(
             model.frame.get_untracked(),
             if kind == Kind::Graph { 10.0 } else { 1.0 },
@@ -183,7 +182,7 @@ fn timeline_trimming_updates_consumer_clip_bounds() {
             app_timeline(
                 data,
                 ui::TimeState {
-                    selection: (signal(vec![1])).into_binding(),
+                    selection: (signal(vec![1])),
                     ..ui::TimeState::new()
                 },
             )
@@ -224,9 +223,9 @@ fn gesture_model(kind: Kind) -> Model {
         nodes,
         selection: signal(Vec::new()),
         frame: signal(0.0),
-        transform: signal(ViewTransform {
+        transform: signal(ZoomPan {
             scale: if kind == Kind::Arrangement { 20.0 } else { 1.0 },
-            ..ViewTransform::default()
+            ..ZoomPan::default()
         }),
         view: signal(ui::GraphView {
             time: (0.0, 440.0),
@@ -253,9 +252,9 @@ fn gesture_view(model: Model, snap: bool) -> View {
         Kind::Timeline => app_timeline(
             clips,
             ui::TimeState {
-                selection: model.selection.into_binding(),
-                transform: model.transform.into_binding(),
-                playhead: model.frame.into_binding(),
+                selection: model.selection,
+                transform: model.transform,
+                playhead: model.frame,
             },
         )
         .on_activate(move |id| model.activated.update(|ids| ids.push(id)))
@@ -267,9 +266,9 @@ fn gesture_view(model: Model, snap: bool) -> View {
         Kind::DopeSheet => app_dope_sheet(
             keys,
             ui::TimeState {
-                selection: model.selection.into_binding(),
-                transform: model.transform.into_binding(),
-                playhead: model.frame.into_binding(),
+                selection: model.selection,
+                transform: model.transform,
+                playhead: model.frame,
             },
         )
         .on_activate(move |id| model.activated.update(|ids| ids.push(id)))
@@ -281,14 +280,15 @@ fn gesture_view(model: Model, snap: bool) -> View {
         Kind::Graph => app_graph(
             curves,
             ui::GraphState {
-                selection: model.selection.into_binding(),
-                view: model.view.into_binding(),
-                playhead: model.frame.into_binding(),
+                selection: model.selection,
+                view: model.view,
+                playhead: model.frame,
             },
         )
         .on_activate(move |id| model.activated.update(|ids| ids.push(id)))
         .snap(snap)
-        .step(10.0, 0.01)
+        .time_step(10.0)
+        .value_step(0.01)
         .time_format(|time| format!("{time}"))
         .name("Gesture editor")
         .style(style().size(640, 280))
@@ -297,8 +297,8 @@ fn gesture_view(model: Model, snap: bool) -> View {
             nodes,
             signal(Vec::new()),
             ui::NodeState {
-                selection: model.selection.into_binding(),
-                transform: model.transform.into_binding(),
+                selection: model.selection,
+                transform: model.transform,
                 ..ui::NodeState::new()
             },
         )
@@ -325,8 +325,8 @@ fn arrangement_view(model: Model, snap: bool) -> View {
                 .collect::<Vec<_>>(),
         ),
         ui::ArrangementState {
-            selection: model.selection.into_binding(),
-            transform: model.transform.into_binding(),
+            selection: model.selection,
+            transform: model.transform,
             ..ui::ArrangementState::new()
         },
     )

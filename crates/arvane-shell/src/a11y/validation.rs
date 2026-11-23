@@ -17,11 +17,14 @@
 
 use std::collections::{HashMap, HashSet};
 
-use kivact_types::render::{SemanticsNode, SemanticsTree};
+use arvane_protocol::{SemanticsNode, SemanticsTree};
 
 use super::error::AccessibilityError;
 
-pub(crate) fn canonicalize(tree: &SemanticsTree) -> Result<SemanticsTree, AccessibilityError> {
+/// The values, text and references of a tree before traversal. The engine is
+/// the sole producer of semantics trees, so only debug builds check them.
+#[cfg(debug_assertions)]
+pub(crate) fn validate(tree: &SemanticsTree) -> Result<(), AccessibilityError> {
     let mut lookup = HashMap::new();
     for node in &tree.nodes {
         if lookup.insert(node.id, node).is_some() {
@@ -30,7 +33,13 @@ pub(crate) fn canonicalize(tree: &SemanticsTree) -> Result<SemanticsTree, Access
         check_values(node)?;
     }
     check_text(tree.nodes.iter(), |id| lookup.contains_key(&id))?;
-    check_relations(tree, &lookup)?;
+    check_relations(tree, &lookup)
+}
+
+/// The tree in traversal order with its hidden flags resolved and its focus
+/// checked. The traversal rejects, in every build, a tree it cannot order.
+pub(crate) fn canonical(tree: &SemanticsTree) -> Result<SemanticsTree, AccessibilityError> {
+    let lookup: HashMap<_, _> = tree.nodes.iter().map(|node| (node.id, node)).collect();
     let mut nodes = Vec::with_capacity(tree.nodes.len());
     let mut visited = HashSet::new();
     let mut hidden_nodes = HashSet::new();
@@ -68,6 +77,7 @@ pub(crate) fn canonicalize(tree: &SemanticsTree) -> Result<SemanticsTree, Access
 }
 
 /// Validate active descendants and node references before traversal.
+#[cfg(debug_assertions)]
 fn check_relations(
     tree: &SemanticsTree,
     lookup: &HashMap<kivact_types::SemanticsId, &SemanticsNode>,
@@ -141,6 +151,7 @@ pub(crate) fn check_values(node: &SemanticsNode) -> Result<(), AccessibilityErro
 /// A complete tree's text snapshots: each node's own values
 /// ([`check_text_node`]), each run's ([`check_run`]), run identities
 /// unique among all nodes and runs, and every selection inside its text.
+#[cfg(debug_assertions)]
 pub(super) fn check_text<'a>(
     nodes: impl Iterator<Item = &'a SemanticsNode>,
     is_node: impl Fn(kivact_types::SemanticsId) -> bool,

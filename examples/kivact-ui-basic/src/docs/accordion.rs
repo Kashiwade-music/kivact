@@ -1,39 +1,33 @@
-//! Role: Catalog page of Accordion: single, multiple and controlled open sections.
+//! Catalog page of Accordion: single, multiple and controlled open sections.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
-use kivact::ui::{ControlSize, disclosure};
+use kivact::ui::disclosure;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "accordion",
-        name: "Accordion",
-        description: "縦に積んだ見出しを開閉して、内容を折りたたむ並びです。kivact::ui::disclosure を縦に並べ、開いている項目のキーを持つ signal を各項目の open の binding に結んで作ります。basic の theme は項目の下に罫線を引きます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::{ControlSize, disclosure};\nuse kivact_ui_basic as basic;",
-        source: include_str!("accordion.rs"),
-        align: PreviewAlign::Start,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "開いている項目は signal の Option で持ちます。1 つ開くと、開いていた項目は閉じます。",
-                default,
-            ),
-            Example::new(
-                "multiple",
-                "Multiple",
-                "開いている項目を Vec で持てば、複数の項目を同時に開いたままにできます。",
-                multiple,
-            ),
-            Example::new(
-                "controlled",
-                "Controlled",
-                "開閉の状態は呼び出し側の signal です。ボタンから、すべて開く・閉じるを操作できます。",
-                controlled,
-            ),
-        ],
-    }
+    Page::new("accordion", "Accordion", "Components", include_str!("accordion.rs"))
+        .description("A vertical stack of headings that open and close to fold their content. It stacks kivact::ui::disclosure items and binds a signal of the open item keys to each item's open binding. The basic theme draws a rule under each item.")
+        .usage("use kivact::prelude::*;\nuse kivact::ui::{ControlSize, disclosure};\nuse kivact_ui_basic as basic;")
+        .align(PreviewAlign::Start)
+        .example(Example::new(
+            "default",
+            "Default",
+            "An open item is held in a signal as an Option. Opening one closes the item that was open.",
+            default,
+        ))
+        .example(Example::new(
+            "multiple",
+            "Multiple",
+            "Hold the open items in a Vec to keep several items open at once.",
+            multiple,
+        ))
+        .example(Example::new(
+            "controlled",
+            "Controlled",
+            "The open state is the caller's signal. Buttons can open all items or close them all.",
+            controlled,
+        ))
 }
 
 // example: default

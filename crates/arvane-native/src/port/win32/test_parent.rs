@@ -1,7 +1,7 @@
 //! Role: Real Win32 host window for embedding end-to-end tests.
+use arvane_protocol::CpuFrame;
 use arvane_shell::ShellError;
 use kivact_types::NativeWindow;
-use kivact_types::render::CpuFrame;
 use kivact_types::{KeyCode, MouseButton};
 use std::cell::Cell;
 use std::marker::PhantomData;
@@ -41,6 +41,7 @@ const NAME: &[u16] = &[
     116, 0,
 ];
 static CLASS: Mutex<(usize, isize)> = Mutex::new((0, 0));
+// xtask-allow(state): independent: point is the last injected mouse position (button, move_to) and buttons the held-button mask (button only); any position pairs with any mask
 /// A real top-level host. Use and drop it on the thread that opened it.
 pub struct TestParent {
     point: Cell<(f64, f64)>,

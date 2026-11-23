@@ -1,7 +1,3 @@
-# ViewTransform is a canonical passive kivact-types value; core viewport attaches the interaction-owned model through a hidden conversion port.
-# ScrollSnap and release sampling are pure shared types; interaction reexports their canonical implementations.
-# Layout transitions and Retarget are shared kivact-types motion contracts consumed by runtime/style/engine.
-# TextDecorationStyle and Visibility remain shared kivact-types values; style resolves them for the engine.
 # `cargo xtask check`（xtask-core）が読む workspace の規則（CONTRIBUTING.md）。
 
 output = "architecture"
@@ -14,26 +10,28 @@ max_code_lines = 1000
 targets = "lib-bin"
 
 [visible_to]
+# dev-dependency は visible_to の対象外（dev/xtask の core_filters.rs。設計 6.3）。
 
 # ----- Shader validation: naga is confined to kivact-shader, which style (kivact-style) uses.
 kivact-shader = ["kivact-style"]
 
-# ----- SVG export: the SVG 1.1 writer and its PNG encoding are confined to kivact-svg, which kivact-core (Offscreen::render_svg) uses.
-kivact-svg = ["kivact-core"]
-kivact-macros = ["kivact"]
+# ----- SVG export: the SVG 1.1 writer and its PNG encoding are confined to kivact-svg, which kivact-offscreen (Offscreen::render_svg) uses.
+kivact-svg = ["kivact-offscreen"]
+# ----- Windowless rendering: a leaf the facade re-exports as kivact::draw::Offscreen.
+kivact-offscreen = ["kivact"]
+kivact-macros = ["kivact", "kivact-ui", "kivact-interaction"]
 
 # ----- Kivact の内部 crate: host を知らない反応の核は kivact-core だけが使う。アプリと部品は
 # kivact facade だけに依存する。
-kivact-runtime = ["kivact-style", "kivact-i18n", "kivact-core", "kivact-test"]
+kivact-runtime = ["kivact-style", "kivact-i18n", "kivact-core", "kivact-test", "kivact-offscreen"]
 kivact-i18n = ["kivact-core", "kivact-test"]
-kivact-style = ["kivact-core", "kivact-test"]
+kivact-style = ["kivact-core", "kivact-test", "kivact-offscreen"]
 kivact-core = ["kivact", "kivact-interaction", "kivact-ui", "kivact-test"]
 kivact-test = ["kivact"]
 kivact-interaction = ["kivact", "kivact-ui"]
 kivact-ui = ["kivact"]
-kivact-devtools-protocol = ["kivact-devtools-agent", "kivact-devtools-client", "kivact-core", "kivact-devtools", "kivact-devtools-mcp", "kivact-public-api-tests"]
+kivact-devtools-protocol = ["kivact-devtools-agent", "kivact-core", "kivact-devtools", "kivact-devtools-mcp"]
 kivact-devtools-agent = ["kivact-core"]
-kivact-devtools-client = ["kivact-devtools", "kivact-devtools-mcp", "kivact-devtools-agent", "kivact-public-api-tests"]
 
 # ----- Core/engine boundary: only kivact-core consumes the engine.
 # App::run, OffscreenRenderer and the test driver share the engine API.
@@ -43,7 +41,7 @@ kivact-devtools-client = ["kivact-devtools", "kivact-devtools-mcp", "kivact-devt
 # Detach facts use the single process-wide tracker in kivact-types.
 # Only arvane-native retains the code module; task and asset contain no unsafe.
 # Shared values belong to kivact-types; pure layout belongs to kivact-layout.
-kivact-engine = ["kivact-core", "kivact-test"]
+kivact-engine = ["kivact-core", "kivact-test", "kivact-offscreen"]
 # Editing transports resolved line paints and document decorations; authored StyledRange/TextDecoration belong to style.
 kivact-editing = ["kivact-style", "kivact-engine", "kivact-core"]
 kivact-layout = ["kivact-engine"]
@@ -56,37 +54,20 @@ arvane = ["kivact-engine"]
 arvane-shell = ["arvane", "arvane-native", "kivact-engine", "arvane-virtual"]
 # Linux embedded native services own XCB/XIM, AT-SPI and desktop services;
 # callbacks queue through arvane-shell and never depend back on the engine.
-arvane-native = ["kivact-engine", "arvane-virtual", "arvane", "kivact"]
+arvane-native = ["kivact-engine", "arvane-virtual", "kivact"]
 # Engine testing owns the stepped Script/Probe bridge; core uses its public test host.
-arvane-virtual = ["kivact-engine", "arvane", "kivact-test"]
-arvane-text = ["arvane", "kivact"]
-arvane-render = ["arvane", "arvane-compose", "kivact"]
+arvane-virtual = ["kivact-engine", "kivact-test"]
+arvane-text = ["arvane", "kivact", "arvane-asset", "kivact-engine"]
+arvane-render = ["arvane", "arvane-compose", "kivact-engine"]
 # The compositor plan: Composition to draw operations, owned by the window (arvane) and the facade (kivact).
-arvane-compose = ["arvane", "kivact"]
-arvane-asset = ["arvane"]
-# 試験だけの engine（自前の device で frame を描いて共有する）。Arvane の契約の試験と、公開 API の試験・
-# viewport の GPU frame の試験（dev-dependency）だけが使う。
-gpu-interop-producer = ["arvane", "kivact-public-api-tests"]
-
-# ----- アプリ・例・雛形・ツール: 誰も依存しない。
-kivact-template-basic = []
-kivact-example-counter = []
-kivact-example-form = []
-kivact-example-list = []
-kivact-example-async = []
-kivact-example-component = []
-kivact-ui-basic-catalog = []
-kivact-ui-pop-catalog = []
-kivact-ui-game-catalog = []
-kivact-ui-creative-catalog = []
-kivact-ui-soft-catalog = []
-kivact-docs = []
-kivact-devtools = []
-kivact-devtools-mcp = []
-# Public API tests consume all five official kits for theme conformance.
-kivact-public-api-tests = []
-xtask = []
-kivact-bench = []
+arvane-compose = ["arvane", "kivact", "kivact-engine"]
+arvane-asset = ["arvane", "kivact-engine"]
+# ----- The frame protocol: the engine builds it and the Arvane crates consume it.
+arvane-protocol = ["arvane", "arvane-shell", "arvane-native", "arvane-virtual", "arvane-text", "arvane-render", "arvane-compose", "kivact-engine"]
+# 試験だけの engine（自前の device で frame を描いて共有する）。dev-dependency だけが使う（dev-dependency は visible_to の対象外）。
+gpu-interop-producer = []
+catalog-shell = ["kivact-ui-basic-catalog", "kivact-ui-pop-catalog", "kivact-ui-game-catalog", "kivact-ui-creative-catalog", "kivact-ui-soft-catalog"]
+kivact-plot = ["kivact-ui-basic", "kivact-ui-basic-catalog", "kivact-docs"]
 
 # xtask-core は、外部 crate の glob import（`use kivact::prelude::*` など）がある module で、
 # macro と derive の提供元を決められない。標準の macro と derive は glob で上書きされない前提で信頼する。
@@ -99,13 +80,19 @@ trusted_macros = [
     "concat", "matches", "panic", "println", "unreachable", "vec", "write", "writeln", "env", "file",
     "thread_local", "tracing::debug", "tracing::error", "tracing::info", "tracing::trace",
     "tracing::warn", "quote", "format_ident",
+    # kivact-macros の proc-macro の入口（parse_macro_input・parse_quote）。展開の token は解析の外。
+    "syn::parse_macro_input", "syn::parse_quote",
     # workspace の macro_rules と、それを呼ぶ path は dev/xtask（macros.rs）が自動で足す。
     # item を生成する macro は、呼んだ module を解析の外に置く。
 ]
 trusted_attributes = ["serde", "component"]
+# #[component] fn が作る Type（`fn button` が `Button`）を、その fn の隣に宣言する。
+generated_type_attributes = ["component"]
 trusted_derives = [
     "Clone", "Copy", "Debug", "Default", "Eq", "Hash", "Ord", "PartialEq", "PartialOrd",
     "Deserialize", "Serialize",
+    # kivact-macros の `#[derive(Prop)]`。impl IntoValue<T> for T だけを作り、module の参照を足さない。
+    "Prop", "kivact::Prop",
 ]
 
 # ----- crate 内の module の依存の向き（dev/xtask の module_rules.rs）。依存の向き
@@ -117,7 +104,8 @@ trusted_derives = [
 # 使われない例外も error にする。
 [module_rules.kivact-core]
 # Canonical facades reexport owner access; the motion boundary adapter accepts the public NodeRef handle.
-except = ["style -> view::boundary", "state -> view::boundary", "state -> view::owner", "motion::frame_loop -> view::node_ref", "view::elements::viewport -> platform::env", "view::elements::viewport -> gpu_interop"]
+# visibility needs the window size, as the viewport element does (the node's visibility is read against the window).
+except = ["style -> view::boundary", "state -> view::boundary", "state -> view::owner", "view::elements::viewport -> platform::env", "view::node_ref_visibility -> platform::env", "view::elements::viewport -> gpu_interop"]
 
 [module_rules.kivact-core.uses]
 state = []
@@ -164,7 +152,8 @@ motion = ["reactive"]
 # `Style` 全体の `resolve` をさらに上に置く。
 [module_rules.kivact-style.uses]
 asset = []
-length = []
+# The theme-aware length resolution sits below geometry and paint.
+length = ["theme"]
 geometry = ["length"]
 color = []
 transform = ["geometry", "length"]
@@ -176,7 +165,7 @@ effect = ["asset", "color", "geometry", "length", "path", "shader", "theme"]
 paint = ["asset", "color", "geometry", "length", "shader", "theme"]
 shader = ["asset", "color", "geometry", "paint", "theme"]
 text = ["color", "effect", "paint", "theme"]
-draw = ["asset", "color", "effect", "geometry", "paint", "path", "shader", "text", "theme", "transform"]
+draw = ["asset", "color", "effect", "geometry", "length", "paint", "path", "shader", "text", "theme", "transform"]
 sheet = ["color", "draw", "effect", "geometry", "grid", "length", "paint", "text", "theme", "transform"]
 resolve = [
     "color", "draw", "effect", "geometry", "grid", "length", "paint", "sheet", "text", "theme",
@@ -289,22 +278,29 @@ env = ["cell", "defaults", "geometry"]
 geometry = []
 geometry3d = ["geometry"]
 gpu = []
+gradient_stops = ["color", "color_space", "geometry", "paint"]
 ids = []
 input = ["geometry"]
-layout = ["geometry", "ids", "motion", "semantics"]
+# Length is the authoring type layout and paint are built from.
+layout = ["geometry", "ids", "length", "motion", "semantics"]
+length = ["theme_var"]
 motion = ["animatable", "geometry"]
-paint = ["asset", "color", "color_space", "effect", "geometry", "geometry3d", "layout", "motion", "pixel", "scene"]
+# Length is the authoring type layout and paint are built from.
+paint = ["asset", "color", "color_space", "effect", "geometry", "geometry3d", "layout", "length", "motion", "pixel", "scene", "style_state"]
 platform = ["asset", "geometry"]
 process = []
 pixel = ["asset", "color"]
-prop_interp = ["color", "color_space", "geometry", "motion", "paint"]
-render =["asset", "check", "color", "color_space", "effect", "env", "geometry", "geometry3d", "gpu", "pixel", "ids", "input", "layout", "motion", "paint", "platform", "scene", "semantics", "semantics_text", "text", "text_shaping"]
-scene = ["asset", "color", "effect", "geometry", "geometry3d", "gpu", "ids", "paint", "pixel", "render", "semantics", "text"]
+export = ["ids", "pixel"]
+shaped = ["color", "geometry", "semantics_text", "text"]
+scene = ["asset", "color", "effect", "geometry", "geometry3d", "gpu", "ids", "paint", "pixel", "semantics", "shaped", "text"]
 semantics = ["geometry", "ids", "semantics_text"]
 semantics_text = ["geometry", "ids"]
+style_state = []
 text =["color", "color_space", "geometry", "paint"]
-text_shaping = ["render", "scene", "text"]
+text_shaping = ["scene", "shaped", "text"]
 text_utf = []
+theme_var = []
+type_map = []
 
 [style]
 enabled = true
@@ -327,13 +323,13 @@ disabled_rules = ["missing-docs"]
 api_packages = [
     "kivact", "kivact-test", "kivact-core", "kivact-editing", "kivact-gpu-share", "kivact-i18n", "kivact-interaction",
     "kivact-runtime", "kivact-style", "kivact-types", "kivact-ui",
-    "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft",
+    "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft", "kivact-plot",
 ]
 # 関数に渡す「option の束」。必須の値（親 window、texture の大きさ）は束に入れず引数で渡す。
 options_structs = [
     "arvane-native::mirror::MirrorWindowOptions",
     "arvane-virtual::VirtualOptions",
-    "arvane::ShellSetup",
+    "arvane::DriverOptions",
     "arvane-shell::ChildHooks",
     "kivact-test::RenderOptions",
     "kivact-engine::api::HostOptions",
@@ -379,6 +375,11 @@ reason = "Public API E2E tests are written from the user's side and import `kiva
 
 [[style.exceptions]]
 rule = "glob-imports"
+path = "dev/tests/kivact-kit-tests/*"
+reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
 path = "dev/bench/src/bin/*"
 reason = "The bench binaries are measurement programs written from the user's side and start from `use kivact::prelude::*`."
 
@@ -404,9 +405,20 @@ item = "component"
 reason = "The proc-macro entry is the crate's only export; the parsing and expansion live in the child modules."
 
 [[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-macros/src/lib.rs"
+item = "derive_prop"
+reason = "The proc-macro entry is the crate's only export; the parsing and expansion live in the child modules."
+
+[[style.exceptions]]
 rule = "glob-imports"
 path = "crates/kivact-ui-basic/tests/*"
 reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "crates/kivact-plot/tests/*"
+reason = "Plot E2E tests are written from the user's side and import `kivact::prelude::*`."
 
 [[style.exceptions]]
 rule = "glob-imports"
@@ -447,32 +459,8 @@ reason = "Test-only X11 host: the module owns one large TestParent implementatio
 
 [[style.exceptions]]
 rule = "non-leaf-implementation"
-path = "crates/kivact-core/src/client/dispatch.rs"
-item = "client::dispatch::dispatch"
-reason = "Glue that ties the event modules together: it routes each HostEvent variant to the child module of its kind and implements no event handling itself."
-
-[[style.exceptions]]
-rule = "non-leaf-implementation"
-path = "crates/kivact-core/src/view/mount.rs"
-item = "view::mount::mount_host_with"
-reason = "Glue that ties the mounting stages together: it runs the child modules' stages in the one order mounting requires and implements none of them."
-
-[[style.exceptions]]
-rule = "non-leaf-implementation"
-path = "crates/kivact-core/src/view/mount.rs"
-item = "view::mount::mount_host"
-reason = "The stage sequence of mount_host_with without a layout fix-up; glue over the mounting stages."
-
-[[style.exceptions]]
-rule = "non-leaf-implementation"
-path = "crates/arvane-native/src/port/embed/open.rs"
-item = "port::embed::open::open"
-reason = "Glue: `open` only selects the Win32 or X11 child backend by cfg; other platforms report Unsupported."
-
-[[style.exceptions]]
-rule = "non-leaf-implementation"
 path = "examples/kivact-ui-basic/src/docs.rs"
-item = "docs::PAGES"
+item = "docs::pages"
 reason = "Glue: the page registry only lists each child page module's `page()` in navigation order."
 
 [[style.exceptions]]
@@ -489,21 +477,9 @@ reason = "Glue: the MCP binary entry only reads the embedded schema and starts t
 
 [[style.exceptions]]
 rule = "non-leaf-implementation"
-path = "crates/kivact-devtools/src/main.rs"
-item = "main"
-reason = "Glue: the DevTools binary entry only parses arguments and runs the app root."
-
-[[style.exceptions]]
-rule = "non-leaf-implementation"
 path = "crates/kivact-devtools/tests/app.rs"
 reason = "Glue: the integration test root registers the shared support module and the per-panel test modules, then holds the shell tests."
 
-[state_fields]
-role_suffixes = ["Options", "Event", "Phase", "Reason", "Input", "Report", "Tokens", "Recipes"]
-record_types = ["SemanticNode", "LayoutViolation", "ListItem", "MenuEntry", "Command", "TreeNode", "DataColumn", "ToastOptions", "CalendarOptions", "StepperItem"]
-named_helpers = ["Generation", "Sent", "ReportOnce", "ReportOnceSet", "Mailbox", "LocalMailbox", "Registry"]
-# Mobile input purposes and launch restoration snapshots remain passive transport values.
-value_modules = ["kivact-types::semantics", "kivact-types::env", "kivact-types::scroll", "kivact-types::layout", "kivact-types::paint", "kivact-types::text", "kivact-types::scene", "kivact-types::render", "kivact-types::input", "kivact-types::platform", "kivact-types::embed", "kivact-types::check", "kivact-devtools-protocol", "kivact-types::window"]
 
 [kit_literal_color]
 allowed_files = ["tokens.rs", "theme.rs", "color.rs"]
@@ -511,29 +487,41 @@ allowed_files = ["tokens.rs", "theme.rs", "color.rs"]
 [os_branch]
 allowed_paths = ["crates/arvane-native/", "crates/kivact-gpu-share/", "crates/arvane-render/src/gpu/", "crates/arvane-compose/src/gpu/", "crates/kivact-types/src/gpu.rs", "crates/arvane-asset/", "crates/arvane-text/"]
 
-[structural_options]
-# Passive data values and collection records do not configure mounted UI structure.
-# Path geometry contracts: contains/stroke_contains, canvas arc_to, SVG svg_arc_to/parse_svg.
-record_types = ["Generation", "Rgba", "Insets", "InspectorPanel", "CalendarDate", "SortOrder", "ColumnDef", "DataColumn", "Path", "Style", "Span", "BorderImage", "Mask", "MaskLayer", "ShaderPaint", "ShaderFilter", "FilterGraph"]
-list = [
-    "Dialog::mode", "Disclosure::keep_mounted", "Tabs::keep_mounted",
-    "ComboboxApi::mode", "Combobox::mode", "CarouselApi::mode", "Carousel::mode",
-    "VirtualList::row_height", "ListApi::keep_focus", "Overlay::modal", "Node::modal", "Node::region_events",
-    "VirtualList::release_offscreen_focus", "TextEditing::multiline", "TextEditing::report_text",
-    "DragApi::axis_lock", "DragApi::track_velocity",
-    "DataTable::expand_all_control", "Overlay::keep_anchor_clear", "Overlay::at_least_anchor_width",
-    "Menu::at_least_anchor_width", "Span::italic", "Transition::essential",
-    "Carousel::looping", "Dropzone::multiple", "DropzoneApi::multiple", "Dropzone::pick_on_press",
-    "Combobox::free_text", "Combobox::chips", "Combobox::exclude_selected", "Disclosure::always_open", "DisclosureApi::always_open",
-    "EmptyState::announce", "EmptyState::announce_changes", "Drawer::side", "Sidebar::collapsible", "SidebarProvider::side", "SideNavResize::initially_collapsed",
-    "InputOtp::groups", "InputOtp::pattern", "HoverCard::open_delay", "HoverCard::close_delay",
-    "TopNavMenu::delay_ms", "TopNavMenu::hide_delay_ms",
-    "TopNavMegaMenu::delay_ms", "TopNavMegaMenu::hide_delay_ms",
-    "Step::indicator", "Skeleton::index",
-    "List::selection", "Tree::selection", "DataTable::selection",
-    "Transition::alternate", "variant",
-    "Timeline::alternate", "Timeline::essential", "FrameLoop::essential", "ShaderPaint::essential",
-    "ShaderFilter::essential",
+[ui_machine]
+# kivact-ui に残す表示だけの timer。
+allowed_types = ["kivact_ui::alert::view::BannerMachine", "kivact_ui::button::view::BusyInput", "kivact_ui::calendar::navigation::FocusSnapshot", "kivact_ui::empty_state::changes::Controller", "kivact_ui::progress::view::ProgressMotionInput"]
+
+[hand_element]
+# kivact-core の view の外で手書きの impl Element / impl IntoView を許す組（"<定義の path> <file>"）。
+# trigger に付いて surface を兄弟で出す builder と、型付きの項目・panel を積む builder。root が一つの #[component] にできない（設計 5.1）。手書きのまま残す理由は 5 つの型：(1) trigger と surface を兄弟で出す（Tooltip・Dialog・HoverCard・Disclosure・Menu・Select・Combobox・NavigationMenu）、(2) surface を show で開くたびに作り直す（Dialog・HoverCard・Menu・Select・CommandPalette）、(3) 型付きの項目・panel を積む（DisclosureGroup・NavigationMenu）、(4) 呼出し側の press を包む（NavigationMenuLink）、(5) 型引数や複数の値を一組で受ける mode を持つ builder（DataTable。group_by・tree・sticky_columns・page・remote_page などを一組ずつ受ける。1 prop 1 setter に分けると組の片方だけの状態ができるため）、ItemRow（position(index, count) が index と count を一組で受ける）。
+allowed_impls = [
+  "kivact_ui::tooltip::view::Tooltip crates/kivact-ui/src/tooltip/view.rs",
+  "kivact_ui::dialog::view::Dialog crates/kivact-ui/src/dialog/view.rs",
+  "kivact_ui::hover_card::view::HoverCard crates/kivact-ui/src/hover_card/view.rs",
+  "kivact_ui::disclosure::view::Disclosure crates/kivact-ui/src/disclosure/view.rs",
+  "kivact_ui::disclosure::group::DisclosureGroup crates/kivact-ui/src/disclosure/group.rs",
+  "kivact_ui::menu::view::Menu crates/kivact-ui/src/menu/view.rs",
+  "kivact_ui::select::view::Select crates/kivact-ui/src/select/view.rs",
+  "kivact_ui::combobox::handle::Combobox crates/kivact-ui/src/combobox/handle.rs",
+  "kivact_ui::command_palette::view::CommandPalette crates/kivact-ui/src/command_palette/view.rs",
+  "kivact_ui::navigation_menu::view::NavigationMenu crates/kivact-ui/src/navigation_menu/view.rs",
+  "kivact_ui::navigation_menu::link::NavigationMenuLink crates/kivact-ui/src/navigation_menu/link.rs",
+  "kivact_ui::data_table::builder::DataTable crates/kivact-ui/src/data_table/builder.rs",
+  "kivact_ui::data_table::runtime::DataTable crates/kivact-ui/src/data_table/runtime.rs",
+  "kivact_ui::item_list::row::ItemRow crates/kivact-ui/src/item_list/row.rs",
+  "kivact_ui::date_input::view::DateInput crates/kivact-ui/src/date_input/view.rs",
+  "kivact_ui::date_range_input::view::DateRangeInput crates/kivact-ui/src/date_range_input/view.rs",
+  "kivact_ui_basic::native_select::NativeSelect crates/kivact-ui-basic/src/native_select.rs",
+  # 理由 (5)：generic の setter `menu<C, R>` を持つ builder（DataTable と同じ扱い。設計者の回答 (B4)）。
+  "kivact_ui_creative::dock::view::Dock crates/kivact-ui-creative/src/dock/view.rs",
+  # 理由 (1)：trigger と surface を兄弟で出す builder（soft の more_menu・power_search・top_nav の TopNavMegaMenu。設計者の回答、2026-11-22）。
+  "kivact_ui_soft::more_menu::MoreMenu crates/kivact-ui-soft/src/more_menu.rs",
+  "kivact_ui_soft::power_search::PowerSearch crates/kivact-ui-soft/src/power_search.rs",
+  "kivact_ui_soft::top_nav::TopNavMegaMenu crates/kivact-ui-soft/src/top_nav.rs",
+  # 理由 (2)：中に中核の Dialog を持ち、surface を開くたびに作る builder（soft の alert_dialog。設計者の回答、2026-11-22）。
+  "kivact_ui_soft::alert_dialog::AlertDialog crates/kivact-ui-soft/src/alert_dialog.rs",
+  # 理由 (1)：trigger の上に置く field の builder（catalog の IconInput。字句どおり node_mut は中の TextInput の node を返す。設計者の回答 (B)-3）。
+  "kivact_ui_pop_catalog::pages::forms::IconInput examples/kivact-ui-pop/src/pages/forms.rs",
 ]
 
 [module_rules.arvane-virtual.uses]

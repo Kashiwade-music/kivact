@@ -1,7 +1,7 @@
 //! Role: Theme density and halo pixels follow the public game theme.
 
 use kivact::prelude::*;
-use kivact::style::pct;
+
 use kivact_ui_game as g;
 use kivact_ui_game::ThemeOptions;
 
@@ -23,13 +23,14 @@ fn consumer_theme_density_and_halo_pixels_follow_public_theme() {
                             mode.get(),
                             ThemeOptions {
                                 density: density.get(),
+                                ..Default::default()
                             },
                         )
                     },
                     || {
                         column((
                             kivact::ui::button("Action")
-                                .variant(kivact_ui_game::Slant)
+                                .variant(kivact::ui::Slant)
                                 .test_id("themed-action"),
                             g::halo().style(style().size(34, 34)).test_id("small-halo"),
                         ))
@@ -38,7 +39,7 @@ fn consumer_theme_density_and_halo_pixels_follow_public_theme() {
                                 .size(pct(100), pct(100))
                                 .padding(24)
                                 .gap(24)
-                                .background(ColorToken::Surface),
+                                .background(kivact::style::color::SURFACE),
                         )
                     },
                 ),

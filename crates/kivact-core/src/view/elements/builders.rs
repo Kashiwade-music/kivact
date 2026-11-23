@@ -29,7 +29,6 @@ use crate::view::descriptor::view_fn;
 use crate::view::element_data::Common;
 use crate::view::element_data::{Content, Node};
 use crate::view::mount::mount_host;
-use crate::view::state::ViewState;
 use crate::view::{IntoView, Role, View};
 use kivact_runtime::Prop as InputProp;
 use kivact_runtime::{ErrorKind, UiError};
@@ -40,6 +39,50 @@ use kivact_style::asset::Asset;
 #[track_caller]
 pub fn node() -> Node {
     Node::new(Content::Box, Some(Location::caller()))
+}
+
+impl Node {
+    /// Move the modifiers a caller wrote on a `#[component]` (collected in an
+    /// empty `node()`) onto the root its body built: the caller's style layers
+    /// after the body's, its handlers before the body's (as `prepend_key`), and
+    /// its name, description, test id, variants and node refs over the body's
+    /// (a node ref is added, so the body's own refs stay bound). Disabled is
+    /// the OR of both: a busy body stays disabled under the caller's enabled
+    /// state. Generated code and the hand-written builders listed in
+    /// `[hand_element] allowed_impls` call it; write `.style(..)` and friends
+    /// instead.
+    #[doc(hidden)]
+    pub fn absorb(mut self, caller: Node) -> Node {
+        let body_disabled = self
+            .disabled_source()
+            .map(kivact_runtime::IntoValue::into_value);
+        let caller_disabled = caller
+            .disabled_source()
+            .map(kivact_runtime::IntoValue::into_value);
+        let Node {
+            common,
+            children,
+            modifiers,
+            ..
+        } = caller;
+        debug_assert!(
+            children.is_empty(),
+            "a #[component] caller adds no children to its root"
+        );
+        self.modifiers
+            .push(crate::view::element_data::Modifier::Caller(Box::new(
+                std::mem::take(&mut self.common),
+            )));
+        self.modifiers.extend(modifiers);
+        self.common = common;
+        if let (Some(body), Some(outer)) = (body_disabled, caller_disabled) {
+            self.common
+                .set_disabled(kivact_runtime::IntoValue::into_prop(move || {
+                    body.get() || outer.get()
+                }));
+        }
+        self
+    }
 }
 
 impl Node {
@@ -258,12 +301,7 @@ impl IntoView for Node {
             // so this one only shows up if a style or binding is added.
             let loc = at.unwrap_or_else(Location::caller);
             let children = drop_misused(cx, kind, &mut common, children, loc);
-            let id = mount_host(cx, kind, common, loc);
-            if at.is_none()
-                && let Some(n) = ViewState::tree_mut(cx.rt).get_mut(id)
-            {
-                n.at = None;
-            }
+            let id = mount_host(cx, kind, common, at);
             for child in children {
                 child.mount_into(cx, id);
             }
@@ -393,8 +431,8 @@ static NO_ICON: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 /// ```no_run
 /// # use kivact_core as kivact;
 /// use kivact::view::{Element, icon};
-/// use kivact::style::{ColorToken, style};
-/// let check = icon("check").style(style().color(ColorToken::Accent));
+/// use kivact::style::{style};
+/// let check = icon("check").style(style().color(kivact::style::color::ACCENT));
 /// # let _ = check;
 /// ```
 #[track_caller]
@@ -407,7 +445,7 @@ pub fn icon(icon: impl IntoValue<kivact_style::Icon>) -> Node {
         let theme = kivact_style::use_theme().get();
         theme.icons().resolve(&icon).unwrap_or_else(|| {
             if cfg!(debug_assertions) && reported.note() {
-                let owner = kivact_runtime::Owner::ambient("icon", at);
+                let owner = kivact_runtime::Owner::running("icon", at);
                 let rt = owner.runtime();
                 rt.report_later(
                     Some(owner),
@@ -430,6 +468,6 @@ pub fn icon(icon: impl IntoValue<kivact_style::Icon>) -> Node {
             .size(16, 16)
             .max_width(kivact_style::pct(100))
             .max_height(kivact_style::pct(100))
-            .shrink(0),
+            .flex_shrink(0),
     )
 }

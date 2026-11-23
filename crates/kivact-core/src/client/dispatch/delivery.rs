@@ -3,7 +3,7 @@ use super::{a11y, common, diagnostics, env, gpu, ime, key, platform, pointer, te
 use crate::view::drawable::events;
 use crate::view::state::ViewState;
 use kivact_engine::contract::HostEvent;
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_types::{FocusTarget, WindowId};
 
 pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
@@ -78,6 +78,7 @@ fn deliver(rt: &Runtime, host_event: &HostEvent) {
         HostEvent::Key(_) => key::key(rt, host_event),
         // Recorded by `track_modifiers` above; nothing else to deliver.
         HostEvent::ModifiersChanged { .. } => {}
+        HostEvent::NodeFlagsChanged { node, flags } => env::node_flags_changed(rt, *node, *flags),
         HostEvent::TextChanged {
             node,
             changes,
@@ -164,6 +165,9 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
         return;
     }
     match host_event {
+        HostEvent::StatesChanged { node, states } => {
+            crate::view::node_states::states_changed(rt, *node, *states)
+        }
         HostEvent::DuplicateLayoutId { node, id } => {
             diagnostics::duplicate_layout_id(rt, *node, id)
         }

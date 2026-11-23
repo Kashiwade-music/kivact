@@ -1,8 +1,9 @@
 //! Role: Provide binding-backed carousel commands and observable state.
 use super::machine::{CarouselState, Effect, Event, Machine};
-use kivact_core::state::{Binding, IntoBinding, IntoValue, MachineHandle, Value, machine, memo};
+use kivact_core::state::{IntoValue, MachineHandle, Signal, Value, machine, memo};
+use kivact_macros::Prop;
 /// How scrolling settles between slides.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum Snap {
     /// Preserve the user's scroll position.
     None,
@@ -14,25 +15,35 @@ pub enum Snap {
 #[derive(Clone, Copy)]
 pub struct CarouselApi {
     state: MachineHandle<Machine>,
-    index: Binding<usize>,
+    index: Signal<usize>,
     count: usize,
 }
 /// Create a carousel controller over a caller-owned index and slide count.
+///
+/// `scroll_to` moves the viewport to a slide. It runs for every command and
+/// every outside write of the index, never for the user's own scroll.
 #[track_caller]
-pub fn use_carousel(index: impl IntoBinding<usize>, count: usize) -> CarouselApi {
-    let index = index.into_binding();
+pub fn use_carousel(
+    index: Signal<usize>,
+    count: usize,
+    scroll_to: impl Fn(usize) + 'static,
+) -> CarouselApi {
     let state = machine(
         CarouselState::Idle {
             index: index.get_untracked().min(count.saturating_sub(1)),
         },
         || Machine,
         move |_, effect| match effect {
-            Effect::Index(at) => index.set(at),
+            Effect::Go(at) => {
+                index.set(at);
+                scroll_to(at);
+            }
+            Effect::Settled(at) => index.set(at),
         },
     );
     state.feed(
         memo(move || index.get().min(count.saturating_sub(1))),
-        Event::Go,
+        Event::GoTo,
     );
     CarouselApi {
         state,
@@ -52,7 +63,7 @@ impl CarouselApi {
     /// Select a slide, clamped to the available range.
     pub fn go_to(self, index: usize) {
         self.state
-            .send(Event::Go(index.min(self.count.saturating_sub(1))));
+            .send(Event::GoTo(index.min(self.count.saturating_sub(1))));
     }
     /// Move by a signed number of slides, optionally wrapping.
     pub fn step(self, delta: isize, looping: bool) {
@@ -69,11 +80,9 @@ impl CarouselApi {
     }
     /// Record the nearest slide during scrolling; commits after 120 ms of idle.
     pub fn scrolling(self, nearest: usize) {
-        self.state.send(Event::Scroll(
+        self.state.send(Event::ScrollObserved(
             nearest.min(self.count.saturating_sub(1)),
             kivact_core::custom::clock_now(),
         ));
     }
 }
-
-kivact_core::state::constant_value!(Snap);

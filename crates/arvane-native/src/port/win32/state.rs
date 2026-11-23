@@ -2,21 +2,12 @@
 use super::native::Native;
 use crate::port::embed::child::Shared;
 use crate::port::embed::session::Session;
-use crate::port::embed::surface::ChildSurface;
-use arvane_shell::{ClickCounter, MakeHandler, ModifierState, Mouse, PlatformTree, ShellEvent};
+use arvane_shell::{ClickCounter, ModifierState, Mouse, PlatformTree, ShellEvent};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Instant;
 use windows_sys::Win32::UI::WindowsAndMessaging::WNDPROC;
-
-/// The App's root handler before the private `START` message runs it.
-pub(super) enum StartSlot {
-    /// The handler waits for the one `START` message that `open` sends.
-    Ready(MakeHandler),
-    /// `START` ran once; a second message is an invariant violation.
-    Started,
-}
 
 /// Who decides the child's scale. The change is one-way: once the host sets a scale, the system's
 /// DPI no longer does (`ShellChild::set_scale` has no way back).
@@ -98,6 +89,7 @@ impl Uia {
     }
 }
 
+// xtask-allow(state): record: separate facts of the embedded child, one writer each: events (the queue), original_proc (the subclass), cursor, decoder, mouse, modifiers and clicks (input messages), environment (the last announced, compared on change), scale_source (set_scale), cpu, services and uia (released once by dispose)
 pub(super) struct State {
     pub(super) shared: Arc<Shared>,
     pub(super) native: Arc<Native>,
@@ -105,10 +97,6 @@ pub(super) struct State {
         Option<Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>>,
     /// What happens to key presses the editor does not handle.
     pub(super) unhandled_keys: kivact_types::UnhandledKeys,
-    /// Whether the child can draw; the only source of `surface_generation`.
-    pub(super) surface: Cell<ChildSurface>,
-    /// The root handler until the private `START` message runs it.
-    pub(super) start: RefCell<StartSlot>,
     pub(super) session: Session,
     pub(super) events: RefCell<VecDeque<ShellEvent>>,
     /// App code (a handler callback) is on the stack.

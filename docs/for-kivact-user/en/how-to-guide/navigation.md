@@ -2,13 +2,14 @@
 
 [日本語](../../jp/how-to-guide/navigation.md)
 
-Use the core navigation builders with your application's data. Installing a kit theme changes their recipes and tokens.
+Use the core navigation builders with your application's data. Installing a kit theme changes their look and theme variables.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::{self, PaginationMode};
+use kivact::ui::{self, PaginationMode, StepStatus, StepperItem};
 
-fn navigation() -> impl IntoView {
+#[component]
+fn navigation() -> impl Element {
     let page = signal(0usize);
     let step = signal(1usize);
     column((
@@ -34,11 +35,11 @@ Pagination binds a zero-based page index; visible page numbers and the editable 
 
 The constructor's count is the page-count source. Calling `.total_items(total)` explicitly replaces that source with an item total, divided by `.page_size(binding)` (or one if omitted). `.page_size_options` accepts reactive options. Changing page size through the control returns to the first page. `.has_more(true)` allows next-page navigation when the total is still unknown. `PaginationMode` selects pages, dots, a count, compact controls, an editable input, or no page controls. Input commits on Enter or focus departure and clamps to the available pages.
 
-Stepper current indices are zero based. A step's description, status, optional marker, enabled state, indicator and content belong to its `StepperItem`. `.on_step_press` reports activation; the application changes the current step. `.orientation` changes the layout. Kits express density, spacing and indicator styling through recipes, tokens and variants.
+Stepper current indices are zero based. A step's description, status, optional marker, enabled state, indicator and content belong to its `StepperItem`. Pressing an enabled step writes its index to the `current` signal; the application decides what the new step shows. `.on_edit(|phase| ..)` reports the begin, commit and cancel of each change, like other editing components. `.orientation` changes the layout. Kits express density, spacing and indicator styling through the theme variables, theme tables and variants.
 
 Breadcrumbs expose a navigation landmark and list. The last item has `CurrentItem::Page` and is not an activation target. Earlier items activate their keys with Enter, Space or a pointer. `.item` replaces item contents and `.separator` replaces decorative separators.
 
-Navigation triggers open on hover. Clicking, Enter, Space or ArrowDown pins a panel; Escape dismisses it. Pinned panels also dismiss on outside press or focus departure. `.open_delay` and `.close_delay` accept `Duration`; `.placement` and `.align` position panels. Use `interaction::use_navigation_menu()` when composing a domain navigation control: `NavOpen` is its single visibility state, and `hover_after`, `leave_after`, `show`, `toggle` and `hide` send transitions to that owner.
+Navigation triggers open on hover. Clicking, Enter, Space or ArrowDown pins a panel; Escape dismisses it. Pinned panels also dismiss on outside press or focus departure. `.open_delay` and `.close_delay` accept `Duration`; `.placement` and `.align` position panels. Use `interaction::use_navigation_menu(open)` when composing a domain navigation control: `open` is its visibility signal, and each panel's `hover_after`, `leave_after`, `show`, `toggle` and `hide` send transitions to that owner.
 
 `breadcrumb(items).current(current_key)` overrides the default final current page. The source accepts `Option<K>` reactively: `Some(key)` marks that key, while explicit `None` marks no page. Omitting the method retains the final-item default.
 
@@ -87,7 +88,8 @@ handling.
 use kivact::prelude::*;
 use kivact::ui;
 
-fn docs_menu() -> impl IntoView {
+#[component]
+fn docs_menu() -> impl Element {
     ui::navigation_menu("Docs")
         .action("home", "Home", || println!("Go home"))
         .link("guides", "Guides", || {
@@ -98,8 +100,8 @@ fn docs_menu() -> impl IntoView {
 }
 ```
 
-For a custom menu trigger, connect visibility to an application binding with
-`interaction::use_menu_with_open(items, open_binding)`. `.trigger_action(callback)`
+For a custom menu trigger, connect visibility to an application signal with
+`interaction::use_menu(items, open)`. `.trigger_action(callback)`
 replaces the trigger's normal press action during setup; it is not an observer
 of visibility changes. Opening from outside does not move focus into the menu,
 while keyboard opening from the trigger keeps the standard initial focus, so do

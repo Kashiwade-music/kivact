@@ -4,19 +4,16 @@ use std::collections::BTreeMap;
 
 use crate::tree::NodeTree;
 use kivact_types::PointerId;
-use kivact_types::{FocusTarget, NodeId, Point, PointerButtons, PointerKind};
+use kivact_types::{FocusTarget, NodeId, Point, PointerKind};
 
 /// The pointer group: the state machine's tracks (with each pointer's last
 /// position and its gesture), the file drop target and the cursor last
-/// shown. The buttons a pointer holds are the shell's (`PointerSample::buttons`),
-/// kept once in its track's source.
+/// shown. A track keeps only what the machine decided about its pointer;
+/// the buttons, pressure, tilt and time of each event come with its sample.
 pub(crate) struct Pointer {
     pub(super) state: PointerState,
-    // xtask-allow(state-fields): independent: the file-listening node under an OS file drag, set by the file drag events and cleared at Drop, Leave or its removal; the hover and position projections follow mouse events, so any pair occurs
     pub(super) file_target: Option<NodeId>,
-    // xtask-allow(state-fields): projection: the hover last reported to the client, written only by Model::report_hover
     pub(super) hover_sent: kivact_types::cell::Sent<Option<FocusTarget>>,
-    // xtask-allow(state-fields): projection: the mouse position last reported to the client, written only by Model::report_mouse_position
     pub(super) position_sent: kivact_types::cell::Sent<Option<Point>>,
     pub(super) shown: kivact_types::Cursor,
 }
@@ -90,8 +87,6 @@ pub(crate) struct Hover {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct MouseTrack {
-    pub(crate) source: PointerSource,
-    // xtask-allow(state-fields): independent: the pointer's target and the hover chain are cleared separately
     pub(crate) over: Option<NodeId>,
     pub(crate) at: Point,
     pub(crate) hover: Hover,
@@ -133,8 +128,7 @@ impl ContactRole {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct TouchTrack {
-    pub(crate) source: PointerSource,
-    // xtask-allow(state-fields): independent: the pointer's target and the hover chain are cleared separately
+    pub(crate) id: PointerId,
     pub(crate) over: Option<NodeId>,
     pub(crate) at: Point,
     pub(crate) role: ContactRole,
@@ -143,19 +137,50 @@ pub(crate) struct TouchTrack {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PenTrack {
-    pub(crate) source: PointerSource,
-    // xtask-allow(state-fields): independent: the nearest pointer-listening ancestor of the hit, set by track_hover; clear_hover empties the hover chain but keeps it for Leave, and a non-primary pen has no chain, so every pair occurs
+    pub(crate) id: PointerId,
     pub(crate) over: Option<NodeId>,
     pub(crate) at: Point,
     pub(crate) role: ContactRole,
-    pub(crate) route: Route,
+    pub(crate) gesture: PenGesture,
+}
+
+/// What a drag that selects text extends by.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum SelectUnit {
+    /// Characters: from the press to the pointer.
+    Char,
+    /// Words: the double-clicked word and the words up to the pointer.
+    Word(std::ops::Range<usize>),
+    /// Lines: the triple-clicked line and the lines up to the pointer.
+    Line(std::ops::Range<usize>),
+}
+
+/// What a pen contact is doing.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum PenGesture {
+    Route(Route),
+    SelectText {
+        editor: NodeId,
+        route: Route,
+        unit: SelectUnit,
+    },
+}
+
+impl Default for PenGesture {
+    fn default() -> Self {
+        Self::Route(Route::default())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum MouseGesture {
     Route(Route),
     Scrollbar(ScrollDrag),
-    SelectText { editor: NodeId, route: Route },
+    SelectText {
+        editor: NodeId,
+        route: Route,
+        unit: SelectUnit,
+    },
 }
 
 impl Default for MouseGesture {
@@ -172,6 +197,11 @@ pub(crate) enum TouchGesture {
         candidate: TouchCandidate,
     },
     Pan(TouchPan),
+    SelectText {
+        editor: NodeId,
+        route: Route,
+        unit: SelectUnit,
+    },
 }
 
 impl Default for TouchGesture {
@@ -183,9 +213,7 @@ impl Default for TouchGesture {
 /// Capture and primary press are independent facts of a routed gesture.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Route {
-    // xtask-allow(state-fields): independent: where the gesture's listener events go: set by any button's Down over a listener or by set_pointer_capture, cleared when no button is held; a secondary-button drag has it without a press
     pub(crate) capture: Option<Capture>,
-    // xtask-allow(state-fields): independent: the primary button's pressed chain and activation target, set only by primary_press and taken by that button's Up; a press over a node without a pointer listener has no capture, and a listener may release the capture mid-press
     pub(crate) press: Option<Press>,
 }
 
@@ -255,7 +283,6 @@ impl Track {
     /// The mouse's track (always primary, always hovering).
     pub(crate) fn mouse() -> Self {
         Self::Mouse(MouseTrack {
-            source: PointerSource::MOUSE,
             over: None,
             at: Point::default(),
             hover: Hover::default(),
@@ -263,26 +290,22 @@ impl Track {
         })
     }
 
-    /// The track of a touch or pen contact that just went down; `primary`
-    /// is the platform's `isPrimary` at its `Down`.
-    pub(crate) fn contact(source: PointerSource, primary: bool) -> Self {
-        debug_assert_ne!(
-            source.kind,
-            PointerKind::Mouse,
-            "the mouse is not a contact"
-        );
+    /// The track of a touch or pen contact of `kind` that just went down;
+    /// `primary` is the platform's `isPrimary` at its `Down`.
+    pub(crate) fn contact(id: PointerId, kind: PointerKind, primary: bool) -> Self {
+        debug_assert_ne!(kind, PointerKind::Mouse, "the mouse is not a contact");
         let role = ContactRole::of(primary);
-        if source.kind == PointerKind::Pen {
+        if kind == PointerKind::Pen {
             Self::Pen(PenTrack {
-                source,
+                id,
                 over: None,
                 at: Point::default(),
                 role,
-                route: Route::default(),
+                gesture: PenGesture::default(),
             })
         } else {
             Self::Touch(TouchTrack {
-                source,
+                id,
                 over: None,
                 at: Point::default(),
                 role,
@@ -302,19 +325,21 @@ impl Track {
         }
     }
 
-    pub(crate) fn source(&self) -> &PointerSource {
+    /// The pointer's id (the mouse is `PointerId::MOUSE`).
+    pub(crate) fn id(&self) -> PointerId {
         match self {
-            Self::Mouse(t) => &t.source,
-            Self::Touch(t) => &t.source,
-            Self::Pen(t) => &t.source,
+            Self::Mouse(_) => PointerId::MOUSE,
+            Self::Touch(t) => t.id,
+            Self::Pen(t) => t.id,
         }
     }
 
-    pub(crate) fn source_mut(&mut self) -> &mut PointerSource {
+    /// Mouse, touch or pen.
+    pub(crate) fn kind(&self) -> PointerKind {
         match self {
-            Self::Mouse(t) => &mut t.source,
-            Self::Touch(t) => &mut t.source,
-            Self::Pen(t) => &mut t.source,
+            Self::Mouse(_) => PointerKind::Mouse,
+            Self::Touch(_) => PointerKind::Touch,
+            Self::Pen(_) => PointerKind::Pen,
         }
     }
 
@@ -377,10 +402,16 @@ impl Track {
                 ..
             }) => Some(r),
             Self::Touch(TouchTrack {
-                gesture: TouchGesture::Route(r) | TouchGesture::Pending { route: r, .. },
+                gesture:
+                    TouchGesture::Route(r)
+                    | TouchGesture::Pending { route: r, .. }
+                    | TouchGesture::SelectText { route: r, .. },
                 ..
             }) => Some(r),
-            Self::Pen(t) => Some(&t.route),
+            Self::Pen(PenTrack {
+                gesture: PenGesture::Route(r) | PenGesture::SelectText { route: r, .. },
+                ..
+            }) => Some(r),
             _ => None,
         }
     }
@@ -392,11 +423,89 @@ impl Track {
                 ..
             }) => Some(r),
             Self::Touch(TouchTrack {
-                gesture: TouchGesture::Route(r) | TouchGesture::Pending { route: r, .. },
+                gesture:
+                    TouchGesture::Route(r)
+                    | TouchGesture::Pending { route: r, .. }
+                    | TouchGesture::SelectText { route: r, .. },
                 ..
             }) => Some(r),
-            Self::Pen(t) => Some(&mut t.route),
+            Self::Pen(PenTrack {
+                gesture: PenGesture::Route(r) | PenGesture::SelectText { route: r, .. },
+                ..
+            }) => Some(r),
             _ => None,
+        }
+    }
+
+    /// The editor and unit a drag of this pointer selects text in, if it does.
+    pub(crate) fn selecting(&self) -> Option<(NodeId, &SelectUnit)> {
+        match self {
+            Self::Mouse(t) => match &t.gesture {
+                MouseGesture::SelectText { editor, unit, .. } => Some((*editor, unit)),
+                _ => None,
+            },
+            Self::Touch(t) => match &t.gesture {
+                TouchGesture::SelectText { editor, unit, .. } => Some((*editor, unit)),
+                _ => None,
+            },
+            Self::Pen(t) => match &t.gesture {
+                PenGesture::SelectText { editor, unit, .. } => Some((*editor, unit)),
+                PenGesture::Route(_) => None,
+            },
+        }
+    }
+
+    /// Select text in `editor` by `unit` while this pointer is pressed (its route kept).
+    pub(crate) fn start_selecting(&mut self, editor: NodeId, unit: SelectUnit) {
+        match self {
+            Self::Mouse(t) => {
+                if let MouseGesture::Route(route) = &mut t.gesture {
+                    t.gesture = MouseGesture::SelectText {
+                        editor,
+                        route: std::mem::take(route),
+                        unit,
+                    };
+                }
+            }
+            Self::Touch(t) => {
+                if let TouchGesture::Route(route) = &mut t.gesture {
+                    t.gesture = TouchGesture::SelectText {
+                        editor,
+                        route: std::mem::take(route),
+                        unit,
+                    };
+                }
+            }
+            Self::Pen(t) => {
+                if let PenGesture::Route(route) = &mut t.gesture {
+                    t.gesture = PenGesture::SelectText {
+                        editor,
+                        route: std::mem::take(route),
+                        unit,
+                    };
+                }
+            }
+        }
+    }
+
+    /// The press ended: a text selection goes back to plain routing.
+    pub(crate) fn stop_selecting(&mut self) {
+        match self {
+            Self::Mouse(t) => {
+                if let MouseGesture::SelectText { route, .. } = &mut t.gesture {
+                    t.gesture = MouseGesture::Route(std::mem::take(route));
+                }
+            }
+            Self::Touch(t) => {
+                if let TouchGesture::SelectText { route, .. } = &mut t.gesture {
+                    t.gesture = TouchGesture::Route(std::mem::take(route));
+                }
+            }
+            Self::Pen(t) => {
+                if let PenGesture::SelectText { route, .. } = &mut t.gesture {
+                    t.gesture = PenGesture::Route(std::mem::take(route));
+                }
+            }
         }
     }
 
@@ -422,43 +531,13 @@ impl Track {
         match self {
             Self::Mouse(t) => t.gesture = MouseGesture::default(),
             Self::Touch(t) => t.gesture = TouchGesture::default(),
-            Self::Pen(t) => t.route = Route::default(),
+            Self::Pen(t) => t.gesture = PenGesture::default(),
         }
         capture
     }
 }
 
-/// One pointer: the mouse, or a touch or pen contact.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct PointerSource {
-    pub(crate) time_ns: u64,
-    /// The pointer's id (the mouse is 1).
-    pub(crate) id: PointerId,
-    /// Mouse, touch or pen.
-    pub(crate) kind: PointerKind,
-    // xtask-allow(state-fields): independent: the pressure of the pointer's last shell sample (shell.rs); platforms report pressure and tilt apart (a touch may have pressure and no tilt, a mouse neither), so every pair occurs
-    /// The pressure at its last event, when reported.
-    pub(crate) pressure: Option<f64>,
-    // xtask-allow(state-fields): independent: the pen tilt of the pointer's last shell sample (shell.rs); platforms report tilt and pressure apart (a pen may lack either, a mouse has neither), so every pair occurs
-    /// The pen's tilt at its last event, when reported.
-    pub(crate) tilt: Option<(f64, f64)>,
-    /// The buttons held after its last event (none after a `Cancel`).
-    pub(crate) buttons: PointerButtons,
-}
-
 pub(crate) type CursorKind = kivact_types::Cursor;
-
-impl PointerSource {
-    /// The mouse.
-    pub(crate) const MOUSE: PointerSource = PointerSource {
-        id: PointerId::MOUSE,
-        time_ns: 0,
-        kind: PointerKind::Mouse,
-        pressure: None,
-        tilt: None,
-        buttons: PointerButtons::NONE,
-    };
-}
 
 /// A mouse scrollbar drag in progress.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -507,11 +586,11 @@ impl PointerState {
                     }
                 }
             }
-            if let Track::Mouse(mouse) = track
-                && let MouseGesture::SelectText { editor, route } = &mut mouse.gesture
-                && !tree.live(*editor)
+            if track
+                .selecting()
+                .is_some_and(|(editor, _)| !tree.live(editor))
             {
-                mouse.gesture = MouseGesture::Route(std::mem::take(route));
+                track.stop_selecting();
             }
             if matches!(track, Track::Mouse(MouseTrack { gesture: MouseGesture::Scrollbar(drag), .. }) if !tree.live(drag.node))
             {

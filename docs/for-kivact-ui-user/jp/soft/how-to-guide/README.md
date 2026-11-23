@@ -6,5 +6,5 @@
 - [ナビゲーション](navigation.md)
 - [オーバーレイ](overlays.md)
 - [データ表示](data-display.md)
-- [テーマとトークン](theme-and-tokens.md)
+- [テーマと変数](theme-and-tokens.md)
 - [モーション](motion.md)

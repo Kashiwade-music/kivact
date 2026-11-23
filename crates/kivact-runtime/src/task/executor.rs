@@ -13,10 +13,10 @@
 //!   queues stop, and cancelled runnables are collected on the UI thread.
 
 use std::collections::VecDeque;
-use std::future::Future;
 use std::sync::{Arc, Mutex};
 
-use crate::{OwnerId, ThreadWaker};
+use crate::OwnerId;
+use crate::driver::ThreadWaker;
 
 /// A runnable task; the metadata is the owner the task runs for.
 pub(crate) type Runnable = async_task::Runnable<Option<OwnerId>>;

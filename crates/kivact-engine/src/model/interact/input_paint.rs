@@ -11,7 +11,7 @@ impl Model {
         id: NodeId,
         bounds: Rect,
         clip: Rect,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Option<PreparedInputPaint> {
         let host = &self;
         let n = host.node(id)?;
@@ -59,7 +59,7 @@ impl InputPaint<'_> {
         &self,
         lines: &mut crate::text_input::EditLines,
         rows: std::ops::Range<usize>,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut Vec<InputPaintOp>,
     ) {
         let Self {
@@ -82,13 +82,14 @@ impl InputPaint<'_> {
                 node: id,
                 region: None,
             })
-            && let Some(edit) = host.editors[n.index.0]
+            && let Some(edit) = host.slots.editors[n.index.0]
                 .as_deref()
                 .map(|editor| editor.editor.state())
         {
             let value = edit.value();
             // The shared selection bands of `range` on the drawn lines.
-            let mut spans = |range: std::ops::Range<usize>, engine: &mut arvane::Engine| {
+            let mut spans = |range: std::ops::Range<usize>,
+                             engine: &mut arvane_text::TextEngine| {
                 let mut out = Vec::new();
                 for i in rows.clone() {
                     let reached = lines
@@ -142,7 +143,7 @@ impl InputPaint<'_> {
         lines: &mut crate::text_input::EditLines,
         shown: &str,
         rows: std::ops::Range<usize>,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut Vec<InputPaintOp>,
     ) {
         let Self {
@@ -220,7 +221,7 @@ impl InputPaint<'_> {
         lines: &mut crate::text_input::EditLines,
         shown: &str,
         i: usize,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut Vec<InputPaintOp>,
     ) {
         let Self {

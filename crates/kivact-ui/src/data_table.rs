@@ -6,6 +6,9 @@
 //! [`use_data_table`](kivact_interaction::use_data_table) to the nodes it draws. The
 //! rows, the selection, the sort, the filter text, the page and the column
 //! widths stay the caller's: the table keeps no copy of them.
+pub(crate) mod column;
+pub(crate) mod look;
+
 mod builder;
 mod chrome;
 mod column_keys;
@@ -14,17 +17,13 @@ mod filters;
 mod grouped;
 mod metadata;
 mod navigation;
-mod row_drag;
 mod row_status;
 mod rows;
 mod runtime;
 mod sticky_paint;
 mod tree;
-mod types;
+pub(crate) mod types;
 
-pub use crate::data_table_tokens::{
-    DataTableRowStatusPaint, DataTableStickyPaint, DataTableTokens,
-};
 pub use builder::data_table;
 pub use filter_value::{FilterField, FilterUi};
 

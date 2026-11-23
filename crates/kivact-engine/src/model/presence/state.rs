@@ -13,13 +13,8 @@ pub(crate) struct Presences {
     pub(crate) sizes: BTreeMap<NodeId, SizeMotion>,
 }
 
-/// The scalar motion of one presence axis.
+/// The scalar motion of one presence axis: a run of one number from 0 (none) to 1 (its size).
 pub(crate) struct SizeMotion {
     pub(crate) axis: kivact_types::Orientation,
-    pub(super) transition: kivact_types::motion::Transition,
-    pub(super) start: u64,
-    pub(super) from: f64,
-    pub(super) to: f64,
-    pub(super) current: Vec<f64>,
-    pub(super) spring: kivact_types::motion::SpringRun,
+    pub(super) run: crate::model::motion_run::MotionRun,
 }

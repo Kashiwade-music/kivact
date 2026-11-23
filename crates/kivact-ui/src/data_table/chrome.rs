@@ -1,18 +1,17 @@
 //! Role: The default regions of a data table: filter field, summary, pager, check boxes.
 use super::types::{DataTableContext, Paging};
+use crate::data_table::look::DataTableTheme;
 use crate::layer::with_recipe_style;
-use crate::variants::Variants;
-use crate::{
-    ButtonVariant, ControlSize, DataTableCheckState, DataTablePageState, button, checkbox, select,
-    text_input,
-};
+use crate::theme::{DataTableCheckState, DataTablePageState};
+use crate::{ButtonVariant, ControlSize, button, checkbox, select, text_input};
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{message, message_with};
-use kivact_core::state::{Binding, Value, binding, memo};
+use kivact_core::state::{Signal, Value, binding, memo};
 use kivact_core::style::{pct, style};
 use kivact_core::view::CheckedState;
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
+use kivact_core::view::Variants;
 use kivact_core::view::{Node, Role, View};
 use kivact_core::view::{node, row, text};
 use kivact_interaction::ListItem;
@@ -34,13 +33,14 @@ pub(super) fn toolbar<R: kivact_core::state::PropValue, K: kivact_core::state::I
         }
     });
     let label = message("data_table.filter", "Filter…");
-    let field = text_input(label, edited)
+    let field = text_input(edited)
+        .label(label)
         .placeholder(label)
         .style(style().max_width(384).width(pct(100)));
     Some(
         with_recipe_style(
             row(field),
-            |r| r.data_table_recipes().toolbar_recipe(),
+            |r: &DataTableTheme| r.toolbar_recipe(),
             variants,
             PartState::default,
         )
@@ -74,7 +74,7 @@ pub(super) fn footer<R: kivact_core::state::PropValue, K: kivact_core::state::It
                 ]
             },
         );
-        kivact_core::view::text(text).style(style().grow(1))
+        kivact_core::view::text(text).style(style().flex_grow(1))
     });
     let (pager, size_picker) = match context.paging {
         Paging::Off => (None, None),
@@ -91,11 +91,13 @@ pub(super) fn footer<R: kivact_core::state::PropValue, K: kivact_core::state::It
             sizes.map(|sizes| size_picker(page_size, sizes)),
         ),
     };
-    let spacer = summary.is_none().then(|| node().style(style().grow(1)));
+    let spacer = summary
+        .is_none()
+        .then(|| node().style(style().flex_grow(1)));
     Some(
         with_recipe_style(
             row((summary, spacer, size_picker, pager)),
-            |r| r.data_table_recipes().footer_recipe(),
+            |r: &DataTableTheme| r.footer_recipe(),
             variants,
             PartState::default,
         )
@@ -104,7 +106,7 @@ pub(super) fn footer<R: kivact_core::state::PropValue, K: kivact_core::state::It
 }
 
 /// The rows-per-page selector over the writable size and its options.
-fn size_picker(size: Binding<usize>, sizes: Value<Vec<usize>>) -> View {
+fn size_picker(size: Signal<usize>, sizes: Value<Vec<usize>>) -> View {
     let options = move || {
         sizes.with(|sizes| {
             let mut seen = std::collections::HashSet::new();
@@ -117,7 +119,6 @@ fn size_picker(size: Binding<usize>, sizes: Value<Vec<usize>>) -> View {
         })
     };
     select(
-        message("data_table.page_size", "Rows per page"),
         options,
         binding(
             move || Some(size.get().max(1)),
@@ -128,13 +129,14 @@ fn size_picker(size: Binding<usize>, sizes: Value<Vec<usize>>) -> View {
             },
         ),
     )
+    .label(message("data_table.page_size", "Rows per page"))
     .into_view()
 }
 
 /// The page shown, Previous and Next.
 fn pager<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     context: DataTableContext<R, K>,
-    index: Binding<usize>,
+    index: Signal<usize>,
     has_more: Option<Value<bool>>,
     variants: &Variants,
 ) -> View {
@@ -183,7 +185,7 @@ fn pager<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
                 .disabled(move || !can_advance())
                 .on_press(move || index.set(shown.get().saturating_add(1))),
         )),
-        |r| r.data_table_recipes().page_recipe(),
+        |r: &DataTableTheme| r.page_recipe(),
         variants,
         state,
     )
@@ -193,7 +195,7 @@ fn pager<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
 /// The header check box in its box: it checks or clears the rows of the page
 /// and is mixed while some of them are checked.
 pub(super) fn select_page<K: kivact_core::state::ItemKey>(
-    selection: Binding<Vec<K>>,
+    selection: Signal<Vec<K>>,
     keys: Value<Vec<K>>,
     variants: &Variants,
 ) -> (Node, View) {
@@ -224,7 +226,7 @@ pub(super) fn select_page<K: kivact_core::state::ItemKey>(
     };
     let root = with_recipe_style(
         node().role(Role::ColumnHeader),
-        |r| r.data_table_recipes().check_recipe(),
+        |r: &DataTableTheme| r.check_recipe(),
         variants,
         state,
     );

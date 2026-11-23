@@ -13,7 +13,7 @@
 | 表示する結果のない future を動かす（タイマー、チャンネルの読み出し） | `spawn` |
 | ブロックする処理や CPU を使う重い処理を実行する | `blocking` |
 
-`resource`・`action`・`spawn`・`blocking`・`async_view` は `use kivact::prelude::*;` で使えます。
+`resource`・`action`・`spawn`・`async_view` は `use kivact::prelude::*;` で使えます。`blocking` は `kivact::task` にあります。
 
 ## データを読み込み、読み込み中・エラー・完了を表示する
 
@@ -23,23 +23,23 @@
 use std::time::Duration;
 use kivact::prelude::*;
 
-fn app() -> impl IntoView {
+fn app() -> impl Element {
     let id = signal(1u32);
     let user = resource(id, |id| async move {
         kivact::task::sleep(Duration::from_millis(300)).await;
         if id == 0 {
-            Err(UiError::msg("ユーザー 0 は存在しません"))
+            Err(UiError::msg("There is no user 0"))
         } else {
-            Ok(format!("ユーザー #{id}"))
+            Ok(format!("User #{id}"))
         }
     });
 
     column((
         row((
-            button("前へ")
+            button("Previous")
                 .disabled(move || id.get() == 0)
                 .on_press(move || id.update(|n| *n -= 1)),
-            button("次へ").on_press(move || id.update(|n| *n += 1)),
+            button("Next").on_press(move || id.update(|n| *n += 1)),
         ))
         .style(style().gap(8)),
         async_view(user, |name: String| text(name)),
@@ -68,19 +68,20 @@ Rust のメモ: `async move` は、キャプチャした値を future に move �
 ```rust,no_run
 # use std::time::Duration;
 # use kivact::prelude::*;
-fn search() -> impl IntoView {
+#[component]
+fn search() -> impl Element {
     let query = signal(String::new());
     let hits = resource(query, |word| async move {
         kivact::task::sleep(Duration::from_millis(200)).await;
         if word.contains('!') {
-            return Err(UiError::msg("検索語に ! は使えません"));
+            return Err(UiError::msg("Search words cannot contain !"));
         }
-        Ok(format!("「{word}」の検索結果"))
+        Ok(format!("Results for “{word}”"))
     });
 
     column((
-        text_input("検索", query),
-        show(move || hits.state().is_pending(), || text("検索中…")),
+        text_input(query).label("Search"),
+        show(move || hits.state().is_pending(), || text("Searching…")),
         show_some(move || hits.error(), |error| {
             text(move || error.get().to_string()).role(Role::Alert)
         }),
@@ -105,27 +106,28 @@ fn search() -> impl IntoView {
 use std::time::Duration;
 use kivact::prelude::*;
 
-fn save_form() -> impl IntoView {
+#[component]
+fn save_form() -> impl Element {
     let name = signal(String::new());
-    let save = action(ActionMode::Latest, |name: String| async move {
+    let save = action(|name: String| async move {
         kivact::task::sleep(Duration::from_millis(300)).await;
         if name.is_empty() {
-            Err(UiError::msg("名前が空です"))
+            Err(UiError::msg("Name is empty"))
         } else {
             Ok(name)
         }
     });
 
     column((
-        text_input("名前", name),
-        button("保存")
+        text_input(name).label("Name"),
+        button("Save")
             .disabled(move || save.state().is_pending())
             .on_press(move || save.run(name.get())),
         dynamic(move || save.state(), |state| match state {
             AsyncState::Idle => text(""),
-            AsyncState::Pending => text("保存中…"),
-            AsyncState::Ready(name) => text(format!("{name} を保存しました")),
-            AsyncState::Failed(error) => text(format!("失敗: {error}")).role(Role::Alert),
+            AsyncState::Pending => text("Saving…"),
+            AsyncState::Ready(name) => text(format!("Saved {name}")),
+            AsyncState::Failed(error) => text(format!("Failed: {error}")).role(Role::Alert),
         }),
     ))
     .style(style().gap(8).padding(12))
@@ -142,55 +144,99 @@ mod tests {
     #[test]
     fn saving_shows_pending_then_the_result() {
         let screen = kivact::test::render(save_form);
-        screen.get_by_role(Role::TextBox, "名前").type_text("Ada");
-        screen.get_by_role(Role::Button, "保存").click();
-        screen.get_by_text("保存中…");
-        assert!(screen.get_by_role(Role::Button, "保存").is_disabled());
-        // テストの時計は仮想なので、実際に待つ必要はありません。
+        screen.get_by_role(Role::TextBox, "Name").type_text("Ada");
+        screen.get_by_role(Role::Button, "Save").click();
+        screen.get_by_text("Saving…");
+        assert!(screen.get_by_role(Role::Button, "Save").is_disabled());
+        // The test clock is virtual: no real waiting.
         screen.advance(Duration::from_millis(300));
-        screen.get_by_text("Ada を保存しました");
+        screen.get_by_text("Saved Ada");
     }
 }
 ```
 
-`action` の最初の引数は、前の処理が終わらないうちに新しい `run` が来たときの扱いです（後述）。`ActionMode::Latest` は古い処理を取り消します。クロージャは、入力を 1 つ取る形（`|name: String|`）か、入力を取らない形（`|| async { … }`、`save.run(())` で実行）です。Rust は引数の使われ方を見る前にその型を決められないので、入力のメソッドを呼ぶときは型を書いてください。
+`action` は、前の処理が終わらないうちに新しい `run` が来たら古い処理を取り消します（後述）。クロージャは、入力を 1 つ取る形（`|name: String|`）か、入力を取らない形（`|| async { … }`、`save.run(())` で実行）です。Rust は引数の使われ方を見る前にその型を決められないので、入力のメソッドを呼ぶときは型を書いてください。
 
 `resource` と `action` は、イベントハンドラの中ではなく、コンポーネントの組み立て中に作ります。ハンドラの中では、すでにあるハンドルに対して `run`・`refetch`・`cancel` を呼びます。
 
 ### 利用者が続けて 2 回クリックしたら
 
-`action` に渡す `ActionMode` は、前の処理が終わらないうちに新しい `run` が来たときの扱いを決めます。
+どのコンストラクタを使うかは、動いている処理に新しい `run` が来たときに何をするかで決めます。
 
-| ポリシー | 動き |
+| コンストラクタ | 動き |
 |---|---|
-| `ActionMode::Latest` | 新しい処理をすぐに始め、古い処理を取り消します。 |
-| `ActionMode::Queue` | 処理を 1 つずつ、`run` の順に実行します。 |
-| `ActionMode::QueueLatest` | `Queue` と同じですが、新しい `run` は待機中の処理を置き換えます。実行中の処理は中断されません。 |
+| `action(f)` | 新しい処理をすぐに始め、古い処理を取り消します。 |
+| `queued_action(f)` | 処理を 1 つずつ、`run` の順に実行します。すべての実行が残ります。 |
 
 ```rust,no_run
 # use kivact::prelude::*;
-fn drafts() -> impl IntoView {
+# use kivact::task::queued_action;
+#[component]
+fn drafts() -> impl Element {
     let draft = signal(String::new());
-    let save = action(ActionMode::QueueLatest, |text: String| async move {
+    let save = queued_action(|text: String| async move {
         kivact::task::sleep(std::time::Duration::from_millis(500)).await;
         Ok(text.len())
     });
-    let save = save.on_complete(|outcome| match outcome {
-        kivact::task::ActionOutcome::Succeeded(count) => println!("saved: {count}"),
-        kivact::task::ActionOutcome::Failed(error) => eprintln!("save failed: {error}"),
+    let save = save.on_complete(|result: Result<usize, UiError>| match result {
+        Ok(count) => println!("saved: {count}"),
+        Err(error) => eprintln!("save failed: {error}"),
     });
     column((
-        text_input("下書き", draft),
-        // 10 回すばやく押すと、最初の保存と最後の保存が実行されます。
-        button("下書きを保存").on_press(move || save.run(draft.get())),
+        text_input(draft).label("Draft"),
+        // Pressing this ten times quickly saves ten times, one after another.
+        button("Save draft").on_press(move || save.run(draft.get())),
     ))
 }
 # fn main() -> kivact::Result<()> { App::new("Drafts").run(drafts) }
 ```
 
-ファイルへの書き込みなど、利用者が別の操作に移っても最後まで終えたい処理には、`Queue` か `QueueLatest` を使います。キューに積んだ action は、コンポーネントがなくなった後も最大 3 秒間は処理を続け、ウィンドウを閉じるときも同じ時間だけ完了を待ちます。
+action は、それを作ったコンポーネントに所属します。そのコンポーネントが取り除かれると（画面が閉じる、行が消えるなど）、実行中の処理も、キューに積んだ処理も取り消されます。利用者が画面を離れても最後まで完了させたい保存は、アクションをルートの関数で作り、context でそれぞれの画面に渡します。アプリを閉じるときは、まだキューにある実行を最大 3 秒待ちます。
 
-`Action` のそのほかのメソッド: `retry()` は直近の実行の入力でやり直し、`cancel()` は実行中の処理を止め、`input()` は現在の状態が表す実行の入力を返し、`on_complete(|outcome| …)` は実行が終わったとき（取り消されたときは除く）に呼ばれるハンドラを登録します。複数登録できます。
+```rust,no_run
+use std::time::Duration;
+
+use kivact::prelude::*;
+use kivact::task::queued_action;
+
+/// The app's saves. The root creates them, so closing a screen does not cancel them.
+#[derive(Clone, Copy)]
+struct Saves {
+    document: Action<usize, String>,
+}
+
+#[component]
+fn editor_screen() -> impl Element {
+    let save = use_context::<Saves>().document;
+    let draft = signal(String::new());
+    column((
+        text_input(draft).label("Draft"),
+        button("Save").on_press(move || save.run(draft.get())),
+    ))
+}
+
+fn app() -> impl IntoView {
+    let saves = Saves {
+        document: queued_action(|text: String| async move {
+            kivact::task::sleep(Duration::from_millis(500)).await;
+            Ok(text.len())
+        }),
+    };
+    let editing = signal(true);
+    provide(saves, move || {
+        column((
+            button("Close editor").on_press(move || editing.set(false)),
+            show(editing, editor_screen),
+        ))
+    })
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Saves").run(app)
+}
+```
+
+`Action` のそのほかのメソッド: `retry()` は直近の実行の入力でやり直し、`cancel()` は実行中の処理を止め、`input()` は現在の状態が表す実行の入力を返し、`on_complete(|result| …)` は `Result<T, UiError>` を受け取り、実行が終わったとき（取り消されたときは除く）に呼ばれるハンドラを登録します。複数登録できます。
 
 ## 表示する結果のない future を動かす
 
@@ -201,10 +247,11 @@ use std::time::Duration;
 use kivact::prelude::*;
 use kivact::task::sleep;
 
-fn copy_with_confirmation() -> impl IntoView {
+#[component]
+fn copy_with_confirmation() -> impl Element {
     let copied = signal(false);
     column((
-        button("コピー").on_press(move || {
+        button("Copy").on_press(move || {
             spawn(async move {
                 kivact::platform::copy_text("hello").await?;
                 copied.set(true);
@@ -213,7 +260,7 @@ fn copy_with_confirmation() -> impl IntoView {
                 Ok::<(), UiError>(())
             });
         }),
-        show(copied, || text("コピーしました")),
+        show(copied, || text("Copied")),
     ))
 }
 # fn main() -> kivact::Result<()> { App::new("Spawn").run(copy_with_confirmation) }
@@ -229,15 +276,16 @@ fn copy_with_confirmation() -> impl IntoView {
 ```rust,no_run
 # use std::time::Duration;
 # use kivact::prelude::*;
-fn countdown() -> impl IntoView {
+#[component]
+fn countdown() -> impl Element {
     let remaining = signal(10u32);
     spawn(async move {
-        while remaining.get_untracked() > 0 {
+        while remaining.get() > 0 {
             kivact::task::sleep(Duration::from_secs(1)).await;
             remaining.update(|s| *s -= 1);
         }
     });
-    text(move || format!("残り {} 秒", remaining.get()))
+    text(move || format!("{} s left", remaining.get()))
 }
 # fn main() -> kivact::Result<()> { App::new("Countdown").run(countdown) }
 ```
@@ -252,7 +300,7 @@ fn countdown() -> impl IntoView {
 use kivact::prelude::*;
 use kivact::task::CancelToken;
 
-/// `limit` 未満の素数を数えます。`cancel` が true になったら途中でやめます。
+/// Counts primes below `limit`; stops early when `cancel` turns true.
 fn count_primes(limit: u32, cancel: &CancelToken) -> Option<u32> {
     let mut count = 0;
     for n in 2..limit {
@@ -266,17 +314,18 @@ fn count_primes(limit: u32, cancel: &CancelToken) -> Option<u32> {
     Some(count)
 }
 
-fn primes() -> impl IntoView {
+#[component]
+fn primes() -> impl Element {
     let limit = signal(200_000u32);
     let result = resource(limit, |limit| async move {
-        // ここでの `limit` はただの数値なので、別のスレッドへ move できます。
-        let count = blocking(move |cancel: CancelToken| count_primes(limit, &cancel)).await;
-        count.ok_or_else(|| UiError::msg("中断されました"))
+        // `limit` is a plain number here, so it can move to another thread.
+        let count = kivact::task::blocking(move |cancel: CancelToken| count_primes(limit, &cancel)).await;
+        count.ok_or_else(|| UiError::msg("Stopped"))
     });
     column((
-        button("上限を 2 倍にする").on_press(move || limit.update(|n| *n *= 2)),
-        show(move || result.state().is_pending(), || text("数えています…")),
-        show_some(move || result.latest(), |n| text(move || format!("素数は {} 個", n.get()))),
+        button("Double the limit").on_press(move || limit.update(|n| *n *= 2)),
+        show(move || result.state().is_pending(), || text("Counting…")),
+        show_some(move || result.latest(), |n| text(move || format!("{} primes", n.get()))),
     ))
     .style(style().gap(8).padding(12))
 }
@@ -293,43 +342,45 @@ fn primes() -> impl IntoView {
 
 ## 別のスレッドから値を受け取る
 
-自分のコードがバックグラウンドで値を作る場合（ゲームやオーディオのエンジン、ファイル監視、独自のランタイム上のネットワーククライアントなど）は、非同期チャンネルで送り、`spawn` したタスクで読みます。`async-channel` が使えます。`Waker` を起こすチャンネルなら何でも動きます。
+自分のコードがバックグラウンドで値を作る場合（ゲームやオーディオのエンジン、ファイル監視、独自のランタイム上のネットワーククライアントなど）は、`remote` signal の送信側を渡します。`remote(initial)` は UI 用の `Signal<T>` と、どのスレッドにも渡せる（`Send` な）`Remote<T>` を返します。
 
 ```rust,no_run
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
+
 use kivact::prelude::*;
+use kivact::task::remote;
 
-fn sensor() -> impl IntoView {
-    let reading = signal(0u32);
-    let (tx, rx) = async_channel::unbounded::<u32>();
+#[component]
+fn sensor() -> impl Element {
+    let (reading, sender) = remote(0u32);
+    let stop = Arc::new(AtomicBool::new(false));
 
-    // 自分のスレッドを、セットアップで起動します。
+    // Your own thread, started in setup.
+    let stopped = stop.clone();
     std::thread::spawn(move || {
         for n in 0.. {
-            // `Err` は受信側がいない（コンポーネントが破棄された）ことを表します。
-            if tx.send_blocking(n).is_err() {
+            if stopped.load(Ordering::Relaxed) {
                 break;
             }
+            sender.set(n);
             std::thread::sleep(Duration::from_millis(500));
         }
     });
+    // Tell the thread to end when this component is removed.
+    on_cleanup(move || stop.store(true, Ordering::Relaxed));
 
-    spawn(async move {
-        while let Ok(n) = rx.recv().await {
-            reading.set(n);
-        }
-    });
-
-    text(move || format!("測定値: {}", reading.get()))
+    text(move || format!("reading: {}", reading.get()))
 }
 # fn main() -> kivact::Result<()> { App::new("Sensor").run(sensor) }
 ```
 
-チャンネルの waker が UI にターンの実行を依頼するため、利用者がウィンドウを触っていなくても値が表示されます。コンポーネントが破棄されるとタスクと `rx` も破棄され、ワーカー側の次の送信が失敗します。これがワーカーに停止を知らせる合図です。ワーカーのループは、送信の失敗で必ず終わらせてください。
+`set` は UI を起こすので、利用者がウィンドウを触っていなくても値が表示されます。書き込みは合流します。UI は次のターンの始めに最新の値を 1 回だけ見ます。ワーカーが何度書いても同じです。`set` が唯一の操作です。新しい値はワーカーの中で計算し、まとめて送ってください。コンポーネントが取り除かれると送信側は閉じ、その後の `set` は値を捨てます。ここの `on_cleanup` のように、ワーカーは自分のフラグで止めてください。
 
-UI スレッドでブロックする `recv()` を呼んだり、ワーカーが長く取り続ける `Mutex` を UI スレッドで保持したりしないでください。自前のレンダラーから絵を送り続ける方法は [キャンバスで描く](canvas.md#自前のレンダラーのフレームを表示する) を参照してください。
+UI スレッドでワーカーを待ってブロックしたり、ワーカーも長く取る `Mutex` を保持したりしないでください。自前のレンダラーから絵を送り続ける方法は [キャンバスで描く](canvas.md#自前のレンダラーのフレームを表示する) を参照してください。
 
-独自の reactor を持つ future（たとえば `tokio` のタイマーやソケット）は、そのランタイムの中で動くことを前提にしています。そのようなランタイムは専用のスレッドで動かし、結果は上のようにチャンネルで送ってください。
+独自の reactor を持つ future（たとえば `tokio` のタイマーやソケット）は、そのランタイムの中で動くことを前提にしています。そのようなランタイムは専用のスレッドで動かし、結果は上のように `remote` の送信側で送ってください。
 
 ### ワーカーからアプリを終了する
 
@@ -342,10 +393,10 @@ fn main() -> kivact::Result<()> {
     let app = App::new("Session").window_size(800, 500);
     let handle = app.handle();
     std::thread::spawn(move || {
-        // ここでセッションを実行し、失敗か Ctrl+C で:
+        // Run the session here; on a failure or Ctrl+C:
         handle.close();
     });
-    app.run(|| text("実行中"))
+    app.run(|| text("Running"))
 }
 ```
 
@@ -353,47 +404,40 @@ fn main() -> kivact::Result<()> {
 
 ## 値を積まずに UI を起こす
 
-ワーカーが伝えたいのが「何か変わったので最新の値を読んでほしい」だけなら、変更ごとに値を積まないでください。合図を 1 つ送り、タスク側で読ませます。容量 1 のチャンネルはそれだけで合流（coalesce）します。満杯のチャンネルへの `try_send` は、起こす合図がすでに待っているということなので、余分な合図は捨てます。閉じたチャンネルは、タスクがもういないということなので、ワーカーは止まります。
+ワーカーが伝えたいのが「何か変わったので最新の値を読んでほしい」だけなら、値を送る必要はありません。`remote_trigger()` は UI 用の `Trigger` と、ワーカー用の `RemoteTrigger` を返します。`notify()` は待たず、次のターンの前に届いた複数の通知は 1 回として数えられます。
 
 ```rust,no_run
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use kivact::prelude::*;
+use kivact::task::remote_trigger;
 
-fn level_meter() -> impl IntoView {
-    let level = signal(0u32);
+#[component]
+fn level_meter() -> impl Element {
     let shared = Arc::new(Mutex::new(0u32));
-    let (changed, wake) = async_channel::bounded::<()>(1);
+    let (changed, wake) = remote_trigger();
 
-    // 自分のスレッドを、セットアップで起動します。
+    // Your own thread, started in setup.
     let latest = shared.clone();
     std::thread::spawn(move || {
         for n in 0.. {
             *latest.lock().expect("invariant: the level lock is not poisoned") = n;
-            match changed.try_send(()) {
-                // 満杯: 起こす合図がすでに待っているので、この変更は合流します。
-                Ok(()) | Err(async_channel::TrySendError::Full(())) => {}
-                // 閉じた: コンポーネントが破棄されたので、止まります。
-                Err(async_channel::TrySendError::Closed(())) => break,
-            }
+            wake.notify();
             std::thread::sleep(Duration::from_millis(100));
         }
     });
 
-    spawn(async move {
-        while wake.recv().await.is_ok() {
-            let n = *shared.lock().expect("invariant: the level lock is not poisoned");
-            level.set(n);
-        }
-    });
-
-    text(move || format!("レベル: {}", level.get()))
+    text(move || {
+        changed.track();
+        let level = *shared.lock().expect("invariant: the level lock is not poisoned");
+        format!("level: {level}")
+    })
 }
 # fn main() -> kivact::Result<()> { App::new("Level").run(level_meter) }
 ```
 
-`try_send` は待たないので、UI スレッドが忙しくても生産側はブロックしません。送信は、UI のイベントループをシステムコールで起こします（Windows では `EventLoopProxy::send_event`、埋め込みでは投稿メッセージか eventfd）。リアルタイムのオーディオコールバックからは絶対に呼ばないでください。変更は自分のロックフリーなフラグでリアルタイムでないスレッドへ中継し、そこから起こしてください。
+`notify` は待たないので、UI スレッドが忙しくても生産側はブロックしません。UI のイベントループを起こすのは、ほとんどのプラットフォームでシステムコールです。リアルタイムのオーディオコールバックからは、自分のロックフリーなフラグを立て、リアルタイムでないスレッドから `notify` してください。
 
 ## 何がタスクを取り消すか
 
@@ -402,7 +446,7 @@ fn level_meter() -> impl IntoView {
 - future は破棄され、次の `await` の先へ進むことはありません。
 - `sleep` のタイマーは解放されます。
 - `blocking` ジョブの `CancelToken` は true になります。
-- キューに積んだ `Action` は、待機中の処理を 3 秒以内に終えます。
+- action の実行は、キューに積んだものも含めて取り消されます（ルートで作った action はアプリが続く限り生きています。アプリを閉じるときは、キューにある実行を最大 3 秒待ちます）。
 
 そのため、通常の非同期処理に後始末のコードは要りません。Kivact のタスクではないもの（スレッド、ファイルハンドル）を自分で始めたときは、`on_cleanup(move || …)` で解放してください。
 

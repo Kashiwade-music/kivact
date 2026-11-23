@@ -13,7 +13,7 @@
 //!   moves back by its scroll and is then mapped by its transform, which
 //!   become AccessKit's node transform; its own bounds are moved forward by
 //!   the scroll, so they stay where it is laid out
-//!   (`kivact_types::render::SemanticsTree::window_bounds` composes the same way).
+//!   (`arvane_protocol::SemanticsTree::window_bounds` composes the same way).
 //! - Its relations (`described_by`, `controls`, `labelled_by`, in order)
 //!   and `active_descendant` become AccessKit's relations of those names.
 //! - Its `level`, `set_size` and `pos_in_set` become `set_level`,
@@ -31,7 +31,7 @@
 //!   the first), so a run of mixed bidi text is not split by direction;
 //!   no word boundaries (AccessKit's word starts) are given.
 
-use kivact_types::render::SemanticsNode;
+use arvane_protocol::SemanticsNode;
 use kivact_types::{A11yAction, CheckedState, CurrentItem, PopupKind, Role, SemanticsId};
 
 /// The id of the one custom action, `Dismiss`.
@@ -100,7 +100,7 @@ pub(super) fn update<'a>(
             nodes
         })
         .collect();
-    let mut metadata = accesskit::Tree::new(accesskit::NodeId(root.0));
+    let mut metadata = accesskit::TreeInfo::new(accesskit::NodeId(root.0));
     metadata.toolkit_name = Some("Arvane".into());
     metadata.toolkit_version = Some(env!("CARGO_PKG_VERSION").into());
     accesskit::TreeUpdate {

@@ -21,14 +21,16 @@
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::motion::{Easing, Transition, animated};
 
-fn progress() -> impl IntoView {
+#[component]
+fn progress() -> impl Element {
     let target = signal(0.0_f64);
     let amount = animated(target, Transition::tween(250, Easing::EaseOut));
 
     column((
-        button("満たす").on_press(move || target.set(100.0)),
-        button("空にする").on_press(move || target.set(0.0)),
+        button("Fill").on_press(move || target.set(100.0)),
+        button("Empty").on_press(move || target.set(0.0)),
         text(move || format!("{:.0}%", amount.get())),
     ))
     .style(style().gap(8).padding(12))
@@ -53,14 +55,15 @@ fn main() -> kivact::Result<()> {
 キーフレームは、ある位置の値であり、次のキーフレームまでの区間を始めます。`Keyframe::new(オフセット, 値)` は、後ろが直線の区間になるキーフレームを作ります。組 `(オフセット, 値)` は、これと同じです。`.easing(イージング)` は、そのキーフレームから始まる区間のイージングを設定するので、一つの動きの中で区間ごとに別の曲線をたどれます。区間は、二つのオフセットのあいだで 0 から 1 までの進み具合を求め、そのイージングで形を変えます。最後のキーフレームのイージングは使われません。そこから始まる区間がないからです。
 
 ```rust,no_run
-use kivact::motion::Keyframe;
+use kivact::motion::{Easing, Keyframe, Transition, animated};
 use kivact::prelude::*;
 
-fn lift_card() -> impl IntoView {
+#[component]
+fn lift_card() -> impl Element {
     let target = signal(0.0_f64);
     let lift = animated(
         target,
-        // オフセット 0.6 で値が 1.2 になるので、値は行き過ぎてから戻ります。
+        // The value is 1.2 at offset 0.6, so it overshoots and comes back.
         Transition::keyframes(
             [
                 Keyframe::new(0.0, 0.0_f64).easing(Easing::EaseIn),
@@ -72,12 +75,12 @@ fn lift_card() -> impl IntoView {
     );
 
     column((
-        button("持ち上げる").on_press(move || target.set(1.0)),
+        button("Lift").on_press(move || target.set(1.0)),
         text(move || format!("{:.2}", lift.get())),
     ))
     .style(style().gap(8).padding(12))
 }
-# fn main() -> kivact::Result<()> { App::new("持ち上げ").run(lift_card) }
+# fn main() -> kivact::Result<()> { App::new("Lift").run(lift_card) }
 ```
 
 ### 値をスタイルで使う
@@ -86,8 +89,10 @@ fn lift_card() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::motion::{Spring, Transition, animated};
 
-fn drawer() -> impl IntoView {
+#[component]
+fn drawer() -> impl Element {
     let open = signal(false);
     let offset = animated(
         move || if open.get() { 0.0_f64 } else { -240.0 },
@@ -95,11 +100,11 @@ fn drawer() -> impl IntoView {
     );
 
     column((
-        button("ドロワーを切り替える").on_press(move || open.update(|o| *o = !*o)),
-        text("ドロワーの内容").style(move || {
+        button("Toggle drawer").on_press(move || open.update(|o| *o = !*o)),
+        text("Drawer content").style(move || {
             style()
                 .padding(16)
-                .background(ColorToken::SurfaceAlt)
+                .background(color::SURFACE_ALT)
                 .translate_x(offset.get())
         }),
     ))
@@ -128,14 +133,16 @@ fn drawer() -> impl IntoView {
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
+use kivact::motion::{Easing, Transition};
 
-fn hover_card() -> impl IntoView {
-    column(text("ポインターを重ねてください"))
+#[component]
+fn hover_card() -> impl Element {
+    column(text("Hover me"))
         .style(
             style()
                 .padding(24)
-                .background(ColorToken::Surface)
-                .hover(style().background(ColorToken::SurfaceAlt).translate_y(-2))
+                .background(color::SURFACE)
+                .hover(style().background(color::SURFACE_ALT).translate_y(-2))
                 .transition(TransitionProp::All, Transition::tween(150, Easing::EaseOut)),
         )
 }
@@ -151,15 +158,17 @@ fn hover_card() -> impl IntoView {
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
+use kivact::motion::{Easing, Spring, Transition};
 
-fn chip() -> impl IntoView {
-    text("固定")
+#[component]
+fn chip() -> impl Element {
+    text("Pinned")
         .style(
             style()
                 .padding(8)
-                .background(ColorToken::Surface)
-                .hover(style().background(ColorToken::SurfaceAlt).translate_y(-2).opacity(0.9))
-                // 色と不透明度は 150 ミリ秒、持ち上がりはバネで動かす。
+                .background(color::SURFACE)
+                .hover(style().background(color::SURFACE_ALT).translate_y(-2).opacity(0.9))
+                // Colors and opacity in 150 ms; the lift on a spring.
                 .transition(TransitionProp::All, Transition::tween(150, Easing::EaseOut))
                 .transition(TransitionProp::Transform, Transition::spring(Spring::STIFF)),
         )
@@ -176,14 +185,16 @@ fn chip() -> impl IntoView {
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
+use kivact::motion::{Easing, Transition};
 
+#[component]
 fn notice(shown: Signal<bool>) -> impl IntoView {
     show(shown, || {
-        text("保存しました").style(
+        text("Saved").style(
             style()
                 .padding(12)
-                .background(ColorToken::SurfaceAlt)
-                // 右からスライドしてフェードインし、同じ向きに出ていきます。
+                .background(color::SURFACE_ALT)
+                // Slide in from the right and fade in; leave the same way.
                 .enter(style().translate_x(40).opacity(0.0))
                 .exit(style().translate_x(40).opacity(0.0))
                 .transition(TransitionProp::All, Transition::tween(260, Easing::EaseOut)),
@@ -194,7 +205,7 @@ fn notice(shown: Signal<bool>) -> impl IntoView {
 fn app() -> impl IntoView {
     let shown = signal(false);
     column((
-        button("切り替える").on_press(move || shown.update(|s| *s = !*s)),
+        button("Toggle").on_press(move || shown.update(|s| *s = !*s)),
         notice(shown),
     ))
     .style(style().gap(8).padding(12))
@@ -216,14 +227,15 @@ fn app() -> impl IntoView {
 
 ```rust,no_run
 use kivact::draw::{Path, Stroke};
-use kivact::motion::{FrameInfo, FrameRate};
+use kivact::motion::{FrameInfo, FrameRate, frame_loop};
 use kivact::prelude::*;
 
-fn clock_hand() -> impl IntoView {
+#[component]
+fn clock_hand() -> impl Element {
     let angle = signal(0.0_f64);
 
     let frames = frame_loop(move |frame: FrameInfo| {
-        // 10 秒で 1 周。ティックを数えず、アプリの時計から求めます。
+        // One turn every 10 seconds, from the app clock, not by counting ticks.
         angle.set((frame.now.as_secs_f64() / 10.0 * 360.0) % 360.0);
     });
     on_mount(move || frames.start(FrameRate::Hz(30.0)));
@@ -235,10 +247,10 @@ fn clock_hand() -> impl IntoView {
             center.x + radians.sin() * 40.0,
             center.y - radians.cos() * 40.0,
         );
-        draw.stroke_path(&Path::new().move_to(center).line_to(tip), &Stroke::new(3), ColorToken::Accent);
+        draw.stroke_path(&Path::new().move_to(center).line_to(tip), &Stroke::new(3), color::ACCENT);
     })
     .style(style().size(120, 120))
-    .name("時計の針")
+    .name("Clock hand")
 }
 # fn main() -> kivact::Result<()> { App::new("Clock").run(clock_hand) }
 ```
@@ -261,12 +273,13 @@ fn clock_hand() -> impl IntoView {
 - ゲームやシミュレーションのように、動き続けることに意味があるループは、セットアップで `.essential()` を付けて指定します。コールバックはこれまでどおりレートで動くので、処理は軽く保ち、描く内容で動きを減らす設定に従うかどうかを決めてください。
 
 ```rust,no_run
-use kivact::motion::{FrameInfo, FrameRate};
+use kivact::motion::{FrameInfo, FrameRate, frame_loop};
 use kivact::prelude::*;
 
-fn starfield() -> impl IntoView {
+#[component]
+fn starfield() -> impl Element {
     let shift = signal(0.0_f64);
-    // シミュレーションは、動きを減らす設定の中でも動き続ける。
+    // A simulation keeps moving under reduced motion.
     let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f64() * 12.0))
         .essential();
     on_mount(move || frames.start(FrameRate::Hz(30.0)));
@@ -282,13 +295,15 @@ fn starfield() -> impl IntoView {
 テストの時計は仮想で、フレームとともに進み、止まります。そのため、テストは待ちません。`screen.advance(Duration)` は、すべてのフレームを通して時間を進めます。テストは、動きを減らす設定をオンにして始めることも、画面が動いている間に切り替えることもできます。
 
 ```rust,test_harness
+use kivact::motion::{Easing, Transition, animated};
 use kivact::prelude::*;
 
-fn progress() -> impl IntoView {
+#[component]
+fn progress() -> impl Element {
     let target = signal(0.0_f64);
     let amount = animated(target, Transition::tween(250, Easing::Linear));
     column((
-        button("満たす").on_press(move || target.set(100.0)),
+        button("Fill").on_press(move || target.set(100.0)),
         text(move || format!("{:.0}%", amount.get())),
     ))
 }
@@ -307,7 +322,7 @@ mod tests {
     #[test]
     fn the_value_arrives_after_the_transition() {
         let screen = render(progress);
-        screen.get_by_role(Role::Button, "満たす").click();
+        screen.get_by_role(Role::Button, "Fill").click();
         assert!(screen.query_by_text("100%").is_none());
         screen.advance(Duration::from_millis(300));
         screen.get_by_text("100%");
@@ -317,7 +332,7 @@ mod tests {
     fn reduced_motion_arrives_at_once() {
         let options = RenderOptions::default().reduced_motion();
         let screen = render_with(options, progress);
-        screen.get_by_role(Role::Button, "満たす").click();
+        screen.get_by_role(Role::Button, "Fill").click();
         screen.get_by_text("100%");
     }
 }

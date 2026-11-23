@@ -3,8 +3,7 @@ use super::types::{
     DataTable, DataTableContext, DataTableTreeIndent, Grouping, PageSetting, SortSetting,
     TreeConfig,
 };
-use crate::column_values::DataColumn;
-use crate::variants::{Variant, Variants};
+use crate::data_table::column::DataColumn;
 use kivact_core::state::Value;
 use kivact_core::state::{IntoValue, callback};
 use kivact_core::style::Color;
@@ -42,7 +41,7 @@ use std::rc::Rc;
 /// [`cell_controls`](DataTable::cell_controls) put controls in the rows that
 /// stay mounted while the rows are edited, sorted and paged, and
 /// [`row_actions`](DataTable::row_actions) adds a last column of controls.
-/// The look is the theme's [`DataTableRecipes`](crate::DataTableRecipes).
+/// The look is the theme's [`DataTableTheme`](crate::theme::DataTableTheme).
 ///
 /// Messages (a localized text replaces each): `data_table.label` ("Data
 /// table", the grid's name), `data_table.filter` ("Filter…", the filter
@@ -58,6 +57,7 @@ use std::rc::Rc;
 ///
 /// ```no_run
 /// use kivact::prelude::*;
+/// use kivact::ui::{DataColumn, data_table};
 ///
 /// #[derive(Clone, PartialEq)]
 /// struct Payment { id: u32, email: String, amount: f64 }
@@ -132,7 +132,6 @@ where
         row_height: None,
         row_status: None,
         row_color: None,
-        variants: Variants::default(),
     }
 }
 
@@ -147,11 +146,11 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     pub fn group_by<G: Into<String>>(
         mut self,
         group: impl Fn(&R) -> G + 'static,
-        collapsed: impl kivact_core::state::IntoBinding<Vec<String>>,
+        collapsed: kivact_core::state::Signal<Vec<String>>,
     ) -> Self {
         self.grouping = Some(Grouping {
             key: Rc::new(move |row| group(row).into()),
-            collapsed: collapsed.into_binding(),
+            collapsed,
         });
         self
     }
@@ -160,11 +159,11 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     pub fn tree(
         mut self,
         parent: impl Fn(&R) -> Option<K> + 'static,
-        expanded: impl kivact_core::state::IntoBinding<Vec<K>>,
+        expanded: kivact_core::state::Signal<Vec<K>>,
     ) -> Self {
         self.tree = Some(TreeConfig {
             parent: Rc::new(parent),
-            expanded: expanded.into_binding(),
+            expanded,
         });
         self
     }
@@ -181,32 +180,12 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
         self
     }
 
-    /// Show the expand/collapse-all control in the tree column header. It
-    /// does not change which rows start expanded: the `expanded` binding of
-    /// [`tree`](Self::tree) decides that.
-    pub fn expand_all_control(mut self) -> Self {
-        self.tree_expand_all = true;
+    /// Show (`true`) or hide (`false`) the expand/collapse-all control in the
+    /// tree column header. It does not change which rows start expanded: the
+    /// `expanded` binding of [`tree`](Self::tree) decides that.
+    pub fn expand_all_control(mut self, v: bool) -> Self {
+        self.tree_expand_all = v;
         self
-    }
-
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
-        self
-    }
-
-    /// Select the density used by themes that style data table cells.
-    pub fn density(self, density: super::types::DataTableDensity) -> Self {
-        self.variant(density)
     }
 
     /// Pin visible data columns to the start and end of the horizontal viewport.
@@ -223,8 +202,8 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// other pages and rows the filter hides stays. With
     /// [`TableFocus::Rows`](TableFocus) there are no check boxes: a press
     /// selects the row, Ctrl toggles and Shift extends.
-    pub fn selection(mut self, selection: impl kivact_core::state::IntoBinding<Vec<K>>) -> Self {
-        self.selection = Some(selection.into_binding());
+    pub fn selection(mut self, selection: kivact_core::state::Signal<Vec<K>>) -> Self {
+        self.selection = Some(selection);
         self
     }
 
@@ -251,6 +230,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// Hidden columns stay hidden. Duplicate and unknown indices are ignored,
     /// and omitted columns follow in their original order. Sort and resize
     /// bindings continue to use the original indices.
+    #[track_caller]
     pub fn column_order(mut self, order: impl IntoValue<Vec<usize>>) -> Self {
         self.column_order = Some(order.into_value());
         self
@@ -262,11 +242,8 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// headers sort in the table's own state, unless the table has an
     /// [`on_reorder`](Self::on_reorder), which then keeps the caller's order.
     /// It replaces an earlier [`multi_sort`](Self::multi_sort).
-    pub fn sort(
-        mut self,
-        sort: impl kivact_core::state::IntoBinding<Option<(usize, SortOrder)>>,
-    ) -> Self {
-        self.sort = SortSetting::Single(sort.into_binding());
+    pub fn sort(mut self, sort: kivact_core::state::Signal<Option<(usize, SortOrder)>>) -> Self {
+        self.sort = SortSetting::Single(sort);
         self
     }
 
@@ -275,23 +252,21 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// keys. Normal activation replaces the sort. Each key cycles ascending,
     /// descending, and unsorted. Column indices refer to the original order.
     /// It replaces an earlier [`sort`](Self::sort).
-    pub fn multi_sort(
-        mut self,
-        sort: impl kivact_core::state::IntoBinding<Vec<(usize, SortOrder)>>,
-    ) -> Self {
-        self.sort = SortSetting::Multi(sort.into_binding());
+    pub fn multi_sort(mut self, sort: kivact_core::state::Signal<Vec<(usize, SortOrder)>>) -> Self {
+        self.sort = SortSetting::Multi(sort);
         self
     }
 
     /// Show `size` rows (at least 1) on each page, keeping the zero-based
     /// page in `page`, with Previous and Next buttons under the table.
     /// It replaces an earlier [`remote_page`](Self::remote_page).
+    #[track_caller]
     pub fn page(
         mut self,
-        page: impl kivact_core::state::IntoBinding<usize>,
+        page: kivact_core::state::Signal<usize>,
         size: impl IntoValue<usize>,
     ) -> Self {
-        self.paging = PageSetting::Local((page.into_binding(), size.into_value()));
+        self.paging = PageSetting::Local((page, size.into_value()));
         self
     }
 
@@ -299,11 +274,11 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// A column needs `DataColumn::filter_field` to participate.
     pub fn typed_column_filters(
         mut self,
-        filters: impl kivact_core::state::IntoBinding<
+        filters: kivact_core::state::Signal<
             std::collections::HashMap<usize, kivact_interaction::FilterValue>,
         >,
     ) -> Self {
-        self.typed_column_filters = Some(filters.into_binding());
+        self.typed_column_filters = Some(filters);
         self
     }
 
@@ -316,14 +291,15 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// Show caller-supplied page rows without slicing them again. The caller
     /// loads the page indicated by the binding and supplies whether another
     /// page is available. It replaces an earlier [`page`](Self::page).
+    #[track_caller]
     pub fn remote_page(
         mut self,
-        page: impl kivact_core::state::IntoBinding<usize>,
+        page: kivact_core::state::Signal<usize>,
         size: impl IntoValue<usize>,
         has_more: impl IntoValue<bool>,
     ) -> Self {
         self.paging = PageSetting::Remote {
-            page: (page.into_binding(), size.into_value()),
+            page: (page, size.into_value()),
             has_more: has_more.into_value(),
         };
         self
@@ -332,12 +308,13 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// Offer a writable page size and sizes to choose from. Applies with
     /// [`page`](Self::page) or [`remote_page`](Self::remote_page). Choosing a size
     /// resets the page to zero. Values of zero are omitted.
+    #[track_caller]
     pub fn page_sizes(
         mut self,
-        size: impl kivact_core::state::IntoBinding<usize>,
+        size: kivact_core::state::Signal<usize>,
         options: impl IntoValue<Vec<usize>>,
     ) -> Self {
-        self.page_sizes = Some((size.into_binding(), options.into_value()));
+        self.page_sizes = Some((size, options.into_value()));
         self
     }
 
@@ -351,8 +328,8 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// Show a filter field over `query` that keeps the rows a column's
     /// [`filter`](DataColumn::filter) matches; a new text shows the first
     /// page. An empty field keeps every row.
-    pub fn filter(mut self, query: impl kivact_core::state::IntoBinding<String>) -> Self {
-        self.filter = Some(query.into_binding());
+    pub fn filter(mut self, query: kivact_core::state::Signal<String>) -> Self {
+        self.filter = Some(query);
         self
     }
 
@@ -361,9 +338,9 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// context to build controls over this binding.
     pub fn column_filters(
         mut self,
-        queries: impl kivact_core::state::IntoBinding<Vec<(usize, String)>>,
+        queries: kivact_core::state::Signal<Vec<(usize, String)>>,
     ) -> Self {
-        self.column_filters = Some(queries.into_binding());
+        self.column_filters = Some(queries);
         self
     }
 
@@ -373,8 +350,8 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// The handles use the shared table's keyboard, accessibility and pointer
     /// resizing. Escape during a drag restores the width from its press;
     /// earlier keyboard adjustments remain committed.
-    pub fn resizable(mut self, widths: impl kivact_core::state::IntoBinding<Vec<f64>>) -> Self {
-        self.widths = Some(widths.into_binding());
+    pub fn resizable(mut self, widths: kivact_core::state::Signal<Vec<f64>>) -> Self {
+        self.widths = Some(widths);
         self
     }
 
@@ -461,8 +438,8 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// Add a disclosure control to each row with [`row_details`](Self::row_details).
     /// The binding contains the expanded row keys, independent of sort and
     /// paging. Details stay mounted while their row is mounted.
-    pub fn expanded_rows(mut self, expanded: impl kivact_core::state::IntoBinding<Vec<K>>) -> Self {
-        self.expanded_rows = Some(expanded.into_binding());
+    pub fn expanded_rows(mut self, expanded: kivact_core::state::Signal<Vec<K>>) -> Self {
+        self.expanded_rows = Some(expanded);
         self
     }
 
@@ -496,6 +473,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
 
     /// Give the main rows `height` logical pixels (at least 18, a constant
     /// or a reactive value); the row recipe reads it.
+    #[track_caller]
     pub fn row_height(mut self, height: impl IntoValue<f64>) -> Self {
         self.row_height = Some(height.into_value());
         self
@@ -505,7 +483,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// The lane is separate from the indexed data columns.
     pub fn row_status(
         mut self,
-        status: impl Fn(&R) -> Option<crate::table_values::RowStatus> + 'static,
+        status: impl Fn(&R) -> Option<crate::data_table::types::RowStatus> + 'static,
     ) -> Self {
         self.row_status = Some(Rc::new(status));
         self
@@ -522,5 +500,12 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
 impl<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey> Element for DataTable<R, K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
+    }
+}
+
+impl<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey> DataTable<R, K> {
+    /// Select the density used by themes that style data table cells.
+    pub fn density(self, density: super::types::DataTableDensity) -> Self {
+        self.variant(density)
     }
 }

@@ -21,7 +21,8 @@ impl Epoch {
 
 /// The pending computation: whether one has to run, and the absolute parents
 /// to lay out again before the roots (`tree`).
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub(crate) enum Pending {
     /// Nothing to do: the last computation covered every change.
     Clean,
@@ -34,14 +35,14 @@ pub(crate) enum Pending {
 /// Keep it paired with the same NodeLayoutColumns and authoritative slot mapping.
 /// Cloning all three produces independent derived state; mixing a state from an
 /// unrelated allocation is unsupported. It owns no authoritative links or nodes.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub(crate) struct LayoutState {
     pub(crate) no_grid: TStyle,
     /// The pending work: marked by every invalidation, taken by the computation.
     pending: Pending,
     /// The shared generation of derived child traversal cursors.
     pub(crate) epoch: Epoch,
-    // xtask-allow(state-fields): cache: the last fixed child looked up in this computation; `compute` resets it before each pass
     /// The last indexed fixed child; this is a traversal cursor only.
     pub(crate) fixed_cursor: Cell<Option<(usize, NodeId)>>,
 }
@@ -50,7 +51,12 @@ impl Default for LayoutState {
     /// A new state has its first computation pending.
     fn default() -> Self {
         Self {
-            no_grid: TStyle::default(),
+            // Positioned like every node (`NodeStyle::default`), so a grid
+            // container without tracks is the containing block of its absolute children.
+            no_grid: TStyle {
+                position: taffy::Position::Relative,
+                ..TStyle::default()
+            },
             pending: Pending::Dirty {
                 relayout: Vec::new(),
             },
@@ -104,6 +110,7 @@ impl LayoutState {
     }
 
     /// Drop the queued relayouts (a full rebuild lays every parent out anyway).
+    #[cfg(any(test, feature = "reference"))]
     pub(crate) fn clear_relayout(&mut self) {
         if let Pending::Dirty { relayout } = &mut self.pending {
             relayout.clear();

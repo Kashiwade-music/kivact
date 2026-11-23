@@ -25,7 +25,7 @@
 //!   technology). The accessibility tree and the test driver take the
 //!   exposure from this one function.
 
-use crate::contract::NodeType;
+use crate::contract::{InputFlag, NodeType};
 use kivact_types::{A11yAction, NodeId, RegionId, Role};
 
 use crate::model::Model;
@@ -94,8 +94,8 @@ impl Model {
     pub(crate) fn exposed(&self, id: NodeId) -> Option<Exposed> {
         let n = self.tree.get(id)?;
         Some(Exposed {
-            role: semantic_role(n, self.editors[n.index.0].is_some())?,
-            name: accessible_name(n, self.editors[n.index.0].is_some()).to_string(),
+            role: semantic_role(n, self.slots.editors[n.index.0].is_some())?,
+            name: accessible_name(n, self.slots.editors[n.index.0].is_some()).to_string(),
             actions: self.accessible_actions(id),
         })
     }
@@ -116,7 +116,7 @@ impl Model {
                 out.push(*a);
             }
         }
-        if self.editors[n.index.0].is_some()
+        if self.slots.editors[n.index.0].is_some()
             && !n.read_only()
             && !out.contains(&A11yAction::SetValue)
         {
@@ -143,4 +143,41 @@ impl Model {
             })
             .unwrap_or_default()
     }
+}
+
+impl Model {
+    /// The visibility facts of `id` (`contract::NodeFlags`); a missing node is neither.
+    pub(crate) fn node_flags(&self, id: NodeId) -> crate::contract::NodeFlags {
+        let Some(start) = self.tree.nodes.index_of(id) else {
+            return crate::contract::NodeFlags::default();
+        };
+        let mut flags = crate::contract::NodeFlags {
+            visible: true,
+            in_live_region: false,
+        };
+        for (_, n) in self.tree.ancestors(start) {
+            if n.properties.input.flags.get(InputFlag::Hidden) == Some(true) {
+                flags.visible = false;
+            }
+            if n.properties
+                .semantics
+                .as_deref()
+                .is_some_and(is_live_region)
+            {
+                flags.in_live_region = true;
+            }
+        }
+        flags
+    }
+}
+
+/// Whether `semantics` make a live region.
+fn is_live_region(semantics: &kivact_types::Semantics<kivact_types::FocusTarget>) -> bool {
+    matches!(
+        semantics.role,
+        Some(kivact_types::Role::Alert | kivact_types::Role::Status | kivact_types::Role::Log)
+    ) || matches!(
+        semantics.live_region,
+        Some(kivact_types::LiveRegion::Polite | kivact_types::LiveRegion::Assertive)
+    )
 }

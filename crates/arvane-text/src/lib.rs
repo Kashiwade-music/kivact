@@ -38,12 +38,17 @@
 mod build;
 mod cache;
 mod error;
+mod families;
+mod font_lookup;
 mod inline;
 mod layouts;
 mod metrics;
 mod output;
+mod system_fonts;
 mod text_engine;
 mod transform;
 
-pub use error::TextError;
+pub use families::{FamilyChoice, FamilyResolution};
+pub use font_lookup::{FamilyQuery, FontFace, FontLookup};
+pub use system_fonts::start_system_font_scan;
 pub use text_engine::TextEngine;

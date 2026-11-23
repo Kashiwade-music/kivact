@@ -3,14 +3,14 @@
 use super::GlyphRaster;
 use super::canvas::{Canvas, GlyphRun};
 use crate::convert;
-use crate::derived::{Derived, DerivedScope};
-use crate::outline::glyph_outline;
+use crate::derived::DerivedScope;
+use crate::glyph::glyph_outline;
 use crate::paint::{self, Brush, PatternFill};
 use crate::text;
 use crate::validate::Fonts;
-use kivact_types::geometry::Transform;
-use kivact_types::render::{FontSource, GlyphStroke, Group, Paint, RenderCmd, RenderScene};
-use kivact_types::scene::Shape;
+use arvane_protocol::{GlyphStroke, Group, RasterPaint, RenderCmd, RenderScene};
+use kivact_types::scene::Outline;
+use kivact_types::shaped::FontSource;
 use kivact_types::{PaintOrder, Point, Rect as LogicalRect, Rgba};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -75,8 +75,6 @@ pub(crate) struct Caches {
     pub(crate) validation: Fonts,
     /// Font data handed to the rasterizer.
     pub(crate) fonts: FontCache,
-    /// Pixels derived from the scene's values.
-    pub(crate) derived: Derived,
     /// Variation coordinates of the glyph run being drawn (refilled per run,
     /// so its capacity is kept across runs and frames).
     pub(crate) coords: Vec<i16>,
@@ -96,35 +94,29 @@ pub(crate) struct Frame {
 pub(crate) fn draw(
     canvas: &mut impl Canvas,
     caches: &mut Caches,
+    derived: &mut DerivedScope<'_>,
     scene: &RenderScene,
     frame: &Frame,
 ) {
     let root = root_transform(frame);
     canvas.set_transform(root);
-    let Caches {
+    let Caches { fonts, coords, .. } = caches;
+    let mut painter = Painter {
+        canvas,
         fonts,
         derived,
         coords,
-        ..
-    } = caches;
-    derived.frame(|derived| {
-        let mut painter = Painter {
-            canvas,
-            fonts,
-            derived,
-            coords,
-            root,
-            scale: frame.scale,
-            origin: frame.origin,
-            visible: frame.visible,
-            transform: Transform::IDENTITY,
-            device_scale: frame.scale,
-            stack: Vec::new(),
-        };
-        for command in &scene.commands {
-            painter.command(command);
-        }
-    });
+        root,
+        scale: frame.scale,
+        origin: frame.origin,
+        visible: frame.visible,
+        transform: kivact_types::Affine::IDENTITY,
+        device_scale: frame.scale,
+        stack: Vec::new(),
+    };
+    for command in &scene.commands {
+        painter.command(command);
+    }
 }
 
 /// The map from the scene's logical coordinates to device pixels.
@@ -137,7 +129,7 @@ pub(super) enum Open {
     /// A clip layer (`PushClip`).
     Clip,
     /// The transform before it.
-    Transform(Transform),
+    Transform(kivact_types::Affine),
     /// How many canvas layers a group pushed.
     Group { pops: u8 },
     /// Opened while drawing nothing.
@@ -150,10 +142,10 @@ pub(super) enum Area<'a> {
     Path(&'a BezPath),
 }
 
-pub(super) struct Painter<'a, C: Canvas> {
+pub(super) struct Painter<'a, 'd, C: Canvas> {
     pub(super) canvas: &'a mut C,
     pub(super) fonts: &'a mut FontCache,
-    pub(super) derived: DerivedScope<'a>,
+    pub(super) derived: &'a mut DerivedScope<'d>,
     /// The scratch buffer of the glyph run being drawn (`glyph_coords`).
     pub(super) coords: &'a mut Vec<i16>,
     /// The map from logical root coordinates to device pixels.
@@ -165,7 +157,7 @@ pub(super) struct Painter<'a, C: Canvas> {
     /// The frame in root logical coordinates.
     pub(super) visible: LogicalRect,
     /// From the current coordinates to the root's (logical pixels).
-    pub(super) transform: Transform,
+    pub(super) transform: kivact_types::Affine,
     /// Device pixels per unit of the current coordinates (at most).
     pub(super) device_scale: f64,
     /// The open groups, innermost last. Drawing stops while the innermost is
@@ -173,7 +165,7 @@ pub(super) struct Painter<'a, C: Canvas> {
     pub(super) stack: Vec<Open>,
 }
 
-impl<C: Canvas> Painter<'_, C> {
+impl<C: Canvas> Painter<'_, '_, C> {
     /// Make the current transform the canvas's.
     pub(super) fn set_transform(&mut self) {
         self.canvas
@@ -372,7 +364,7 @@ impl<C: Canvas> Painter<'_, C> {
                 self.stack.push(Open::Clip);
             }
             RenderCmd::FillShape { shape, paint } => {
-                if let Shape::Rect(r) = shape {
+                if let Outline::Rect(r) = shape {
                     self.fill(paint, *r, Area::Rect(convert::rect(*r)));
                     return;
                 }
@@ -533,8 +525,8 @@ impl<C: Canvas> Painter<'_, C> {
     }
 
     /// Fill `area` (with `bounds`) with `paint`.
-    pub(super) fn fill(&mut self, paint: &Paint, bounds: LogicalRect, area: Area<'_>) {
-        match paint::brush(paint, &mut self.derived, self.device_scale) {
+    pub(super) fn fill(&mut self, paint: &RasterPaint, bounds: LogicalRect, area: Area<'_>) {
+        match paint::brush(paint, self.derived, self.device_scale) {
             Brush::Paint(brush, transform) => {
                 self.canvas.set_paint(brush);
                 if let Some(t) = transform {
@@ -587,14 +579,14 @@ impl<C: Canvas> Painter<'_, C> {
     }
 
     /// Stroke a shape's outline with `paint`.
-    fn stroke(&mut self, shape: &Shape, stroke: &kivact_types::Stroke, paint: &Paint) {
+    fn stroke(&mut self, shape: &Outline, stroke: &kivact_types::Stroke, paint: &RasterPaint) {
         let mut path = convert::shape(shape);
         if stroke.cap != kivact_types::LineCap::Butt {
             path = convert::dots(path);
         }
         let style = convert::stroke(stroke);
         let grow = stroke.width * stroke.miter_limit.max(1.5);
-        match paint::brush(paint, &mut self.derived, self.device_scale) {
+        match paint::brush(paint, self.derived, self.device_scale) {
             Brush::Pattern(pattern) => {
                 // The stroke's outline filled with the pattern.
                 let outline = self.outline_of(&path, &style);
@@ -626,7 +618,7 @@ impl<C: Canvas> Painter<'_, C> {
     }
 
     /// The outlines of `run`'s glyphs at `origin`, in the current coordinates.
-    fn glyph_path(&self, run: &kivact_types::render::GlyphRun, origin: Point) -> BezPath {
+    fn glyph_path(&self, run: &kivact_types::shaped::GlyphRun, origin: Point) -> BezPath {
         let mut path = convert::path(&glyph_outline(run));
         path.apply_affine(Affine::translate((origin.x, origin.y)));
         path
@@ -635,13 +627,13 @@ impl<C: Canvas> Painter<'_, C> {
     /// Replay a glyph run: its fill, and its outline stroke, in `order`.
     fn glyphs(
         &mut self,
-        run: &kivact_types::render::GlyphRun,
+        run: &kivact_types::shaped::GlyphRun,
         origin: Point,
-        fill: Option<&Paint>,
+        fill: Option<&RasterPaint>,
         outline: Option<&GlyphStroke>,
         order: PaintOrder,
     ) {
-        let shaped = Paint::Solid(run.color);
+        let shaped = RasterPaint::Solid(run.color);
         let fill = fill.unwrap_or(&shaped);
         match order {
             PaintOrder::FillStroke => {
@@ -660,8 +652,13 @@ impl<C: Canvas> Painter<'_, C> {
     }
 
     /// Fill a glyph run with `paint`.
-    fn glyph_fill(&mut self, run: &kivact_types::render::GlyphRun, origin: Point, paint: &Paint) {
-        match paint::brush(paint, &mut self.derived, self.device_scale) {
+    fn glyph_fill(
+        &mut self,
+        run: &kivact_types::shaped::GlyphRun,
+        origin: Point,
+        paint: &RasterPaint,
+    ) {
+        match paint::brush(paint, self.derived, self.device_scale) {
             Brush::Pattern(pattern) => {
                 let path = self.glyph_path(run, origin);
                 let bounds = logical(path.bounding_box());
@@ -669,8 +666,8 @@ impl<C: Canvas> Painter<'_, C> {
             }
             Brush::Paint(brush, transform) => {
                 let solid = match paint {
-                    Paint::Solid(color) => Some(*color),
-                    Paint::Gradient(_) | Paint::Pattern(_) => None,
+                    RasterPaint::Solid(color) => Some(*color),
+                    RasterPaint::Gradient(_) | RasterPaint::Pattern(_) => None,
                 };
                 self.canvas.set_paint(brush);
                 if let Some(t) = transform {
@@ -687,12 +684,12 @@ impl<C: Canvas> Painter<'_, C> {
     /// Stroke a glyph run's outlines with `stroke`.
     fn glyph_stroke(
         &mut self,
-        run: &kivact_types::render::GlyphRun,
+        run: &kivact_types::shaped::GlyphRun,
         origin: Point,
         stroke: &GlyphStroke,
     ) {
         let style = convert::stroke(&stroke.stroke);
-        match paint::brush(&stroke.paint, &mut self.derived, self.device_scale) {
+        match paint::brush(&stroke.paint, self.derived, self.device_scale) {
             Brush::Pattern(pattern) => {
                 let path = self.glyph_path(run, origin);
                 let outline = self.outline_of(&path, &style);
@@ -738,7 +735,7 @@ impl<C: Canvas> Painter<'_, C> {
     /// atlas and are darkened by its luminance; `None` is a non-solid paint.
     fn fill_glyphs(
         &mut self,
-        run: &kivact_types::render::GlyphRun,
+        run: &kivact_types::shaped::GlyphRun,
         origin: Point,
         solid: Option<Rgba>,
     ) {
@@ -797,7 +794,7 @@ impl<C: Canvas> Painter<'_, C> {
 
 /// Fill `out` with a run's normalized variation coordinates in the
 /// rasterizers' 2.14 fixed point.
-fn glyph_coords(out: &mut Vec<i16>, run: &kivact_types::render::GlyphRun) {
+fn glyph_coords(out: &mut Vec<i16>, run: &kivact_types::shaped::GlyphRun) {
     out.clear();
     out.extend(
         run.normalized_coords

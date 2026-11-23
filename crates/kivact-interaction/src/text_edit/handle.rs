@@ -4,16 +4,16 @@ use super::draft::{self, DraftOptions};
 use super::policy::text_edit_policy;
 use crate::options_cell::OptionsCell;
 use kivact_core::ErrorKind;
-use kivact_core::state::{MachineHandle, machine, memo};
+use kivact_core::state::{IntoHandler, MachineHandle, machine, memo};
 
 use super::machine;
 use kivact_core::custom::{
     EditLineLayout, NodeRefExt, Owned, Owner, Part, PartState, TextEditing, part, raise,
     require_setup,
 };
-use kivact_core::state::{Binding, Signal, Value, on_cleanup, signal};
 use kivact_core::state::{Callback, callback};
 use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::state::{Signal, Value, on_cleanup};
 use kivact_core::view::{Composition as CompositionState, EditPhase, NodeRef, node_ref};
 use kivact_core::view::{Handled, HandlerResult, Key, Role};
 use kivact_types::cell::Generation;
@@ -54,20 +54,20 @@ enum Lines {
 /// Each committed edit copies the whole value into the binding; an editor
 /// for long documents takes range edits from `TextEditing` instead. Setup only.
 #[track_caller]
-pub fn use_text_edit(value: impl kivact_core::state::IntoBinding<String>) -> TextEditApi {
-    create(value.into_binding(), Lines::Single)
+pub fn use_text_edit(value: kivact_core::state::Signal<String>) -> TextEditApi {
+    create(value, Lines::Single)
 }
 
 /// Create native editing behavior for an application-owned string binding,
 /// several lines: Enter inserts a line break. Otherwise as [`use_text_edit`].
 /// Setup only.
 #[track_caller]
-pub fn use_text_area(value: impl kivact_core::state::IntoBinding<String>) -> TextEditApi {
-    create(value.into_binding(), Lines::Multiple)
+pub fn use_text_area(value: kivact_core::state::Signal<String>) -> TextEditApi {
+    create(value, Lines::Multiple)
 }
 
 #[track_caller]
-fn create(binding: Binding<String>, lines: Lines) -> TextEditApi {
+fn create(binding: Signal<String>, lines: Lines) -> TextEditApi {
     let owner = Owner::current();
     let options = OptionsCell::new(TextEditOptions::default());
     let control = machine(
@@ -86,7 +86,6 @@ fn create(binding: Binding<String>, lines: Lines) -> TextEditApi {
         },
     );
     let data = Rc::new(Data {
-        observed: signal(None),
         binding,
         lines,
         options,
@@ -99,14 +98,6 @@ fn create(binding: Binding<String>, lines: Lines) -> TextEditApi {
 }
 
 impl TextEditApi {
-    /// Drawing state of the actual mounted control.
-    pub fn control_state(self) -> Value<PartState> {
-        let observed = self.data.get().observed;
-        kivact_core::state::memo(move || {
-            observed.get().map(|state| state.get()).unwrap_or_default()
-        })
-    }
-
     /// Soft-wrap multiline content at the field's content width.
     pub fn wrap(self, on: impl IntoValue<bool>) -> Self {
         let on = on.into_value();
@@ -199,7 +190,7 @@ impl TextEditApi {
     /// A text area ([`use_text_area`]) takes Enter as a line break, so giving
     /// it a submit handler is a usage error.
     #[track_caller]
-    pub fn on_submit(self, f: impl Into<Callback<()>>) -> Self {
+    pub fn on_submit<M>(self, f: impl IntoHandler<(), M>) -> Self {
         let data = self.setup("TextEditApi::on_submit");
         if data.lines == Lines::Multiple {
             raise(
@@ -207,14 +198,16 @@ impl TextEditApi {
                 "TextEditApi::on_submit: a text area takes Enter as a line break",
             );
         }
-        let f = f.into();
+        let f = kivact_core::state::Callback::from_handler(
+            kivact_core::state::IntoHandler::into_handler(f),
+        );
         data.options.update(|options| options.submit = Some(f));
         self
     }
 
     /// Commit a draft on Enter or a valid changed blur; Escape restores it.
-    pub fn on_draft_commit<R: HandlerResult>(self, f: impl Fn(String) -> R + 'static) -> Self {
-        self.setup("TextEditApi::on_draft_commit")
+    pub fn on_commit<R: HandlerResult>(self, f: impl Fn(String) -> R + 'static) -> Self {
+        self.setup("TextEditApi::on_commit")
             .options
             .update(|options| options.draft_commit = Some(callback(f)));
         self
@@ -404,7 +397,6 @@ impl TextEditApi {
         require_setup("TextEditApi::control");
         let input = part(|state| state);
         let state = input.state();
-        crate::part_slot::attach_part_state(self.data.get().observed, state);
         let node = node_ref();
         let options = self.data.get().options.value();
         let line_layout = memo(move || {
@@ -495,14 +487,12 @@ struct TextEditOptions {
     composition: Option<Callback<bool>>,
 }
 
+// xtask-allow(state): identity: next_control_id allocates the id of each mounted control (TextEditApi::control)
 struct Data {
-    // xtask-allow(state-fields): independent: the observation of the attached control part, absent until it attaches
-    observed: Signal<Option<Value<PartState>>>,
-    binding: Binding<String>,
+    binding: Signal<String>,
     lines: Lines,
     options: OptionsCell<TextEditOptions>,
     control: MachineHandle<machine::Machine>,
-    // xtask-allow(state-fields): identity: allocates control ids; the mounted id lives in the machine state
     next_control_id: Cell<Generation>,
 }
 

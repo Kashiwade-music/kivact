@@ -21,7 +21,8 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_creative as ui;
 
-fn root() -> impl IntoView {
+#[component]
+fn root() -> impl Element {
     text("Hello, creative tools")
 }
 
@@ -62,6 +63,7 @@ use kivact::style::ThemeMode;
 use kivact::style::provide_theme;
 use kivact_ui_creative as ui;
 
+#[component]
 fn themed() -> impl IntoView {
     let dark = signal(true);
     let accent = signal(ui::Accent::Iris);
@@ -86,48 +88,39 @@ fn themed() -> impl IntoView {
                 style()
                     .gap(10)
                     .padding(16)
-                    .background(ui::ColorName::Canvas)
-                    .color(ui::ColorName::Text),
+                    .background(ui::color::CANVAS)
+                    .color(ui::color::TEXT),
             )
         },
     )
 }
 ```
 
-`ui::ColorName` is the kit's own palette as a style value (`Canvas`, `Island`, `Header`, `Field`, `Hair`, `Text`, `Muted`, `Accent` and more). Anywhere a style takes a color it follows theme switches by itself, with no closure that reads the theme.
+The kit's own colors are theme variables, and `ui::color` holds a `const` for each of them: `CANVAS`, `ISLAND`, `HEADER`, `FIELD`, `HAIR`, `TEXT`, `MUTED`, `ACCENT` and more. Each `const` has a `_VAR` static with the same name (`ui::color::ACCENT_VAR`) that `theme.set` changes. Anywhere a style takes a color it follows theme switches by itself, with no closure that reads the theme.
 
 ## Use your own fonts
 
-The default families need no setup. To use bundled fonts, do two things: register the font data with the app, and tell the theme the family names.
+The default families need no setup. To use bundled fonts, do two things: register the font files with the theme, and name the families in the theme.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
-use kivact::style::theme::Typography;
+use kivact::style::{FontFamily, Theme, ThemeMode, font};
 use kivact_ui_creative as ui;
 
-/// `font` is the bytes of a font file, for example
+fn theme(mode: ThemeMode) -> Theme {
+    ui::theme(mode)
+        .set(&font::FAMILY_VAR, FontFamily::from("Geist"))
+        .set(&ui::MONO_FAMILY_VAR, FontFamily::from("Geist Mono"))
+}
+
+/// `fonts` are the bytes of font files, for example
 /// `include_bytes!("../assets/Geist[wght].ttf")`.
-fn app_with_font(font: &'static [u8]) -> App {
-    let theme = ui::theme(ThemeMode::Dark);
-
-    // The kit's tokens: change the families and put them back.
-    let mut tokens = (*theme.ext::<ui::Tokens>()).clone();
-    tokens.body_font = "Geist".into();
-    tokens.mono_font = "Geist Mono".into();
-
-    // The core text style follows the body family, too.
-    let text = Typography {
-        family: Some(tokens.body_font.clone()),
-        ..theme.text().clone()
-    };
-    let theme = theme.with_text(text).with(tokens);
-
-    App::new("Fonts").font(font).theme(theme)
+fn app_with_fonts(fonts: &[&'static [u8]]) -> App {
+    App::new("Fonts").theme(theme(ThemeMode::Dark).with_fonts(fonts.iter().copied()))
 }
 ```
 
-`body_font` is used for labels and `mono_font` for numbers and codes. The family name must be the name stored inside the font file. Call `.font(..)` once for each font file you use. The kit's catalog does exactly this with Geist, Geist Mono and Noto Sans JP, as a reference.
+`font::FAMILY_VAR` is the family of labels, and `ui::MONO_FAMILY_VAR` the family of numbers and codes. The family name must be the name stored inside the font file. Each font file you use is one item of `with_fonts`. The kit's catalog does exactly this with Geist, Geist Mono and Noto Sans JP, as a reference.
 
 ## Draw and add icons
 

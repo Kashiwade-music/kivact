@@ -1,9 +1,10 @@
 //! Role: Read-only inspection of a started application.
-use super::runtime::{ClientMode, Launch, LaunchState, TestTiming};
+use super::runtime::{Launch, LaunchState};
 use crate::client::state::HostState;
 use crate::view::state::ViewState;
 use kivact_engine::api::Client;
-use kivact_runtime::{Runtime, TaskState, UiError};
+use kivact_runtime::UiError;
+use kivact_runtime::driver::Runtime;
 use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
@@ -49,13 +50,25 @@ impl Inspect<'_> {
     /// The discovery file of the running DevTools agent, if it runs.
     #[cfg(feature = "devtools")]
     pub fn devtools_target(&self) -> Option<std::path::PathBuf> {
-        let crate::view::devtools_state::DevtoolsState::Running(inspector) =
-            crate::view::devtools_state::DevtoolsState::of(self.rt())
+        let crate::devtools::state::DevtoolsState::Running(inspector) =
+            crate::devtools::state::DevtoolsState::of(self.rt())
         else {
             return None;
         };
-        let path = inspector.agent.borrow().discovery_path().to_owned();
-        Some(path)
+        inspector.promote(self.rt());
+        inspector
+            .agent()
+            .map(|agent| agent.discovery_path().to_owned())
+    }
+
+    /// Whether the DevTools agent is still starting.
+    #[cfg(feature = "devtools")]
+    pub fn devtools_starting(&self) -> bool {
+        matches!(
+            crate::devtools::state::DevtoolsState::of(self.rt()),
+            crate::devtools::state::DevtoolsState::Running(i)
+                if matches!(&*i.agent.borrow(), crate::devtools::state::AgentSlot::Starting(_))
+        )
     }
 }
 
@@ -64,7 +77,7 @@ impl Inspect<'_> {
         let ts = ViewState::tree(self.rt()).engine().stats();
         let host = HostState::of(self.rt());
         let live = self.rt().live_counts();
-        let motion = kivact_runtime::MotionState::of(self.rt()).stats();
+        let motion = self.rt().motion().stats();
         crate::diagnostics::Stats {
             live_reactive: live.reactive,
             live_owners: live.owners,
@@ -72,7 +85,7 @@ impl Inspect<'_> {
             live_constants: live.constants,
             arena_slots: live.slots,
             tree_nodes: ViewState::tree(self.rt()).len(),
-            timers: TaskState::of(self.rt()).stats().timers,
+            timers: self.rt().tasks().stats().timers,
             frame_loops: motion.loops,
             animations: motion.animations,
             batches: ts.batches,
@@ -96,18 +109,16 @@ impl Inspect<'_> {
     pub fn errors(&self) -> Vec<UiError> {
         self.rt().errors()
     }
+    /// Mail from other threads (`task::remote`) counts: the next turn delivers it.
     pub fn pending(&self) -> bool {
-        let pending = self.rt().pending();
-        pending.turn_requested
-            || pending.user
-            || pending.render
-            || TaskState::of(self.rt()).has_ready()
+        let rt = self.rt();
+        rt.turn_requested() || rt.has_work() || rt.has_mail()
     }
     pub fn outstanding_blocking(&self) -> usize {
-        TaskState::of(self.rt()).stats().outstanding_blocking
+        self.rt().tasks().stats().outstanding_blocking
     }
     pub fn motion_ticks(&self) -> u64 {
-        kivact_runtime::MotionState::of(self.rt()).stats().ticks
+        self.rt().motion().stats().ticks
     }
 }
 
@@ -147,14 +158,8 @@ impl Inspect<'_> {
 }
 
 impl Launch {
-    pub fn into_engine_client(self) -> (Client, LaunchHandle) {
-        let timing = match &self.mode {
-            ClientMode::Test {
-                timing: TestTiming(timing),
-                ..
-            } => Some(timing.clone()),
-            _ => None,
-        };
+    pub(crate) fn into_engine_client(self) -> (Client, LaunchHandle) {
+        let timing = self.policy.test.as_ref().map(|t| t.timing.clone());
         let shared = Rc::new(RefCell::new(self));
         (
             Self::shared_client(shared.clone(), timing),

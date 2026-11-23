@@ -1,10 +1,11 @@
 //! Role: ListApi input enters the shared selection and navigation state.
 
 use super::data::{ListActivation, ListGesture, ListMode};
-use super::order::Movement;
+use super::machine;
 use super::state::{State, selected};
 use super::typeahead::typeahead_find;
 use crate::Selection;
+use crate::collection::Movement;
 use kivact_core::view::{
     ButtonPress, Handled, Key, KeyEvent, Modifiers, MouseButton, Orientation, PointerEvent,
     PointerPhase,
@@ -63,7 +64,7 @@ fn movement(
     if mode == ListMode::Activate && (modifiers.ctrl || modifiers.alt || modifiers.meta) {
         return None;
     }
-    let rtl = kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl;
+    let rtl = kivact_core::view::use_direction() == kivact_core::view::ReadingDirection::Rtl;
     let (right, left) = if rtl {
         (Movement::Previous, Movement::Next)
     } else {
@@ -187,7 +188,7 @@ fn destination<K: kivact_core::state::ItemKey>(
     logical: bool,
 ) -> Option<K> {
     let available = |key: &K| logical || state.focus_available(key);
-    state.order.with_untracked(|order| {
+    state.index.with_untracked(|order| {
         if let Some(movement) = movement {
             return order.navigate(from, movement, state.policy().boundary, available);
         }
@@ -217,10 +218,12 @@ pub(super) fn typed<K: kivact_core::state::ItemKey>(
     c: char,
     logical: bool,
 ) -> Handled {
-    let slot = state.typed.get();
-    let mut typed = slot.get_untracked();
+    let owner = state.typeahead_owner();
+    let mut typed = owner
+        .state()
+        .with_untracked(|current| current.typed.clone());
     let query = typed.push(c);
-    slot.set(typed);
+    owner.send(machine::Event::Typeahead(typed));
     let items = state.items.with_untracked(|items| {
         let mut seen = std::collections::HashSet::new();
         items
@@ -274,7 +277,7 @@ pub(super) fn key_selection<K: kivact_core::state::ItemKey>(
 
 pub(super) fn select_all<K: kivact_core::state::ItemKey>(state: &State<K>) {
     if let Selection::Multiple(binding) = state.selection {
-        let keys = state.order.with_untracked(|order| {
+        let keys = state.index.with_untracked(|order| {
             order
                 .keys()
                 .into_iter()

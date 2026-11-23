@@ -4,9 +4,10 @@ use super::machine::{Effect, Event, Machine, State};
 use super::order::kept_levels;
 use super::press_state::Press;
 use super::state::{Edge, MenuEntry, MenuOptions, MenuOrigin, Opened, Target, Want};
-use crate::list::typeahead::Typeahead;
 use crate::{FocusReturn, PopupApi, PopupCloseReason, ReasonSet, use_popup};
-use kivact_core::state::{Binding, Callback, MachineHandle, Signal, Value, memo, signal};
+use kivact_core::ErrorKind;
+use kivact_core::custom::raise;
+use kivact_core::state::{Callback, MachineHandle, Signal, Value, memo, signal};
 use kivact_core::view::NodeRef;
 
 /// State shared by every level of one menu. All handles are `Copy`.
@@ -28,10 +29,10 @@ pub(super) struct Session<K: kivact_core::state::ItemKey> {
     pub(super) kept: Value<usize>,
     pub(super) want: Value<Option<Want<K>>>,
     pub(super) machine: MachineHandle<super::machine::Machine<K>>,
-    pub(super) typed: kivact_core::state::Binding<Typeahead>,
-    // xtask-allow(state-fields): option: whether the theme tracks a menu press, fixed during setup
     pub(super) press: Option<super::press_state::Press>,
     pub(super) surface_rects: Signal<Vec<(Vec<K>, kivact_core::geometry::Rect)>>,
+    /// The mounted submenu items, by their path (see `Session::item_anchor`).
+    pub(super) item_anchors: Signal<Vec<(Vec<K>, NodeRef)>>,
 }
 
 impl<K: kivact_core::state::ItemKey> Clone for Session<K> {
@@ -47,18 +48,17 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
     pub(super) fn new(
         entries: Value<Vec<MenuEntry<K>>>,
         choose: Callback<K>,
-        open: Binding<bool>,
+        open: Signal<bool>,
     ) -> Self {
         // The popup returns the focus; each opening says where to (see
         // `Session::focus_return`, installed when the top level binds).
         let popup = use_popup(open);
         let anchor = popup.anchor_ref();
-        let press = (kivact_core::style::use_theme()
+        let press = kivact_core::style::use_theme()
             .get()
             .ext::<crate::InteractionPolicy>()
             .menu
-            .press)
-            .0
+            .press
             .then(Press::new);
         let machine = kivact_core::state::machine(
             State::Closed,
@@ -71,7 +71,7 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
                     .submenu,
             },
             move |_, command| match command {
-                Effect::Close => popup.hide(PopupCloseReason::Escape),
+                Effect::Close => popup.close(PopupCloseReason::Escape),
                 Effect::Closed => {
                     if let Some(press) = press {
                         press.cancel_open();
@@ -80,7 +80,6 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
             },
         );
         let state = machine.state();
-        let typed = typeahead_binding(machine);
         let path = memo(move || state.with(State::path));
         let focus_key = memo(move || state.with(State::focus));
         let want = memo(move || {
@@ -121,9 +120,9 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
             focus_key,
             kept,
             want,
-            typed,
             machine,
             surface_rects: signal(Vec::new()),
+            item_anchors: signal(Vec::new()),
             press,
         };
         machine.feed(open, Event::Popup);
@@ -145,7 +144,7 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
         if let Some(press) = self.press {
             press.cancel();
         }
-        self.popup.hide(reason);
+        self.popup.close(reason);
     }
 
     /// Where the focus returns for the opening in progress: to the trigger
@@ -185,6 +184,22 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
 }
 
 impl<K: kivact_core::state::ItemKey> Session<K> {
+    /// The node of the mounted item that opens the submenu at `path`.
+    pub(super) fn item_anchor(&self, path: &[K]) -> NodeRef {
+        self.item_anchors
+            .with_untracked(|all| {
+                all.iter()
+                    .find(|(p, _)| p.as_slice() == path)
+                    .map(|(_, r)| *r)
+            })
+            .unwrap_or_else(|| {
+                raise(
+                    ErrorKind::Message,
+                    "MenuApi::surface: the submenu's item is not mounted",
+                )
+            })
+    }
+
     /// The key of the focused item if the focus is on the level at `depth`.
     pub(super) fn focused_at(&self, depth: usize) -> Option<K> {
         self.focus_key.with(|focus| match focus {
@@ -239,19 +254,4 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
             self.close_level(depth);
         }
     }
-}
-
-fn typeahead_binding<K: kivact_core::state::ItemKey>(
-    machine: MachineHandle<Machine<K>>,
-) -> kivact_core::state::Binding<Typeahead> {
-    let state = machine.state();
-    kivact_core::state::binding(
-        move || {
-            state.with(|state| match state {
-                State::Closed => Typeahead::default(),
-                State::Open { typeahead, .. } => typeahead.clone(),
-            })
-        },
-        move |typed| machine.send(Event::Typeahead(typed)),
-    )
 }

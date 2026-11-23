@@ -3,18 +3,14 @@
 use super::client::Client;
 use super::options::HostOptions;
 use super::pump::{Host, HostPhase};
-use super::window::HostWindow;
 use crate::FrameLog;
 use crate::contract::HostError;
 use crate::model::{AppModel, EventSink, Model, Shared};
-use arvane::{
-    EventTarget, Handler, RendererChange, Shell, ShellControl, ShellError, ShellEvent, ShellWaker,
-    Windows,
-};
+use arvane::{Handler, Windows};
+use arvane_shell::{EventTarget, ShellControl, ShellError, ShellEvent, ShellWaker};
 use kivact_types::cell::Sent;
-use kivact_types::{Size, WindowId, WindowMode, WindowRequest};
+use kivact_types::{Size, WindowId, WindowRequest};
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::rc::Rc;
 
 /// Run the client on the application's main thread until its native window exits.
@@ -27,34 +23,30 @@ pub fn run_native(client: Client, options: HostOptions) -> Result<(), HostError>
         .window_size
         .unwrap_or(kivact_types::defaults::DEFAULT_WINDOW_SIZE);
     let frame_log = Rc::new(RefCell::new(FrameLog::from_env()));
+    let backend = arvane_native::backend(WindowRequest::main("Kivact", window_size))
+        .map_err(|e| HostError::new(e.to_string()))?;
     // Arvane's renderer changes, as they happen (benchmarks parse the
     // `renderer=` notes); the first is the renderer the window starts
     // with.
-    let log = frame_log.clone();
-    let shell = Shell::new(
-        arvane_native::backend(WindowRequest::main("Kivact", window_size))
-            .map_err(|e| HostError::new(e.to_string()))?,
-    );
-    let shell = shell.gpu_preference(options.gpu_preference);
-    let shell = shell.on_renderer_change(move |_window, change| {
-        let mut log = log.borrow_mut();
-        match change {
-            RendererChange::Start { .. } => log.note(&format!("host=arvane {change}")),
-            _ => log.note(&change.to_string()),
-        }
-    });
-    let engine = arvane::Engine::new();
+    let observer = arvane::observer(crate::frame_log::renderer_logger(frame_log.clone()));
+    let engine = arvane_text::TextEngine::new();
     let handler = new(client, window_size, engine, frame_log);
-    shell
-        .run(handler)
-        .map_err(|e| HostError::new(e.to_string()))
+    arvane::run(
+        backend,
+        arvane::DriverOptions {
+            gpu: options.gpu_preference,
+            observer: Some(observer),
+        },
+        handler,
+    )
+    .map_err(|e| HostError::new(e.to_string()))
 }
 
 /// Assemble startup arguments shared by native windows and tests.
 pub(crate) fn new(
     client: Client,
     window_size: Size,
-    engine: arvane::Engine,
+    engine: arvane_text::TextEngine,
     frame_log: Rc<RefCell<FrameLog>>,
 ) -> Launch {
     Launch::Pending(Box::new(LaunchArgs {
@@ -62,7 +54,7 @@ pub(crate) fn new(
         window_size,
         engine,
         frame_log,
-        theme: kivact_types::ThemeHint::Light,
+        theme: kivact_types::ThemeMode::Light,
         assets: AssetMode::Worker,
         close: crate::contract::CloseSignal::new(),
     }))
@@ -76,9 +68,9 @@ pub(super) enum AssetMode {
 pub(crate) struct LaunchArgs {
     client: Client,
     window_size: Size,
-    engine: arvane::Engine,
+    engine: arvane_text::TextEngine,
     frame_log: Rc<RefCell<FrameLog>>,
-    pub(super) theme: kivact_types::ThemeHint,
+    pub(super) theme: kivact_types::ThemeMode,
     pub(super) assets: AssetMode,
     close: crate::contract::CloseSignal,
 }
@@ -122,10 +114,10 @@ impl Handler for Launch {
         let args = *args;
         let store = match args.assets {
             #[cfg(feature = "testing")]
-            AssetMode::Inline => arvane::asset::AssetStore::inline(),
+            AssetMode::Inline => arvane_asset::AssetStore::inline(),
             AssetMode::Worker => {
                 let wake = waker.clone();
-                arvane::asset::AssetStore::new(move || wake.wake(arvane::WakeReasons::ASSETS))
+                arvane_asset::AssetStore::new(move || wake.wake(arvane_shell::WakeReasons::ASSETS))
             }
         };
         let shared = Shared {
@@ -135,8 +127,6 @@ impl Handler for Launch {
         };
         let mut model = Model::new(WindowId::MAIN, args.window_size, &shared);
         model.frame.start_theme(args.theme);
-        let mut host_windows = BTreeMap::new();
-        host_windows.insert(WindowId::MAIN, HostWindow::new(WindowMode::Normal, None));
         let client = args.client;
         let engine = args.engine;
         let mut host = Host {
@@ -149,13 +139,12 @@ impl Handler for Launch {
             reduced_motion_override: None,
             frame_log: args.frame_log.clone(),
             accessibility_noted: kivact_types::cell::ReportOnce::new(),
-            windows: host_windows,
             app_motion: Sent::new(),
             devtools: Default::default(),
         };
         let result = host.begin(
             windows,
-            super::client::HostWaker::new(move || waker.wake(arvane::WakeReasons::CLIENT)),
+            super::client::HostWaker::new(move || waker.wake(arvane_shell::WakeReasons::CLIENT)),
         );
         *self = Self::Running(Box::new(host));
         result

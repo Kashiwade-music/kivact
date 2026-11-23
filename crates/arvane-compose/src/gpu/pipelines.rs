@@ -3,7 +3,9 @@
 //! Made once per device; the draw modules use them by name.
 
 use arvane_render::RASTER_FORMAT;
-use kivact_types::render::Composite;
+use kivact_types::Composite;
+use kivact_types::cell::SharedDeferred;
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 /// The draw shader: the operations' sampling, coverage and blends.
@@ -43,17 +45,40 @@ pub(crate) const ACC_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::R32Float
 /// The index of the blend-in-shader pipeline in [`Pipelines::draw`] (after the eleven composites).
 pub(crate) const SHADER_BLEND: usize = 11;
 
+/// The number of draw pipelines: the eleven composites and the shader blend.
+const DRAW_PIPELINES: usize = SHADER_BLEND + 1;
+
+/// The composites, in the slots [`composite_slot`] gives them.
+const COMPOSITES: [Composite; SHADER_BLEND] = [
+    Composite::SourceOver,
+    Composite::SourceIn,
+    Composite::SourceOut,
+    Composite::SourceAtop,
+    Composite::DestinationOver,
+    Composite::DestinationIn,
+    Composite::DestinationOut,
+    Composite::DestinationAtop,
+    Composite::Lighter,
+    Composite::Copy,
+    Composite::Xor,
+];
+
 /// The render pipelines and layouts the executor draws with.
 pub(crate) struct Pipelines {
-    /// One per composite (by [`composite_slot`]), then the shader blend.
-    pub(crate) draw: Vec<wgpu::RenderPipeline>,
+    /// One per composite (by [`composite_slot`]), then the shader blend; each made on first use.
+    draw: [SharedDeferred<wgpu::RenderPipeline>; DRAW_PIPELINES],
+    draw_module: wgpu::ShaderModule,
+    draw_pl: wgpu::PipelineLayout,
     pub(crate) draw_layout: wgpu::BindGroupLayout,
-    pub(crate) filter: wgpu::RenderPipeline,
+    filter: SharedDeferred<wgpu::RenderPipeline>,
+    filter_pl: wgpu::PipelineLayout,
     pub(crate) filter_layout: wgpu::BindGroupLayout,
-    /// One filter graph primitive per pass.
-    pub(crate) graph: wgpu::RenderPipeline,
+    /// One filter graph primitive per pass; made on first use.
+    graph: SharedDeferred<wgpu::RenderPipeline>,
+    graph_pl: wgpu::PipelineLayout,
     pub(crate) graph_layout: wgpu::BindGroupLayout,
-    pub(crate) mask_step: wgpu::RenderPipeline,
+    mask_step: SharedDeferred<wgpu::RenderPipeline>,
+    mask_pl: wgpu::PipelineLayout,
     pub(crate) mask_layout: wgpu::BindGroupLayout,
     /// Multiplies the target by the accumulator's value.
     pub(crate) apply_acc: wgpu::RenderPipeline,
@@ -62,8 +87,8 @@ pub(crate) struct Pipelines {
     pub(crate) apply_layout: wgpu::BindGroupLayout,
     /// Clears a scissored rectangle to transparent.
     pub(crate) clear: wgpu::RenderPipeline,
-    /// The swapchain copies, by format.
-    pub(crate) present: HashMap<wgpu::TextureFormat, wgpu::RenderPipeline>,
+    /// The swapchain copies, by format (made on first use; a handle is cheap to clone).
+    pub(crate) present: RefCell<HashMap<wgpu::TextureFormat, wgpu::RenderPipeline>>,
     pub(crate) apply_module: wgpu::ShaderModule,
     /// A 1 × 1 texture bound where an operation has no texture.
     pub(crate) dummy: wgpu::TextureView,
@@ -296,10 +321,51 @@ fn shader(device: &wgpu::Device, source: &str) -> wgpu::ShaderModule {
     })
 }
 
-/// The graph shader's pipeline and the layout of its bind group.
-fn graph_pipeline(device: &wgpu::Device) -> (wgpu::RenderPipeline, wgpu::BindGroupLayout) {
-    let graph_module = shader(device, GRAPH_WGSL);
-    let graph_layout = group_layout(
+/// The filter shader's pipeline, made on first use.
+fn filter_pipeline(device: &wgpu::Device, layout: &wgpu::PipelineLayout) -> wgpu::RenderPipeline {
+    let module = shader(device, FILTER_WGSL);
+    pipeline(
+        device,
+        layout,
+        &module,
+        ("vs_full", "fs_filter"),
+        RASTER_FORMAT,
+        None,
+    )
+}
+
+/// The graph shader's pipeline, made on first use.
+fn graph_pipeline(device: &wgpu::Device, layout: &wgpu::PipelineLayout) -> wgpu::RenderPipeline {
+    let module = shader(device, GRAPH_WGSL);
+    pipeline(
+        device,
+        layout,
+        &module,
+        ("vs_full", "fs_graph"),
+        RASTER_FORMAT,
+        None,
+    )
+}
+
+/// The mask shader's accumulating pipeline, made on first use.
+fn mask_step_pipeline(
+    device: &wgpu::Device,
+    layout: &wgpu::PipelineLayout,
+) -> wgpu::RenderPipeline {
+    let module = shader(device, MASK_WGSL);
+    pipeline(
+        device,
+        layout,
+        &module,
+        ("vs_full", "fs_mask_step"),
+        ACC_FORMAT,
+        None,
+    )
+}
+
+/// The bind group layout of the graph shader.
+fn graph_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    group_layout(
         device,
         &[
             uniform_entry(0),
@@ -309,17 +375,7 @@ fn graph_pipeline(device: &wgpu::Device) -> (wgpu::RenderPipeline, wgpu::BindGro
             storage_entry(4),
             storage_entry(5),
         ],
-    );
-    let graph_pl = layout(device, &[&graph_layout]);
-    let graph = pipeline(
-        device,
-        &graph_pl,
-        &graph_module,
-        ("vs_full", "fs_graph"),
-        RASTER_FORMAT,
-        None,
-    );
-    (graph, graph_layout)
+    )
 }
 
 /// The bind group layouts of the draw, filter, mask and apply shaders, in that order.
@@ -358,83 +414,66 @@ fn group_layouts(
     (draw, filter, mask, apply)
 }
 
-/// The draw pipelines: one per composite in the order of [`composite_slot`], then the shader blend.
-fn draw_pipelines(
+/// The draw pipeline of `slot`: one per composite in the order of [`composite_slot`], then the shader blend.
+fn draw_pipeline(
     device: &wgpu::Device,
     layout: &wgpu::PipelineLayout,
     module: &wgpu::ShaderModule,
-) -> Vec<wgpu::RenderPipeline> {
-    let mut draw = Vec::with_capacity(SHADER_BLEND + 1);
-    for composite in [
-        Composite::SourceOver,
-        Composite::SourceIn,
-        Composite::SourceOut,
-        Composite::SourceAtop,
-        Composite::DestinationOver,
-        Composite::DestinationIn,
-        Composite::DestinationOut,
-        Composite::DestinationAtop,
-        Composite::Lighter,
-        Composite::Copy,
-        Composite::Xor,
-    ] {
-        let (src, dst) = factors(composite);
-        draw.push(pipeline(
+    slot: usize,
+) -> wgpu::RenderPipeline {
+    if slot == SHADER_BLEND {
+        return pipeline(
             device,
             layout,
             module,
-            ("vs_draw", "fs_draw"),
+            ("vs_draw", "fs_blend"),
             RASTER_FORMAT,
-            Some(blend(src, dst)),
-        ));
+            None,
+        );
     }
-    draw.push(pipeline(
+    let (src, dst) = factors(COMPOSITES[slot]);
+    pipeline(
         device,
         layout,
         module,
-        ("vs_draw", "fs_blend"),
+        ("vs_draw", "fs_draw"),
         RASTER_FORMAT,
-        None,
-    ));
-    draw
+        Some(blend(src, dst)),
+    )
 }
 
 impl Pipelines {
     /// Make every pipeline the executor draws with on `device`.
     pub(crate) fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         let draw_module = shader(device, DRAW_WGSL);
-        let filter_module = shader(device, FILTER_WGSL);
-        let mask_module = shader(device, MASK_WGSL);
         let apply_module = shader(device, APPLY_WGSL);
         let (draw_layout, filter_layout, mask_layout, apply_layout) = group_layouts(device);
+        let graph_layout = graph_group_layout(device);
         let draw_pl = layout(device, &[&draw_layout]);
         let filter_pl = layout(device, &[&filter_layout]);
+        let graph_pl = layout(device, &[&graph_layout]);
         let mask_pl = layout(device, &[&mask_layout]);
         let apply_pl = layout(device, &[&apply_layout]);
         let empty_pl = layout(device, &[]);
-        let draw = draw_pipelines(device, &draw_pl, &draw_module);
         let multiply = blend(wgpu::BlendFactor::Zero, wgpu::BlendFactor::Src);
-        let (graph, graph_layout) = graph_pipeline(device);
-        Self {
-            draw,
-            graph,
-            graph_layout,
-            filter: pipeline(
-                device,
-                &filter_pl,
-                &filter_module,
-                ("vs_full", "fs_filter"),
-                RASTER_FORMAT,
-                None,
-            ),
-            mask_step: pipeline(
-                device,
-                &mask_pl,
-                &mask_module,
-                ("vs_full", "fs_mask_step"),
-                ACC_FORMAT,
-                None,
-            ),
+        let clear = pipeline(
+            device,
+            &empty_pl,
+            &draw_module,
+            ("vs_full", "fs_clear"),
+            RASTER_FORMAT,
+            None,
+        );
+        let pipelines = Self {
+            draw: std::array::from_fn(|_| SharedDeferred::new()),
+            draw_module,
+            draw_pl,
+            filter: SharedDeferred::new(),
+            filter_pl,
+            graph: SharedDeferred::new(),
+            graph_pl,
+            mask_step: SharedDeferred::new(),
+            mask_pl,
             apply_acc: pipeline(
                 device,
                 &apply_pl,
@@ -451,45 +490,70 @@ impl Pipelines {
                 RASTER_FORMAT,
                 Some(multiply),
             ),
-            clear: pipeline(
-                device,
-                &empty_pl,
-                &draw_module,
-                ("vs_full", "fs_clear"),
-                RASTER_FORMAT,
-                None,
-            ),
-            present: HashMap::new(),
+            clear,
+            present: RefCell::new(HashMap::new()),
             dummy: dummy_view(device, RASTER_FORMAT),
             dummy_acc: dummy_view(device, ACC_FORMAT),
             dummy_buffer: buffer(device, queue, wgpu::BufferUsages::STORAGE, &[0; 16]),
             draw_layout,
             filter_layout,
+            graph_layout,
             mask_layout,
             apply_layout,
             apply_module,
-        }
+        };
+        // The pipeline every frame draws with is made here, not in the first frame.
+        pipelines.draw(device, composite_slot(Composite::SourceOver));
+        pipelines
+    }
+
+    /// The draw pipeline of `slot` ([`composite_slot`] or [`SHADER_BLEND`]), made on first use.
+    pub(crate) fn draw(&self, device: &wgpu::Device, slot: usize) -> &wgpu::RenderPipeline {
+        self.draw[slot]
+            .get_or_init(|| draw_pipeline(device, &self.draw_pl, &self.draw_module, slot))
+    }
+
+    /// The filter pipeline, made on first use.
+    pub(crate) fn filter(&self, device: &wgpu::Device) -> &wgpu::RenderPipeline {
+        self.filter
+            .get_or_init(|| filter_pipeline(device, &self.filter_pl))
+    }
+
+    /// The graph pipeline, made on first use.
+    pub(crate) fn graph(&self, device: &wgpu::Device) -> &wgpu::RenderPipeline {
+        self.graph
+            .get_or_init(|| graph_pipeline(device, &self.graph_pl))
+    }
+
+    /// The mask accumulating pipeline, made on first use.
+    pub(crate) fn mask_step(&self, device: &wgpu::Device) -> &wgpu::RenderPipeline {
+        self.mask_step
+            .get_or_init(|| mask_step_pipeline(device, &self.mask_pl))
     }
 
     /// The copy-to-swapchain pipeline for `format`, made on first use.
     pub(crate) fn present_for(
-        &mut self,
+        &self,
         device: &wgpu::Device,
         format: wgpu::TextureFormat,
-    ) -> &wgpu::RenderPipeline {
+    ) -> wgpu::RenderPipeline {
         let apply_layout = &self.apply_layout;
         let apply_module = &self.apply_module;
-        self.present.entry(format).or_insert_with(|| {
-            let over = blend(wgpu::BlendFactor::One, wgpu::BlendFactor::OneMinusSrcAlpha);
-            let pl = layout(device, &[apply_layout]);
-            pipeline(
-                device,
-                &pl,
-                apply_module,
-                ("vs_full", "fs_present"),
-                format,
-                Some(over),
-            )
-        })
+        self.present
+            .borrow_mut()
+            .entry(format)
+            .or_insert_with(|| {
+                let over = blend(wgpu::BlendFactor::One, wgpu::BlendFactor::OneMinusSrcAlpha);
+                let pl = layout(device, &[apply_layout]);
+                pipeline(
+                    device,
+                    &pl,
+                    apply_module,
+                    ("vs_full", "fs_present"),
+                    format,
+                    Some(over),
+                )
+            })
+            .clone()
     }
 }

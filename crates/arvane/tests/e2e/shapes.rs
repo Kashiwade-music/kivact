@@ -1,16 +1,16 @@
-//! Role: Shape rendering contract tests.
+//! Role: Outline rendering contract tests.
 //!
 //! Shapes and strokes: elliptical corners, polygons and paths with arcs by
-//! their fill rule, what is drawn agreeing with `Shape::contains`, and
+//! their fill rule, what is drawn agreeing with `Outline::contains`, and
 //! stroke caps, joins, dashes and dots.
 
-use kivact_types::render::RenderCmd;
-use kivact_types::scene::{PathCmd, Shape};
+use arvane_protocol::RenderCmd;
+use kivact_types::scene::{Outline, PathCmd};
 use kivact_types::{FillRule, LineCap, LineJoin, Stroke};
 
 use crate::support::{gray, open, pixel, pt, show, solid};
 
-fn stroke_shape(shape: Shape, stroke: Stroke) -> RenderCmd {
+fn stroke_shape(shape: Outline, stroke: Stroke) -> RenderCmd {
     RenderCmd::StrokeShape {
         shape,
         stroke,
@@ -18,8 +18,8 @@ fn stroke_shape(shape: Shape, stroke: Stroke) -> RenderCmd {
     }
 }
 
-fn path(cmds: Vec<PathCmd>) -> Shape {
-    Shape::Path {
+fn path(cmds: Vec<PathCmd>) -> Outline {
+    Outline::Path {
         cmds,
         rule: FillRule::NonZero,
     }
@@ -146,13 +146,13 @@ fn shapes_scene() -> Vec<RenderCmd> {
     ]
 }
 
-fn stroke_line(y: f64) -> Shape {
+fn stroke_line(y: f64) -> Outline {
     path(vec![
         PathCmd::MoveTo(pt(20.0, y)),
         PathCmd::LineTo(pt(40.0, y)),
     ])
 }
-fn stroke_corner(x: f64) -> Shape {
+fn stroke_corner(x: f64) -> Outline {
     path(vec![
         PathCmd::MoveTo(pt(x, 70.0)),
         PathCmd::LineTo(pt(x + 30.0, 70.0)),

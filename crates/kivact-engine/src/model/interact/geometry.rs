@@ -35,45 +35,44 @@
 use crate::contract::{HostEvent, NodeType, SyncRecord};
 
 use kivact_types::{NodeId, OverlayAt, Point, Rect};
-use std::collections::HashMap;
 
-use crate::layer::{self, Look, SubtreeFacts};
+use crate::layer::LayerTraits;
 use crate::lower::scene::scene_layers;
 use crate::measure::leaf::Measure;
 use crate::model::Model;
+use crate::model::changes::Dirty;
 use crate::tree::node::HostNode;
 use kivact_types::PaintProps;
 
-impl Look {
+impl LayerTraits {
     /// The look of `id` now: its base paint's, or with state styles its
     /// paint's with the active deltas.
     pub(crate) fn now(host: &Model, id: NodeId, n: &HostNode) -> Self {
         if n.states().is_some() || host.motion.get(id).is_some() {
-            Look::of(&host.effective_paint(id))
+            LayerTraits::of(&host.paint_now(id))
         } else {
-            host.paint.look[n.index.0].unwrap_or_else(|| {
+            host.slots.look[n.index.0].unwrap_or_else(|| {
                 n.paint()
-                    .map_or_else(|| Look::of(&PaintProps::default()), Look::of)
+                    .map_or_else(|| LayerTraits::of(&PaintProps::default()), LayerTraits::of)
             })
         }
     }
 }
 
-impl layer::LayerView for Model {
-    fn drawn_look(&self, id: NodeId) -> Option<Look> {
+impl Model {
+    /// The look of `id` now, or `None` for a node that is missing or not drawn.
+    pub(crate) fn drawn_look(&self, id: NodeId) -> Option<LayerTraits> {
         let n = self.node(id)?;
-        self.tree().drawn(id).then(|| Look::now(self, id, n))
+        self.tree().drawn(id).then(|| LayerTraits::now(self, id, n))
     }
 
-    fn flat_children(&self, id: NodeId) -> Vec<NodeId> {
-        self.tree().flat_children(id).collect()
-    }
-
-    fn is_layer_node(&self, id: NodeId) -> bool {
+    /// Whether `id` is a layer of its own: an overlay or a fixed box.
+    pub(crate) fn is_layer_node(&self, id: NodeId) -> bool {
         self.node(id).is_some_and(|n| n.is_layer())
     }
 
-    fn scene_facts(&self, id: NodeId) -> (bool, bool) {
+    /// Whether the scenes of `id` hold a layer, and whether they hold an item.
+    pub(crate) fn scene_facts(&self, id: NodeId) -> (bool, bool) {
         let Some(n) = self.node(id) else {
             return (false, false);
         };
@@ -86,35 +85,19 @@ impl layer::LayerView for Model {
             })
     }
 
-    fn moves_layer(&self, id: NodeId) -> bool {
+    /// Whether `id` moves as a layer: a running transition or a layout motion.
+    pub(crate) fn moves_layer(&self, id: NodeId) -> bool {
         self.motion.moves_layer(id) || self.layout_motion_transform(id).is_some()
     }
 
-    fn layer_roots(&self) -> Vec<NodeId> {
+    /// The roots of the layer trees: the tree's root, then the layers
+    /// (overlays and fixed boxes) in the order the window draws them.
+    pub(crate) fn layer_roots(&self) -> Vec<NodeId> {
         self.tree()
             .root()
             .into_iter()
             .chain(self.layers().into_iter().map(|(id, _)| id))
             .collect()
-    }
-}
-
-impl Model {
-    /// The facts of every drawn subtree of the layer roots, see
-    /// [`layer::layer_facts`].
-    pub(crate) fn layer_facts(&self) -> HashMap<NodeId, SubtreeFacts> {
-        layer::layer_facts(self)
-    }
-
-    /// The facts of the subtree at `id` (its parent's look is `parent`),
-    /// recorded in `out`, see [`layer::subtree_facts`].
-    pub(crate) fn subtree_facts(
-        &self,
-        id: NodeId,
-        parent: Option<&Look>,
-        out: &mut HashMap<NodeId, SubtreeFacts>,
-    ) -> SubtreeFacts {
-        layer::subtree_facts(self, id, parent, out)
     }
 
     /// Lay the tree out if anything changed since the last pass, scroll
@@ -122,14 +105,20 @@ impl Model {
     /// whether a pass ran. Taffy computes only when the layout tree was
     /// edited (structure, layout props, a measured size, the window);
     /// the recorded changes say whether positions may have moved.
-    pub(crate) fn layout(&mut self, engine: &mut arvane::Engine) -> bool {
+    pub(crate) fn layout(&mut self, engine: &mut arvane_text::TextEngine) -> bool {
+        self.forget_origins();
         let Some(remeasure) = self.changes.begin_layout() else {
             return false;
         };
         let previous = self.capture_layout_motion();
         let computed = {
             let mut assets = self.assets.borrow_mut();
-            let mut measure = Measure::new(engine, &mut assets, &self.measure, &self.editors);
+            let mut measure = Measure::new(
+                engine,
+                &mut assets,
+                &self.slots.measure,
+                &self.slots.editors,
+            );
             for id in &remeasure {
                 if measure.measures_same(&self.tree, &self.layout, *id) {
                     continue;
@@ -150,7 +139,8 @@ impl Model {
         for id in reveal {
             self.scroll_into_view(id);
         }
-        let fitted = self.refit_tooltips(engine, !computed);
+        let due: std::collections::HashSet<NodeId> = self.changes.marked(Dirty::REPORT).collect();
+        let fitted = self.refit_tooltips(engine, !computed, &due);
         // The record's lists are collected only while the DevTools records syncs.
         let recording = self.log.syncs_recording();
         let mut laid_out = Vec::new();
@@ -158,6 +148,10 @@ impl Model {
             let geometry: Vec<_> = self.layout.drain_geometry_changes().collect();
             for change in &geometry {
                 self.a11y.moved(change.id);
+                self.changes.mark(change.id, Dirty::REPORT);
+                if self.edits_input(change.id) {
+                    self.changes.mark(change.id, Dirty::CARET);
+                }
                 if let Some(parent) = self
                     .tree
                     .get(change.id)
@@ -193,10 +187,16 @@ impl Model {
         }
         self.retarget_layout_motion(previous);
         self.report_geometry(engine);
+        self.forget_origins();
         true
     }
 
-    pub(crate) fn refit_tooltips(&mut self, engine: &mut arvane::Engine, reset: bool) -> bool {
+    pub(crate) fn refit_tooltips(
+        &mut self,
+        engine: &mut arvane_text::TextEngine,
+        reset: bool,
+        due: &std::collections::HashSet<NodeId>,
+    ) -> bool {
         let tooltips: Vec<_> = self
             .tree
             .overlays
@@ -211,6 +211,14 @@ impl Model {
             .collect();
         let mut computed = false;
         for (id, props) in tooltips {
+            let anchor = match props.at {
+                kivact_types::OverlayAt::Anchor { node, .. } => node,
+                _ => None,
+            };
+            let moved = self.report_due(id, due) || anchor.is_some_and(|a| self.report_due(a, due));
+            if reset && !moved {
+                continue;
+            }
             if reset {
                 self.layout_tooltip(engine, id, None);
                 computed = true;
@@ -233,12 +241,17 @@ impl Model {
 
     fn layout_tooltip(
         &mut self,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         id: NodeId,
         limit: Option<kivact_types::Size>,
     ) {
         let mut assets = self.assets.borrow_mut();
-        let mut measure = Measure::new(engine, &mut assets, &self.measure, &self.editors);
+        let mut measure = Measure::new(
+            engine,
+            &mut assets,
+            &self.slots.measure,
+            &self.slots.editors,
+        );
         let mut leaves = crate::measure::leaf::EngineMeasure {
             tree: &self.tree,
             measure: &mut measure,
@@ -254,6 +267,27 @@ impl Model {
             return None;
         }
         let size = self.computed_layout(id)?.size;
+        let kept = self.origins.borrow().get(&id).copied();
+        let origin = match kept {
+            Some(origin) => origin,
+            None => {
+                let origin = self.window_origin(id)?;
+                self.origins.borrow_mut().insert(id, origin);
+                origin
+            }
+        };
+        Some(Rect {
+            x: origin.x,
+            y: origin.y,
+            width: size.width,
+            height: size.height,
+        })
+    }
+
+    /// The window position of `id`'s border box: its location moved by
+    /// each box above it less its scroll, up to an overlay's origin or a
+    /// fixed box.
+    fn window_origin(&self, id: NodeId) -> Option<Point> {
         let (mut x, mut y) = (0.0, 0.0);
         let mut cur = id;
         loop {
@@ -273,7 +307,8 @@ impl Model {
             }
             match self.tree.flat_parent(node) {
                 Some(p) => {
-                    let s = self.tree.get(p)?.scroll;
+                    self.tree.get(p)?;
+                    let s = self.tree.scroll_of(p);
                     x -= s.x;
                     y -= s.y;
                     cur = p;
@@ -281,12 +316,7 @@ impl Model {
                 None => break,
             }
         }
-        Some(Rect {
-            x,
-            y,
-            width: size.width,
-            height: size.height,
-        })
+        Some(Point { x, y })
     }
 
     /// Where node `n`'s box is in its parent's content
@@ -298,9 +328,10 @@ impl Model {
             .map(|l| l.location)
             .unwrap_or_default();
         if n.place.positioning == crate::tree::node::Positioning::Sticky {
+            let shift = self.tree.shift_of(self.tree.nodes.id_at(n.index));
             Point {
-                x: loc.x + n.shift.x,
-                y: loc.y + n.shift.y,
+                x: loc.x + shift.x,
+                y: loc.y + shift.y,
             }
         } else {
             loc
@@ -438,17 +469,13 @@ impl Model {
         let Some(o) = self.clamped_scroll(id, offset) else {
             return false;
         };
-        let current = self
-            .tree
+        self.tree
             .get(id)
-            .expect("invariant: clamped scroll found a live node")
-            .scroll;
-        if o == current {
+            .expect("invariant: clamped scroll found a live node");
+        if !self.tree.set_scroll_of(id, o) {
             return false;
         }
-        if let Some(n) = self.tree.get_mut(id) {
-            n.scroll = o;
-        }
+        self.forget_origins();
         self.changes.scrolled(id);
         self.a11y_scrolled(id);
         true
@@ -496,7 +523,7 @@ impl Model {
             if n.scroll_axes() == (false, false) {
                 continue;
             }
-            let s = n.scroll;
+            let s = self.tree.scroll_of(id);
             let target = Point {
                 x: s.x + delta.x,
                 y: s.y + delta.y,
@@ -546,7 +573,7 @@ impl Model {
                 let view = self.computed_layout(p).map_or(view, |l| {
                     crate::model::interact::visual::content_at(view, l.content_box)
                 });
-                let mut s = n.scroll;
+                let mut s = self.tree.scroll_of(p);
                 if axes.1 {
                     s.y += reveal(target.y, target.height, view.y, view.height);
                 }
@@ -559,24 +586,39 @@ impl Model {
         }
     }
 
-    fn report_geometry(&mut self, engine: &mut arvane::Engine) {
+    /// Whether `id` or a node above it is in `marks`.
+    fn report_due(&self, id: NodeId, marks: &std::collections::HashSet<NodeId>) -> bool {
+        !marks.is_empty()
+            && self.tree.nodes.index_of(id).is_some_and(|start| {
+                self.tree
+                    .ancestors(start)
+                    .any(|(i, _)| marks.contains(&self.tree.nodes.id_at(i)))
+            })
+    }
+
+    /// Queue the geometry reports that are due (the marks taken from `Changes`).
+    pub(crate) fn report_geometry(&mut self, engine: &mut arvane_text::TextEngine) {
+        let marks: std::collections::HashSet<NodeId> =
+            self.changes.take(Dirty::REPORT).into_iter().collect();
         let scrollers: Vec<NodeId> = self
             .tree
             .scrollers
             .union(&self.tree.observed)
             .copied()
+            .filter(|id| self.report_due(*id, &marks))
             .collect();
         for id in scrollers {
             let Some(l) = self.computed_layout(id) else {
                 continue;
             };
-            let scroll = self.tree.get(id).map(|n| n.scroll).unwrap_or_default();
+            let scroll = self.tree.scroll_of(id);
             self.set_scroll(id, scroll);
+            let at = self.tree.scroll_of(id);
             let Some(n) = self.tree.get_mut(id) else {
                 continue;
             };
             let state =
-                crate::tree::node::ScrollReport(n.scroll, l.size, l.content_size, n.scroll_axes());
+                crate::tree::node::ScrollReport(at, l.size, l.content_size, n.scroll_axes());
             if n.sent
                 .get_or_insert_default()
                 .scroll
@@ -595,7 +637,13 @@ impl Model {
         self.changes.settled();
         // Sticky boxes follow the settled offsets.
         self.stick();
-        let observed: Vec<NodeId> = self.tree.observed.iter().copied().collect();
+        let observed: Vec<NodeId> = self
+            .tree
+            .observed
+            .iter()
+            .copied()
+            .filter(|id| self.report_due(*id, &marks))
+            .collect();
         for id in observed {
             let (Some(rect), Some(l)) = (self.bounds(id), self.computed_layout(id)) else {
                 continue;

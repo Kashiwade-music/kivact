@@ -4,7 +4,6 @@
 //! and closes, and panels with a header of their own.
 
 use crate::support::near;
-use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::test::{Locator, Screen};
 use kivact_ui_creative as ui;

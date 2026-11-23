@@ -63,7 +63,6 @@ pub(in crate::port) fn open(
         } else {
             ScaleSource::System
         },
-        options.visibility,
         options.unhandled_keys,
         hooks.on_resize_request,
         make,
@@ -98,7 +97,6 @@ pub(in crate::port) fn open(
     }
     // Initialize UIA before visibility: showing a window can ask for its provider.
     show_if_visible(hwnd, options.visibility);
-    state.session.opened();
     // Post start-time work without entering a host callback; SAFETY: live child HWND on this thread.
     unsafe {
         PostMessageW(hwnd, COMMAND, 0, 0);
@@ -118,8 +116,8 @@ fn initial_scale(options: &EmbedOptions, parent: NonZeroIsize) -> f64 {
 }
 
 /// Show the child only when the embed options ask for it.
-fn show_if_visible(hwnd: isize, visibility: kivact_types::embed::Visibility) {
-    if visibility == kivact_types::embed::Visibility::Shown {
+fn show_if_visible(hwnd: isize, visibility: kivact_types::embed::EmbedVisibility) {
+    if visibility == kivact_types::embed::EmbedVisibility::Shown {
         // SAFETY: show only this live child, retaining the host's activation.
         unsafe { ShowWindow(hwnd, SW_SHOWNOACTIVATE) };
     }

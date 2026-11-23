@@ -87,7 +87,7 @@ mod share;
 
 #[doc(inline)]
 pub use import::{ExternalImage, FramePublisher, ImportStatus, adapter, import};
-pub(crate) use import::{State, adapter_changed, has_adapter, imported};
+pub(crate) use import::{StateSlot, adapter_changed, has_adapter, imported};
 #[doc(inline)]
 pub use kivact_style::draw::GpuFrame;
 #[doc(inline)]

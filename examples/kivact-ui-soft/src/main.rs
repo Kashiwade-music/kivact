@@ -1,11 +1,9 @@
-//! Role: Open the Soft component catalog with application-owned fonts.
+//! Role: Entry point of the Soft kit catalog app.
 use kivact::App;
-use kivact_ui_soft_catalog::{catalog, fonts};
+use kivact_ui_soft_catalog::{START, THEME, pages};
 
 fn main() -> kivact::Result<()> {
-    let mut app = App::new("Kivact UI · Soft").window_size(1440, 900);
-    for &font in fonts() {
-        app = app.font(font);
-    }
-    app.run(catalog)
+    App::new("Kivact UI · Soft")
+        .window_size(1440, 900)
+        .run(move || catalog_shell::catalog("Soft", pages(), THEME).start(START))
 }

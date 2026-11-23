@@ -1,132 +1,88 @@
-//! Role: Style the standard Soft action controls and register their recipes.
-use super::recipe_style::{fast, overlay, ring};
-use crate::Tokens;
+//! Role: Style the Astryx Neutral buttons and toggle buttons (the controls group's action
+//! parts).
+use crate::color as c;
+use crate::metrics as m;
+use crate::radius as r;
+use crate::recipe_parts::{fast, overlay, ring};
+use crate::space as s;
+use crate::type_scale as t;
 use kivact::draw::LineCap;
 use kivact::draw::Path;
 use kivact::draw::Stroke;
 use kivact::geometry::Point;
-use kivact::style::Align;
-use kivact::style::Color;
-use kivact::style::Cursor;
-use kivact::style::Direction;
-use kivact::style::Justify;
-use kivact::style::Position;
-use kivact::style::Style;
-use kivact::style::TextDecorationLine;
-use kivact::style::Theme;
-use kivact::style::pct;
-use kivact::style::style;
-use kivact::ui::ButtonState;
-use kivact::ui::ButtonVariant;
-use kivact::ui::ControlSize;
-use kivact::ui::Look;
-use kivact::ui::ToggleButtonState;
-use kivact::ui::UiRecipes;
+use kivact::style::{
+    Align, Color, Cursor, FlexDirection, Justify, Position, Style, TextDecorationLine, Theme, pct,
+    style,
+};
+use kivact::ui::theme::{ButtonState, ButtonTheme, Look, ToggleButtonState, ToggleButtonTheme};
+use kivact::ui::{ButtonVariant, ControlSize};
 
-use super::{recipes_controls_choice as choice, recipes_controls_value as value};
-
-pub(crate) fn register(recipes: UiRecipes) -> UiRecipes {
-    recipes
-        .button(|_| button)
-        .button_content(|_| button_content)
-        .button_icon(|_| button_icon)
-        .button_busy(|_| button_busy)
-        .toggle(|_| toggle)
-        .checkbox(|_| choice::checkbox)
-        .checkbox_indicator(|_| choice::checkbox_indicator)
-        .checkbox_check(|_| choice::checkbox_check)
-        .checkbox_mixed(|_| choice::checkbox_mixed)
-        .switch(|_| choice::switch)
-        .switch_track(|_| choice::switch_track)
-        .switch_thumb(|_| choice::switch_thumb)
-        .radio_group(choice::radio_group)
-        .slider(value::slider)
-        .progress(value::progress)
+/// The look of a button's fill, text and focus ring for `variant`.
+fn colors(variant: ButtonVariant) -> (Color, Color, Color) {
+    let (bg, fg) = match variant {
+        ButtonVariant::Primary => (c::ACCENT, c::ON_ACCENT),
+        ButtonVariant::Secondary => (c::NEUTRAL, c::TEXT_PRIMARY),
+        ButtonVariant::Danger => (c::ERROR_MUTED, c::ON_ERROR_MUTED),
+        ButtonVariant::Link => (Color::TRANSPARENT, c::TEXT_ACCENT),
+        _ => (Color::TRANSPARENT, c::TEXT_PRIMARY),
+    };
+    let focus = if variant == ButtonVariant::Danger {
+        c::ERROR
+    } else {
+        Color::var(&c::FOCUS_RING_VAR)
+    };
+    (bg, fg, focus)
 }
 
-fn action(t: &Tokens, size: ControlSize, square: bool) -> Style {
+/// The box of a button of `size`: its height, side padding, radius and text.
+fn action(size: ControlSize, square: bool) -> Style {
     let (height, padding, radius, text) = match size {
-        ControlSize::ExtraSmall => (
-            t.sizes.control_xs,
-            t.spacing.s2,
-            t.radius.inner,
-            t.typography.supporting,
-        ),
-        ControlSize::Small => (
-            t.sizes.control_sm,
-            t.spacing.s3,
-            t.radius.element,
-            t.typography.label,
-        ),
-        ControlSize::Medium => (
-            t.sizes.control_md,
-            t.spacing.s3,
-            t.radius.element,
-            t.typography.label,
-        ),
-        ControlSize::Large => (
-            t.sizes.control_lg,
-            t.spacing.s3,
-            t.radius.element,
-            t.typography.label,
-        ),
+        ControlSize::ExtraSmall => (m::CONTROL_XS, s::SPACE_S2, r::RADIUS_INNER, t::SUPPORTING),
+        ControlSize::Small => (m::CONTROL_SM, s::SPACE_S3, r::RADIUS_ELEMENT, t::LABEL),
+        ControlSize::Medium => (m::CONTROL_MD, s::SPACE_S3, r::RADIUS_ELEMENT, t::LABEL),
+        ControlSize::Large => (m::CONTROL_LG, s::SPACE_S3, r::RADIUS_ELEMENT, t::LABEL),
     };
     let base = style()
         .position(Position::Relative)
         .height(height)
         .max_width(pct(100))
-        .radius(radius)
-        .direction(Direction::Row)
+        .border_radius(radius)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
-        .gap(t.spacing.s2)
+        .gap(s::SPACE_S2)
         .font_size(text.size_px)
         .line_height(text.line_height_px / text.size_px)
-        .weight(t.typography.weight_medium)
-        .disabled(
-            style()
-                .opacity(t.sizes.disabled_opacity)
-                .cursor(Cursor::Default),
-        );
+        .font_weight(t::WEIGHT_MEDIUM)
+        .disabled(style().opacity(m::DISABLED_OPACITY).cursor(Cursor::Default));
     if square {
-        base.width(height).shrink(0)
+        base.width(height).flex_shrink(0)
     } else {
         base.padding_x(padding)
     }
 }
 
-fn colors(t: &Tokens, variant: ButtonVariant) -> (Color, Color, Color) {
-    let c = &t.colors;
-    let (bg, fg) = match variant {
-        ButtonVariant::Primary => (c.accent, c.on_accent),
-        ButtonVariant::Secondary => (c.neutral, c.text_primary),
-        ButtonVariant::Danger => (c.error_muted, c.on_error_muted),
-        ButtonVariant::Link => (Color::TRANSPARENT, c.text_accent),
-        _ => (Color::TRANSPARENT, c.text_primary),
-    };
-    (
-        bg,
-        fg,
-        if variant == ButtonVariant::Danger {
-            c.error
-        } else {
-            c.focus_ring
-        },
-    )
+/// The hover and pressed looks of a filled control over its `fill`.
+fn press(theme: &Theme, base: Style, fill: Color) -> Style {
+    base.hover(style().background(overlay(theme, fill, c::OVERLAY_HOVER)))
+        .active(
+            style()
+                .background(overlay(theme, fill, c::OVERLAY_PRESSED))
+                .scale(m::PRESS_SCALE),
+        )
 }
 
-fn button(theme: &Theme, s: &Look<ButtonState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let variant = s.variant::<ButtonVariant>().copied().unwrap_or_default();
-    let (bg, fg, focus) = colors(&t, variant);
-    let base = action(&t, s.size, s.is_icon_only())
+fn button(theme: &Theme, s_: &Look<ButtonState>, _base: Style) -> Style {
+    let variant = s_.variant::<ButtonVariant>().unwrap_or_default();
+    let (bg, fg, focus) = colors(variant);
+    let base = action(s_.size, s_.is_icon_only())
         .color(fg)
-        .focus_visible(ring(&t, focus));
+        .focus_visible(ring(focus));
     let base = match variant {
-        ButtonVariant::Outline => base.border(t.sizes.border_width, t.colors.border_emphasized),
+        ButtonVariant::Outline => base.border(m::BORDER_WIDTH, c::BORDER_EMPHASIZED),
         ButtonVariant::Link => {
-            let base = base.height(t.typography.label.line_height_px).padding_x(0);
-            if s.input.is_hovered() && !s.busy {
+            let base = base.height(t::LABEL.line_height_px).padding_x(0);
+            if s_.input.is_hovered() && !s_.busy {
                 base.text_decoration(TextDecorationLine::UNDERLINE)
             } else {
                 base
@@ -134,63 +90,48 @@ fn button(theme: &Theme, s: &Look<ButtonState>) -> Style {
         }
         _ => base,
     };
-    let bg = if s.expanded == Some(true) {
-        overlay(theme, bg, t.colors.overlay_pressed)
+    let bg = if s_.expanded == Some(true) {
+        overlay(theme, bg, c::OVERLAY_PRESSED)
     } else {
         bg
     };
-    let base = fast(&t, base.background(bg));
-    if s.busy {
+    let base = fast(base.background(bg));
+    if s_.busy {
         // Busy also sets the behavior's disabled state, so preserve its full opacity.
         base.disabled(style().opacity(1.0).cursor(Cursor::Default))
     } else if variant == ButtonVariant::Link {
         base
     } else {
-        press(theme, &t, base, bg)
+        press(theme, base, bg)
     }
 }
 
-fn press(theme: &Theme, t: &Tokens, base: Style, bg: Color) -> Style {
-    base.hover(style().background(overlay(theme, bg, t.colors.overlay_hover)))
-        .pressed(
-            style()
-                .background(overlay(theme, bg, t.colors.overlay_pressed))
-                .scale(t.sizes.press_scale),
-        )
-}
-
-fn button_content(theme: &Theme, s: &Look<ButtonState>) -> Style {
-    let t = theme.ext::<Tokens>();
+fn button_content(_theme: &Theme, s_: &Look<ButtonState>, _base: Style) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
-        .gap(t.spacing.s2)
-        .opacity(if s.busy { 0.0 } else { 1.0 })
+        .gap(s::SPACE_S2)
+        .opacity(if s_.busy { 0.0 } else { 1.0 })
 }
 
-fn button_icon(theme: &Theme, s: &Look<ButtonState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let side = match s.size {
-        ControlSize::ExtraSmall => t.sizes.icon_xsm,
-        ControlSize::Small | ControlSize::Medium => t.sizes.icon_sm,
-        ControlSize::Large => t.sizes.icon_md,
+fn button_icon(_theme: &Theme, s_: &Look<ButtonState>, _base: Style) -> Style {
+    let side = match s_.size {
+        ControlSize::ExtraSmall => m::ICON_XSM,
+        ControlSize::Small | ControlSize::Medium => m::ICON_SM,
+        ControlSize::Large => m::ICON_MD,
     };
     style()
         .size(side, side)
-        .shrink(0)
+        .flex_shrink(0)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
 }
 
-fn button_busy(theme: &Theme, s: &Look<ButtonState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let (_, ink, _) = colors(
-        &t,
-        s.variant::<ButtonVariant>().copied().unwrap_or_default(),
-    );
-    let radius = t.sizes.icon_xsm / 2.0 - t.spacing.s0_5 / 2.0;
-    let stroke_width = t.spacing.s0_5;
+fn button_busy(theme: &Theme, s_: &Look<ButtonState>, _base: Style) -> Style {
+    let (_, ink, _) = colors(s_.variant::<ButtonVariant>().unwrap_or_default());
+    let stroke_width = theme.get(&s::SPACE_S0_5_VAR);
+    let radius = m::ICON_XSM / 2.0 - stroke_width / 2.0;
     let side = radius * 2.0 + stroke_width * 2.0;
     style()
         .position(Position::Absolute)
@@ -207,22 +148,40 @@ fn button_busy(theme: &Theme, s: &Look<ButtonState>) -> Style {
         })
 }
 
-pub(crate) fn toggle(theme: &Theme, s: &Look<ToggleButtonState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let bg = if s.pressed {
-        t.colors.overlay_pressed
+fn toggle(theme: &Theme, s_: &Look<ToggleButtonState>, _base: Style) -> Style {
+    let bg = if s_.pressed {
+        c::OVERLAY_PRESSED
     } else {
         Color::TRANSPARENT
     };
-    let weight = if s.pressed {
-        t.typography.weight_semibold
+    let weight = if s_.pressed {
+        t::WEIGHT_SEMIBOLD
     } else {
-        t.typography.weight_medium
+        t::WEIGHT_MEDIUM
     };
-    let base = action(&t, s.size, s.is_icon_only())
-        .weight(weight)
+    let base = action(s_.size, s_.is_icon_only())
+        .font_weight(weight)
         .background(bg)
-        .color(t.colors.text_primary)
-        .focus_visible(ring(&t, t.colors.focus_ring));
-    press(theme, &t, fast(&t, base), bg)
+        .color(c::TEXT_PRIMARY)
+        .focus_visible(ring(Color::var(&c::FOCUS_RING_VAR)));
+    press(theme, fast(base), bg)
+}
+
+/// Install the kit's recipes of the controls group: the action controls here,
+/// and the choice, value, field and panel controls in their own modules.
+pub(crate) fn install(theme: Theme) -> Theme {
+    let theme = theme
+        .with(
+            ButtonTheme::default()
+                .root(button)
+                .content(button_content)
+                .icon(button_icon)
+                .busy(button_busy),
+        )
+        .with(ToggleButtonTheme::default().root(toggle));
+    let theme = crate::recipes_controls_choice::install(theme);
+    let theme = crate::recipes_controls_radio::install(theme);
+    let theme = crate::recipes_controls_value::install(theme);
+    let theme = crate::recipes_field::install(theme);
+    crate::recipes_controls_panel::install(theme)
 }

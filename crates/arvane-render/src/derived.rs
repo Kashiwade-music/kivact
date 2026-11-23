@@ -16,8 +16,8 @@
 
 use std::sync::Arc;
 
+use arvane_protocol::{GradientShape, RasterGradient};
 use kivact_types::pixel::Pixels;
-use kivact_types::render::{Gradient, GradientShape};
 use kivact_types::{Extend, Rect};
 use vello_cpu::kurbo::{Affine, Rect as RasterRect};
 use vello_cpu::peniko::{self, Blob, ImageAlphaType, ImageFormat, ImageQuality, ImageSampler};
@@ -75,10 +75,10 @@ pub(crate) struct DerivedScope<'a> {
 
 impl DerivedScope<'_> {
     /// `gradient` over a tile of `tile`'s size, rasterized at `size` pixels
-    /// (straight alpha).
+    /// (premultiplied alpha).
     pub(crate) fn gradient_tile(
         &mut self,
-        gradient: &Gradient,
+        gradient: &RasterGradient,
         tile: Rect,
         (width, height): (u16, u16),
     ) -> Pixels {
@@ -104,7 +104,7 @@ impl DerivedScope<'_> {
     }
 
     /// `image` resampled (bilinear, edges clamped) to `size` pixels
-    /// (straight alpha): a pattern tile at its device size, so both
+    /// (premultiplied alpha): a pattern tile at its device size, so both
     /// rasterizers repeat it pixel for pixel.
     pub(crate) fn resampled(&mut self, image: &Pixels, (width, height): (u16, u16)) -> Pixels {
         if (image.width, image.height) == (u32::from(width), u32::from(height)) {
@@ -116,7 +116,7 @@ impl DerivedScope<'_> {
                 let source = ImageSource::from_peniko_image_data(&peniko::ImageData {
                     data: Blob::new(Arc::new(Arc::clone(image.rgba.as_shared()))),
                     format: ImageFormat::Rgba8,
-                    alpha_type: ImageAlphaType::Alpha,
+                    alpha_type: ImageAlphaType::AlphaPremultiplied,
                     width: image.width,
                     height: image.height,
                 });
@@ -148,7 +148,7 @@ impl DerivedScope<'_> {
     }
 }
 
-/// The straight-alpha pixels of what `draw` draws into a `width` ×
+/// The premultiplied pixels of what `draw` draws into a `width` ×
 /// `height` frame, rasterized with `context` (made on first use).
 fn raster(
     context: &mut Option<(RenderContext, Resources)>,
@@ -175,7 +175,6 @@ fn raster(
     for pixel in pixmap.data() {
         rgba.extend([pixel.r, pixel.g, pixel.b, pixel.a]);
     }
-    kivact_types::color::unpremultiply(&mut rgba);
     Pixels {
         width: u32::from(width),
         height: u32::from(height),
@@ -184,7 +183,7 @@ fn raster(
 }
 
 /// A gradient tile's values as bits.
-fn tile_bits(g: &Gradient, tile: Rect) -> Vec<u64> {
+fn tile_bits(g: &RasterGradient, tile: Rect) -> Vec<u64> {
     let mut bits = Vec::with_capacity(12 + g.stops.len() * 5);
     bits.extend([tile.width, tile.height].map(f64::to_bits));
     bits.push(match g.extend {

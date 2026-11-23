@@ -29,13 +29,9 @@ pub enum ErrorKind {
     },
     /// A handle was used after its owner was disposed.
     Disposed {
-        // xtask-allow(state-fields): option: absent means the location is unknown
         /// Where the handle's node, object or owner was created, if known.
-        // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
         created_at: Option<&'static Location<'static>>,
-        // xtask-allow(state-fields): option: absent means the location is unknown
         /// Where the owner that released it was created, if known.
-        // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
         disposed_by: Option<&'static Location<'static>>,
     },
     /// A write to a disposed signal (ignored, recorded in diagnostics).
@@ -47,7 +43,6 @@ pub enum ErrorKind {
     /// A dependency or effect cycle; `path` lists creation sites.
     Cycle {
         /// Creation sites of the computations on the cycle.
-        // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
         path: Vec<&'static Location<'static>>,
     },
     /// Duplicate `for_each` key; later rows are dropped. `key_hash` identifies the key.
@@ -80,7 +75,7 @@ pub enum ErrorKind {
     /// font family that is not installed. The message names the source
     /// (for a file, its absolute path and the current directory) and the
     /// reason; the location is where the node or the request was created
-    /// (`image(..)`, `App::font`).
+    /// (`image(..)`, `Theme::with_fonts`).
     ///
     /// It is a diagnostic, not a failure of the subtree: it goes to the
     /// App's default sink (`tracing` at target `kivact`, and the
@@ -100,9 +95,7 @@ pub enum ErrorKind {
 struct Inner {
     kind: ErrorKind,
     message: String,
-    // xtask-allow(state-fields): option: absent means the error has no source position
     at: Option<&'static Location<'static>>,
-    // xtask-allow(state-fields): option: absent means the error has no cause
     source: Option<Box<dyn std::error::Error + Send + Sync>>,
 }
 
@@ -118,7 +111,6 @@ pub struct UiError(Arc<Inner>);
 
 impl UiError {
     /// An error of `kind` with `message`, located at `at` when known.
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     pub fn new(
         kind: ErrorKind,
         message: impl Into<String>,
@@ -185,7 +177,6 @@ impl UiError {
     }
 
     /// Source position where the error was raised, when known.
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     pub fn location(&self) -> Option<&'static Location<'static>> {
         self.0.at
     }

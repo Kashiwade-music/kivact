@@ -5,9 +5,9 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use std::thread::JoinHandle;
 /// Largest physical dimension an X11 window accepts (16-bit extents).
 pub(super) const MAX_DIMENSION: u32 = u16::MAX as u32;
+// xtask-allow(state): independent: reasons is the wake mailbox OR-ed in by request on any thread and swapped out by take on the UI thread; thread is the UI thread lifecycle enum written by spawn and join; a request is valid in every thread state
 pub(super) struct Notifier {
     pub(super) wake: OwnedFd,
-    // xtask-allow(state-fields): independent: bits OR-ed in by `request` on any thread and swapped to zero by `take` on the UI thread; a request in any UiThread state only sets bits, which wait until the UI loop takes them
     pub(super) reasons: AtomicU8,
     /// The UI thread's lifetime: spawned once, and joined once at close.
     pub(super) thread: Mutex<UiThread>,
@@ -23,12 +23,12 @@ pub(super) enum UiThread {
 }
 impl Notifier {
     pub(super) fn request(&self, reasons: arvane_shell::WakeReasons) {
-        let bits = crate::wake::encode(reasons);
+        let bits = reasons.bits();
         if bits != 0 && self.reasons.fetch_or(bits, Ordering::AcqRel) == 0 {
             super::poll::signal(&self.wake);
         }
     }
     pub(super) fn take(&self) -> arvane_shell::WakeReasons {
-        crate::wake::decode(self.reasons.swap(0, Ordering::AcqRel))
+        arvane_shell::WakeReasons::from_bits(self.reasons.swap(0, Ordering::AcqRel))
     }
 }

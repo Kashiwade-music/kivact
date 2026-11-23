@@ -33,9 +33,10 @@
 //! Linux (experimental; the end-to-end tests run on WSLg's Wayland and
 //! X11): winit picks the display server (Wayland when `WAYLAND_DISPLAY` or
 //! `WAYLAND_SOCKET` is set, else X11 through `DISPLAY`; the Wayland
-//! libraries are loaded at run time). Mouse settings and reduced motion are
-//! not read from the desktop: the defaults (500 ms, 4 px, 3 lines, no
-//! reduced motion). The locale comes from the environment variables, read
+//! libraries are loaded at run time). Mouse settings are not read from the
+//! desktop: the defaults (500 ms, 4 px, 3 lines). Reduced motion comes from
+//! the XDG settings portal (`port/linux_settings.rs`), watched while the App
+//! runs. The locale comes from the environment variables, read
 //! again when a window regains the focus. The refresh period is the
 //! monitor's rate winit reports (Wayland's `wl_output` reports millihertz).
 //! The IME is winit's (text-input v3 on Wayland, XIM on X11), with no
@@ -70,7 +71,6 @@ mod present;
 mod probe;
 mod services;
 mod wait;
-mod wake;
 
 pub use module::retain_module;
 pub use port::winit::{WinitWindow, backend};

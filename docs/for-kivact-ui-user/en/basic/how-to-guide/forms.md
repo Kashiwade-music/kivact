@@ -13,20 +13,21 @@ The plain controls (`text_input`, `text_area`, `checkbox`, `switch`, `radio_grou
 ```rust,no_run
 use kivact::prelude::*;
 
-fn email_field() -> impl IntoView {
+#[component]
+fn email_field() -> impl Element {
     let email = signal(String::from("ada@"));
     let error = memo(move || {
         let email = email.get();
         (!email.contains("@example.com")).then(|| "Use an @example.com address.".to_string())
     });
-    field("Email", text_input("Email", email))
+    field("Email", text_input(email))
         .hint("We never share it.")
         .error(error)
         .style(style().width(320))
 }
 ```
 
-While the error is `Some`, the label turns red, the control is marked invalid and the message is announced as an alert. The label is the control's accessible name, so write the same word in both places (`field("Email", text_input("Email", ..))`), and pressing the label focuses or toggles the control.
+While the error is `Some`, the label turns red, the control is marked invalid and the message is announced as an alert. The label is the control's accessible name, so write the same word in both places (`field("Email", text_input(..))`), and pressing the label focuses or toggles the control.
 
 To block a submit, derive a `can_submit` memo from the same signals and use it for the button:
 
@@ -34,7 +35,8 @@ To block a submit, derive a `can_submit` memo from the same signals and use it f
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn sign_up() -> impl IntoView {
+#[component]
+fn sign_up() -> impl Element {
     let email = signal(String::new());
     let accepted = signal(false);
     let created = signal(false);
@@ -44,7 +46,7 @@ fn sign_up() -> impl IntoView {
     });
     let ready = memo(move || !email.get().is_empty() && error.get().is_none() && accepted.get());
     basic::field_group((
-        field("Email", text_input("Email", email)).error(error),
+        field("Email", text_input(email)).error(error),
         checkbox("I accept the terms", accepted),
         button("Create account")
             .disabled(move || !ready.get())
@@ -69,12 +71,13 @@ fn sign_up() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn address() -> impl IntoView {
+#[component]
+fn address() -> impl Element {
     let (name, city) = (signal(String::new()), signal(String::new()));
     basic::field_set(basic::field_group((
-        field("Name", text_input("Name", name)),
+        field("Name", text_input(name)),
         basic::field_separator().text("Or"),
-        field("City", text_input("City", city)).hint("Where you live."),
+        field("City", text_input(city)).hint("Where you live."),
     )))
     .legend("Address")
     .description("Used to ship your order.")
@@ -86,9 +89,10 @@ A control with a label of its own, like a switch, reads better beside its text. 
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::Direction;
+use kivact::style::FlexDirection;
 
-fn marketing() -> impl IntoView {
+#[component]
+fn marketing() -> impl Element {
     let on = signal(true);
     field(
         "Marketing emails",
@@ -97,7 +101,7 @@ fn marketing() -> impl IntoView {
     .hint("Receive news and offers.")
     .style(
         style()
-            .direction(Direction::Row)
+            .flex_direction(FlexDirection::Row)
             .align_items(Align::Center)
             .gap(12)
             .width(420),
@@ -113,13 +117,15 @@ fn marketing() -> impl IntoView {
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn search_and_copy() -> impl IntoView {
+#[component]
+fn search_and_copy() -> impl Element {
     let query = signal(String::new());
     let url = signal(String::from("https://example.com"));
     column((
         kivact::ui::input_group(
             "Search",
-            (kivact::ui::text_input("Search", query)
+            (kivact::ui::text_input(query)
+                .label("Search")
                 .variant(basic::InputGroupControl)
                 .placeholder("Search..."),),
         )
@@ -128,7 +134,9 @@ fn search_and_copy() -> impl IntoView {
         .style(style().width(320)),
         kivact::ui::input_group(
             "Link",
-            (kivact::ui::text_input("Link", url).variant(basic::InputGroupControl),),
+            (kivact::ui::text_input(url)
+                .label("Link")
+                .variant(basic::InputGroupControl),),
         )
         .end(
             kivact::ui::button("Copy")
@@ -144,18 +152,18 @@ fn search_and_copy() -> impl IntoView {
 }
 ```
 
-- `kivact::ui::text_area(label, signal).variant(basic::InputGroupControl)` takes the place of the input for multi-line text, and `.block_start(..)` / `.block_end(..)` put an addon above or below it (a character counter, say).
+- `kivact::ui::text_area(signal).label("..").variant(basic::InputGroupControl)` takes the place of the input for multi-line text, and `.block_start(..)` / `.block_end(..)` put an addon above or below it (a character counter, say).
 - `.invalid(true)` marks the whole group invalid.
 
 ## Pick one or several options from a long list
 
-`kivact::ui::combobox("Framework", items, selected)` is a text box with a filtered list. The items are `ListItem`s. The selection type decides the mode: `signal(None)` (an `Option<K>`) picks one, `signal(Vec::new())` picks several; add `.chips()` to show removable chips:
+`kivact::ui::combobox(items, selected)` is a text box with a filtered list. The items are `ListItem`s. The selection type decides the mode: `signal(None)` (an `Option<K>`) picks one, `signal(Vec::new())` picks several; add `.chips()` to show removable chips:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact_ui_basic as basic;
 
-fn frameworks() -> impl IntoView {
+#[component]
+fn frameworks() -> impl Element {
     let items = vec![
         ListItem::new("next", "Next.js"),
         ListItem::new("remix", "Remix"),
@@ -164,12 +172,12 @@ fn frameworks() -> impl IntoView {
     let one = signal(None);
     let many = signal(vec!["next"]);
     column((
-        kivact::ui::combobox("Framework", items.clone(), one)
+        kivact::ui::combobox(items.clone(), one)
             .placeholder("Select a framework")
             .name("Framework")
             .show_clear(true)
             .style(style().width(260)),
-        kivact::ui::combobox("Frameworks", items, many)
+        kivact::ui::combobox(items, many)
             .chips()
             .placeholder("Add framework")
             .name("Frameworks")
@@ -179,24 +187,25 @@ fn frameworks() -> impl IntoView {
 }
 ```
 
-- The first argument is the accessible name. Wrap the combobox in a `field` to show a visible label.
+- The name is set with `.name(..)`. Wrap the combobox in a `field` to show a visible label.
 - `.empty_text("No frameworks found.")` replaces the text shown when the filter matches nothing; `.disabled(true)` turns it off.
-- For short lists, the standard `select("Language", items, signal)` is simpler. `basic::native_select(items, signal)` is a select with the plain bordered look of a browser's.
+- For short lists, the standard `select(items, signal).label("Language")` is simpler. `basic::native_select(items, signal)` is a select with the plain bordered look of a browser's.
 
 ## Pick a date or a date range
 
-`kivact::ui::date_input(label, date).attach(button)` opens a calendar from your own button. The attached button owns its text, placeholder and format. `date_range_input` edits a range through the same pattern:
+`kivact::ui::date_input(date).attach(button)` opens a calendar from your own button. The attached button owns its text, placeholder and format. `date_range_input` edits a range through the same pattern:
 
 ```rust,no_run
 use kivact::i18n::{CalendarDate, DateRange};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn dates() -> impl IntoView {
+#[component]
+fn dates() -> impl Element {
     let due = signal(Some(CalendarDate::new(2026, 10, 3)));
     let stay = signal(None::<DateRange>);
     column((
-        kivact::ui::date_input("Due date", due)
+        kivact::ui::date_input(due)
             .presentation(kivact::ui::DatePresentation::Desktop)
             .variant(basic::DatePickerVariant::Flush)
             .calendar(|c| c.variable_rows(true))
@@ -212,7 +221,7 @@ fn dates() -> impl IntoView {
                 .variant(kivact::ui::ButtonVariant::Outline)
                 .style(style().width(280)),
             ),
-        kivact::ui::date_range_input("Stay", stay)
+        kivact::ui::date_range_input(stay)
             .presentation(kivact::ui::DatePresentation::Desktop)
             .variant(basic::DatePickerVariant::Flush)
             .calendar(|c| c.number_of_months(2).variable_rows(true))
@@ -232,9 +241,9 @@ fn dates() -> impl IntoView {
 ```rust,no_run
 use kivact::i18n::{CalendarMonth, Weekday};
 use kivact::prelude::*;
-use kivact_ui_basic as basic;
 
-fn weekdays_only() -> impl IntoView {
+#[component]
+fn weekdays_only() -> impl Element {
     kivact::ui::calendar(signal(None::<kivact::i18n::CalendarDate>))
         .variable_rows(true)
         .default_month(CalendarMonth::new(2026, 10))
@@ -248,18 +257,20 @@ Month and weekday names and date formatting come from the active `Locale`. Calen
 
 ## Ask for a one-time code
 
-`basic::input_otp(label, code, length)` shows one cell per character and edits a `String`. The user can type or paste the whole code:
+`basic::input_otp(code, length)` shows one cell per character and edits a `String`. The user can type or paste the whole code:
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn verify() -> impl IntoView {
+#[component]
+fn verify() -> impl Element {
     let code = signal(String::new());
     let done = signal(String::new());
     column((
-        basic::input_otp("Verification code", code, 6)
-            .groups(&[3, 3])
+        basic::input_otp(code, 6usize)
+            .name("Verification code")
+            .groups(vec![3_usize, 3])
             .pattern(basic::OtpPattern::Digits)
             .on_complete(move |code: String| done.set(code)),
         basic::muted(move || format!("Entered: {}", done.get())),
@@ -268,7 +279,7 @@ fn verify() -> impl IntoView {
 }
 ```
 
-`.groups(&[3, 3])` splits the cells with a separator, `.pattern(..)` limits the characters (`Digits` is the default, `Alphanumeric` lets letters in) and `.on_complete(..)` runs when the last cell is filled. Verification itself is yours.
+`.groups(vec![3_usize, 3])` splits the cells with a separator, `.pattern(..)` limits the characters (`Digits` is the default, `Alphanumeric` lets letters in) and `.on_complete(..)` runs when the last cell is filled. Verification itself is yours.
 
 ## See also
 
@@ -276,4 +287,4 @@ fn verify() -> impl IntoView {
 - [Navigation](navigation.md): tabs and wizards between pages of fields.
 - Rustdoc: `cargo doc -p kivact-ui-basic --open` for the input group and pickers and `input_otp`; `cargo doc -p kivact-ui --open` for `combobox`, `field`, `select` and `text_input`.
 
-The borderless controls use `.variant(basic::InputGroupControl)` and observe their actual group for focus, invalid state and block spacing. Group buttons are ordinary `button` builders with a visual `InputGroupButtonSize` variant; use `.hide_label(true)` for `IconXs`/`IconSm`. For reactive button measurements use `InputGroupButtonLook::default().size(size)`; the caller controls label visibility with the standard `.hide_label(..)` option.
+The borderless controls use `.variant(basic::InputGroupControl)` and observe their actual group for focus, invalid state and block spacing. Group buttons are ordinary `button` builders with a visual `InputGroupButtonSize` variant; use `.hide_label(true)` for `IconXs`/`IconSm`.

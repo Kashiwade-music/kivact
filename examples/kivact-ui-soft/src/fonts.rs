@@ -1,9 +1,7 @@
-//! Role: Supply offline Figtree font bytes for the catalog and its tests.
+//! Role: The Figtree fonts that the catalog adds to the Soft theme.
 
-/// Upright and italic Figtree variable fonts.
-pub fn fonts() -> &'static [&'static [u8]] {
-    &[
-        include_bytes!("../assets/fonts/figtree/Figtree-Variable.ttf"),
-        include_bytes!("../assets/fonts/figtree/Figtree-Italic-Variable.ttf"),
-    ]
-}
+/// The fonts the Soft catalog adds to its theme, shared by the app and its tests.
+pub(crate) static FONTS: &[&[u8]] = &[
+    include_bytes!("../assets/fonts/figtree/Figtree-Variable.ttf"),
+    include_bytes!("../assets/fonts/figtree/Figtree-Italic-Variable.ttf"),
+];

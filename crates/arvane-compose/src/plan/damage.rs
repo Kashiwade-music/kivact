@@ -3,9 +3,9 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
+use arvane_protocol::{PixelRect, RenderCmd, RenderScene};
 use kivact_types::Matrix4;
 use kivact_types::geometry::{Point, Rect};
-use kivact_types::render::{PixelRect, RenderCmd, RenderScene};
 
 use super::bounds::{mapped_bounds, scene_bounds};
 use super::builder::Builder;
@@ -167,10 +167,40 @@ fn diff(old: &[Indexed], new: &[Indexed]) -> Vec<PixelRect> {
     changed
 }
 
+/// Debug builds: a kept content version must mean the same commands.
+fn check_version(
+    scene: &RenderScene,
+    prev: &ChunkRecord,
+    grid: Grid,
+    key: ChunkKey,
+    version: u64,
+) -> Result<(), PlanError> {
+    let bounds = scene_bounds(scene)?;
+    let mut retain = Vec::new();
+    let index: Vec<Indexed> = hash::scene_hashes(scene, &mut retain)
+        .into_iter()
+        .zip(bounds)
+        .zip(scene.commands.iter())
+        .map(|((h, b), command)| {
+            indexed(
+                command,
+                h,
+                b.and_then(|r| clip_px(r, grid.origin, grid.scale, grid.size)),
+            )
+        })
+        .collect();
+    assert!(
+        prev.index[..] == index[..],
+        "content_version {version} of {key:?} was kept though the layer's commands changed",
+    );
+    Ok(())
+}
+
 impl<'a> Builder<'a> {
     /// Index a chunk's scene, decide what of it redraws against the cache, and record it.
     ///
     /// `cache_it` is false for chunks of inline layers, which are always redrawn and never cached.
+    /// `version` is the layer's content version for its content chunks, None otherwise.
     pub(super) fn chunk(
         &mut self,
         key: ChunkKey,
@@ -178,8 +208,12 @@ impl<'a> Builder<'a> {
         grid: Grid,
         to_win: &Matrix4,
         cache_it: bool,
+        version: Option<u64>,
     ) -> Result<(), PlanError> {
         let cached = cache_it && self.cacheable();
+        if self.keep_chunk(key, &scene, grid, cached, version)? {
+            return Ok(());
+        }
         let bounds = scene_bounds(&scene)?;
         let mut retain: Vec<Retained> = Vec::new();
         let hashes = hash::scene_hashes(&scene, &mut retain);
@@ -240,6 +274,7 @@ impl<'a> Builder<'a> {
                     origin: grid.origin,
                     size: grid.size,
                     index,
+                    version,
                     frame: self.frame,
                     retain,
                 },
@@ -248,6 +283,45 @@ impl<'a> Builder<'a> {
             self.forgets.push(key);
         }
         Ok(())
+    }
+
+    /// Keep the previous record of a content chunk whose layer has the same
+    /// content version and grid: nothing is hashed, diffed or drawn. Returns
+    /// whether the chunk was kept.
+    fn keep_chunk(
+        &mut self,
+        key: ChunkKey,
+        scene: &RenderScene,
+        grid: Grid,
+        cached: bool,
+        version: Option<u64>,
+    ) -> Result<bool, PlanError> {
+        let cache = self.cache;
+        let Some(version) = version else {
+            return Ok(false);
+        };
+        let Some(prev) = cache.chunk(&key).filter(|_| cached) else {
+            return Ok(false);
+        };
+        if prev.version != Some(version)
+            || prev.scale != grid.scale
+            || prev.origin.x != grid.origin.x
+            || prev.origin.y != grid.origin.y
+            || prev.size != grid.size
+        {
+            return Ok(false);
+        }
+        if cfg!(debug_assertions) {
+            check_version(scene, prev, grid, key, version)?;
+        }
+        self.chunk_records.push((
+            key,
+            ChunkRecord {
+                frame: self.frame,
+                ..prev.clone()
+            },
+        ));
+        Ok(true)
     }
 
     /// The output's damage this frame, from the records and the changes of the frame.

@@ -4,10 +4,10 @@
 //! backdrops (what lies behind a shape, blurred, drawn again without reading
 //! pixels back). A backdrop is a compositor layer's effect.
 
-use kivact_types::render::{
+use arvane_protocol::{
     Composition, LayerEffects, LayerFilter, LayerItem, RenderBackdrop, RenderCmd,
 };
-use kivact_types::scene::{RoundedRect, Shape};
+use kivact_types::scene::{Outline, RoundedRect};
 
 use crate::support::{
     RED, WHITE, fill, gray, layer, node_key, open, pixel, raster, rect, root_layer,
@@ -28,7 +28,7 @@ fn page(width: f64, height: f64) -> Vec<RenderCmd> {
 #[test]
 fn a_backdrop_blurs_what_is_behind_its_shape_and_nothing_else() {
     let mut window = open(200.0, 100.0);
-    let shape = Shape::RoundedRect(RoundedRect::new(rect(50.0, 20.0, 100.0, 60.0), 10.0));
+    let shape = Outline::RoundedRect(RoundedRect::new(rect(50.0, 20.0, 100.0, 60.0), 10.0));
     let backdrop_layer = layer(
         node_key(1),
         rect(50.0, 20.0, 100.0, 60.0),

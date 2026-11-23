@@ -5,7 +5,7 @@
 //! the host environment (fullscreen, reduced motion, scale, window size,
 //! safe area, surface activity, capabilities) as free functions reading
 //! tracked values, owner-scoped lifecycle notifications, owner-scoped handlers
-//! that may keep the App open when its main window is closed
+//! that may keep their window open when it is closed
 //! (`on_close_request`), plus available font families as a snapshot, and the
 //! cross-thread handle that ends the App's run (`AppHandle`, `app_handle`). The
 //! test host of `kivact::test` scripts the services (an
@@ -44,6 +44,20 @@ pub use services::{
 pub(crate) use window_loop::run_native;
 
 #[doc(inline)]
-pub use env::{
-    Capabilities, CommandKey, ContextMenuTrigger, PointerClass, PointerSettings, ThemeHint,
-};
+pub use env::{Capabilities, CommandKey, ContextMenuTrigger, PointerClass, PointerSettings};
+
+/// An adapter's identity, as the graphics APIs report it.
+#[doc(inline)]
+pub use kivact_types::AdapterMatch;
+/// A graphics API the window's GPU device can use.
+#[doc(inline)]
+pub use kivact_types::GpuBackend;
+/// Which kind of adapter an App prefers ([`App::gpu_preference`](crate::App::gpu_preference)).
+#[doc(inline)]
+pub use kivact_types::GpuPower;
+/// What an App wishes of the window's GPU device ([`App::gpu_preference`](crate::App::gpu_preference)).
+#[doc(inline)]
+pub use kivact_types::GpuPreference;
+/// When the window's GPU device is started (`GpuPreference::start`).
+#[doc(inline)]
+pub use kivact_types::gpu::GpuStart;

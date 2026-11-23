@@ -7,7 +7,7 @@
 
 use super::state::{Axis, TouchCandidate, TouchGesture, TouchPan, TouchTarget, TouchTrack, Track};
 use crate::model::Model;
-use kivact_types::{NodeId, Point, PointerId, PointerKind};
+use kivact_types::{NodeId, Point, PointerId, PointerKind, PointerSample};
 
 impl Model {
     pub(crate) fn reserve_touch_gesture(&mut self, pointer: PointerId) {
@@ -18,22 +18,30 @@ impl Model {
         }
     }
 
-    pub(super) fn touch_candidate(&mut self, pointer: PointerId, hit: Option<NodeId>, at: Point) {
+    /// `input`'s contact (`input.time_ns` is its `Down`'s time) may start a
+    /// native scroll from `hit` at `at`.
+    pub(super) fn touch_candidate(
+        &mut self,
+        input: &PointerSample,
+        hit: Option<NodeId>,
+        at: Point,
+    ) {
+        let pointer = input.id;
         if self
             .pointer
             .state
             .tracks
             .values()
-            .filter(|track| track.source().kind == PointerKind::Touch)
+            .filter(|track| track.kind() == PointerKind::Touch)
             .count()
             != 1
         {
             for track in self.pointer.state.tracks.values_mut() {
                 if let Track::Touch(track) = track {
                     track.gesture = match std::mem::take(&mut track.gesture) {
-                        TouchGesture::Pending { route, .. } | TouchGesture::Route(route) => {
-                            TouchGesture::Route(route)
-                        }
+                        TouchGesture::Pending { route, .. }
+                        | TouchGesture::Route(route)
+                        | TouchGesture::SelectText { route, .. } => TouchGesture::Route(route),
                         TouchGesture::Pan(_) => TouchGesture::default(),
                     };
                 }
@@ -48,17 +56,22 @@ impl Model {
                     .is_some_and(|node| node.scroll_axes() != (false, false))
         });
         let modal = self.modal();
+        // A press that selects text (`SelectText`, made by the press
+        // before this) never starts a native scroll: only a routed press does.
         if let Some(from) = from
             && let Track::Touch(track) = self.pointer.state.track_mut(pointer)
+            && !matches!(track.gesture, TouchGesture::SelectText { .. })
         {
             let route = match std::mem::take(&mut track.gesture) {
                 TouchGesture::Route(route) | TouchGesture::Pending { route, .. } => route,
-                TouchGesture::Pan(_) => unreachable!("invariant: a new touch press is routed"),
+                TouchGesture::Pan(_) | TouchGesture::SelectText { .. } => {
+                    unreachable!("invariant: a new touch press is routed or selects text")
+                }
             };
             track.gesture = TouchGesture::Pending {
                 route,
                 candidate: TouchCandidate {
-                    time_ns: track.source.time_ns,
+                    time_ns: input.time_ns,
                     start: at,
                     target: TouchTarget {
                         from,
@@ -70,12 +83,15 @@ impl Model {
         }
     }
 
+    /// The touch contact `input` is at `at`: a pending scroll starts or
+    /// ends, or the pan moves. Returns whether the move was the pan's.
     pub(super) fn touch_move(
         &mut self,
-        pointer: PointerId,
+        input: &PointerSample,
         at: Point,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> bool {
+        let pointer = input.id;
         let Track::Touch(track) = self.pointer.state.track(pointer) else {
             return false;
         };
@@ -115,7 +131,7 @@ impl Model {
                         let mut samples =
                             kivact_types::DragVelocity::new(std::time::Duration::from_millis(100));
                         samples.reset(candidate.time_ns, candidate.start);
-                        samples.record(track.source.time_ns, at);
+                        samples.record(input.time_ns, at);
                         samples
                     },
                     scroller: target,
@@ -142,28 +158,28 @@ impl Model {
                     self.set_scroll(target, offset);
                     pan.scroller = target;
                 }
-                let time = self.pointer.state.track(pointer).source().time_ns;
-                pan.samples.record(time, at);
+                pan.samples.record(input.time_ns, at);
                 let Track::Touch(track) = self.pointer.state.track_mut(pointer) else {
                     unreachable!("invariant: touch pan belongs to a touch")
                 };
                 track.gesture = TouchGesture::Pan(TouchPan { last: at, ..pan });
             }
-            TouchGesture::Route(_) => return false,
+            TouchGesture::Route(_) | TouchGesture::SelectText { .. } => return false,
         }
         self.settle(engine);
         true
     }
 
-    /// Start inertia from the last 100 ms of touch positions.
-    pub(crate) fn release_touch_scroll(&mut self, pointer: PointerId) {
+    /// Start inertia from the last 100 ms of touch positions, up to `time_ns`
+    /// (the release's time).
+    pub(crate) fn release_touch_scroll(&mut self, pointer: PointerId, time_ns: u64) {
         let Track::Touch(track) = self.pointer.state.track(pointer) else {
             return;
         };
         let TouchGesture::Pan(pan) = &track.gesture else {
             return;
         };
-        let sampled = pan.samples.pixels_per_ms(track.source.time_ns);
+        let sampled = pan.samples.pixels_per_ms(time_ns);
         let mut velocity = Point {
             x: -sampled.x,
             y: -sampled.y,
@@ -208,7 +224,7 @@ impl Model {
                 }) => !self.touch_target_valid(pan.target),
                 _ => false,
             })
-            .map(|track| track.source().id)
+            .map(|track| track.id())
             .collect();
         for pointer in stale {
             self.cancel_pointer_input(pointer);

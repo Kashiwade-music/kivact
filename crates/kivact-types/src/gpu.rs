@@ -45,18 +45,17 @@ pub enum AdapterMatch {
     },
 }
 
-/// When the window's GPU device is started.
+/// When the window's GPU device is started. `ARVANE_RENDERER=cpu|gpu|auto`
+/// overrides it with `Never|AtLaunch|OnDemand`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum GpuStart {
-    /// Frames are drawn on the CPU until the window needs the GPU: a
-    /// user shader drawn, the App reading the window's adapter to share
-    /// GPU textures, or CPU frames that keep missing half the display
-    /// period (the default).
+    /// Start the device when a window needs it (the first frames are drawn on the CPU).
     #[default]
     OnDemand,
-    /// Start the device with the window (frames are drawn on the CPU until
-    /// it is ready).
+    /// Start the device with the window (frames are drawn on the CPU until it is ready).
     AtLaunch,
+    /// Never start a device: every frame is drawn on the CPU.
+    Never,
 }
 
 /// What an application wishes of the GPU device Arvane makes. A wish, not
@@ -71,10 +70,8 @@ pub enum GpuStart {
 pub struct GpuPreference {
     /// The kind of adapter.
     pub power: GpuPower,
-    // xtask-allow(state-fields): option: absent means the default (Arvane's backend order)
     /// The graphics API (`None`: Arvane's order).
     pub backend: Option<GpuBackend>,
-    // xtask-allow(state-fields): option: absent means the default (as `power` picks)
     /// The adapter (`None`: as `power` picks), looked up by its identity on
     /// Windows and Linux (Direct3D 12 and Vulkan report it); as `power`
     /// picks when no adapter has it.
@@ -129,7 +126,6 @@ pub struct GpuAdapter {
     pub ids: AdapterIds,
     /// The adapter's name, for diagnostics.
     pub name: String,
-    // xtask-allow(state-fields): identity: the device instance; a new generation means every image imported before is gone
     /// The device's generation: 1 for the process's first GPU device, one
     /// more for each device made after it. A new generation means every
     /// image imported into the window before is gone.

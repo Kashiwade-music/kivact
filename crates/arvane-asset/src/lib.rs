@@ -29,10 +29,7 @@
 //! - [`fit_image`] places an image of a natural size in a box by
 //!   [`ImageFit`] (CSS `object-fit`); [`PixelSize::of`] turns a drawn size
 //!   and a scale into the device size to ask for.
-//! - [`load_font`] reads and checks a font file and names its families;
-//!   [`resolve_family`] maps a family name or a generic family
-//!   ([`GenericFamily`]) to what a host should use, through the host's own
-//!   "is this family installed" answer.
+//! - [`load_font`] reads and checks a font file and names its families.
 //! - Every failure is an [`AssetError`] whose message names the source (the
 //!   absolute path and the current directory for files) and the reason.
 //!
@@ -43,7 +40,7 @@
 //!   (animations give all their frames while they fit a quarter of the
 //!   budget, else the first one), SVG and SVGZ. Anything else fails with the
 //!   detected format named.
-//! - AssetImage are straight-alpha RGBA8, `width * height * 4` bytes. A raster
+//! - AssetImage are premultiplied RGBA8, `width * height * 4` bytes. A raster
 //!   image's natural size is its pixel size (one pixel per logical px); an
 //!   SVG's is its `width`/`height`, else its `viewBox`.
 //! - Limits: encoded input up to 64 MiB (SVGZ also once decompressed), SVG
@@ -72,10 +69,7 @@ mod svg;
 
 pub use error::{AssetError, AssetErrorKind};
 pub use fit::{FitRect, ImageFit, Region, fit_image};
-pub use font::{
-    FamilyChoice, FamilyResolution, FontBytes, FontFile, GenericFamily, Os, load_font,
-    resolve_family,
-};
+pub use font::{FontBytes, FontFile, load_font};
 pub use kivact_types::Asset;
 pub use limits::{MAX_ENCODED_BYTES, MAX_IMAGE_EDGE, MAX_SVG_RASTER_EDGE};
 pub use pixels::{AssetImage, PixelSize};

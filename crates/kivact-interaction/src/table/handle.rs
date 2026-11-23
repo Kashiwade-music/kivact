@@ -48,17 +48,6 @@ use std::rc::Rc;
 /// after the parts are made.
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// # pub use kivact_core::{view, state, style};
-/// # pub mod prelude {
-/// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-/// # }
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::{ColumnDef, TableFocus, use_data_table};
 /// use kivact::prelude::*;
 /// use kivact::view::for_each;
@@ -148,63 +137,6 @@ where
 }
 
 impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableApi<K, C> {
-    /// Drawing state of the mounted table container.
-    pub fn grid_state(self) -> Value<PartState> {
-        let observed = self.state().grid_state;
-        memo(move || observed.get().map(|state| state.get()).unwrap_or_default())
-    }
-    /// Drawing state of the mounted column header.
-    pub fn header_state(self, column: C) -> Value<TableHeaderState> {
-        let observed = self.state().header_states;
-        memo(move || {
-            observed
-                .with(|states| states.get(&column).copied())
-                .map(|state| state.get())
-                .unwrap_or(TableHeaderState {
-                    input: PartState::default(),
-                    sorting: HeaderSort::Unsortable,
-                })
-        })
-    }
-    /// Drawing state of the mounted row.
-    pub fn row_state(self, key: K) -> Value<TableRowState> {
-        let shared = self.state();
-        let row = shared.list.item_state(key.clone());
-        memo(move || {
-            shared
-                .row_states
-                .with(|states| states.get(&key).copied())
-                .map(|state| state.get())
-                .unwrap_or_else(|| {
-                    let row = row.get();
-                    TableRowState {
-                        input: row.input,
-                        selected: row.selected,
-                        active: row.active,
-                    }
-                })
-        })
-    }
-    /// Drawing state of the mounted cell.
-    pub fn cell_state(self, key: K, column: C) -> Value<TableCellState> {
-        let shared = self.state();
-        let row = shared.list.item_state(key.clone());
-        memo(move || {
-            shared
-                .cell_states
-                .with(|states| states.get(&(key.clone(), column.clone())).copied())
-                .map(|state| state.get())
-                .unwrap_or_else(|| {
-                    let row = row.get();
-                    TableCellState {
-                        input: PartState::default(),
-                        selected: row.selected,
-                        active: false,
-                    }
-                })
-        })
-    }
-
     #[track_caller]
     fn state(self) -> Rc<State<K, C>> {
         self.state.get()
@@ -228,13 +160,9 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
     /// to start sorted, or to order the rows before creating the table. Setup
     /// only.
     #[track_caller]
-    pub fn with_sort(
-        self,
-        sort: impl kivact_core::state::IntoBinding<Option<(C, SortOrder)>>,
-    ) -> Self {
+    pub fn with_sort(self, sort: kivact_core::state::Signal<Option<(C, SortOrder)>>) -> Self {
         let state = self.state();
         require_setup("DataTableApi::sort");
-        let sort = sort.into_binding();
         state.options.update(|options| {
             options.sort = sort;
             options.multi_sort = None;
@@ -246,12 +174,8 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
     /// activation replaces the list. Each key cycles ascending, descending,
     /// and unsorted. Setup only.
     #[track_caller]
-    pub fn multi_sort(
-        self,
-        sort: impl kivact_core::state::IntoBinding<Vec<(C, SortOrder)>>,
-    ) -> Self {
+    pub fn multi_sort(self, sort: kivact_core::state::Signal<Vec<(C, SortOrder)>>) -> Self {
         require_setup("DataTableApi::multi_sort");
-        let sort = sort.into_binding();
         self.state()
             .options
             .update(|options| options.multi_sort = Some(sort));
@@ -260,16 +184,12 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
 
     /// Keep the column widths in the caller's binding instead of the table's own.
     ///
-    /// The table's own widths start from each [`ColumnDef::width`]. Resize parts
+    /// The table's own widths start from each [`ColumnDef::preferred_width`]. Resize parts
     /// offer the whole next map to the binding's writer. Setup only.
     #[track_caller]
-    pub fn with_widths(
-        self,
-        widths: impl kivact_core::state::IntoBinding<HashMap<C, f64>>,
-    ) -> Self {
+    pub fn with_widths(self, widths: kivact_core::state::Signal<HashMap<C, f64>>) -> Self {
         let state = self.state();
         require_setup("DataTableApi::widths");
-        let widths = widths.into_binding();
         state.options.update(|options| options.widths = widths);
         self
     }
@@ -334,7 +254,6 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
             part(|input| input)
         };
         let part_state = input.state();
-        crate::part_slot::attach_part_state(state.grid_state, part_state);
         Part::new(part_state, move |host| {
             let host = host.part(input).role(if state.focus == TableFocus::None {
                 Role::Table
@@ -396,7 +315,6 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
             ),
         });
         let part_state = input.state();
-        observe_header(&state, key, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .role(Role::ColumnHeader)
@@ -466,7 +384,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
     /// A splitter on the trailing boundary of a column that edits its width.
     ///
     /// The width is the column's entry in [`widths_value`](Self::widths), else its
-    /// [`ColumnDef::width`], else the measured width of its header. Writes go
+    /// [`ColumnDef::preferred_width`], else the measured width of its header. Writes go
     /// through [`resize_limits`](Self::resize_limits) to the widths binding.
     /// The caller names the handle and draws it. Setup only.
     #[track_caller]
@@ -716,25 +634,4 @@ fn header_key<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
     } else {
         Handled::No
     }
-}
-
-fn observe_header<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
-    state: &State<K, C>,
-    key: kivact_core::state::Var<C>,
-    part_state: Value<TableHeaderState>,
-) {
-    let observed = state.header_states;
-    observed.update(|states| {
-        states.insert(key.get(), part_state);
-    });
-    kivact_core::state::on_cleanup(move || {
-        if observed.try_get_untracked().is_some() {
-            observed.update(|states| {
-                let key = key.get();
-                if states.get(&key) == Some(&part_state) {
-                    states.remove(&key);
-                }
-            });
-        }
-    });
 }

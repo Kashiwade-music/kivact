@@ -4,11 +4,11 @@ use std::collections::BTreeMap;
 
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
-use kivact_runtime::{LiveSnapshot, MotionState, Runtime, TaskState};
+use kivact_runtime::driver::{LiveSnapshot, Runtime};
 
 use super::convert;
 use crate::client::state::HostState;
-use crate::view::devtools_state::DevtoolsState;
+use crate::devtools::state::DevtoolsState;
 use crate::view::state::ViewState;
 
 /// Snapshots kept for `diff_snapshots`.
@@ -66,8 +66,8 @@ fn window_not_found(raw: p::WindowId) -> p::RpcError {
 pub(super) fn get_counters(rt: &Runtime, params: p::Empty) -> Result<p::Counters, p::RpcError> {
     let _ = params;
     let live = rt.live_counts();
-    let motion = MotionState::of(rt).stats();
-    let tasks = TaskState::of(rt).stats();
+    let motion = rt.motion().stats();
+    let tasks = rt.tasks().stats();
     Ok(p::Counters {
         live_reactive: live.reactive as u64,
         live_owners: live.owners as u64,
@@ -195,7 +195,7 @@ pub(super) fn export_trace(
         .collect();
     frames.sort_by_key(|frame| frame.end_ns);
     let json = kivact_devtools_protocol::chrome_trace(&turns, &frames);
-    let written = i.agent.borrow().write_trace(&json, params.path.as_deref());
+    let written = i.ready_agent().write_trace(&json, params.path.as_deref());
     let path = written.map_err(|error| {
         p::RpcError::new(
             p::code::INTERNAL_ERROR,

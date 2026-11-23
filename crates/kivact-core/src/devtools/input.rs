@@ -5,11 +5,11 @@ use kivact_devtools_protocol as p;
 use kivact_engine::contract::{
     HostRequest, ImeStateInfo, InjectedInput, PlatformKey, RawInput, RawKey, RawKeyPhase,
 };
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_types::{InputPurpose, Key, KeyCode, Modifiers, NodeId, Point, RequestId, WindowId};
 
 use super::convert;
-use crate::view::devtools_state::{DevtoolsState, Pending};
+use crate::devtools::state::{DevtoolsState, Pending};
 use crate::view::state::ViewState;
 
 fn window_not_found(raw: p::WindowId) -> p::RpcError {
@@ -97,7 +97,9 @@ fn click_inputs(
     let tree = ViewState::tree(rt);
     let reader = tree.reader();
     let node = NodeId(raw);
-    if tree.get(node).is_none() || !tree.is_visible(node) || reader.window_of(node) != Some(window)
+    if tree.get(node).is_none()
+        || !reader.node_flags(node).visible
+        || reader.window_of(node) != Some(window)
     {
         return Err(node_not_found(raw));
     }
@@ -163,13 +165,6 @@ fn injected_inputs(
 
 pub(super) fn inject_input(rt: &Runtime, params: p::InjectInputParams, reply: Responder) {
     let i = DevtoolsState::inspector(rt);
-    if !i.can_inject {
-        reply.send(Err(p::RpcError::new(
-            p::code::UNSUPPORTED,
-            "input injection is not supported by this target",
-        )));
-        return;
-    }
     let reader = ViewState::tree(rt).reader();
     let Some(window) =
         convert::window_from(params.window).filter(|window| reader.windows().contains(window))

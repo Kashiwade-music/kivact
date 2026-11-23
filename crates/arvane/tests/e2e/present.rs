@@ -11,7 +11,7 @@ use crate::support::Harness;
 use crate::support::commands_composition;
 use arvane::Renderer;
 use arvane::gpu_unavailable;
-use kivact_types::render::{Gradient, GradientShape, Paint, RenderCmd};
+use arvane_protocol::{GradientShape, RasterGradient, RasterPaint, RenderCmd};
 use kivact_types::{ComputedTextStyle, Extend, PaintOrder, Pixels};
 use kivact_types::{Point, Size};
 
@@ -143,7 +143,7 @@ fn representative() -> Vec<RenderCmd> {
         RenderCmd::RoundedRect {
             rect: rect(20.0, 20.0, 120.0, 60.0),
             radius: 8.0,
-            fill: Paint::Gradient(Gradient {
+            fill: RasterPaint::Gradient(RasterGradient {
                 shape: GradientShape::Linear {
                     start: Point { x: 20.0, y: 50.0 },
                     end: Point { x: 140.0, y: 50.0 },
@@ -155,7 +155,7 @@ fn representative() -> Vec<RenderCmd> {
         RenderCmd::PushClip(rect(160.0, 20.0, 60.0, 60.0)),
         RenderCmd::Rect {
             rect: rect(150.0, 10.0, 90.0, 90.0),
-            fill: Paint::Solid(color_alpha(RED, 0.5)),
+            fill: RasterPaint::Solid(color_alpha(RED, 0.5)),
         },
         RenderCmd::PopClip,
         RenderCmd::Image {
@@ -164,7 +164,7 @@ fn representative() -> Vec<RenderCmd> {
                 height: 2,
                 rgba: AssetBytes::from_shared(Arc::from(
                     &[
-                        255u8, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 255, 255, 255, 255, 64,
+                        255u8, 0, 0, 255, 0, 128, 0, 128, 0, 0, 255, 255, 64, 64, 64, 64,
                     ][..],
                 )),
             },

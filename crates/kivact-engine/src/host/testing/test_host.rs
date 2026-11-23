@@ -6,31 +6,28 @@ use crate::contract::{HostError, HostEvent, NodeProperties, NodeType};
 use crate::host::Client;
 use crate::host::launch::{AssetMode, Launch};
 use crate::model::Model;
-use arvane::spi::{Step, StepOutcome};
-use arvane::{
-    EventTarget, Handler, RendererChange, Shell, ShellControl, ShellError, ShellEvent,
-    ShellImeText, ShellSetup, ShellWaker, SteppedShell, Windows,
-};
+use arvane::{Handler, RendererChange, SteppedShell, Windows};
+use arvane_protocol::SemanticsTree;
+use arvane_shell::{EventTarget, ShellControl, ShellError, ShellEvent, ShellImeText, ShellWaker};
+use arvane_shell::{Step, StepOutcome};
 use arvane_virtual::{GpuMode, Probe, Script, VirtualBackend, VirtualOptions};
 use kivact_types::PointerSample;
-use kivact_types::render::SemanticsTree;
 use kivact_types::{
-    Capabilities, DrawList, LayoutCheck, LayoutFinding, NodeId, Rect, RegionId, Size, ThemeHint,
+    Capabilities, DrawList, LayoutCheck, LayoutFinding, NodeId, Rect, RegionId, Size, ThemeMode,
     WindowId, WindowRequest,
 };
-use kivact_types::{Cursor, Insets, Modifiers, Point};
+use kivact_types::{Cursor, Edges, Modifiers, Point};
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
+// xtask-allow(state): statistic: turns and frame_ticks are counted only by the counted() client wrapper and read by the test driver; they never steer scheduling
 /// Turns and frame ticks the client was given.
 #[derive(Default)]
 struct Counts {
-    // xtask-allow(state-fields): statistic: turns counted for diagnostics; never used to control scheduling
     turns: Cell<u64>,
-    // xtask-allow(state-fields): statistic: frame ticks counted for diagnostics; never used as an event or generation
     frame_ticks: Cell<u64>,
 }
 
@@ -52,6 +49,7 @@ fn counted(client: Client, counts: Rc<Counts>) -> Client {
     )
 }
 
+// xtask-allow(state): independent: host (the Launch), renderer (the observer's per-window notes), injected and controls (queues drained by SharedHost::event) are separate shared handles made once in ArvaneTestHost::new
 /// The engine driven by a test on the calling thread.
 pub struct ArvaneTestHost {
     pub(super) host: Rc<RefCell<Launch>>,
@@ -68,7 +66,7 @@ pub struct ArvaneTestHost {
 /// A test control the window handler applies at the next event, where the
 /// window is at hand.
 enum Control {
-    /// Make the window's GPU device lost (`arvane::spi::lose_gpu_device`).
+    /// Make the window's GPU device lost (`arvane::lose_gpu_device`).
     LoseGpuDevice(WindowId),
 }
 
@@ -107,6 +105,7 @@ impl Observed {
     }
 }
 
+// xtask-allow(state): independent: host, injected and controls are handles shared with ArvaneTestHost; event drains controls, then injected, then passes the event to host
 struct SharedHost {
     host: Rc<RefCell<Launch>>,
     injected: Rc<RefCell<Vec<HostEvent>>>,
@@ -130,7 +129,7 @@ impl Handler for SharedHost {
             match control {
                 Control::LoseGpuDevice(id) => {
                     if let Some(mut window) = windows.get(id) {
-                        arvane::spi::lose_gpu_device(&mut window);
+                        arvane::lose_gpu_device(&mut window);
                     }
                 }
             }
@@ -154,9 +153,9 @@ fn make_host(
     counts: Rc<Counts>,
 ) -> Result<Rc<RefCell<Launch>>, HostError> {
     let engine = match &options.fonts {
-        TestFonts::Bundled => arvane::Engine::with_fonts_only(&[default_font()]),
-        TestFonts::Only(fonts) => arvane::Engine::with_fonts_only(fonts),
-        TestFonts::System => Ok(arvane::Engine::new()),
+        TestFonts::Bundled => arvane_text::TextEngine::isolated(&[default_font()]),
+        TestFonts::Only(fonts) => arvane_text::TextEngine::isolated(fonts),
+        TestFonts::System => Ok(arvane_text::TextEngine::new()),
     }
     .map_err(|e| HostError::new(e.to_string()))?;
     let mut host = crate::host::new(
@@ -194,7 +193,7 @@ fn virtual_options(options: &TestHostOptions) -> VirtualOptions {
         scale: options.scale,
         frame_period_ns: options.frame_period_ns,
         reduced_motion: options.reduced_motion,
-        dark: options.theme == ThemeHint::Dark,
+        dark: options.theme == ThemeMode::Dark,
         locale: options.locale.clone(),
         mirror: options.mirror,
         gpu: options.gpu,
@@ -223,7 +222,7 @@ fn renderer_observer(
                 RendererChange::Cpu { reason } => Observed::GpuFailed(reason.clone()),
                 RendererChange::ExternalFrameMissed { .. }
                 | RendererChange::ShaderFailed { .. }
-                | RendererChange::LimitExceeded { .. } => return,
+                | RendererChange::GpuLimit => return,
             };
             observed.borrow_mut().insert(window, state);
         },
@@ -237,13 +236,17 @@ fn start_shell(
     shared: SharedHost,
     observer: Option<arvane::Observer>,
 ) -> Result<SteppedShell, ShellError> {
-    Shell::start_stepped(
+    let gpu = if options.gpu == GpuMode::Required {
+        options.gpu_preference
+    } else {
+        kivact_types::GpuPreference {
+            start: kivact_types::gpu::GpuStart::Never,
+            ..options.gpu_preference
+        }
+    };
+    arvane::start_stepped(
         Box::new(backend),
-        ShellSetup {
-            prefer_gpu: options.gpu == GpuMode::Required,
-            gpu_preference: options.gpu_preference,
-            observer,
-        },
+        arvane::DriverOptions { gpu, observer },
         shared,
     )
 }
@@ -434,11 +437,36 @@ impl ArvaneTestHost {
 
     /// The work counts of the last frame presented by window `window`, or
     /// `None` while the host has not started or the window has presented none.
-    pub fn frame_stats(&self, window: WindowId) -> Option<kivact_types::render::FrameStats> {
+    pub fn frame_stats(&self, window: WindowId) -> Option<kivact_types::export::FrameStats> {
         match &*self.host.borrow() {
-            Launch::Running(host) => host.windows.get(&window).and_then(|w| w.last_stats),
+            Launch::Running(host) => host.app.borrow().host(window).and_then(|w| w.last_stats),
             _ => None,
         }
+    }
+
+    /// The content versions of window `window`'s layers in its last frame, by key.
+    pub fn layer_versions(&self, window: WindowId) -> Vec<(arvane_protocol::LayerKey, u64)> {
+        self.with_window(window, |model| model.paint.layer_versions())
+            .unwrap_or_default()
+    }
+
+    /// The sizes of window `window`'s paint list and draw cache after its last frame.
+    pub fn paint_list_sizes(&self, window: WindowId) -> crate::paint::state::PaintListSizes {
+        self.with_window(window, |model| model.paint.list_sizes())
+            .unwrap_or_default()
+    }
+
+    /// Leave `node`'s kept drawing in place when a change marks it for a
+    /// redraw (`None`: leave none): an injected fault the debug check of
+    /// kept drawings must catch.
+    pub fn keep_stale_draw(&self, node: Option<NodeId>) {
+        crate::paint::state::set_keep_stale_draw(node);
+    }
+
+    /// Leave `node` out of the hit test's candidates (`None`: leave none
+    /// out): an injected fault the self-check's reference walk must catch.
+    pub fn drop_hit_candidate(&self, node: Option<NodeId>) {
+        crate::paint::state::set_drop_hit_candidate(node);
     }
 
     /// Make window `window`'s GPU device lost, as a device failure does (a test
@@ -554,10 +582,10 @@ impl ArvaneTestHost {
         self.step(Step::Input);
     }
 
-    pub fn set_theme(&mut self, window: WindowId, theme: ThemeHint) {
+    pub fn set_theme(&mut self, window: WindowId, theme: ThemeMode) {
         self.script
             .window(window)
-            .set_dark(theme == ThemeHint::Dark);
+            .set_dark(theme == ThemeMode::Dark);
         self.step(Step::Input);
     }
 
@@ -585,7 +613,7 @@ impl ArvaneTestHost {
 
     /// Change window `window`'s safe area, as a phone's system UI does
     /// (`EnvChanged` when it changed).
-    pub fn set_safe_area(&mut self, window: WindowId, insets: Insets) {
+    pub fn set_safe_area(&mut self, window: WindowId, insets: Edges<f64>) {
         self.script.window(window).set_safe_area(insets);
         self.step(Step::Input);
     }
@@ -620,7 +648,7 @@ impl ArvaneTestHost {
         let none = self
             .probe
             .window(main)
-            .is_some_and(|probe| probe.surface_generation().is_none());
+            .is_some_and(|probe| probe.drawable() == arvane_shell::Drawable::NoSurface);
         if none {
             self.script.window(main).create_surface();
             self.step(Step::Input);
@@ -633,11 +661,9 @@ impl ArvaneTestHost {
         self.send(WindowId::MAIN, ShellEvent::MemoryWarning);
     }
 
-    /// The generation of window `window`'s surface (`None`: it has none).
-    pub fn surface_generation(&self, window: WindowId) -> Option<u64> {
-        self.probe
-            .window(window)
-            .and_then(|probe| probe.surface_generation())
+    /// Whether window `window` can show a frame now (`None`: it is not open).
+    pub fn drawable(&self, window: WindowId) -> Option<arvane_shell::Drawable> {
+        self.probe.window(window).map(|probe| probe.drawable())
     }
 
     /// The user asks to close window `window` (`CloseRequested`).
@@ -839,8 +865,8 @@ impl ArvaneTestHost {
 
     /// The layout defects of the texts and text inputs in the subtree of
     /// `scope` of window `window` (the whole tree without one), in tree
-    /// order, with the glyphs' ink as the vertical extent of a line. Nothing
-    /// is changed or sent.
+    /// order, with each line's line box as its vertical extent. Nothing is
+    /// changed or sent.
     pub fn layout_findings(
         &self,
         window: WindowId,
@@ -854,7 +880,7 @@ impl ArvaneTestHost {
             return Vec::new();
         };
         let mut engine = host.engine.borrow_mut();
-        crate::check::layout_findings(model, &mut engine, check, scope, true)
+        crate::check::layout_findings(model, &mut engine, check, scope)
     }
 
     /// The kind of node `id`.
@@ -906,7 +932,7 @@ impl ArvaneTestHost {
                 .focused_input()
                 .and_then(|i| model.node(i))
                 .and_then(|n| {
-                    model.editors[n.index.0]
+                    model.slots.editors[n.index.0]
                         .as_deref()
                         .map(|editor| editor.editor.state())
                 })
@@ -923,7 +949,7 @@ impl ArvaneTestHost {
             .host()
             .engine
             .borrow_mut()
-            .has_font_family(family)
+            .has_family(family)
     }
 
     /// The title the App set for window `window`.

@@ -6,10 +6,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use arvane_protocol::{LayerKey, PixelRect};
 use kivact_types::AssetBytes;
 use kivact_types::geometry::Rect;
-use kivact_types::render::GlyphRunSnapshot;
-use kivact_types::render::{LayerKey, PixelRect};
+use kivact_types::shaped::GlyphRunSnapshot;
 
 /// What a chunk of a layer holds (the key's second half).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -111,6 +111,8 @@ pub(crate) struct ChunkRecord {
     pub(crate) size: (u32, u32),
     /// Per command: its index entry.
     pub(crate) index: Arc<[Indexed]>,
+    /// The layer's content version the chunk was rastered at (content chunks only).
+    pub(crate) version: Option<u64>,
     /// The frame that last used the record.
     pub(crate) frame: u64,
     /// Allocations the index hashes by address.

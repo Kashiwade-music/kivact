@@ -20,7 +20,8 @@ rotation about x or y only squashes the element. Give the parent a
 ```rust,no_run
 use kivact::prelude::*;
 
-fn tilted_card() -> impl IntoView {
+#[component]
+fn tilted_card() -> impl Element {
     let angle = signal(0.0_f64);
 
     column((
@@ -30,8 +31,8 @@ fn tilted_card() -> impl IntoView {
                 style()
                     .size(200, 120)
                     .padding(16)
-                    .radius(12)
-                    .background(ColorToken::Surface)
+                    .border_radius(12)
+                    .background(color::SURFACE)
                     .rotate_x(20.0)
                     .rotate_y(angle.get())
             }),
@@ -49,7 +50,7 @@ fn tilted_card() -> impl IntoView {
   box. The default is its centre.
 - `transform_origin(x, y)` moves the point the element turns about. The
   default is its centre. `transform_origin_z` sets its depth.
-- To write a transform as one value, use `kivact::draw::Transform` with
+- To write a transform as one value, use `kivact::style::Transform` with
   `style().transform(..)`, for example
   `Transform::new().perspective(800.0).rotate_y(angle)`. The functions apply in
   the order you write them, as in CSS. `matrix_3d` accepts a 4×4 matrix whose
@@ -66,8 +67,10 @@ their own depth and rotation relative to the container.
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::{BackfaceVisibility, TransformStyle};
+use kivact::motion::{Spring, Transition, animated};
 
-fn flip_card() -> impl IntoView {
+#[component]
+fn flip_card() -> impl Element {
     let flipped = signal(false);
     let turn = animated(
         move || if flipped.get() { 180.0_f64 } else { 0.0 },
@@ -78,14 +81,14 @@ fn flip_card() -> impl IntoView {
         style()
             .size(200, 120)
             .padding(16)
-            .background(ColorToken::Accent)
+            .background(color::ACCENT)
             .backface_visibility(BackfaceVisibility::Hidden),
     );
     let back = column(text("Back")).style(
         style()
             .size(200, 120)
             .padding(16)
-            .background(ColorToken::Surface)
+            .background(color::SURFACE)
             .backface_visibility(BackfaceVisibility::Hidden)
             .rotate_y(180.0),
     );
@@ -135,8 +138,10 @@ changes direction.
 use kivact::platform::window_size;
 use kivact::prelude::*;
 use kivact::view::pointer_position;
+use kivact::motion::{Spring, Transition, animated};
 
-fn tilt_card() -> impl IntoView {
+#[component]
+fn tilt_card() -> impl Element {
     let pointer = pointer_position();
     let window = window_size();
 
@@ -159,8 +164,8 @@ fn tilt_card() -> impl IntoView {
                 let a = aim.get();
                 style()
                     .padding(24)
-                    .radius(16)
-                    .background(ColorToken::Surface)
+                    .border_radius(16)
+                    .background(color::SURFACE)
                     .rotate_x(-a.y * 12.0)
                     .rotate_y(a.x * 12.0)
                     .translate_z(20.0)
@@ -201,4 +206,4 @@ fn tilt_card() -> impl IntoView {
 - [Animate values and elements](animation.md): springs, transitions and `animated`.
 - [Draw with a canvas](canvas.md): 3D layers inside a canvas.
 - [Use effects](effects.md): filters, masks and blending on the same elements.
-- API reference: `cargo doc -p kivact --open`, then `kivact::style` and `kivact::draw::Transform`.
+- API reference: `cargo doc -p kivact --open`, then `kivact::style` and `kivact::style::Transform`.

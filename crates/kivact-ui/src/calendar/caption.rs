@@ -1,6 +1,6 @@
 //! Role: Locale-backed month names and calendar caption controls.
 use super::state::Shared;
-use crate::calendar_values::CalendarCaption;
+use crate::calendar::CalendarCaption;
 use kivact_core::i18n::{CalendarMonth, NameWidth, Weekday, message, use_locale};
 use kivact_core::state::{Value, binding, memo};
 use kivact_core::view::{IntoView, View, row, text};
@@ -79,8 +79,8 @@ pub(super) fn title(
                 },
             );
             row((
-                crate::select(message("calendar.month", "Month"), months, selected_month),
-                crate::select(message("calendar.year", "Year"), years, selected_year),
+                crate::select(months, selected_month).label(message("calendar.month", "Month")),
+                crate::select(years, selected_year).label(message("calendar.year", "Year")),
             ))
             .into_view()
         }

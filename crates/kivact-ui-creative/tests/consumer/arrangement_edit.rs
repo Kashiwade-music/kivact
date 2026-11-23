@@ -1,11 +1,9 @@
 //! Role: Arrangement edits transact exactly the model fields they own.
 use crate::arrangement_model;
 use crate::arrangement_model::arrangement as app_arrangement;
-use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::view::EditPhase;
-use kivact::view::{Modifiers, MouseButton};
+use kivact::view::{EditPhase, Modifiers};
 use kivact_ui_creative as ui;
 
 #[derive(Clone, Copy)]
@@ -16,7 +14,7 @@ struct Model {
     frame: Signal<f64>,
     range: Signal<(f64, f64)>,
     cycling: Signal<bool>,
-    transform: Signal<kivact::interaction::ViewTransform>,
+    transform: Signal<kivact::interaction::ZoomPan>,
     tool: Signal<ui::TimelineTool>,
     phases: Signal<Vec<EditPhase>>,
     observed: Signal<Vec<(EditPhase, f64)>>,
@@ -43,7 +41,7 @@ fn fixture() -> (Screen, Model) {
             frame: signal(0.0),
             range: signal((0.0, 16.0)),
             cycling: signal(true),
-            transform: signal(kivact::interaction::ViewTransform {
+            transform: signal(kivact::interaction::ZoomPan {
                 scale: 26.0,
                 ..Default::default()
             }),
@@ -62,12 +60,12 @@ fn fixture() -> (Screen, Model) {
                         m.clips,
                         m.tracks,
                         ui::ArrangementState {
-                            selection: m.selected.into_binding(),
-                            playhead: m.frame.into_binding(),
-                            loop_range: m.range.into_binding(),
-                            cycling: m.cycling.into_binding(),
-                            transform: m.transform.into_binding(),
-                            tool: m.tool.into_binding(),
+                            selection: m.selected,
+                            playhead: m.frame,
+                            loop_range: m.range,
+                            cycling: m.cycling,
+                            transform: m.transform,
+                            tool: m.tool,
                         },
                     )
                     .on_edit(arrangement_model::edits(m.clips, m.tracks, move |phase| {
@@ -140,7 +138,7 @@ fn arrow_keys_move_selected_clips_by_the_step_and_shift_by_ten_steps() {
                     rgb(0x34d399),
                 )]),
                 ui::ArrangementState {
-                    selection: (signal(vec![1])).into_binding(),
+                    selection: (signal(vec![1])),
                     ..ui::ArrangementState::new()
                 },
             )

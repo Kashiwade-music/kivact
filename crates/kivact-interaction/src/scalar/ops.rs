@@ -3,7 +3,7 @@
 use crate::options_cell::OptionsCell;
 use crate::policy::scalar::{ScalarRange, ScalarStep};
 use crate::policy::scalar_mapping::ScalarMapping;
-use kivact_core::state::{Binding, Value};
+use kivact_core::state::{Signal, Value};
 use kivact_core::view::{A11yEvent, A11yRequest, Key};
 
 /// What one key press does to the value.
@@ -17,7 +17,7 @@ pub(crate) enum KeyOp {
 /// shares (a slider thumb, a number field, a splitter).
 #[derive(Clone, Copy)]
 pub(crate) struct ScalarOps {
-    pub(crate) binding: Binding<f64>,
+    pub(crate) binding: Signal<f64>,
     pub(crate) range: Value<ScalarRange>,
     pub(crate) mapping: OptionsCell<ScalarMapping>,
 }
@@ -25,7 +25,7 @@ pub(crate) struct ScalarOps {
 impl ScalarOps {
     /// A scalar with the linear mapping. Setup only.
     #[track_caller]
-    pub(crate) fn new(binding: Binding<f64>, range: Value<ScalarRange>) -> Self {
+    pub(crate) fn new(binding: Signal<f64>, range: Value<ScalarRange>) -> Self {
         Self {
             binding,
             range,

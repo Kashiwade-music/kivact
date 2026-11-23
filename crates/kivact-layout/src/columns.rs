@@ -1,11 +1,13 @@
 //! Role: Per-node layout columns: results, measure records, cursors and geometry changes.
 
-use crate::LayoutTree;
 use crate::calcs::{CalcAlloc, Calcs};
 use crate::pass_state::Epoch;
 use crate::style::node::NodeStyle;
+use crate::{LayoutTree, LeafMeasurer};
 use kivact_types::cell::Recent;
-use kivact_types::{Baseline, Insets, LeafSize, MeasureRequest, Orientation, Point, Rect, Size};
+use kivact_types::{
+    Baseline, Edges, LeafSize, MeasureRequest, NodeId, Orientation, Point, Rect, Size,
+};
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
@@ -24,11 +26,11 @@ pub struct NodeLayout {
     /// The content box (inside border and padding), relative to the node.
     pub content_box: Rect,
     /// Padding between the border and the content box.
-    pub padding: Insets,
+    pub padding: Edges<f64>,
     /// Border widths around the padding box.
-    pub border: Insets,
+    pub border: Edges<f64>,
     /// Margins outside the border box.
-    pub margin: Insets,
+    pub margin: Edges<f64>,
 }
 
 /// A measure request as the layout pass asks it: taffy's f32 values as
@@ -128,7 +130,8 @@ impl Measured {
 /// covers every request the last computation made (see
 /// [`NodeLayoutColumns::remeasures_same`]). An edit that invalidates the leaf's layout
 /// clears it; nothing else measures a leaf again, frame after frame.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub(crate) struct Record {
     pub(crate) sizes: Vec<(Ask, Measured)>,
     pub(crate) state: RecordState,
@@ -143,7 +146,8 @@ pub(crate) enum RecordState {
 }
 
 /// A disposable filtered index cursor (`None`: never counted); never owns links or child IDs.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub(crate) struct ChildCursor(Cell<Option<Counted>>);
 
 /// Which children of a counted node are in flow, as counted at its epoch.
@@ -205,13 +209,15 @@ impl ChildCursor {
     }
 
     /// Forget the count: the next read counts again.
+    #[cfg(any(test, feature = "reference"))]
     pub(crate) fn forget(&self) {
         self.0.set(None);
     }
 }
 
 /// Derived per-slot measurement records and calc ownership; never authoritative props.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub(crate) struct NodeLayoutState {
     pub(crate) calcs: Vec<u32>,
     pub(crate) measured: Record,
@@ -222,7 +228,8 @@ pub(crate) type SlotMap<V> =
     std::collections::HashMap<u64, V, std::hash::BuildHasherDefault<kivact_types::IdHasher>>;
 
 /// Style, caches and optional geometry borrowed for one root computation.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub(crate) struct NodeLayoutValues {
     /// The style of each slot; slots with equal styles share one `Rc` (`recent_styles`).
     pub(crate) styles: Vec<Rc<NodeStyle>>,
@@ -237,7 +244,8 @@ pub(crate) struct NodeLayoutValues {
     pub(crate) relative: Vec<bool>,
     pub(crate) presence_scale: Vec<Option<(Orientation, f64)>>,
     pub(crate) natural_size: Vec<Option<taffy::Size<f32>>>,
-    pub(crate) caches: Vec<taffy::Cache>,
+    /// The taffy cache of each slot, made when a pass first stores into it.
+    pub(crate) caches: Vec<Option<Box<taffy::Cache>>>,
     pub(crate) unrounded: Vec<taffy::Layout>,
     pub(crate) final_layout: Vec<Option<taffy::Layout>>,
     /// Rounded geometry changes awaiting consumption by the integration.
@@ -263,6 +271,10 @@ pub(crate) struct NodeLayoutValues {
     /// a cached ancestor still needs a final layout (`finish_rounding` rounds it
     /// from its nearest rounded ancestor).
     pub(crate) never_rounded: BTreeSet<usize>,
+    /// The track geometry of each grid container (`position + 1`) that has an
+    /// absolute child, from its last full layout: the out-of-flow pass places
+    /// that child by its grid lines (`tree::root`). Other slots have no entry.
+    pub(crate) grid_infos: BTreeMap<usize, taffy::DetailedLayoutInfo<String>>,
 }
 
 impl Default for NodeLayoutValues {
@@ -275,7 +287,7 @@ impl Default for NodeLayoutValues {
             relative: vec![false],
             presence_scale: vec![None],
             natural_size: vec![None],
-            caches: vec![taffy::Cache::new()],
+            caches: vec![None],
             unrounded: vec![taffy::Layout::new()],
             final_layout: vec![None],
             geometry_changed: Vec::new(),
@@ -285,6 +297,7 @@ impl Default for NodeLayoutValues {
             origin: vec![None],
             scaled: BTreeSet::new(),
             never_rounded: BTreeSet::new(),
+            grid_infos: BTreeMap::new(),
         }
     }
 }
@@ -300,14 +313,15 @@ impl Default for NodeLayoutValues {
 /// are laid out in. There is no layout-only id table, no copy of the
 /// links and no replay of layout operations.
 ///
-/// Each instance belongs to one structural slot-allocation domain. Allocate a
-/// column slot when the matching tree slot is created; reset it before removal,
-/// replacement or reuse. All tree-taking operations require that same domain:
+/// Each instance belongs to one structural slot-allocation domain. Columns grow
+/// to the tree's slot count when a computation reads them (`ensure`); a freed
+/// slot is forgotten (`forget`). All tree-taking operations require that same domain:
 /// a live identity must resolve to the slot whose derived state is held here.
 /// Clone columns together with their tree/state to obtain an independent domain
 /// with the same mapping; unrelated trees or reordered slot allocations are not
 /// interchangeable. Slots in this API are zero-based, excluding the viewport.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub(crate) struct NodeLayoutColumns {
     pub(crate) cursors: Vec<ChildCursor>,
     pub(crate) states: Vec<NodeLayoutState>,
@@ -345,11 +359,16 @@ impl NodeLayoutColumns {
 }
 
 impl NodeLayoutColumns {
+    /// Grow every column to hold `slots` structural slots (plus the viewport).
+    pub(crate) fn ensure(&mut self, slots: usize) {
+        while self.states.len() < slots + 1 {
+            self.push_slot();
+        }
+    }
+
     /// Append one fresh structural node slot to every derived column.
     /// Default columns already contain the synthetic viewport at slot zero.
-    /// The new slot must match the next newly allocated slot of this instance's
-    /// tree domain; reusing an existing reset slot does not append columns.
-    pub(crate) fn push(&mut self) {
+    pub(crate) fn push_slot(&mut self) {
         let index = self.states.len();
         self.cursors.push(ChildCursor::default());
         self.states.push(NodeLayoutState::default());
@@ -358,7 +377,7 @@ impl NodeLayoutColumns {
         values.relative.push(false);
         values.presence_scale.push(None);
         values.natural_size.push(None);
-        values.caches.push(taffy::Cache::new());
+        values.caches.push(None);
         values.unrounded.push(taffy::Layout::new());
         values.final_layout.push(None);
         values.touched.push(0);
@@ -367,11 +386,15 @@ impl NodeLayoutColumns {
         values.never_rounded.insert(index);
     }
 
-    /// Release calcs and reset every derived component before a slot is reused.
-    /// `slot` must be a zero-based allocated slot in this instance's domain,
-    /// still owned by the node being removed or replaced. Reset before publishing
-    /// its availability for reuse; reset does not change authoritative links.
-    pub(crate) fn reset(&mut self, slot: usize) {
+    /// Release calcs and reset every derived component of a freed slot.
+    /// `slot` must be a zero-based slot in this instance's domain, still owned
+    /// by the node being removed or replaced; a slot the columns never grew to
+    /// holds nothing. Forget before publishing the slot for reuse; forgetting
+    /// does not change authoritative links.
+    pub(crate) fn forget(&mut self, slot: usize) {
+        if slot + 1 >= self.states.len() {
+            return;
+        }
         let index = slot + 1;
         self.calcs
             .free
@@ -383,7 +406,7 @@ impl NodeLayoutColumns {
         values.relative[index] = false;
         values.presence_scale[index] = None;
         values.natural_size[index] = None;
-        values.caches[index] = taffy::Cache::new();
+        values.caches[index] = None;
         values.unrounded[index] = taffy::Layout::new();
         values.final_layout[index] = None;
         values.performed.remove(&(index as u64));
@@ -391,7 +414,25 @@ impl NodeLayoutColumns {
         values.below[index] = 0;
         values.origin[index] = None;
         values.scaled.remove(&index);
+        values.grid_infos.remove(&index);
         values.never_rounded.insert(index);
+    }
+
+    /// Revalidate every recorded request only when the record is complete.
+    /// No result is copied back.
+    /// `slot` must be live and allocated in this instance's domain, and `id` must
+    /// identify that same node. The measurer must describe its current content.
+    pub(crate) fn remeasures_same(
+        &self,
+        slot: usize,
+        id: NodeId,
+        measure: &mut dyn LeafMeasurer,
+    ) -> bool {
+        let record = &self.states[slot + 1].measured;
+        record.state == RecordState::Complete
+            && record.sizes.iter().all(|(ask, retained)| {
+                Measured::of(&measure.measure(id, ask.request())) == *retained
+            })
     }
 }
 
@@ -469,7 +510,7 @@ fn scaled_dimension(
     match value.tag() {
         CompactLength::LENGTH_TAG => taffy::Dimension::length(value.value() * scale as f32),
         CompactLength::PERCENT_TAG => taffy::Dimension::percent(value.value() * scale as f32),
-        CompactLength::CALC_TAG => taffy::Dimension::calc(scaled_calc(
+        _ if value.into_raw().is_plain_calc() => taffy::Dimension::calc(scaled_calc(
             value.into_raw().calc_value(),
             scale,
             calcs,
@@ -493,7 +534,7 @@ fn scaled_length(
         CompactLength::PERCENT_TAG => {
             taffy::LengthPercentageAuto::percent(value.into_raw().value() * scale as f32)
         }
-        CompactLength::CALC_TAG => taffy::LengthPercentageAuto::calc(scaled_calc(
+        _ if value.into_raw().is_plain_calc() => taffy::LengthPercentageAuto::calc(scaled_calc(
             value.into_raw().calc_value(),
             scale,
             calcs,

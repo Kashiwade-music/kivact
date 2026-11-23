@@ -15,12 +15,11 @@ const TREE_LABEL: &str = "Element tree";
 /// The accessible name of the owner tree.
 const OWNERS_LABEL: &str = "Owners";
 
+// xtask-allow(state): independent: owners_on (the Owners checkbox) picks the tree shown; layout (the layout toggle) drives the highlight overlay of the details pane, which both trees share
 /// The element tree, the owner tree, the details and their actions.
 pub(crate) fn view(session: Session) -> impl IntoView {
     let sizes = signal(vec![0.38, 0.62]);
-    // xtask-allow(state-fields): independent: set only by the Owners checkbox; it swaps the element tree for the owner tree while the details pane and its layout overlay checkbox stay shown, so it pairs with either overlay value
     let owners_on = signal(false);
-    // xtask-allow(state-fields): independent: set only through layout_toggle by the details pane's layout overlay checkbox, which is shown under either tree, so it pairs with either value of owners_on
     let layout = signal(false);
     let layout_toggle = binding(
         move || layout.get(),
@@ -62,7 +61,7 @@ fn actions(session: Session, owners_on: Signal<bool>) -> impl IntoView {
 }
 
 /// The virtualized element tree, or a spinner while the tree loads.
-fn element_tree(session: Session, layout: Binding<bool>) -> impl IntoView {
+fn element_tree(session: Session, layout: Signal<bool>) -> impl IntoView {
     let nodes = memo(move || session.inspected.with(tree_nodes));
     show(
         move || {
@@ -85,7 +84,7 @@ fn element_tree(session: Session, layout: Binding<bool>) -> impl IntoView {
 }
 
 /// The selection binding of the element tree: inspect, then highlight.
-fn selection(session: Session, layout: Binding<bool>) -> Binding<Option<p::NodeId>> {
+fn selection(session: Session, layout: Signal<bool>) -> Signal<Option<p::NodeId>> {
     binding(
         move || session.inspected.with(Inspected::selected),
         move |id: Option<p::NodeId>| {

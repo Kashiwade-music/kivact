@@ -33,6 +33,7 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_basic as basic;
 
+#[component]
 fn root() -> impl IntoView {
     let dark = signal(false);
     kivact::style::provide_theme(
@@ -43,15 +44,15 @@ fn root() -> impl IntoView {
             column((
                 switch("Dark mode", dark),
                 button("Save"),
-                text_input("Name", signal(String::from("Ada"))),
+                text_input(signal(String::from("Ada"))).label("Name"),
             ))
             .style(
                 style()
                     .size(pct(100), pct(100))
                     .padding(24)
                     .gap(12)
-                    .background(basic::ColorName::Background)
-                    .color(basic::ColorName::Foreground),
+                    .background(basic::BACKGROUND)
+                    .color(basic::FOREGROUND),
             )
         },
     )
@@ -69,30 +70,20 @@ fn main() -> kivact::Result<()> {
 
 ## Choose the fonts
 
-The kit does not ship fonts. It is sized for Inter and asks for `Geist Mono` in code blocks and inline code. Register the files with `App::font` and name the text family in the theme:
+The kit does not ship fonts. It is sized for Inter and asks for `Geist Mono` in code blocks and inline code. Name the text family in the theme with `font::FAMILY_VAR`, and register the files with `Theme::with_fonts`:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::theme::Typography;
-use kivact::style::{Theme, ThemeMode};
+use kivact::style::{FontFamily, Theme, ThemeMode, font};
 use kivact_ui_basic as basic;
 
 fn theme(mode: ThemeMode) -> Theme {
-    let theme = basic::theme(mode);
-    let text = Typography {
-        // Add a CJK family after Inter when the app shows Japanese, Chinese or Korean.
-        family: Some("Inter, 'Noto Sans JP', sans-serif".into()),
-        ..theme.text().clone()
-    };
-    theme.with_text(text)
+    // Add a CJK family after Inter when the app shows Japanese, Chinese or Korean.
+    basic::theme(mode).set(&font::FAMILY_VAR, FontFamily::from("Inter, 'Noto Sans JP', sans-serif"))
 }
 
 fn app(fonts: &[&'static [u8]]) -> App {
-    let mut app = App::new("Basic").theme(theme(ThemeMode::Light));
-    for &font in fonts {
-        app = app.font(font);
-    }
-    app
+    App::new("Basic").theme(theme(ThemeMode::Light).with_fonts(fonts.iter().copied()))
 }
 ```
 
@@ -118,41 +109,43 @@ fn main() -> kivact::Result<()> {
 
 ## Use the kit's colors in your own styles
 
-`basic::ColorName` names a color of the palette (`Background`, `Foreground`, `Card`, `Primary`, `Secondary`, `Muted`, `MutedForeground`, `Accent`, `Destructive`, `Border`, `Input`, `Ring`, `Chart1` to `Chart5`, the `Sidebar` colors and the `Code` syntax colors). Every style method that takes a color accepts it, and it is resolved from the theme in effect when the node is drawn, so it follows a theme switch:
+The kit's colors are constants of `kivact_ui_basic`: `basic::BACKGROUND`, `FOREGROUND`, `CARD`, `CARD_FOREGROUND`, `POPOVER`, `PRIMARY`, `PRIMARY_FOREGROUND`, `SECONDARY`, `MUTED`, `MUTED_FOREGROUND`, `ACCENT`, `DESTRUCTIVE`, `BORDER`, `INPUT`, `RING`, `CHART_1` to `CHART_5`, and the `SIDEBAR_*` colors. Each one is a theme variable. Every style method that takes a color accepts it, and it is resolved from the theme in effect when the node is drawn, so it follows a theme switch:
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn banner() -> impl IntoView {
+#[component]
+fn banner() -> impl Element {
     text("Heads up").style(
         style()
             .padding(12)
-            .background(basic::ColorName::Muted)
-            .color(basic::ColorName::MutedForeground)
-            .border(1, basic::ColorName::Border),
+            .background(basic::MUTED)
+            .color(basic::MUTED_FOREGROUND)
+            .border(1, basic::BORDER),
     )
 }
 ```
 
-To compute a new color from a token (a translucent primary, say), read `basic::Tokens` inside a style closure. The closure runs again when the theme changes:
+To compute a new color from a theme color (a translucent primary, say), read the variable from the theme inside a style closure. The closure runs again when the theme changes:
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::use_theme;
 use kivact_ui_basic as basic;
 
-fn tinted() -> impl IntoView {
+#[component]
+fn tinted() -> impl Element {
     text("Tinted").style(|| {
-        let tokens = use_theme().get().ext::<basic::Tokens>();
-        style().padding(12).background(tokens.primary.with_alpha(0.1))
+        let primary = use_theme().get().get(&basic::PRIMARY_VAR);
+        style().padding(12).background(primary.with_alpha(0.1))
     })
 }
 ```
 
 ## Change the colors
 
-`basic::Tokens::new(mode)` returns the palette as plain fields. Change the ones you want and install the value with `Theme::with`:
+Each color is a variable, so you change one with `Theme::set` on the theme the kit returns. Set the variable, and every component and style that reads it follows:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -160,11 +153,10 @@ use kivact::style::{Theme, ThemeMode, rgb};
 use kivact_ui_basic as basic;
 
 fn blue_theme(mode: ThemeMode) -> Theme {
-    let mut tokens = basic::Tokens::new(mode);
-    tokens.primary = rgb(0x2563eb);
-    tokens.primary_foreground = rgb(0xffffff);
-    tokens.ring = rgb(0x93c5fd);
-    basic::theme(mode).with(tokens)
+    basic::theme(mode)
+        .set(&basic::PRIMARY_VAR, rgb(0x2563eb))
+        .set(&basic::PRIMARY_FOREGROUND_VAR, rgb(0xffffff))
+        .set(&basic::RING_VAR, rgb(0x93c5fd))
 }
 
 fn main() -> kivact::Result<()> {
@@ -174,32 +166,29 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-Tokens exist for each mode, so build a customized palette for both when the app can switch. A few things to know:
+A few things to know:
 
-- The fields mirror shadcn/ui's CSS variables: `background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`, `chart` (five colors), the `sidebar_*` colors and `code` (the syntax colors of code blocks).
-- A color you change reaches the standard components too, because their recipes read the tokens of the theme in effect.
-- `basic::theme` also copies a few tokens into the core palette (page, text, accent, border, focus, danger). A component from outside the kit, such as one from another library, reads that palette. If you need them to agree with a changed token, also pass the palette to `Theme::with_colors`.
+- The variables mirror shadcn/ui's CSS variables: `BACKGROUND`, `FOREGROUND`, `CARD`, `POPOVER`, `PRIMARY`, `SECONDARY`, `MUTED`, `ACCENT`, `DESTRUCTIVE`, `BORDER`, `INPUT`, `RING`, `CHART_1` to `CHART_5`, the `SIDEBAR_*` colors and the other colors of the kit. Each has a `_VAR` static for `set` and `get`.
+- Set light and dark values separately when the app can switch: build the theme for each mode, as `blue_theme` does for the mode it is given.
+- A color you change reaches the standard components too, because their recipes read the variables of the theme in effect.
+- The kit sets the core color variables of `kivact::style::color` (`ACCENT`, `TEXT`, `BORDER`, `FOCUS`, `DANGER`, and so on) from its own colors, so a component from outside the kit follows the kit. To change one core color on its own, `set` its core variable after `basic::theme`, such as `.set(&color::FOCUS_VAR, rgb(0x2563eb))`.
 
 ## Adjust how one standard component is drawn
 
-A recipe is the function that turns a component's state into a style. To change how all buttons look, take the kit's `UiRecipes` out of the theme, replace the recipe with a function that calls the current one and adds to it, and install the table again:
+A recipe is the rule that turns a component's state into a style. To change how every button looks, install a `ButtonTheme` part in the theme. Its `root` closure receives the style the kit draws and returns the changed style, so you keep everything else the kit does (variants, sizes, hover and focus looks):
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::{Theme, ThemeMode};
-use kivact::ui::{ButtonState, Look, UiRecipes};
+use kivact::ui::theme::ButtonTheme;
 use kivact_ui_basic as basic;
 
 fn rounded_buttons(mode: ThemeMode) -> Theme {
-    let theme = basic::theme(mode);
-    let recipes = (*theme.ext::<UiRecipes>()).clone().button(|current| {
-        move |theme: &Theme, look: &Look<ButtonState>| current(theme, look).radius(8)
-    });
-    theme.with(recipes)
+    basic::theme(mode).with(ButtonTheme::default().root(|_theme, _look, base| base.border_radius(8)))
 }
 ```
 
-The replacement receives the current recipe, so you keep everything else the kit does (variants, sizes, hover and focus looks). For a single instance, skip recipes and pass `.style(..)`: a caller's style always wins over the kit's defaults, on standard components and on the kit's own builders alike.
+For a single instance, skip the theme and pass `.style(..)`: a caller's style always wins over the kit's defaults, on standard components and on the kit's own builders alike.
 
 ## Use the icons
 
@@ -209,7 +198,8 @@ Every Lucide icon of `basic::ICON_NAMES` (about 125 names such as `check`, `sear
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
-fn toolbar() -> impl IntoView {
+#[component]
+fn toolbar() -> impl Element {
     assert!(basic::ICON_NAMES.contains(&"settings"));
     row((
         button("Download").icon(icon("download")),
@@ -221,8 +211,8 @@ fn toolbar() -> impl IntoView {
 ```
 
 - An icon is 16 px and drawn in the current text color. In a smaller box, such as the icon slot of a small button, it shrinks to fit. To resize one by hand, set a size on it: `icon("info").style(style().size(24, 24))`.
-- Where a component has one slot for one view (`alert(..).with_icon(..)`, `badge(..).with_icon(..)`, `button(..).with_icon(..)`), pass `icon(name)`. Where an item is a record (`ListItem`, `MenuEntry`), pass the name as a string: `MenuEntry::item("save", "Save").with_icon("save")`.
-- An icon is decoration. An icon-only button gets its accessible name from its label, so write `button("Settings").with_icon(..).hide_label(true)` and keep the label.
+- Where a component has one slot for one view (`alert(..).icon(..)`, `badge(..).icon(..)`, `button(..).icon(..)`), pass `icon(name)`. Where an item is a record (`ListItem`, `MenuEntry`), pass the name as a string: `MenuEntry::item("save", "Save").with_icon("save")`.
+- An icon is decoration. An icon-only button gets its accessible name from its label, so write `button("Settings").icon(..).hide_label(true)` and keep the label.
 - A name that is not in the set draws nothing. In a debug build the missing name is reported at the call site, so a typo does not go unnoticed.
 - Add your own icon to the theme with `with_icon`, from SVG bytes (a stroke or fill color in the file is replaced by the text color):
 

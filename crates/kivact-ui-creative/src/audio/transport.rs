@@ -1,22 +1,18 @@
 //! Role: The transport bar: its TransportState and play, stop and position view.
 
+use crate::color::{CANVAS, X};
+use kivact::component;
 use kivact::i18n::message;
-use kivact::state::IntoBinding;
-use kivact::state::IntoValue;
-use kivact::state::{Binding, Callback};
+use kivact::state::{Callback, IntoValue, Signal};
 use kivact::style::{Align, style};
 use kivact::ui::ButtonVariant;
-use kivact::view::{Element, Node, row};
-use kivact::view::{IntoView, Role, View};
+use kivact::view::{Element, Role, row};
 
 /// Playback button state; the application owns its clock.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TransportState {
-    // xtask-allow(state-fields): independent: Play toggles playing and Stop clears it; Record and Cycle leave it
     pub playing: bool,
-    // xtask-allow(state-fields): independent: Record toggles recording; Play, Stop and Cycle leave it
     pub recording: bool,
-    // xtask-allow(state-fields): independent: Cycle toggles cycling; Play, Stop and Record leave it
     pub cycling: bool,
 }
 
@@ -31,72 +27,22 @@ impl Default for TransportState {
 }
 
 /// Playback controls without a clock. The application handles seeking.
-pub struct Transport {
-    root: Node,
-    binding: Binding<TransportState>,
-    to_start: Option<Callback<()>>,
-}
-
-/// Create controls for the application's playback state.
-#[track_caller]
-pub fn transport(binding: impl IntoBinding<TransportState>) -> Transport {
-    Transport {
-        root: row(())
-            .role(Role::Toolbar)
-            .name(message("creative.transport.label", "Transport"))
-            .style(
-                style()
-                    .align_items(Align::Center)
-                    .gap(2)
-                    .padding(3)
-                    .radius(9)
-                    .background(crate::ColorName::Canvas),
-            ),
-        binding: binding.into_binding(),
-        to_start: None,
-    }
-}
-
-impl Transport {
-    /// Report a request to return to the application's start position.
-    pub fn on_to_start(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.to_start = Some(f.into());
-        self
-    }
-}
-
-impl Element for Transport {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for Transport {
-    fn into_view(self) -> View {
-        transport_view(self.root, self.binding, self.to_start).into_view()
-    }
-}
-
-fn transport_view(
-    root: Node,
-    binding: Binding<TransportState>,
-    to_start: Option<Callback<()>>,
-) -> Node {
+///
+/// `on_to_start` reports a request to return to the application's start
+/// position; the start button is shown only when it is set.
+#[component]
+pub fn transport(
+    binding: Signal<TransportState>,
+    on_to_start: Option<Callback<()>>,
+) -> impl Element {
     let state = binding.into_value();
     let modify = move |f: fn(&mut TransportState)| {
         let mut next = state.get_untracked();
         f(&mut next);
         binding.set(next);
     };
-    root.child((
-        to_start.map(|callback| {
-            kivact::ui::button(message("creative.transport.start", "To Start"))
-                .hide_label(true)
-                .icon(kivact::view::icon("start"))
-                .variant(ButtonVariant::Ghost)
-                .on_press(move || callback.call(()))
-        }),
+    row((
+        to_start_button(on_to_start),
         kivact::ui::button(message("creative.transport.stop", "Stop"))
             .hide_label(true)
             .icon(kivact::view::icon("stop"))
@@ -113,7 +59,7 @@ fn transport_view(
             .icon(kivact::view::icon("record"))
             .variant(ButtonVariant::Ghost)
             .with_node(move |node| node.selected(move || state.get().recording))
-            .with_node(move |node| node.style(style().color(crate::ColorName::X)))
+            .with_node(move |node| node.style(style().color(X)))
             .on_press(move || modify(|s| s.recording = !s.recording)),
         kivact::ui::button(message("creative.transport.cycle", "Cycle"))
             .hide_label(true)
@@ -122,4 +68,25 @@ fn transport_view(
             .with_node(move |node| node.selected(move || state.get().cycling))
             .on_press(move || modify(|s| s.cycling = !s.cycling)),
     ))
+    .role(Role::Toolbar)
+    .name(message("creative.transport.label", "Transport"))
+    .style(
+        style()
+            .align_items(Align::Center)
+            .gap(2)
+            .padding(3)
+            .border_radius(9)
+            .background(CANVAS),
+    )
+}
+
+/// The optional start button, first in the transport.
+fn to_start_button(on_to_start: Option<Callback<()>>) -> Option<impl Element> {
+    on_to_start.map(|callback| {
+        kivact::ui::button(message("creative.transport.start", "To Start"))
+            .hide_label(true)
+            .icon(kivact::view::icon("start"))
+            .variant(ButtonVariant::Ghost)
+            .on_press(move || callback.call(()))
+    })
 }

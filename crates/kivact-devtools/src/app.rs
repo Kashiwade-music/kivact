@@ -1,7 +1,6 @@
 //! Role: The root of the DevTools app: theme, connection states and session screen.
 
 use kivact::prelude::*;
-use kivact::style::provide_theme;
 
 use crate::args::Args;
 use crate::connection;
@@ -27,18 +26,7 @@ pub fn view_with(initial: Connection) -> impl IntoView {
 /// Install the theme and follow the connection state.
 fn shell(connection: Signal<Connection>) -> impl IntoView {
     provide_theme(
-        || {
-            let mode = match kivact::platform::theme_hint().get() {
-                kivact::platform::ThemeHint::Dark => ThemeMode::Dark,
-                kivact::platform::ThemeHint::Light => ThemeMode::Light,
-            };
-            let theme = kivact_ui_basic::theme(mode);
-            let text = kivact::style::theme::Typography {
-                family: Some("Inter, sans-serif".into()),
-                ..theme.text().clone()
-            };
-            theme.with_text(text)
-        },
+        || crate::look::theme(kivact::platform::theme_hint().get()),
         move || {
             dynamic(
                 move || connection.get(),
@@ -74,7 +62,7 @@ fn session_view(session: Session) -> impl IntoView {
             move || session.panel.get(),
             move |panel| panel_view(panel, session),
         ))
-        .style(style().grow(1).shrink(1).min_height(0)),
+        .style(style().flex_grow(1).flex_shrink(1).min_height(0)),
         status_bar::view(session),
         popped_windows(session),
     ))
@@ -103,7 +91,6 @@ fn panel_view(panel: Panel, session: Session) -> View {
         Panel::Console => panels::console::view(session).into_view(),
         Panel::Emulation => panels::emulation::view(session).into_view(),
         Panel::Review => panels::review::view(session).into_view(),
-        Panel::Scripts => panels::scripts::view(session).into_view(),
     }
 }
 

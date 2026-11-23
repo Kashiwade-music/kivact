@@ -14,8 +14,13 @@ unicode-segmentation.workspace = true
 kivact-layout = { path = "../kivact-layout", version = "0.1.0" }
 kivact-editing = { path = "../kivact-editing", version = "0.1.0" }
 kivact-types = { path = "../kivact-types", version = "0.1.0" }
+arvane-protocol = { path = "../arvane-protocol", version = "0.1.0" }
 arvane = { path = "../arvane", version = "0.1.0" }
 arvane-shell = { path = "../arvane-shell", version = "0.1.0" }
+arvane-text = { path = "../arvane-text", version = "0.1.0" }
+arvane-asset = { path = "../arvane-asset", version = "0.1.0" }
+arvane-render = { path = "../arvane-render", version = "0.1.0" }
+arvane-compose = { path = "../arvane-compose", version = "0.1.0" }
 # Screenshots of the test driver (feature `testing`).
 png = { workspace = true, optional = true }
 
@@ -23,7 +28,21 @@ png = { workspace = true, optional = true }
 doctest = false
 
 [features]
-testing = ["dep:arvane-virtual", "arvane-virtual/mirror", "dep:png", "arvane-native/test"]
+# The DevTools' layout findings, overlay and pick (kivact-core's devtools).
+devtools = []
+testing =["dep:arvane-virtual", "arvane-virtual/mirror", "dep:png", "arvane-native/test", "arvane/test", "kivact-layout/reference"]
+
+[[test]]
+name = "content_version"
+required-features = ["testing"]
+
+[[test]]
+name = "draw_cache"
+required-features = ["testing"]
+
+[[test]]
+name = "hit_reference"
+required-features = ["testing"]
 
 [[test]]
 name = "host_locale"

@@ -31,33 +31,17 @@ pub(super) fn row<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey
     state: Rc<State<K, C>>,
     key: K,
 ) -> Part<TableRowState> {
+    let membership = state.list.membership();
+    let watch = membership.watch(key.clone());
     let key = var(key);
-    let selected = state.list.selected();
-    let is_selected = memo(move || key.with(|key| selected.with(|s| s.contains(key))));
-    let active = state.active;
-    let is_active = memo(move || {
-        key.with(|key| active.with(|active| active.as_ref().is_some_and(|(row, _)| row == key)))
-    });
+    let active_row = state.active_row;
+    let is_selected = move || key.with(|key| membership.contains(key, watch));
     let input = part(move |input| TableRowState {
         input,
-        selected: is_selected.get(),
-        active: is_active.get(),
+        selected: is_selected(),
+        active: key.with(|key| active_row.is(key)),
     });
     let part_state = input.state();
-    let observed = state.row_states;
-    observed.update(|states| {
-        states.insert(key.get(), part_state);
-    });
-    kivact_core::state::on_cleanup(move || {
-        if observed.try_get_untracked().is_some() {
-            observed.update(|states| {
-                let key = key.get();
-                if states.get(&key) == Some(&part_state) {
-                    states.remove(&key);
-                }
-            });
-        }
-    });
     Part::new(part_state, move |host| {
         let row = host.part(input).role(Role::Row).name(row_name(&state, key));
         if state.focus == TableFocus::None {
@@ -74,9 +58,10 @@ pub(super) fn cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKe
     key: K,
     column: C,
 ) -> Part<TableCellState> {
+    let membership = state.list.membership();
+    let watch = membership.watch(key.clone());
     let id = var((key, column));
-    let selected = state.list.selected();
-    let is_selected = memo(move || id.with(|(key, _)| selected.with(|s| s.contains(key))));
+    let is_selected = move || id.with(|(key, _)| membership.contains(key, watch));
     if !matches!(state.focus, TableFocus::Cells(_)) {
         let role = if state.focus == TableFocus::None {
             Role::Cell
@@ -85,24 +70,21 @@ pub(super) fn cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKe
         };
         let input = part(move |input| TableCellState {
             input,
-            selected: is_selected.get(),
+            selected: is_selected(),
             active: false,
         });
         let part_state = input.state();
-        observe_cell(&state, id, part_state);
         return Part::new(part_state, move |host| host.part(input).role(role));
     }
-    let active = state.active;
-    let is_active = memo(move || id.with(|id| active.with(|active| active.as_ref() == Some(id))));
+    let active_cell = state.active_cell;
     let keys = state.clone();
     let pointers = state.clone();
     let input = part(move |input| TableCellState {
         input,
-        selected: is_selected.get(),
-        active: is_active.get(),
+        selected: is_selected(),
+        active: id.with(|id| active_cell.is(id)),
     });
     let part_state = input.state();
-    observe_cell(&state, id, part_state);
     Part::new(part_state, move |host| {
         host.part(input)
             .role(Role::GridCell)
@@ -252,27 +234,6 @@ fn mount_cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
         let focused = mounted.is_some() && state.owner.focused_node() == mounted;
         if state.roving.remove(&cell, node) && focused {
             state.roving.restore_from.set(mounted);
-        }
-    });
-}
-
-fn observe_cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
-    state: &State<K, C>,
-    id: kivact_core::state::Var<(K, C)>,
-    part_state: kivact_core::state::Value<TableCellState>,
-) {
-    let observed = state.cell_states;
-    observed.update(|states| {
-        states.insert(id.get(), part_state);
-    });
-    kivact_core::state::on_cleanup(move || {
-        if observed.try_get_untracked().is_some() {
-            observed.update(|states| {
-                let key = id.get();
-                if states.get(&key) == Some(&part_state) {
-                    states.remove(&key);
-                }
-            });
         }
     });
 }

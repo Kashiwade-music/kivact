@@ -3,7 +3,7 @@
 //! [`use_button`] is the regular way to make an element a momentary button:
 //! the part adds the role and the focus, and the caller's `on_press` is the
 //! activation. [`use_checkbox`], [`use_switch`] and [`use_toggle_button`]
-//! edit one `Binding<bool>` (react-aria's `useCheckbox`, `useSwitch` and
+//! edit one `Signal<bool>` (react-aria's `useCheckbox`, `useSwitch` and
 //! `useToggleButton`); attaching the control adds the role, `checked`, the
 //! focus, the input and the assistive technology actions. The protocol has
 //! no pressed state, so a toggle button publishes `checked` too, and no
@@ -14,7 +14,7 @@
 use crate::options_cell::OptionsCell;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Signal, Value, signal};
+use kivact_core::state::{Signal, Value, signal};
 use kivact_core::view::{A11yAction, CheckedState, Handled, Key, KeyEvent, Modifiers, Role};
 
 /// Copy handle for a momentary button, the behavior of react-aria's
@@ -29,40 +29,26 @@ use kivact_core::view::{A11yAction, CheckedState, Handled, Key, KeyEvent, Modifi
 /// else's (a canvas region, a native control).
 #[derive(Clone, Copy)]
 pub struct ButtonApi {
-    // xtask-allow(state-fields): independent: the observation of the attached part, absent until it attaches
-    observed: Signal<Option<Value<PartState>>>,
-    // xtask-allow(state-fields): option: the disabled value a setter supplied, absent until set
     disabled: Signal<Option<Value<bool>>>,
 }
 
 /// Create a momentary button without creating a view. Setup only.
 ///
 /// ```no_run
-/// use kivact_core::view::node;
-/// use kivact_core::view::Element;
-/// use kivact_interaction::use_button;
+/// use kivact::view::node;
+/// use kivact::view::Element;
+/// use kivact::interaction::use_button;
 /// let control = use_button().control();
 /// let view = node().part(control).name("Save").on_press(|| {});
 /// ```
 #[track_caller]
 pub fn use_button() -> ButtonApi {
     ButtonApi {
-        observed: signal(None),
         disabled: signal(None),
     }
 }
 
 impl ButtonApi {
-    /// Drawing state of the actual mounted control.
-    pub fn control_state(self) -> Value<PartState> {
-        kivact_core::state::memo(move || {
-            self.observed
-                .get()
-                .map(|state| state.get())
-                .unwrap_or_default()
-        })
-    }
-
     /// Ignore input and assistive technology while true.
     ///
     /// Also marks the root disabled and makes it unfocusable. Setup only.
@@ -81,7 +67,6 @@ impl ButtonApi {
         let disabled = self.disabled;
         let input = part(|input| input);
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.observed, part_state);
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
             let host = host.part(input).role(Role::Button).focusable(true);
@@ -117,10 +102,9 @@ pub struct ToggleState {
 /// What every toggle shares: the binding, the kind and the disabled value.
 #[derive(Clone, Copy)]
 struct Core {
-    checked: Binding<bool>,
+    checked: Signal<bool>,
     kind: Kind,
     edit: crate::EditSession<bool>,
-    observed: Signal<Option<Value<ToggleState>>>,
     options: OptionsCell<ToggleOptions>,
 }
 
@@ -136,7 +120,7 @@ pub struct CheckboxApi {
     core: Core,
 }
 
-/// Copy handle for a control that flips one `Binding<bool>`: a switch
+/// Copy handle for a control that flips one `Signal<bool>`: a switch
 /// ([`use_switch`]) or a toggle button ([`use_toggle_button`]). Attach its
 /// [`control`](Self::control) to the caller's element with `.part()`.
 ///
@@ -153,12 +137,11 @@ pub struct ToggleButtonApi {
     core: Core,
 }
 
-fn core(checked: Binding<bool>, kind: Kind) -> Core {
+fn core(checked: Signal<bool>, kind: Kind) -> Core {
     Core {
         checked,
         kind,
         edit: crate::EditSession::new(move |value| checked.set(value)),
-        observed: signal(None),
         options: OptionsCell::new(ToggleOptions::default()),
     }
 }
@@ -174,28 +157,28 @@ struct ToggleOptions {
 /// [`indeterminate`](CheckboxApi::indeterminate). Setup only.
 ///
 /// ```no_run
-/// use kivact_core::state::{signal};
-/// use kivact_core::{view::node};
-/// use kivact_core::view::Element;
-/// use kivact_interaction::use_checkbox;
+/// use kivact::state::{signal};
+/// use kivact::{view::node};
+/// use kivact::view::Element;
+/// use kivact::interaction::use_checkbox;
 /// let checked = signal(false);
 /// let control = use_checkbox(checked).control();
 /// let state = control.state();
 /// let view = node().part(control).name("Remember me");
 /// ```
 #[track_caller]
-pub fn use_checkbox(checked: impl kivact_core::state::IntoBinding<bool>) -> CheckboxApi {
+pub fn use_checkbox(checked: kivact_core::state::Signal<bool>) -> CheckboxApi {
     CheckboxApi {
-        core: core(checked.into_binding(), Kind::Checkbox),
+        core: core(checked, Kind::Checkbox),
     }
 }
 
 /// A switch (`Role::Switch`) editing `checked`, react-aria's `useSwitch`.
 /// Setup only.
 #[track_caller]
-pub fn use_switch(checked: impl kivact_core::state::IntoBinding<bool>) -> SwitchApi {
+pub fn use_switch(checked: kivact_core::state::Signal<bool>) -> SwitchApi {
     SwitchApi {
-        core: core(checked.into_binding(), Kind::Switch),
+        core: core(checked, Kind::Switch),
     }
 }
 
@@ -203,9 +186,9 @@ pub fn use_switch(checked: impl kivact_core::state::IntoBinding<bool>) -> Switch
 /// `aria-pressed`) editing `pressed`, react-aria's `useToggleButton`.
 /// Setup only.
 #[track_caller]
-pub fn use_toggle_button(pressed: impl kivact_core::state::IntoBinding<bool>) -> ToggleButtonApi {
+pub fn use_toggle_button(pressed: kivact_core::state::Signal<bool>) -> ToggleButtonApi {
     ToggleButtonApi {
-        core: core(pressed.into_binding(), Kind::Button),
+        core: core(pressed, Kind::Button),
     }
 }
 
@@ -219,10 +202,6 @@ impl CheckboxApi {
         self
     }
 
-    /// Drawing state of the mounted control.
-    pub fn control_state(self) -> Value<ToggleState> {
-        self.core.control_state()
-    }
     /// Publish a mixed (partially checked) state to assistive technology while
     /// true.
     ///
@@ -268,10 +247,6 @@ impl SwitchApi {
         self
     }
 
-    /// Drawing state of the mounted control.
-    pub fn control_state(self) -> Value<ToggleState> {
-        self.core.control_state()
-    }
     /// Ignore input and assistive technology while true.
     ///
     /// Also marks the root disabled and makes it unfocusable. Setup only.
@@ -297,10 +272,6 @@ impl ToggleButtonApi {
         self
     }
 
-    /// Drawing state of the mounted control.
-    pub fn control_state(self) -> Value<ToggleState> {
-        self.core.control_state()
-    }
     /// Ignore input and assistive technology while true.
     ///
     /// Also marks the root disabled and makes it unfocusable. Setup only.
@@ -318,17 +289,6 @@ impl ToggleButtonApi {
 }
 
 impl Core {
-    fn control_state(self) -> Value<ToggleState> {
-        kivact_core::state::memo(move || {
-            self.observed
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(ToggleState {
-                    input: PartState::default(),
-                    checked: CheckedState::from_bool(self.checked.get()),
-                })
-        })
-    }
     fn set_disabled(self, disabled: Value<bool>) {
         self.options
             .update(|options| options.disabled = Some(disabled));
@@ -377,7 +337,6 @@ impl Core {
             },
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.observed, part_state);
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
 

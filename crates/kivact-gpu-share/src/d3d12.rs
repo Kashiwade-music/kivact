@@ -31,15 +31,28 @@
     reason = "the Direct3D 12 calls of an engine's shared pool, which windows marks unsafe"
 )]
 
+mod contract;
+
+#[cfg(feature = "export")]
 mod adapter;
+#[cfg(feature = "export")]
 mod pool;
+#[cfg(feature = "export")]
 pub(crate) mod raw;
+#[cfg(feature = "export")]
 mod read_back;
 
-pub use crate::d3d12_contract::HAND_OFF_STATE;
+#[cfg(feature = "export")]
 pub use adapter::find_adapter;
 #[cfg(feature = "wgpu")]
 pub(crate) use adapter::luid;
+#[cfg(feature = "export")]
 pub use pool::{Pool, Submission, Target};
+#[cfg(feature = "export")]
 pub use raw::FORMAT;
+#[cfg(feature = "export")]
 pub use read_back::read_back;
+
+#[cfg(feature = "import")]
+pub(crate) use contract::transition;
+pub use contract::{HAND_OFF_STATE, luid_bytes, resource_flags};

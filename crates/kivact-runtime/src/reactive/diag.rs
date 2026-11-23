@@ -2,14 +2,16 @@
 //!
 //! The per-App trace ring: errors routed to the default sink, non-fatal
 //! diagnostics, and structured turn records (causes, writes, re-evaluations,
-//! ops, duration), mirrored to `tracing`. Recording never changes behaviour.
-//! Values are never recorded: only type names and source locations.
+//! edges, stages, ops, duration), mirrored to `tracing`. Recording never
+//! changes behaviour. Values are never recorded: only type names and source
+//! locations.
 //!
 //! Invariants:
-//! - Recording is always on (no feature or level gates it); the `tracing`
+//! - Errors and diagnostics are always kept; the turn trace is kept only
+//!   while a recorder is on ([`Runtime::set_recorder`]). The `tracing`
 //!   target is `kivact`.
-//! - A turn keeps at most 64 entries of each kind (causes, writes, re-runs,
-//!   notes) and the ring keeps the last 256 turns.
+//! - A turn keeps at most 2000 entries of each list (the rest is counted in
+//!   `dropped`) and the ring keeps the last 256 turns.
 //! - Notes recorded during the App's setup are sealed, when the setup
 //!   ends, into a record of their own (`Turn::Setup`, notes only) instead of
 //!   making a host turn.
@@ -19,22 +21,32 @@
 use std::panic::Location;
 
 use crate::reactive::data::{Diag, Runtime};
-use crate::reactive::data::{TraceRun, TraceWrite, Turn, TurnRecord};
-use crate::reactive::detail::{CauseTag, TurnDetail};
+use crate::reactive::detail::{
+    Cause, RecordBits, StageSpan, TraceEdge, TraceRun, TraceWrite, Turn, TurnRecord,
+};
 use crate::reactive::error::UiError;
 use crate::reactive::host_types::Stage;
+use crate::reactive::identity::NodeId;
 
 const RING: usize = 256;
-const PER_TURN: usize = 64;
+/// The most entries one turn keeps in each of its lists.
+const CAP: usize = 2000;
+
+/// What a [`Reported`] entry is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReportKind {
+    /// An error that reached the default sink (no `on_error` took it).
+    Error,
+    /// A non-fatal diagnostic (a write after dispose, a stale event, ...).
+    Diagnostic,
+}
 
 /// One error or diagnostic in report order, as the DevTools reads them.
 pub struct Reported {
-    // xtask-allow(state-fields): identity: the report's number in the sequence the error and diagnostic rings share; DevTools pages by it (since) and keys rows by it
     /// The report sequence number (the rings share one counter).
     pub seq: u64,
-    // xtask-allow(state-fields): independent: a read-only error report; whether a handler handled it is a separate fact from the sequence number
-    /// Whether an error handler handled it (`false` when it reached the default sink).
-    pub handled: bool,
+    /// Whether it is an error or a non-fatal diagnostic.
+    pub kind: ReportKind,
     /// The error.
     pub error: UiError,
 }
@@ -52,10 +64,17 @@ impl std::fmt::Display for TurnRecord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}: {} op(s), {} re-run(s), causes {:?}",
-            self.turn, self.ops, self.runs, self.causes
+            "{}: {} op(s), {} re-run(s), causes [",
+            self.turn, self.ops, self.runs
         )?;
-        for w in &self.writes {
+        for (i, cause) in self.causes.iter().enumerate() {
+            if i > 0 {
+                f.write_str(", ")?;
+            }
+            write!(f, "{cause}")?;
+        }
+        f.write_str("]")?;
+        for w in self.writes.iter().filter(|w| w.changed) {
             write!(
                 f,
                 "\n  write {} (created at {}) at {}",
@@ -66,6 +85,18 @@ impl std::fmt::Display for TurnRecord {
             write!(f, "\n  note: {n}")?;
         }
         Ok(())
+    }
+}
+
+/// Push `item` into one list of the current turn unless the list is at the
+/// cap; a dropped entry is counted. Returns the index of the entry kept.
+fn keep<T>(list: &mut Vec<T>, dropped: &mut u32, item: T) -> Option<u32> {
+    if list.len() < CAP {
+        list.push(item);
+        u32::try_from(list.len() - 1).ok()
+    } else {
+        *dropped += 1;
+        None
     }
 }
 
@@ -85,10 +116,9 @@ impl Diag {
     pub(crate) fn record_diagnostic(&mut self, err: UiError) {
         tracing::debug!(target: "kivact", kind = ?err.kind(), at = ?err.location(), "{}", err);
         // Also a note of the turn record, readable through `Screen::trace`.
-        if self.current.notes.len() < PER_TURN {
-            self.current
-                .notes
-                .push(format!("{:?}: {err:?}", err.kind()));
+        if self.record.any() {
+            let note = format!("{:?}: {err:?}", err.kind());
+            keep(&mut self.current.notes, &mut self.current.dropped, note);
         }
         if self.diagnostics.len() == RING {
             self.diagnostics.pop_front();
@@ -101,8 +131,8 @@ impl Diag {
     /// A free-form note of the current turn.
     pub(crate) fn note(&mut self, msg: String) {
         tracing::trace!(target: "kivact", "{}", msg);
-        if self.current.notes.len() < PER_TURN {
-            self.current.notes.push(msg);
+        if self.record.any() {
+            keep(&mut self.current.notes, &mut self.current.dropped, msg);
         }
     }
 
@@ -111,34 +141,103 @@ impl Diag {
         self.current.turn
     }
 
-    /// What started work in the current turn.
-    pub(crate) fn cause(&mut self, c: String) {
-        if self.current.causes.len() < PER_TURN {
-            self.current.causes.push(c);
+    /// Record what started work in the current turn; the writes and runs
+    /// that follow name it.
+    pub(crate) fn cause(&mut self, cause: Cause) {
+        if !self.record.any() {
+            return;
         }
+        self.cause = keep(&mut self.current.causes, &mut self.current.dropped, cause);
     }
 
-    /// A value-changing write.
+    /// A write of a signal (`changed` says whether it changed the value).
     pub(crate) fn record_write(
         &mut self,
+        node: NodeId,
         ty: &'static str,
         created_at: &'static Location<'static>,
         at: &'static Location<'static>,
+        changed: bool,
     ) {
-        if self.current.writes.len() < PER_TURN {
-            self.current.writes.push(TraceWrite { ty, created_at, at });
+        if !self.record.any() {
+            return;
         }
+        let cause = self.cause;
+        keep(
+            &mut self.current.writes,
+            &mut self.current.dropped,
+            TraceWrite {
+                node,
+                cause,
+                ty,
+                created_at,
+                at,
+                changed,
+            },
+        );
     }
 
     /// A memo or effect re-evaluation.
-    pub(crate) fn record_run(&mut self, kind: &'static str, at: &'static Location<'static>) {
-        self.current.runs += 1;
-        if self.current.reruns.len() < PER_TURN {
-            self.current.reruns.push(TraceRun { kind, at });
+    pub(crate) fn record_run(
+        &mut self,
+        node: NodeId,
+        kind: &'static str,
+        at: &'static Location<'static>,
+        changed: bool,
+    ) {
+        if !self.record.any() {
+            return;
         }
+        self.current.runs += 1;
+        let cause = self.cause;
+        keep(
+            &mut self.current.reruns,
+            &mut self.current.dropped,
+            TraceRun {
+                node,
+                cause,
+                kind,
+                at,
+                changed,
+            },
+        );
+    }
+
+    /// One dependency edge marked by a notification.
+    pub(crate) fn record_edge(&mut self, source: NodeId, target: NodeId) {
+        if !self.record.any() {
+            return;
+        }
+        keep(
+            &mut self.current.edges,
+            &mut self.current.dropped,
+            TraceEdge { source, target },
+        );
+    }
+
+    /// Close the open stage and open `stage` at turn-relative `elapsed_ns`.
+    pub(crate) fn stage(&mut self, stage: Stage, base_ns: u64, elapsed_ns: u64) {
+        if !self.record.any() {
+            return;
+        }
+        if let Some((prev, prev_elapsed)) = self.open_stage.take() {
+            keep(
+                &mut self.current.stages,
+                &mut self.current.dropped,
+                StageSpan {
+                    stage: prev,
+                    start_ns: base_ns + prev_elapsed,
+                    duration_ns: elapsed_ns.saturating_sub(prev_elapsed),
+                },
+            );
+        }
+        self.open_stage = Some((stage, elapsed_ns));
     }
 
     fn push_record(&mut self, record: TurnRecord) {
+        if !self.record.any() {
+            return;
+        }
         if self.turns.len() == RING {
             self.turns.pop_front();
         }
@@ -163,6 +262,7 @@ impl Diag {
             turn: Turn::Number(1),
             ..TurnRecord::default()
         };
+        self.cause = None;
     }
 
     /// Start recording the next turn, delivering `events` host events; what
@@ -170,9 +270,6 @@ impl Diag {
     pub(crate) fn begin_turn(&mut self, events: usize) {
         self.finish_setup_notes();
         self.current.events = events;
-        if let Turn::Number(n) = self.current.turn {
-            self.detail.begin(n);
-        }
     }
 
     /// Finish the current turn and push it into the ring.
@@ -182,7 +279,18 @@ impl Diag {
         };
         self.current.ops = ops;
         self.current.duration_ns = duration_ns;
-        self.detail.end_turn(base_ns, duration_ns);
+        if let Some((stage, start)) = self.open_stage.take() {
+            keep(
+                &mut self.current.stages,
+                &mut self.current.dropped,
+                StageSpan {
+                    stage,
+                    start_ns: base_ns + start,
+                    duration_ns: duration_ns.saturating_sub(start),
+                },
+            );
+        }
+        self.cause = None;
         let c = &self.current;
         tracing::trace!(
             target: "kivact",
@@ -215,20 +323,24 @@ impl Runtime {
         self.note(msg);
     }
 
-    /// Record what started work in the current turn (`"timer"`, an event, ...).
-    pub(crate) fn record_cause_with(&self, tag: CauseTag, label: String) {
-        let mut diag = self.diag.borrow_mut();
-        diag.cause(label.clone());
-        diag.detail.cause(tag, label);
+    /// Record what started work in the current turn (kept only while a
+    /// recorder is on).
+    pub(crate) fn record_cause(&self, cause: Cause) {
+        if !self.is_recording() {
+            return;
+        }
+        self.diag.borrow_mut().cause(cause);
     }
 
-    /// Record the elapsed time of the active turn stage in the detailed trace.
-    pub(crate) fn record_stage(&self, stage: Stage, elapsed: std::time::Duration) {
-        self.diag.borrow_mut().detail.stage(
-            stage,
-            self.now_ns(),
-            u64::try_from(elapsed.as_nanos()).unwrap_or(u64::MAX),
-        );
+    /// Record the time since `started` as the active turn stage, in the
+    /// detailed trace (only while a recorder is on).
+    pub(crate) fn record_stage(&self, stage: Stage, started: std::time::Instant) {
+        let mut diag = self.diag.borrow_mut();
+        if !diag.record.any() {
+            return;
+        }
+        let elapsed = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
+        diag.stage(stage, self.now_ns(), elapsed);
     }
 
     /// Publish setup notes without creating a host turn.
@@ -248,22 +360,26 @@ impl Runtime {
             .end_turn(ops, duration_ns, self.now_ns());
     }
 
-    /// Turn the detailed turn trace on or off; the DevTools reads it.
-    // xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
-    #[doc(hidden)]
-    pub fn set_detailed_trace(&self, on: bool) {
-        if on {
-            self.diag.borrow_mut().detail.start();
-        } else {
-            self.diag.borrow_mut().detail.stop();
+    /// Turn recorder `bits` on or off. While no recorder is on, no turn
+    /// trace is kept: turning the last one off drops what was recorded.
+    pub fn set_recorder(&self, bits: RecordBits, on: bool) {
+        let mut diag = self.diag.borrow_mut();
+        let was = diag.record.any();
+        diag.record = diag.record.with(bits, on);
+        if was && !diag.record.any() {
+            diag.turns.clear();
+            diag.current = TurnRecord {
+                turn: diag.current.turn,
+                ..TurnRecord::default()
+            };
+            diag.cause = None;
+            diag.open_stage = None;
         }
     }
 
-    /// Take the finished turns' detailed records, oldest first; the DevTools reads them.
-    // xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
-    #[doc(hidden)]
-    pub fn take_turn_details(&self) -> Vec<TurnDetail> {
-        self.diag.borrow_mut().detail.take()
+    /// Whether a recorder is on (the turn trace is being kept).
+    pub fn is_recording(&self) -> bool {
+        self.diag.borrow().record.any()
     }
 
     /// Errors that reached the default sink, oldest first (bounded ring).
@@ -282,14 +398,42 @@ impl Runtime {
         let mut reported = Vec::with_capacity(diag.errors.len() + diag.diagnostics.len());
         reported.extend(diag.errors.iter().map(|(seq, error)| Reported {
             seq: *seq,
-            handled: false,
+            kind: ReportKind::Error,
             error: error.clone(),
         }));
         reported.extend(diag.diagnostics.iter().map(|(seq, error)| Reported {
             seq: *seq,
-            handled: true,
+            kind: ReportKind::Diagnostic,
             error: error.clone(),
         }));
+        reported.sort_by_key(|entry| entry.seq);
+        reported
+    }
+
+    /// Errors and diagnostics reported after sequence number `since`, in
+    /// report order (bounded rings).
+    pub fn reported_since(&self, since: u64) -> Vec<Reported> {
+        let diag = self.diag.borrow();
+        let mut reported = Vec::new();
+        for (seq, error) in diag.errors.iter().rev().take_while(|(seq, _)| *seq > since) {
+            reported.push(Reported {
+                seq: *seq,
+                kind: ReportKind::Error,
+                error: error.clone(),
+            });
+        }
+        for (seq, error) in diag
+            .diagnostics
+            .iter()
+            .rev()
+            .take_while(|(seq, _)| *seq > since)
+        {
+            reported.push(Reported {
+                seq: *seq,
+                kind: ReportKind::Diagnostic,
+                error: error.clone(),
+            });
+        }
         reported.sort_by_key(|entry| entry.seq);
         reported
     }
@@ -302,5 +446,10 @@ impl Runtime {
     /// Recent turn records, oldest first (bounded ring).
     pub fn turns(&self) -> Vec<TurnRecord> {
         self.diag.borrow().turns.iter().cloned().collect()
+    }
+
+    /// The newest turn record, if a recorder is on and a turn ended.
+    pub fn last_turn(&self) -> Option<TurnRecord> {
+        self.diag.borrow().turns.back().cloned()
     }
 }

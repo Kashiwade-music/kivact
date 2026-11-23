@@ -1,89 +1,49 @@
 //! Role: Present a quotation and optional attribution with a logical start rule.
-use crate::{TextColor, TextKind, styled_text};
+use crate::color as c;
+use crate::space as s;
+use crate::text::{TextColor, TextKind, styled_text};
+use kivact::component;
 use kivact::state::Value;
+use kivact::style::FlexDirection;
+use kivact::style::{style, use_theme};
 use kivact::view::Element;
-use kivact::view::Node;
-use kivact::view::node;
-
-use kivact::state::IntoText;
-use kivact::style::Direction;
-use kivact::style::style;
-use kivact::view::IntoView;
 use kivact::view::ReadingDirection;
 use kivact::view::View;
+use kivact::view::node;
 use kivact::view::use_direction;
 
-/// A quotation with optional attribution.
-pub struct Blockquote {
-    root: Node,
-    content: View,
-    cite: Option<Value<String>>,
-}
-
-/// Render a quotation with caller-supplied content.
-pub fn blockquote(content: impl IntoView) -> Blockquote {
-    Blockquote {
-        root: node(),
-        content: content.into_view(),
-        cite: None,
-    }
-}
-
-/// Render a plain-text quotation.
-pub fn blockquote_text(value: impl IntoText) -> Blockquote {
-    let value = value.into_text_value();
-    blockquote(styled_text(value).kind(TextKind::Inherit))
-}
-
-impl Blockquote {
-    /// Show an attribution beneath the quotation.
-    pub fn cite(mut self, value: impl IntoText) -> Self {
-        self.cite = Some(value.into_text_value());
-        self
-    }
-}
-
-impl Element for Blockquote {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for Blockquote {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            content,
-            cite,
-        } = self;
-        root.with_node(move |node| {
+/// Render a quotation with caller-supplied content and optional attribution.
+#[component]
+pub fn blockquote(content: View, cite: Option<Value<String>>) -> impl kivact::view::Element {
+    node()
+        .with_node(move |node| {
             node.base_style(|| {
-                let p = kivact::style::use_tokens::<crate::Tokens>();
+                let rule = use_theme().get().get(&s::SPACE_S0_5_VAR);
                 let look = style()
-                    .direction(Direction::Column)
+                    .flex_direction(FlexDirection::Column)
                     .min_width(0)
-                    .color(p.colors.text_secondary);
-                if use_direction().get() == ReadingDirection::Rtl {
-                    look.border_right(p.spacing.s0_5, p.colors.border_emphasized)
-                        .padding_right(p.spacing.s4)
+                    .color(c::TEXT_SECONDARY);
+                if use_direction() == ReadingDirection::Rtl {
+                    look.border_right(rule, c::BORDER_EMPHASIZED)
+                        .padding_right(s::SPACE_S4)
                 } else {
-                    look.border_left(p.spacing.s0_5, p.colors.border_emphasized)
-                        .padding_left(p.spacing.s4)
+                    look.border_left(rule, c::BORDER_EMPHASIZED)
+                        .padding_left(s::SPACE_S4)
                 }
             })
         })
         .child(content)
         .child(cite.map(|value| {
-            styled_text(value)
-                .kind(TextKind::Supporting)
-                .color(TextColor::Inherit)
-                .style(|| {
-                    style()
-                        .margin_top(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
-                        .italic(false)
-                })
+            node().style(|| style().margin_top(s::SPACE_S2)).child(
+                styled_text(value)
+                    .kind(TextKind::Supporting)
+                    .color(TextColor::Inherit),
+            )
         }))
-        .into_view()
-    }
+}
+
+/// Render a plain-text quotation.
+#[component]
+pub fn blockquote_text(value: Value<String>) -> impl kivact::view::Element {
+    blockquote(styled_text(value).kind(TextKind::Inherit))
 }

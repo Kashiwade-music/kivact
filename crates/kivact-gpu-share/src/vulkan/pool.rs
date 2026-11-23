@@ -1,12 +1,12 @@
 //! Role: The engine's Vulkan export pool: shared images, semaphores, barriers.
 
+use super::contract::FORMAT;
+use super::contract::{HAND_OFF_LAYOUT, MEMORY_HANDLE, SEMAPHORE_HANDLE, usage};
 use super::physical_device::{check_export, identity, uuids};
-use super::raw::FORMAT;
 use super::raw::{barrier, memory_type};
 use super::read_back::{ReadImage, read_back};
 use crate::common::{Error, api};
 use crate::pool::{Acquired, DROP_WAIT, FrameReady, PoolConfig, Slots};
-use crate::vulkan_contract::{HAND_OFF_LAYOUT, MEMORY_HANDLE, SEMAPHORE_HANDLE, usage};
 use ash::vk;
 use kivact_types::{
     AdapterMatch, GpuAdapter, GpuBackend, SharedHandle, SharedTextureFormat, SharedTextures,
@@ -284,7 +284,7 @@ impl Pool {
     /// An exportable timeline semaphore at 0.
     fn semaphore(&self) -> Result<vk::Semaphore, Error> {
         // SAFETY: the pool's device satisfies the Vulkan sharing contract.
-        unsafe { crate::vulkan_raw::timeline(&self.device, true) }
+        unsafe { super::raw::timeline(&self.device, true) }
     }
 
     /// The handles of the images and semaphores, exported once.
@@ -587,7 +587,7 @@ impl Pool {
         }
     }
 
-    /// Texture `slot`'s last frame as straight-alpha RGBA8 (`width` ×
+    /// Texture `slot`'s last frame as premultiplied RGBA8 (as `Pixels`) (`width` ×
     /// `height` × 4 bytes, rows top to bottom), once its `ready` arrived
     /// (each wait at most `timeout`). A thin wrapper of [`read_back`].
     ///

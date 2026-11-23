@@ -2,30 +2,31 @@
 
 use std::collections::HashMap;
 
+use arvane_protocol::PixelRect;
+use kivact_types::Composite;
 use kivact_types::geometry::{Point, Rect};
 use kivact_types::geometry3d::Projective;
 use kivact_types::gpu::ExternalFrame;
 use kivact_types::pixel::{BlendMode, Pixels};
-use kivact_types::render::{Composite, PixelRect};
 
 use super::blend::combine;
 use super::surface::{Pixmap, Premul, Texels, sample_bilinear, sample_nearest};
-use crate::ComposeError;
+use crate::RenderError;
 use crate::cache::ChunkKey;
 use crate::plan::{DrawOp, Sampling, Scissor, Source};
 
 /// The chunks of the frame (this frame's and the kept ones), by key.
 pub(crate) type Chunks = HashMap<ChunkKey, Pixmap>;
 
-/// Straight-alpha pixels read as premultiplied texels, within an optional source rectangle.
-pub(crate) struct Straight<'a> {
+/// Premultiplied-alpha pixels read as texels, within an optional source rectangle.
+pub(crate) struct Premultiplied<'a> {
     /// The pixels.
     pixels: &'a Pixels,
     /// The source rectangle in image px; None for all of the image.
     source: Option<Rect>,
 }
 
-impl Texels for Straight<'_> {
+impl Texels for Premultiplied<'_> {
     fn texel(&self, x: i64, y: i64) -> Premul {
         let inside_image = x >= 0
             && y >= 0
@@ -42,12 +43,11 @@ impl Texels for Straight<'_> {
         }
         let i = (y as usize * self.pixels.width as usize + x as usize) * 4;
         let p = &self.pixels.rgba[i..i + 4];
-        let a = f32::from(p[3]) / 255.0;
         [
-            f32::from(p[0]) / 255.0 * a,
-            f32::from(p[1]) / 255.0 * a,
-            f32::from(p[2]) / 255.0 * a,
-            a,
+            f32::from(p[0]) / 255.0,
+            f32::from(p[1]) / 255.0,
+            f32::from(p[2]) / 255.0,
+            f32::from(p[3]) / 255.0,
         ]
     }
 }
@@ -56,8 +56,8 @@ impl Texels for Straight<'_> {
 enum Texture<'a> {
     /// A premultiplied pixmap (a chunk or a target).
     Premul(&'a Pixmap),
-    /// Straight-alpha pixels.
-    Straight(Straight<'a>),
+    /// Premultiplied-alpha pixels.
+    Premultiplied(Premultiplied<'a>),
 }
 
 impl Texture<'_> {
@@ -65,7 +65,7 @@ impl Texture<'_> {
     fn sample(&self, p: Point, nearest: bool) -> Premul {
         match self {
             Texture::Premul(pixmap) => sample_with(*pixmap, p, nearest),
-            Texture::Straight(straight) => sample_with(straight, p, nearest),
+            Texture::Premultiplied(pixels) => sample_with(pixels, p, nearest),
         }
     }
 }
@@ -171,7 +171,7 @@ pub(crate) fn draw(
     targets: &mut [Pixmap],
     chunks: &Chunks,
     missed: &mut Vec<ExternalFrame>,
-) -> Result<(), ComposeError> {
+) -> Result<(), RenderError> {
     let Some(shape) = Shape::new(&op.polygon.points, &op.split_edges) else {
         return Ok(());
     };
@@ -179,7 +179,7 @@ pub(crate) fn draw(
     if let Source::Target(s) = op.source
         && s as usize == target
     {
-        return Err(ComposeError::InvalidComposition(
+        return Err(RenderError::InvalidComposition(
             "a draw reads the target it writes".into(),
         ));
     }
@@ -206,7 +206,7 @@ pub(crate) fn draw(
 /// frame's px here, by the size of the CPU pixels and the source rectangle, as the GPU does.
 /// None when the item rect has no area in target px.
 fn texel_map(op: &DrawOp<'_>, texture: &Texture<'_>) -> Option<Projective> {
-    let (Source::External { source, .. }, Texture::Straight(straight)) = (&op.source, texture)
+    let (Source::External { source, .. }, Texture::Premultiplied(straight)) = (&op.source, texture)
     else {
         return Some(op.map);
     };
@@ -240,8 +240,8 @@ fn texel_map(op: &DrawOp<'_>, texture: &Texture<'_>) -> Option<Projective> {
 }
 
 /// The error for a chunk the plan named but the executor does not hold.
-pub(crate) fn missing_chunk(key: ChunkKey) -> ComposeError {
-    ComposeError::InvalidComposition(format!("chunk {key:?} is not rastered"))
+pub(crate) fn missing_chunk(key: ChunkKey) -> RenderError {
+    RenderError::InvalidComposition(format!("chunk {key:?} is not rastered"))
 }
 
 /// The texture of `source`; None when an external frame has no CPU pixels (it is reported missed).
@@ -250,14 +250,14 @@ fn resolve<'a>(
     targets: &'a [Pixmap],
     chunks: &'a Chunks,
     missed: &mut Vec<ExternalFrame>,
-) -> Result<Option<Texture<'a>>, ComposeError> {
+) -> Result<Option<Texture<'a>>, RenderError> {
     Ok(match source {
         Source::Chunk(key) => Some(Texture::Premul(
             chunks.get(key).ok_or_else(|| missing_chunk(*key))?,
         )),
         Source::Target(t) => Some(Texture::Premul(&targets[*t as usize])),
         Source::External { frame, cpu, source } => match cpu {
-            Some(pixels) => Some(Texture::Straight(Straight {
+            Some(pixels) => Some(Texture::Premultiplied(Premultiplied {
                 pixels,
                 source: *source,
             })),
@@ -357,7 +357,7 @@ fn paint(
     shape: &Shape<'_>,
     texture: &Texture<'_>,
     cover: Option<&Pixmap>,
-) -> Result<(), ComposeError> {
+) -> Result<(), RenderError> {
     if paint_fast(dst, op, texture, cover).is_some() {
         return Ok(());
     }

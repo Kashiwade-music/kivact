@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use crate::contract::{NodeKind, NodeProperties, NodeType, SceneLayer};
+use crate::contract::{InputFlag, NodeKind, NodeProperties, NodeType, SceneLayer};
 use kivact_types::{
     A11yAction, DrawList, FocusTarget, LayoutProps, Overflow, OverlayProps, PaintProps, Point,
     Position, Rect, Region, RegionId, Role, Size, StateStyles, TextStyle,
@@ -24,20 +24,16 @@ pub(crate) struct HostNode {
     pub(crate) index: NodeIndex,
     pub(crate) properties: NodeProperties,
     pub(crate) scenes: [Option<Arc<DrawList>>; 2],
-    pub(crate) scroll: Point,
     /// What was last published about it: only an observed, scrolling or
     /// image node publishes (`Model::report_geometry`, `Model::report_images`).
     pub(crate) sent: Option<Box<SentReports>>,
     /// Where its paint and layout place it (`model::transform`), read when
     /// its `Paint`, `States` or `Layout` prop is stored.
     pub(crate) place: Place,
-    /// How far a sticky box is moved from its laid out position by the
-    /// scroll of its scrollport (`model::interact::sticky`; zero otherwise).
-    pub(crate) shift: Point,
 }
 
 const _: () = assert!(
-    std::mem::size_of::<HostNode>() <= 312,
+    std::mem::size_of::<HostNode>() <= 280,
     "HostNode grew: box the new rare field"
 );
 
@@ -130,12 +126,10 @@ pub(crate) enum Notify {
 /// z-indexed children at no cost.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Place {
-    // xtask-allow(state-fields): cache: update_place derives it from the base paint and state style transforms, a running state motion and the parent's perspective (raise_under_perspective only raises it); the walks skip untransformed nodes by it
     /// Its base paint or a state style transforms it.
     pub(crate) transformed: bool,
     /// Its base paint's z-index.
     pub(crate) z: i32,
-    // xtask-allow(state-fields): cache: a state style sets its z-index
     /// A state style sets its z-index.
     pub(crate) z_states: bool,
     /// One of its children has (or had) a z-index or a state style that
@@ -177,10 +171,8 @@ impl HostNode {
             properties,
             index,
             scenes: [None, None],
-            scroll: Point::default(),
             sent: None,
             place: Place::default(),
-            shift: Point::default(),
         };
         node.update_place(false, false);
         node
@@ -284,11 +276,6 @@ impl HostNode {
         self.scenes[layer_index(layer)].as_ref()
     }
 
-    /// The scroll offset of a scroll container.
-    pub(crate) fn scroll(&self) -> Point {
-        self.scroll
-    }
-
     pub(crate) fn name(&self) -> Option<&str> {
         self.semantics()?.name.as_deref()
     }
@@ -374,13 +361,21 @@ impl HostNode {
 
     /// `Disabled` on the node itself.
     pub(crate) fn disabled(&self) -> bool {
-        self.properties.input.disabled.unwrap_or(false)
+        self.properties
+            .input
+            .flags
+            .get(InputFlag::Disabled)
+            .unwrap_or(false)
     }
 
     /// Hidden by its own props (`Hidden`, or a hidden layout).
     /// `HitTestable`: whether the pointer hits the node and its subtree.
     pub(crate) fn hit_testable(&self) -> bool {
-        self.properties.input.hit_testable.unwrap_or(true)
+        self.properties
+            .input
+            .flags
+            .get(InputFlag::HitTestable)
+            .unwrap_or(true)
     }
 
     /// Hidden visually while retaining its layout box.
@@ -390,7 +385,11 @@ impl HostNode {
     }
 
     pub(crate) fn hidden(&self) -> bool {
-        self.properties.input.hidden.unwrap_or(false) || self.layout().is_some_and(|l| l.hidden)
+        self.properties
+            .input
+            .flags
+            .get(InputFlag::Hidden)
+            .unwrap_or(false)
     }
 
     /// `Selected`.
@@ -417,10 +416,21 @@ impl HostNode {
     /// not hidden and eligible while disabled. A tab stop must also be shown
     /// ([`crate::model::Model::is_tab_stop`]).
     pub(crate) fn focusable(&self, editor_present: bool) -> bool {
-        let focusable = self.properties.input.focusable.unwrap_or(editor_present);
+        let focusable = self
+            .properties
+            .input
+            .flags
+            .get(InputFlag::Focusable)
+            .unwrap_or(editor_present);
         focusable
             && !self.is_transparent()
-            && (!self.disabled() || self.properties.input.focusable_when_disabled == Some(true))
+            && (!self.disabled()
+                || self
+                    .properties
+                    .input
+                    .flags
+                    .get(InputFlag::FocusableWhenDisabled)
+                    == Some(true))
             && !self.hidden()
     }
 
@@ -440,12 +450,20 @@ impl HostNode {
 
     /// Listens to pointer events.
     pub(crate) fn listens_pointer(&self) -> bool {
-        self.properties.input.listen_pointer.unwrap_or(false)
+        self.properties
+            .input
+            .flags
+            .get(InputFlag::ListenPointer)
+            .unwrap_or(false)
     }
 
     /// Listens to wheel events.
     pub(crate) fn listens_wheel(&self) -> bool {
-        self.properties.input.listen_wheel.unwrap_or(false)
+        self.properties
+            .input
+            .flags
+            .get(InputFlag::ListenWheel)
+            .unwrap_or(false)
     }
 
     /// Which axes scroll (`overflow: Scroll`), `(x, y)`.
@@ -496,7 +514,7 @@ impl HostNode {
                     return false;
                 };
                 match &r.shape {
-                    Some(shape) => crate::lower::scene_shape::shape(shape).contains(point),
+                    Some(shape) => shape.to_shape().contains(point),
                     None => r.local_rect.contains(point),
                 }
             })

@@ -1,72 +1,67 @@
-//! Role: Style the persistent indicator parts of Soft choice controls.
-use crate::Tokens;
-use kivact::draw::LineCap;
-use kivact::draw::LineJoin;
-use kivact::draw::Path;
-use kivact::draw::Stroke;
+//! Role: Style the Astryx Neutral checkboxes and switches (the controls group's choice
+//! parts).
+use crate::color as c;
+use crate::metrics as m;
+use crate::radius as r;
+use crate::recipe_parts::{fast, overlay, ring};
+use crate::shadows;
+use crate::space as s;
+use crate::type_scale as t;
+use kivact::draw::{LineCap, LineJoin, Path, Stroke};
 use kivact::geometry::Point;
-use kivact::style::Align;
-use kivact::style::Color;
-use kivact::style::Direction;
-use kivact::style::Justify;
-use kivact::style::Position;
-use kivact::style::Style;
-use kivact::style::Theme;
-use kivact::style::pct;
-use kivact::style::style;
-use kivact::ui::CheckableState;
+use kivact::interaction::{Lift, ThumbDrag, TrackInput};
+use kivact::motion::{Spring, Transition};
+use kivact::style::{
+    Align, Color, FlexDirection, Length, Position, Style, Theme, ThemeMode, TransitionProp, pct,
+    style,
+};
 use kivact::ui::ControlSize;
-use kivact::ui::Lift;
-use kivact::ui::Look;
-use kivact::ui::RadioGroupRecipes;
-use kivact::ui::ThumbDrag;
-use kivact::ui::TrackInput;
-use kivact::view::CheckedState;
-use kivact::view::Orientation;
-use kivact::view::ReadingDirection;
-use kivact::view::use_direction;
+use kivact::ui::theme::{CheckableState, CheckboxTheme, Look, SwitchTheme};
+use kivact::view::{CheckedState, ReadingDirection, use_direction};
 
-use super::recipe_style::{fast, overlay, ring};
-
-fn small(size: ControlSize) -> bool {
+pub(crate) fn small(size: ControlSize) -> bool {
     matches!(size, ControlSize::ExtraSmall | ControlSize::Small)
 }
 
-fn check_side(t: &Tokens, s: &Look<CheckableState>) -> f64 {
-    if small(s.size) {
-        t.spacing.s5
+/// The side of a check box, and of a radio item's indicator box.
+pub(crate) fn check_side(theme: &Theme, look: &Look<CheckableState>) -> f64 {
+    if small(look.size) {
+        theme.get(&s::SPACE_S5_VAR)
     } else {
-        t.spacing.s6
+        theme.get(&s::SPACE_S6_VAR)
     }
 }
 
-fn switch_size(t: &Tokens, s: &Look<CheckableState>) -> (f64, f64) {
-    (
-        if small(s.size) {
-            t.spacing.s8
-        } else {
-            t.spacing.s10
-        },
-        check_side(t, s),
-    )
+fn switch_size(theme: &Theme, look: &Look<CheckableState>) -> (f64, f64) {
+    let width = if small(look.size) {
+        theme.get(&s::SPACE_S8_VAR)
+    } else {
+        theme.get(&s::SPACE_S10_VAR)
+    };
+    (width, check_side(theme, look))
 }
 
-fn switch_parts(t: &Tokens, s: &Look<CheckableState>) -> (f64, f64, f64) {
-    if small(s.size) {
-        (t.typography.size_md, 3.0, t.spacing.s4)
+/// The thumb's base side, its inset from the track and its on side.
+fn switch_parts(theme: &Theme, look: &Look<CheckableState>) -> (f64, f64, f64) {
+    if small(look.size) {
+        (t::SIZE_MD, 3.0, theme.get(&s::SPACE_S4_VAR))
     } else {
-        (t.spacing.s4, t.spacing.s1, t.spacing.s5)
+        (
+            theme.get(&s::SPACE_S4_VAR),
+            theme.get(&s::SPACE_S1_VAR),
+            theme.get(&s::SPACE_S5_VAR),
+        )
     }
 }
 
-fn switch_travel(t: &Tokens, s: &Look<CheckableState>) -> f64 {
-    let (width, _) = switch_size(t, s);
-    let (base_side, inset, on_side) = switch_parts(t, s);
-    width - t.spacing.s0_5 - on_side / 2.0 - inset - base_side / 2.0
+fn switch_travel(theme: &Theme, look: &Look<CheckableState>) -> f64 {
+    let (width, _) = switch_size(theme, look);
+    let (base_side, inset, on_side) = switch_parts(theme, look);
+    width - theme.get(&s::SPACE_S0_5_VAR) - on_side / 2.0 - inset - base_side / 2.0
 }
 
 fn switch_sign() -> f64 {
-    if use_direction().get() == ReadingDirection::Rtl {
+    if use_direction() == ReadingDirection::Rtl {
         -1.0
     } else {
         1.0
@@ -74,10 +69,10 @@ fn switch_sign() -> f64 {
 }
 
 /// The side the switch shows while a gesture moves the thumb.
-fn switch_on(s: &Look<CheckableState>, drag: Option<ThumbDrag>) -> bool {
+fn switch_on(look: &Look<CheckableState>, drag: Option<ThumbDrag>) -> bool {
     match drag {
         Some(ThumbDrag::Tracking(TrackInput::Touch { on, .. } | TrackInput::Pointer { on })) => on,
-        _ => s.is_checked(),
+        _ => look.is_checked(),
     }
 }
 
@@ -99,93 +94,94 @@ fn switch_offset(drag: Option<ThumbDrag>) -> Option<f64> {
     }
 }
 
+/// `base` placed at `offset` from the inline start of its box.
 fn inline_start(base: Style, offset: f64) -> Style {
-    if use_direction().get() == ReadingDirection::Rtl {
+    if use_direction() == ReadingDirection::Rtl {
         base.right(offset)
     } else {
         base.left(offset)
     }
 }
 
-fn label_row(t: &Tokens, width: f64, height: f64) -> Style {
-    let text = t.typography.label;
+/// The label row beside a check box or a switch, padded past its box of `width`.
+fn label_row(theme: &Theme, width: f64, height: f64) -> Style {
+    let text = t::LABEL;
     let base = style()
         .position(Position::Relative)
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .min_height(height)
         .font_size(text.size_px)
         .line_height(text.line_height_px / text.size_px)
-        .weight(text.weight)
-        .color(t.colors.text_secondary)
-        .focus_visible(style().ring_none())
-        .disabled(style().color(t.colors.text_disabled));
-    let padding = width + t.spacing.s2;
-    if use_direction().get() == ReadingDirection::Rtl {
+        .font_weight(text.weight)
+        .color(c::TEXT_SECONDARY)
+        .focus_visible(style().outline_none())
+        .disabled(style().color(c::TEXT_DISABLED));
+    let padding = width + theme.get(&s::SPACE_S2_VAR);
+    if use_direction() == ReadingDirection::Rtl {
         base.padding_right(padding)
     } else {
         base.padding_left(padding)
     }
 }
 
-pub(super) fn checkbox(theme: &Theme, s: &Look<CheckableState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let side = check_side(&t, s);
-    label_row(&t, side, side).disabled(style().opacity(t.sizes.disabled_opacity))
+pub(crate) fn checkbox(theme: &Theme, look: &Look<CheckableState>, _base: Style) -> Style {
+    let side = check_side(theme, look);
+    label_row(theme, side, side).disabled(style().opacity(m::DISABLED_OPACITY))
 }
 
-pub(super) fn switch(theme: &Theme, s: &Look<CheckableState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let (width, height) = switch_size(&t, s);
-    label_row(&t, width, height)
+pub(crate) fn switch(theme: &Theme, look: &Look<CheckableState>, _base: Style) -> Style {
+    let (width, height) = switch_size(theme, look);
+    label_row(theme, width, height)
 }
 
-fn pressed_fill(theme: &Theme, t: &Tokens, s: &Look<CheckableState>, fill: Color) -> Color {
-    if s.input.is_pressed() && !s.input.is_disabled() {
-        overlay(theme, fill, t.colors.overlay_pressed)
+fn pressed_fill(look: &Look<CheckableState>, theme: &Theme, fill: Color) -> Color {
+    if look.input.is_pressed() && !look.input.is_disabled() {
+        overlay(theme, fill, c::OVERLAY_PRESSED)
     } else {
         fill
     }
 }
 
-fn check_surface(theme: &Theme, t: &Tokens, s: &Look<CheckableState>, radius: f64) -> Style {
-    let c = &t.colors;
-    let on = s.checked() != CheckedState::Unchecked;
-    let hovered = s.input.is_hovered() && !s.input.is_disabled();
+/// The box of a check or radio indicator: its fill, border and focus ring.
+pub(crate) fn check_surface(theme: &Theme, look: &Look<CheckableState>, radius: Length) -> Style {
+    let on = look.checked() != CheckedState::Unchecked;
+    let hovered = look.input.is_hovered() && !look.input.is_disabled();
     let (fill, border) = if on {
-        let accent = if hovered { c.accent_hover } else { c.accent };
+        let accent = if hovered { c::ACCENT_HOVER } else { c::ACCENT };
         (accent, accent)
-    } else if s.input.is_disabled() {
-        (c.bg_muted, c.border)
+    } else if look.input.is_disabled() {
+        (c::BG_MUTED, c::BORDER)
     } else if hovered {
-        (c.choice_surface_hover, c.choice_border_hover)
+        (c::CHOICE_SURFACE_HOVER, c::CHOICE_BORDER_HOVER)
     } else {
-        (c.bg_surface, c.border_emphasized)
+        (c::BG_SURFACE, c::BORDER_EMPHASIZED)
     };
-    let side = check_side(t, s);
+    let side = check_side(theme, look);
     let base = style()
         .size(side, side)
-        .shrink(0)
-        .radius(radius)
-        .border(t.sizes.border_width, border)
-        .background(pressed_fill(theme, t, s, fill));
-    fast(
-        t,
-        if s.input.is_focus_visible() {
-            base.merge(&ring(t, c.focus_ring))
-        } else {
-            base
-        },
-    )
+        .flex_shrink(0)
+        .border_radius(radius)
+        .border(m::BORDER_WIDTH, border)
+        .background(pressed_fill(look, theme, fill));
+    fast(if look.input.is_focus_visible() {
+        base.merge(&ring(Color::var(&c::FOCUS_RING_VAR)))
+    } else {
+        base
+    })
 }
 
-pub(super) fn checkbox_indicator(theme: &Theme, s: &Look<CheckableState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let side = check_side(&t, s);
-    inline_start(check_surface(theme, &t, s, t.radius.inner), 0.0).top(pct(50) - side / 2.0)
+pub(crate) fn checkbox_indicator(
+    theme: &Theme,
+    look: &Look<CheckableState>,
+    _base: Style,
+) -> Style {
+    let side = check_side(theme, look);
+    inline_start(check_surface(theme, look, r::RADIUS_INNER), 0.0).top(pct(50) - side / 2.0)
 }
 
-fn centered_mark(width: f64, height: f64, visible: bool) -> Style {
+/// A mark centered in its box, shown while `visible`.
+pub(crate) fn centered_mark(width: f64, height: f64, visible: bool) -> Style {
     style()
         .position(Position::Absolute)
         .left(pct(50) - width / 2.0)
@@ -194,15 +190,14 @@ fn centered_mark(width: f64, height: f64, visible: bool) -> Style {
         .opacity(if visible { 1.0 } else { 0.0 })
 }
 
-pub(super) fn checkbox_check(theme: &Theme, s: &Look<CheckableState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let side = if small(s.size) {
-        t.spacing.s3
+pub(crate) fn checkbox_check(theme: &Theme, look: &Look<CheckableState>, _base: Style) -> Style {
+    let side = if small(look.size) {
+        theme.get(&s::SPACE_S3_VAR)
     } else {
-        t.typography.size_md
+        t::SIZE_MD
     };
-    let ink = t.colors.on_accent;
-    centered_mark(side, side, s.is_checked()).paint(move |d, size| {
+    let ink = c::ON_ACCENT;
+    centered_mark(side, side, look.is_checked()).paint(move |d, size| {
         // The Astryx indicator path is in a 10 × 10 view box.
         let unit = size.width / 10.0;
         let path = Path::new()
@@ -216,75 +211,79 @@ pub(super) fn checkbox_check(theme: &Theme, s: &Look<CheckableState>) -> Style {
     })
 }
 
-pub(super) fn checkbox_mixed(theme: &Theme, s: &Look<CheckableState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let width = if small(s.size) {
-        t.typography.size_xs
+pub(crate) fn checkbox_mixed(theme: &Theme, look: &Look<CheckableState>, _base: Style) -> Style {
+    let width = if small(look.size) {
+        t::SIZE_XS
     } else {
-        t.spacing.s3
+        theme.get(&s::SPACE_S3_VAR)
     };
-    centered_mark(width, t.spacing.s0_5, s.is_mixed())
-        .radius(t.radius.full)
-        .background(t.colors.on_accent)
+    centered_mark(width, theme.get(&s::SPACE_S0_5_VAR), look.is_mixed())
+        .border_radius(r::RADIUS_FULL)
+        .background(c::ON_ACCENT)
 }
 
-pub(super) fn switch_track(theme: &Theme, s: &Look<CheckableState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let (width, height) = switch_size(&t, s);
-    let c = &t.colors;
-    let drag = s.switch_drag();
+pub(crate) fn switch_track(theme: &Theme, look: &Look<CheckableState>, _base: Style) -> Style {
+    let (width, height) = switch_size(theme, look);
+    let drag = look.switch_drag();
     let touch = drag.is_some_and(ThumbDrag::is_touch);
-    let on = switch_on(s, drag);
-    let fill = if on { c.accent } else { c.border_emphasized };
-    let fill = if s.input.is_hovered() && !s.input.is_disabled() && !touch {
+    let on = switch_on(look, drag);
+    let fill = if on { c::ACCENT } else { c::BORDER_EMPHASIZED };
+    let fill = if look.input.is_hovered() && !look.input.is_disabled() && !touch {
         if on {
-            c.accent_hover
+            c::ACCENT_HOVER
         } else {
-            c.switch_off_hover
+            c::SWITCH_OFF_HOVER
         }
     } else {
         fill
     };
-    let base = inline_start(style().size(width, height).radius(t.radius.full), 0.0)
-        .top(pct(50) - height / 2.0)
-        .background(pressed_fill(theme, &t, s, fill))
-        .opacity(if s.input.is_disabled() {
-            t.sizes.disabled_opacity
-        } else {
-            1.0
-        });
-    let base = if s.input.is_focus_visible() {
-        base.merge(&ring(&t, c.focus_ring))
+    let base = inline_start(
+        style().size(width, height).border_radius(r::RADIUS_FULL),
+        0.0,
+    )
+    .top(pct(50) - height / 2.0)
+    .background(pressed_fill(look, theme, fill))
+    .opacity(if look.input.is_disabled() {
+        m::DISABLED_OPACITY
+    } else {
+        1.0
+    });
+    let base = if look.input.is_focus_visible() {
+        base.merge(&ring(Color::var(&c::FOCUS_RING_VAR)))
     } else {
         base
     };
     if touch {
         let transition = if kivact::platform::is_motion_reduced().get() {
-            kivact::motion::Transition::tween(200, t.motion.ease_standard.clone()).essential()
+            Transition::tween(200, crate::motion::EASE_STANDARD).essential()
         } else if on {
             spring(85.377, 18.480)
         } else {
             spring(246.740, 31.416)
         };
-        base.transition(kivact::style::TransitionProp::All, transition)
+        base.transition(TransitionProp::All, transition)
     } else {
-        fast(&t, base)
+        fast(base)
     }
 }
 
-pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckableState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let drag = s.switch_drag();
-    let on = switch_on(s, drag);
-    let (_, height) = switch_size(&t, s);
-    let (base_side, inset, on_side) = switch_parts(&t, s);
-    let movement = switch_travel(&t, s);
+pub(crate) fn switch_thumb(theme: &Theme, look: &Look<CheckableState>, _base: Style) -> Style {
+    let drag = look.switch_drag();
+    let on = switch_on(look, drag);
+    let (_, height) = switch_size(theme, look);
+    let (base_side, inset, on_side) = switch_parts(theme, look);
+    let movement = switch_travel(theme, look);
     let sign = switch_sign();
     let reduced = kivact::platform::is_motion_reduced().get();
     let lifted = switch_lifted(drag) && !reduced;
     let side = if on { on_side } else { base_side };
     let lift = if lifted {
-        1.0 + if on { t.spacing.s0_5 } else { inset } / side
+        let raise = if on {
+            theme.get(&s::SPACE_S0_5_VAR)
+        } else {
+            inset
+        };
+        1.0 + raise / side
     } else {
         1.0
     };
@@ -292,12 +291,14 @@ pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckableState>) -> Style {
     let base = inline_start(style().position(Position::Absolute), inset)
         .top((height - base_side) / 2.0)
         .size(base_side, base_side)
-        .radius(t.radius.full)
-        .background(pressed_fill(theme, &t, s, t.colors.bg_surface))
+        .border_radius(r::RADIUS_FULL)
+        .background(pressed_fill(look, theme, c::BG_SURFACE))
         .translate_x(offset)
         .scale(side / base_side * lift);
     let base = if lifted {
-        t.shadows.low.iter().copied().fold(base, Style::shadow)
+        shadows::low(theme.mode() == ThemeMode::Dark)
+            .into_iter()
+            .fold(base, Style::shadow)
     } else {
         base
     };
@@ -311,14 +312,14 @@ pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckableState>) -> Style {
             ThumbDrag::TouchReleased(Lift::Raised) => spring(438.6, 41.89),
             ThumbDrag::TouchPressed => spring(746.3, 30.05),
         };
-        base.transition(kivact::style::TransitionProp::All, transition)
+        base.transition(TransitionProp::All, transition)
     } else {
-        fast(&t, base)
+        fast(base)
     }
 }
 
-fn spring(stiffness: f64, damping: f64) -> kivact::motion::Transition {
-    kivact::motion::Transition::spring(kivact::motion::Spring {
+fn spring(stiffness: f64, damping: f64) -> Transition {
+    Transition::spring(Spring {
         stiffness,
         damping,
         mass: 1.0,
@@ -326,85 +327,20 @@ fn spring(stiffness: f64, damping: f64) -> kivact::motion::Transition {
     })
 }
 
-pub(super) fn radio_group(r: RadioGroupRecipes) -> RadioGroupRecipes {
-    r.group(|_| group)
-        .item(|_| item)
-        .indicator(|_| indicator)
-        .mark(|_| mark)
-        .description(|_| description)
-}
-
-fn group(theme: &Theme, orientation: &Look<Orientation>) -> Style {
-    if orientation.variant::<kivact::ui::RadioGroupVariant>()
-        == Some(&kivact::ui::RadioGroupVariant::Segmented)
-    {
-        return crate::segmented_control::track(theme, orientation);
-    }
-    let t = theme.ext::<Tokens>();
-    if **orientation == Orientation::Horizontal {
-        style().direction(Direction::Row).gap(t.spacing.s5)
-    } else {
-        style().direction(Direction::Column).gap(t.spacing.s2)
-    }
-}
-
-fn item(theme: &Theme, s: &Look<CheckableState>) -> Style {
-    if s.variant::<kivact::ui::RadioGroupVariant>()
-        == Some(&kivact::ui::RadioGroupVariant::Segmented)
-    {
-        return crate::segmented_control::segment(theme, s);
-    }
-    let t = theme.ext::<Tokens>();
-    let text = t.typography.body;
-    style()
-        .direction(Direction::Row)
-        .align_items(Align::Center)
-        .gap(t.spacing.s2)
-        .font_size(text.size_px)
-        .line_height(text.line_height_px / text.size_px)
-        .weight(text.weight)
-        .color(t.colors.text_primary)
-        .disabled(style().opacity(t.sizes.disabled_opacity))
-        .focus_visible(style().ring_none())
-        .min_height(check_side(&t, s))
-}
-
-fn indicator(theme: &Theme, s: &Look<CheckableState>) -> Style {
-    if s.variant::<kivact::ui::RadioGroupVariant>()
-        == Some(&kivact::ui::RadioGroupVariant::Segmented)
-    {
-        return style().size(0, 0).clip(true);
-    }
-    let t = theme.ext::<Tokens>();
-    check_surface(theme, &t, s, t.radius.full)
-        .position(Position::Relative)
-        .align_items(Align::Center)
-        .justify_content(Justify::Center)
-}
-
-fn mark(theme: &Theme, s: &Look<CheckableState>) -> Style {
-    if s.variant::<kivact::ui::RadioGroupVariant>()
-        == Some(&kivact::ui::RadioGroupVariant::Segmented)
-    {
-        return style().size(0, 0).clip(true);
-    }
-    let t = theme.ext::<Tokens>();
-    let side = if small(s.size) {
-        t.spacing.s2
-    } else {
-        t.typography.size_xs
-    };
-    centered_mark(side, side, s.is_checked())
-        .radius(t.radius.full)
-        .background(t.colors.on_accent)
-}
-
-fn description(theme: &Theme, _: &Look<CheckableState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let text = t.typography.supporting;
-    style()
-        .font_size(text.size_px)
-        .line_height(text.line_height_px / text.size_px)
-        .weight(text.weight)
-        .color(t.colors.text_secondary)
+/// Install the kit's recipes of the check box and the switch.
+pub(crate) fn install(theme: Theme) -> Theme {
+    theme
+        .with(
+            CheckboxTheme::default()
+                .root(checkbox)
+                .indicator(checkbox_indicator)
+                .check(checkbox_check)
+                .mixed(checkbox_mixed),
+        )
+        .with(
+            SwitchTheme::default()
+                .root(switch)
+                .track(switch_track)
+                .thumb(switch_thumb),
+        )
 }

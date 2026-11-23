@@ -75,7 +75,7 @@ const NON_SOLID_BUCKET: f64 = 4.0 / 7.0;
 /// text color of luminance bucket `bucket` (`L_q`): the dilation per side,
 /// `d(size, L)`, with the calibrated constants.
 pub(crate) fn darkening(size: f64, bucket: f64) -> Diagonal2 {
-    let amount = dilation(size, bucket, D_FULL, L_SAT, S_FULL, S_NONE);
+    let amount = dilation(size, bucket);
     Diagonal2::new(amount, amount)
 }
 
@@ -86,12 +86,11 @@ pub(crate) fn run_darkening(size: f64, solid: Option<Rgba>) -> Diagonal2 {
     darkening(size, solid.map_or(NON_SOLID_BUCKET, luminance_bucket))
 }
 
-/// `d(size, L) = D_FULL * min(1, L_q / L_SAT) * F(size)` for the given
-/// constants: `bucket` is `L_q`, and `F` is 1 up to `s_full`, linear to 0 at
-/// `s_none`, and 0 above.
-fn dilation(size: f64, bucket: f64, d_full: f64, l_sat: f64, s_full: f64, s_none: f64) -> f64 {
-    let per_luminance = d_full * (bucket / l_sat).min(1.0);
-    let fade = ((s_none - size) / (s_none - s_full)).clamp(0.0, 1.0);
+/// `d(size, L) = D_FULL * min(1, L_q / L_SAT) * F(size)`: `bucket` is
+/// `L_q`, and `F` is 1 up to `S_FULL`, linear to 0 at `S_NONE`, and 0 above.
+fn dilation(size: f64, bucket: f64) -> f64 {
+    let per_luminance = D_FULL * (bucket / L_SAT).min(1.0);
+    let fade = ((S_NONE - size) / (S_NONE - S_FULL)).clamp(0.0, 1.0);
     per_luminance * fade
 }
 
@@ -124,7 +123,7 @@ pub(crate) fn subpixel(x: f64, scale: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    //! Role: Unit tests of the stem darkening model and of the luminance buckets.
+    //! Role: Unit tests of the stem darkening curve and the luminance buckets.
 
     use super::*;
 
@@ -141,18 +140,15 @@ mod tests {
         a: 1.0,
     };
 
-    /// The shipped model, with its constants passed in.
-    fn model(size: f64, bucket: f64) -> f64 {
-        dilation(size, bucket, D_FULL, L_SAT, S_FULL, S_NONE)
-    }
-
     fn near(a: f64, b: f64) -> bool {
         (a - b).abs() < 1e-12
     }
 
     #[test]
     fn dilation_is_non_decreasing_in_luminance() {
-        let values: Vec<f64> = (0..=7).map(|k| model(12.0, f64::from(k) / 7.0)).collect();
+        let values: Vec<f64> = (0..=7)
+            .map(|k| dilation(12.0, f64::from(k) / 7.0))
+            .collect();
         for pair in values.windows(2) {
             assert!(pair[0] <= pair[1], "{values:?}");
         }
@@ -160,7 +156,7 @@ mod tests {
 
     #[test]
     fn black_text_gets_no_darkening() {
-        assert!(near(model(12.0, 0.0), 0.0));
+        assert!(near(dilation(12.0, 0.0), 0.0));
         assert_eq!(darkening(12.0, 0.0).xx, 0.0);
     }
 
@@ -168,24 +164,24 @@ mod tests {
     fn light_text_at_saturation_gets_the_full_dilation_up_to_s_full() {
         // Buckets 6/7 and 1 are at or above L_SAT = 0.8.
         for bucket in [6.0 / 7.0, 1.0] {
-            assert!(near(model(1.0, bucket), D_FULL));
-            assert!(near(model(24.0, bucket), D_FULL));
-            assert!(near(model(48.0, bucket), D_FULL));
+            assert!(near(dilation(1.0, bucket), D_FULL));
+            assert!(near(dilation(24.0, bucket), D_FULL));
+            assert!(near(dilation(48.0, bucket), D_FULL));
         }
         // Bucket 5/7 is below it, so it gets less.
-        assert!(model(24.0, 5.0 / 7.0) < D_FULL);
+        assert!(dilation(24.0, 5.0 / 7.0) < D_FULL);
     }
 
     #[test]
     fn dilation_fades_linearly_to_zero_at_s_none() {
-        assert!(near(model(72.0, 1.0), D_FULL / 2.0));
-        assert!(near(model(96.0, 1.0), 0.0));
-        assert!(near(model(120.0, 1.0), 0.0));
+        assert!(near(dilation(72.0, 1.0), D_FULL / 2.0));
+        assert!(near(dilation(96.0, 1.0), 0.0));
+        assert!(near(dilation(120.0, 1.0), 0.0));
     }
 
     #[test]
     fn dilation_does_not_grow_with_size() {
-        let values: Vec<f64> = (0..=120).map(|s| model(f64::from(s), 1.0)).collect();
+        let values: Vec<f64> = (0..=120).map(|s| dilation(f64::from(s), 1.0)).collect();
         for pair in values.windows(2) {
             assert!(pair[1] <= pair[0], "{values:?}");
         }

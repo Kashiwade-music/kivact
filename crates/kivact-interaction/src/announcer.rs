@@ -1,31 +1,31 @@
 //! Role: Expose reusable live regions for imperative announcements.
 use kivact_core::custom::Generation;
-use kivact_core::state::{Signal, signal};
-use kivact_core::style::{Position, style};
-use kivact_core::view::{IntoView, LiveRegion, Role, View, dynamic};
-use kivact_core::view::{Node, node, text};
+use kivact_core::state::{IntoValue, Signal, Value, signal};
+use kivact_core::view::LiveRegion;
 
-#[derive(Clone, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct NoticeId(Generation);
 
-#[derive(Clone, Default, PartialEq, Eq)]
-struct Notice {
+/// One message of a live region; a repeated message is a new value.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Announcement {
     id: NoticeId,
-    message: String,
+    pub message: String,
 }
 
-/// A handle to the polite and assertive regions created by `outlet()`.
+/// A handle to the polite and assertive regions, mounted by
+/// `kivact::ui::announcer_outlet`.
 #[derive(Clone, Copy)]
 pub struct Announcer {
-    polite: Signal<Notice>,
-    assertive: Signal<Notice>,
+    polite: Signal<Announcement>,
+    assertive: Signal<Announcement>,
 }
 
 /// Create a scoped announcement handle during component setup.
-pub fn announcer() -> Announcer {
+pub fn use_announcer() -> Announcer {
     Announcer {
-        polite: signal(Notice::default()),
-        assertive: signal(Notice::default()),
+        polite: signal(Announcement::default()),
+        assertive: signal(Announcement::default()),
     }
 }
 
@@ -44,33 +44,13 @@ impl Announcer {
         });
     }
 
-    /// Mount one outlet for this handle. The live regions are accessible
-    /// and stay outside normal layout.
-    pub fn outlet(self) -> View {
-        (
-            region(self.polite, LiveRegion::Polite),
-            region(self.assertive, LiveRegion::Assertive),
-        )
-            .into_view()
+    /// The latest message of the polite region.
+    pub fn polite(self) -> Value<Announcement> {
+        self.polite.into_value()
     }
-}
 
-fn region(notice: Signal<Notice>, level: LiveRegion) -> Node {
-    node()
-        .role(Role::Status)
-        .live_region(level)
-        .hit_testable(false)
-        .style(
-            style()
-                .position(Position::Absolute)
-                .left(-1)
-                .top(-1)
-                .size(1, 1)
-                .clip(true)
-                .opacity(0.0),
-        )
-        .child(dynamic(
-            move || notice.get(),
-            |notice| (!notice.message.is_empty()).then(|| text(notice.message)),
-        ))
+    /// The latest message of the assertive region.
+    pub fn assertive(self) -> Value<Announcement> {
+        self.assertive.into_value()
+    }
 }

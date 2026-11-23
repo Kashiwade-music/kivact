@@ -5,7 +5,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Neutral UI vocabulary shared by Kivact and its backends: geometry, ids, events and draw commands (no external dependencies)"
+description = "Pure shared values of Kivact and Arvane: geometry, colors, ids, input, semantics, node props, recorded drawing and shaped text (no external dependencies)"
 
 [dependencies]
 

@@ -9,8 +9,8 @@
 //! - Each animated background layer shows the frame of its own playback
 //!   (slot 1 + its index).
 
-use kivact_types::render::ShapedText;
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
+use kivact_types::shaped::ShapedText;
 use kivact_types::{
     BackgroundClip, Edges, Fill, FillRule, NodeId, PaintProps, PathCmd, Point, Rect,
 };
@@ -33,7 +33,7 @@ impl Model {
         p: &PaintProps,
         outline: &BoxShape,
         tint: &Tint,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Boxes {
         let border = outline.rect();
         let layout = self.computed_layout(id).unwrap_or_default();
@@ -76,8 +76,8 @@ impl Model {
         border: Rect,
         content: Rect,
         tint: &Tint,
-        engine: &mut arvane::Engine,
-    ) -> Option<Shape> {
+        engine: &mut arvane_text::TextEngine,
+    ) -> Option<Outline> {
         if self.node(id)?.kind() != NodeType::Text {
             return None;
         }
@@ -95,23 +95,23 @@ impl Model {
 
 /// The outlines of the glyphs of `shaped`, drawn at `origin`, as one path
 /// filled by the non-zero rule.
-fn glyph_clip(shaped: &ShapedText, origin: Point) -> Shape {
+fn glyph_clip(shaped: &ShapedText, origin: Point) -> Outline {
     let mut cmds = Vec::new();
     for run in &shaped.runs {
         cmds.extend(
-            arvane::glyph_outline(run)
+            arvane_render::glyph_outline(run)
                 .into_iter()
                 .map(|cmd| shift(cmd, origin)),
         );
     }
-    Shape::Path {
+    Outline::Path {
         cmds,
         rule: FillRule::NonZero,
     }
 }
 
 /// `cmd` moved by `by`. A glyph outline holds only moves, lines, curves and
-/// closes (`arvane::glyph_outline`), so the other segments are not expected.
+/// closes (`arvane_render::glyph_outline`), so the other segments are not expected.
 fn shift(cmd: PathCmd, by: Point) -> PathCmd {
     let moved = |p: Point| Point {
         x: p.x + by.x,

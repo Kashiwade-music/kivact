@@ -10,21 +10,22 @@
 
 ```rust
 use kivact::prelude::*;
+use kivact::view::{WindowMode, WindowPlacement};
 
 fn editor() -> impl IntoView {
     let settings_open = signal(false);
     column((
-        button("設定").on_press(move || settings_open.set(true)),
-        window("設定", settings_open)
+        button("Settings").on_press(move || settings_open.set(true)),
+        window("Settings", settings_open)
             .size(480, 360)
             .mode(WindowMode::Tool)
             .placement(WindowPlacement::CenterOnParent)
-            .content(|| text("設定はここに表示されます")),
+            .content(|| text("Settings go here")),
     ))
 }
 ```
 
-`title` は reactive です。closure か signal を渡すと、OS のタイトルがそれに従います。`open` は入力部品が取るのと同じ普通の `bool` の binding です。`true` を書くと content が新しいウィンドウに mount され、`false` を書くと unmount されてウィンドウが閉じます。宣言した owner が破棄されたときも閉じます。すでに開いているウィンドウの `open` に `true` を書き直しても何も起きません。前面には出ません（[ウィンドウを前面に出す](#ウィンドウを前面に出す)を参照）。
+`title` は reactive です。closure か signal を渡すと、OS のタイトルがそれに従います。`open` は入力部品が取るのと同じ普通の `Signal<bool>` です。`true` を書くと content が新しいウィンドウに mount され、`false` を書くと unmount されてウィンドウが閉じます。宣言した owner が破棄されたときも閉じます。すでに開いているウィンドウの `open` に `true` を書き直しても何も起きません。前面には出ません（[ウィンドウを前面に出す](#ウィンドウを前面に出す)を参照）。
 
 `content` はファクトリーです。ウィンドウを開くたびに、新しい owner の下で実行されます。その中で作った signal はウィンドウが閉じると破棄されるので、閉じても残す必要があるものはファクトリーの外で作ってハンドルを capture してください。dialog の content と同じ規則です。
 
@@ -40,9 +41,9 @@ fn app() -> impl IntoView {
     let open = signal(false);
     let dirty = signal(true);
     column((
-        button("設定").on_press(move || open.set(true)),
-        window("設定", open)
-            .content(|| text("設定はここに表示されます"))
+        button("Settings").on_press(move || open.set(true)),
+        window("Settings", open)
+            .content(|| text("Settings go here"))
             .on_dismiss(move |reason| match reason {
                 DismissReason::WindowClose if dirty.get() => Handled::PreventDefault,
                 _ => Handled::No,
@@ -61,9 +62,9 @@ mod tests {
     #[test]
     fn a_prevented_dismiss_keeps_the_window_open() {
         let screen = kivact::test::render(app);
-        screen.get_by_role(Role::Button, "設定").click();
+        screen.get_by_role(Role::Button, "Settings").click();
 
-        let settings = screen.window("設定");
+        let settings = screen.window("Settings");
         settings.request_close();
         assert!(settings.is_open());
     }
@@ -71,6 +72,7 @@ mod tests {
 ```
 
 `open` を自分で false にしたときは `on_dismiss` は呼ばれません。呼ばれるのは利用者の閉じる要求です。main window の閉じる操作は、`on_close_request` が続けると答えない限りアプリを終了します（後述）。`AppHandle::close`（後述）も dismiss ではなく、`on_dismiss` と `on_close_request` を実行しません。
+`on_close_request` は、それを呼んだコンポーネントのウィンドウに効きます。main window、`window(..)`、foreign window のどれかです。main window 以外のウィンドウでは、`Handled::Yes` を返さないハンドラーは、閉じる操作をウィンドウの `on_dismiss(DismissReason::WindowClose)` へ進めます。
 
 ## コードからアプリを終了する
 
@@ -81,7 +83,7 @@ use kivact::platform;
 use kivact::prelude::*;
 
 fn app() -> impl IntoView {
-    button("終了").on_press(|| platform::app_handle().close())
+    button("Quit").on_press(|| platform::app_handle().close())
 }
 ```
 
@@ -94,15 +96,15 @@ fn main() -> kivact::Result<()> {
     let app = App::new("Synth").window_size(800, 500);
     let handle = app.handle();
     std::thread::spawn(move || {
-        // ここでセッションを実行し、失敗か Ctrl+C で:
+        // Run the session here; on a failure or Ctrl+C:
         handle.close();
     });
-    app.run(|| text("実行中"))
+    app.run(|| text("Working"))
 }
 ```
 
-- `close` はすぐに返ります。アプリの次のターンが終了を始め、キューに積んだ `ActionMode::Queue` の実行は（最大 3 秒まで）終わりまで流れ、owner が破棄され、`App::run` が `Ok(())` を返します。
-- ハンドルは 1 回の run に属します。`App::run` は `App` を消費するので 2 回目の run はなく、run が終わった後の `close` は何もしません。`App` の clone はハンドルを共有します。
+- `close` はすぐに返ります。アプリの次のターンが終了を始め、キューに積んだ `queued_action` の実行は（最大 3 秒まで）終わりまで流れ、owner が破棄され、`App::run` が `Ok(())` を返します。
+- ハンドルは 1 回の run に属します。`App::run` は `App` を消費するので 2 回目の run はなく、run が終わった後の `close` は何もしません。`App` は clone できません。`run` の前に `App::handle()` を取ると、ほかの場所からハンドルに届きます。
 - run の前に `close` すると、`run` はウィンドウを開かずに `Ok(())` を返します。root は実行されません。
 - 終了は dismiss ではありません。`on_dismiss` と `on_close_request` は実行されず、取り消せません。埋め込みの editor（`App::embed`）では `close` は root owner に `ErrorKind::Unsupported` を報告します。代わりに `Embedded` ハンドルを drop してください。
 - UI スレッドが OS のモーダルループ（ファイルダイアログ、システムによるウィンドウの移動・リサイズ）の中にいる間は、ループから戻ったときに終了が始まります。
@@ -114,7 +116,7 @@ use kivact::platform;
 use kivact::prelude::*;
 
 fn app() -> impl IntoView {
-    button("終了").on_press(|| platform::app_handle().close())
+    button("Quit").on_press(|| platform::app_handle().close())
 }
 
 fn main() -> kivact::Result<()> {
@@ -132,22 +134,23 @@ mod tests {
             render_with_handle(kivact::test::RenderOptions::default(), || {
                 (platform::app_handle(), app())
             });
-        screen.get_by_role(Role::Button, "終了").click();
+        screen.get_by_role(Role::Button, "Quit").click();
         assert!(screen.has_exited());
-        handle.close(); // run が終わった後: 何も起きません
+        handle.close(); // after the run: nothing happens
     }
 }
 ```
 
 ## アプリが閉じる前に確認する
 
-利用者が main window を閉じる要求をすると（タイトルバー、Alt+F4）、アプリが終わる前に `platform::on_close_request` のハンドラーが登録した順に呼ばれます。ハンドラーが `Handled::Yes` か `Handled::PreventDefault` を返すか、失敗したとき（エラーは報告されます）はアプリは動き続けます。ほかのハンドラーも呼ばれます。`()` か `Handled::No` を返すと、閉じる操作は進みます。ハンドラーは、呼んだ owner が生きている間だけ登録されるので、`show` の枝の中のハンドラーは、その枝が unmount されると確認しなくなります。
+利用者が main window を閉じる要求をすると（タイトルバー、Alt+F4）、アプリが終わる前に `platform::on_close_request` のハンドラーが登録した順に呼ばれます。ハンドラーが `Handled::Yes` か `Handled::PreventDefault` を返すか、失敗したとき（エラーは報告されます）はアプリは動き続けます。ほかのハンドラーも呼ばれます。`()` か `Handled::No` を返すと、閉じる操作は進みます。ハンドラーは、呼んだ owner が生きている間だけ登録されるので、`show` の枝の中のハンドラーは、その枝が unmount されると確認しなくなります。`on_close_request` は、それを呼んだコンポーネントのウィンドウに効きます。main window、`window(..)`、foreign window のどれかです。main window 以外のウィンドウでは、`Handled::Yes` を返さないハンドラーは、閉じる操作をウィンドウの `on_dismiss(DismissReason::WindowClose)` へ進めます。
 
 未保存の変更があるアプリは、この仕組みで閉じる前に確認します。フラグは signal で、ハンドラーはフラグが立っている間アプリを開いたままにし、dialog のボタンが決めます。「保存しない」と保存に成功した「保存」は `app_handle().close()` を呼び、「キャンセル」は dialog を閉じるだけです。
 
 ```rust,test_harness
 use kivact::platform;
 use kivact::prelude::*;
+use kivact::ui::DialogKind;
 
 fn app() -> impl IntoView {
     let dirty = signal(true);
@@ -161,19 +164,19 @@ fn app() -> impl IntoView {
         }
     });
     column((
-        text(move || if dirty.get() { "未保存の変更があります" } else { "保存済み" }),
-        dialog("変更を保存しますか？", asking)
-            .mode(DialogMode::AlertModal)
-            .content(|| text("保存しないと変更は失われます。"))
+        text(move || if dirty.get() { "Unsaved changes" } else { "Saved" }),
+        dialog("Save changes?", asking)
+            .mode(DialogKind::AlertModal)
+            .content(|| text("Your changes are lost if you do not save them."))
             .footer(move || {
                 row((
-                    button("保存しない")
+                    button("Don't save")
                         .variant(ButtonVariant::Outline)
                         .on_press(|| platform::app_handle().close()),
-                    button("キャンセル")
+                    button("Cancel")
                         .variant(ButtonVariant::Outline)
                         .on_press(move || asking.set(false)),
-                    button("保存").on_press(move || {
+                    button("Save").on_press(move || {
                         if save_document().is_ok() {
                             dirty.set(false);
                             asking.set(false);
@@ -186,7 +189,7 @@ fn app() -> impl IntoView {
     ))
 }
 
-/// 文書を書き出します。アプリ自身の保存の処理の代わりです。
+/// Writes the document. Stands in for the app's own save code.
 fn save_document() -> Result<(), UiError> {
     Ok(())
 }
@@ -202,22 +205,22 @@ mod tests {
     #[test]
     fn cancel_keeps_the_app_open_and_save_exits_it() {
         let screen = kivact::test::render(app);
-        assert!(!screen.request_close(), "未保存の変更があるとアプリは開いたままです");
-        screen.get_by_role(Role::AlertDialog, "変更を保存しますか？");
+        assert!(!screen.request_close(), "unsaved changes keep the app open");
+        screen.get_by_role(Role::AlertDialog, "Save changes?");
 
-        screen.get_by_role(Role::Button, "キャンセル").click();
+        screen.get_by_role(Role::Button, "Cancel").click();
         assert!(!screen.has_exited());
 
         assert!(!screen.request_close());
-        screen.get_by_role(Role::Button, "保存").click();
+        screen.get_by_role(Role::Button, "Save").click();
         assert!(screen.has_exited());
     }
 
     #[test]
-    fn dont_save_exits_without_saving() {
+    fn don_t_save_exits_without_saving() {
         let screen = kivact::test::render(app);
         assert!(!screen.request_close());
-        screen.get_by_role(Role::Button, "保存しない").click();
+        screen.get_by_role(Role::Button, "Don't save").click();
         assert!(screen.has_exited());
     }
 }
@@ -225,7 +228,7 @@ mod tests {
 
 ## ウィンドウのモードと配置
 
-`.mode(..)` と `.placement(..)` は構造の option です。view を組み立てるときに決まる定数で、後から変わる binding ではありません。
+`.mode(..)` と `.placement(..)` は構造の option です。view を組み立てるときに決まる定数で、後から変わる Signal ではありません。
 
 | `WindowMode` | 何か |
 | --- | --- |
@@ -257,7 +260,7 @@ struct Draft {
 
 fn form() -> impl IntoView {
     let draft = use_context::<Draft>();
-    text(move || if draft.get().dirty.get() { "未保存の変更があります" } else { "保存済み" })
+    text(move || if draft.dirty.get() { "Unsaved changes" } else { "Saved" })
 }
 
 fn app() -> impl IntoView {
@@ -265,8 +268,8 @@ fn app() -> impl IntoView {
     let dirty = signal(true);
     provide(Draft { dirty }, move || {
         column((
-            button("設定").on_press(move || settings_open.set(true)),
-            window("設定", settings_open).content(|| form()),
+            button("Settings").on_press(move || settings_open.set(true)),
+            window("Settings", settings_open).content(|| form()),
         ))
     })
 }
@@ -282,8 +285,8 @@ mod tests {
     #[test]
     fn the_window_reads_the_context_of_its_declaration() {
         let screen = kivact::test::render(app);
-        screen.get_by_role(Role::Button, "設定").click();
-        screen.window("設定").get_by_text("未保存の変更があります");
+        screen.get_by_role(Role::Button, "Settings").click();
+        screen.window("Settings").get_by_text("Unsaved changes");
     }
 }
 ```
@@ -299,7 +302,7 @@ use kivact::platform;
 use kivact::prelude::*;
 
 fn settings() -> impl IntoView {
-    button("このウィンドウを前面に出す")
+    button("Bring this window to the front")
         .on_press(|| {
             spawn(platform::focus_window());
         })
@@ -321,14 +324,13 @@ use kivact::prelude::*;
 
 fn app() -> impl IntoView {
     let open = signal(false);
-    let choose: Callback<()> = (|| {
+    let choose = callback(|_| {
         spawn(async { let _ = platform::pick_file(FileDialog::default()).await; });
-    })
-    .into();
+    });
     column((
-        button("設定").on_press(move || open.set(true)),
-        window("設定", open)
-            .content(move || button("ファイルを選ぶ…").on_press(choose)),
+        button("Settings").on_press(move || open.set(true)),
+        window("Settings", open)
+            .content(move || button("Choose a file…").on_press(choose)),
     ))
 }
 ```
@@ -342,9 +344,9 @@ use kivact::prelude::*;
 fn app() -> impl IntoView {
     let open = signal(false);
     column((
-        button("設定").on_press(move || open.set(true)),
-        window("設定", open).content(|| {
-            button("ファイルを選ぶ…").on_press(|| {
+        button("Settings").on_press(move || open.set(true)),
+        window("Settings", open).content(|| {
+            button("Choose a file…").on_press(|| {
                 spawn(async { let _ = platform::pick_file(FileDialog::default()).await; });
             })
         }),
@@ -366,8 +368,8 @@ use kivact::ErrorKind;
 fn app() -> impl IntoView {
     let settings_open = signal(false);
     column((
-        button("設定").on_press(move || settings_open.set(true)),
-        window("設定", settings_open).content(|| text("設定はここに表示されます")),
+        button("Settings").on_press(move || settings_open.set(true)),
+        window("Settings", settings_open).content(|| text("Settings go here")),
     ))
 }
 
@@ -382,10 +384,10 @@ mod tests {
     #[test]
     fn a_window_is_a_screen_of_its_own() {
         let screen = kivact::test::render(app);
-        screen.get_by_role(Role::Button, "設定").click();
+        screen.get_by_role(Role::Button, "Settings").click();
 
-        let settings = screen.window("設定");
-        settings.get_by_text("設定はここに表示されます");
+        let settings = screen.window("Settings");
+        settings.get_by_text("Settings go here");
         assert!(settings.is_open());
 
         settings.request_close();
@@ -395,20 +397,20 @@ mod tests {
     #[test]
     fn windows_lists_the_open_windows() {
         let screen = kivact::test::render(app);
-        screen.get_by_role(Role::Button, "設定").click();
+        screen.get_by_role(Role::Button, "Settings").click();
 
         let windows = screen.windows();
         assert_eq!(windows.len(), 2);
         assert_eq!(windows[0].title(), screen.title());
-        assert_eq!(windows[1].title(), "設定");
+        assert_eq!(windows[1].title(), "Settings");
     }
 
     #[test]
     fn an_environment_with_one_window_reports_unsupported() {
         let screen = render_with(RenderOptions::default().single_window(), app);
-        screen.get_by_role(Role::Button, "設定").click();
+        screen.get_by_role(Role::Button, "Settings").click();
 
-        assert!(screen.query_by_text("設定はここに表示されます").is_none());
+        assert!(screen.query_by_text("Settings go here").is_none());
         assert!(screen.errors().iter().any(|error| *error.kind() == ErrorKind::Unsupported));
     }
 }

@@ -2,10 +2,10 @@
 
 use crate::arrangement_model::arrangement as app_arrangement;
 use crate::table_rows::{line, lines};
-use kivact::geometry::Point;
 use kivact::prelude::*;
+use kivact::view::Modifiers;
 
-use kivact::view::{A11yAction, Handled, KeyCode, Modifiers, MouseButton};
+use kivact::view::{A11yAction, KeyCode};
 use kivact_ui_creative as ui;
 use std::time::Duration;
 
@@ -32,8 +32,8 @@ fn arrangement_loop_automation_track_flags_and_clip_tools_update_public_models()
                     clips,
                     tracks,
                     ui::ArrangementState {
-                        loop_range: range.into_binding(),
-                        tool: tool.into_binding(),
+                        loop_range: range,
+                        tool,
                         ..ui::ArrangementState::new()
                     },
                 )
@@ -92,7 +92,8 @@ fn floating_window_drags_collapses_and_restores_opener_focus() {
                 ui::tool_window_button("Render Settings", ui::ToolWindowOptions::default(), |_| {
                     column((
                         text("Retained settings"),
-                        kivact::ui::text_input("Window text", signal(String::new()))
+                        kivact::ui::text_input(signal(String::new()))
+                            .label("Window text")
                             .with_node(move |node| node.value_text("Settings")),
                     ))
                     .into_view()

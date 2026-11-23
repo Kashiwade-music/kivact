@@ -5,14 +5,14 @@ use std::collections::{BTreeMap, HashMap};
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
 use kivact_engine::api::Reader;
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_types::{
     CheckedState, Fill, FillImage, FocusTarget, LayoutRule, LiveRegion, NodeId, Rgba, Role,
     Semantics, WindowId,
 };
 
 use super::convert;
-use crate::view::devtools_state::DevtoolsState;
+use crate::devtools::state::DevtoolsState;
 use crate::view::state::ViewState;
 use crate::view::tree::ViewNodes;
 

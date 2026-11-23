@@ -1,22 +1,21 @@
 //! Role: Owns derived layout columns and their pending computation state.
-use crate::{GeometryChanges, LayoutDifference, LayoutTree, LeafMeasurer, NodeLayout};
+#[cfg(any(test, feature = "reference"))]
+use crate::LayoutDifference;
+use crate::{GeometryChanges, LayoutTree, LeafMeasurer, NodeLayout};
 use crate::{LayoutState, NodeLayoutColumns};
 use kivact_types::{NodeId, Orientation, Size};
 
-/// Derived layout and invalidation for one structural slot allocation domain.
-#[derive(Clone, Default)]
+/// Derived layout and invalidation for the slots of one node store (see LayoutTree::slot_count).
+#[derive(Default)]
+#[cfg_attr(any(test, feature = "reference"), derive(Clone))]
 pub struct Layout {
     columns: NodeLayoutColumns,
     state: LayoutState,
 }
 impl Layout {
-    /// Append the next fresh structural slot, excluding the existing viewport.
-    pub fn push(&mut self) {
-        self.columns.push();
-    }
-    /// Reset an allocated zero-based structural slot before reuse.
-    pub fn reset(&mut self, slot: usize) {
-        self.columns.reset(slot);
+    /// Forget a freed zero-based structural slot (nothing when the columns never reached it).
+    pub fn forget(&mut self, slot: usize) {
+        self.columns.forget(slot);
     }
     /// Scale one output axis while retaining the natural layout of its children.
     /// The slot must belong to this layout's allocated structural domain.
@@ -26,6 +25,7 @@ impl Layout {
         slot: usize,
         scale: Option<(Orientation, f64)>,
     ) {
+        self.columns.ensure(tree.slot_count());
         let current = &mut self.columns.values.presence_scale[slot + 1];
         if *current == scale {
             return;
@@ -44,10 +44,13 @@ impl Layout {
     }
     /// Rebuild one live node style from its authoritative properties.
     pub fn rebuild_style<T: LayoutTree + ?Sized>(&mut self, tree: &T, id: NodeId) {
+        self.columns.ensure(tree.slot_count());
         self.columns.rebuild_style(tree, &mut self.state, id);
     }
     /// Rebuild live styles and discard incremental measurement shortcuts.
+    #[cfg(any(test, feature = "reference"))]
     pub fn rebuild_all<T: LayoutTree + ?Sized>(&mut self, tree: &T) {
+        self.columns.ensure(tree.slot_count());
         self.columns.rebuild_all(tree, &mut self.state);
     }
     /// Expire traversal cursors after authoritative topology changes.
@@ -56,6 +59,7 @@ impl Layout {
     }
     /// Invalidate a node measurement and its layout dependency chain.
     pub fn invalidate_chain<T: LayoutTree + ?Sized>(&mut self, tree: &T, id: NodeId) {
+        self.columns.ensure(tree.slot_count());
         self.columns.invalidate_chain(tree, &mut self.state, id);
     }
     /// Invalidate the shared viewport cache for fixed boxes.
@@ -69,6 +73,7 @@ impl Layout {
         available: Size,
         measure: &mut dyn LeafMeasurer,
     ) -> bool {
+        self.columns.ensure(tree.slot_count());
         if tree.root().is_none() {
             // Nothing to compute: keep the pending work for the first root.
             return false;
@@ -89,6 +94,7 @@ impl Layout {
         limit: Option<Size>,
         measure: &mut dyn LeafMeasurer,
     ) {
+        self.columns.ensure(tree.slot_count());
         self.columns.next_stamp();
         self.columns
             .compute_overlay(tree, &self.state, id, available, limit, measure);
@@ -113,9 +119,13 @@ impl Layout {
     }
     /// Revalidate every recorded request when its measurement record is complete.
     pub fn remeasures_same(&self, slot: usize, id: NodeId, measure: &mut dyn LeafMeasurer) -> bool {
+        if slot + 1 >= self.columns.states.len() {
+            return false;
+        }
         self.columns.remeasures_same(slot, id, measure)
     }
     /// Compare retained measurements against an independent measurer.
+    #[cfg(any(test, feature = "reference"))]
     pub fn compare_measurements(
         &self,
         tree: &dyn LayoutTree,
@@ -124,6 +134,7 @@ impl Layout {
         self.columns.compare_measurements(tree, measure)
     }
     /// Compare independently derived geometry for the same structural slots.
+    #[cfg(any(test, feature = "reference"))]
     pub fn compare(&self, other: &Self, tree: &dyn LayoutTree) -> Vec<LayoutDifference> {
         self.columns.compare(&other.columns, tree)
     }

@@ -1,7 +1,7 @@
 //! Role: Finds the DXGI adapter of a GpuAdapter by its LUID.
 
+use super::contract::luid_bytes;
 use crate::common::{Error, api};
-use crate::d3d12_contract::luid_bytes;
 use kivact_types::{AdapterIds, GpuAdapter};
 use windows::Win32::Graphics::Dxgi::{
     CreateDXGIFactory2, DXGI_CREATE_FACTORY_FLAGS, IDXGIAdapter1, IDXGIFactory4,

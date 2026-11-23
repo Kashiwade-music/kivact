@@ -98,6 +98,20 @@ pub(crate) fn drag<T: TimeItem>(s: State<T>) -> Gesture<Snapshot> {
             move |target| s.activate(target),
             move |_| s.reset_fields(),
         ),
+        move || {
+            let items = s.data.get_untracked();
+            let lanes = s.visible.get_untracked();
+            s.initial().is_some_and(|snapshot| match snapshot {
+                crate::editors::time::gesture::Snapshot::Items(initial) => {
+                    initial.iter().any(|v| {
+                        !items
+                            .iter()
+                            .any(|i| i.id() == v.0 && lanes.iter().any(|lane| lane.id == i.lane()))
+                    })
+                }
+                _ => false,
+            })
+        },
     )
 }
 fn start<T: TimeItem>(s: State<T>, drag: Drag, e: &PointerEvent, pending: Option<u64>) {
@@ -120,7 +134,7 @@ fn motion<T: TimeItem>(s: State<T>, pos: Point, origin: Point, snapshot: &Snapsh
             }
         }
         (Drag::Marquee(from, _), _) => s.set_drag(Some(Drag::Marquee(from, pos))),
-        (Drag::Pan, Snapshot::View(kivact::interaction::ViewTransform { offset: p, .. })) => {
+        (Drag::Pan, Snapshot::View(kivact::interaction::ZoomPan { offset: p, .. })) => {
             let next = Point::new(p.x + pos.x - origin.x, p.y + pos.y - origin.y);
             if next != s.offset.get() {
                 s.gesture.change(|| s.set_offset(next));

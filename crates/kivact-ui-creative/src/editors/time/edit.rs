@@ -2,10 +2,10 @@
 use crate::editors::time::gesture::{Snapshot, State};
 use crate::editors::time::model::TimeItem;
 use kivact::geometry::Point;
-use kivact::state::Binding;
+use kivact::state::Signal;
 pub(crate) fn restore(
-    playhead: Binding<f64>,
-    transform: Binding<kivact::interaction::ViewTransform>,
+    playhead: Signal<f64>,
+    transform: Signal<kivact::interaction::ZoomPan>,
     snapshot: Snapshot,
 ) {
     match snapshot {
@@ -16,13 +16,13 @@ pub(crate) fn restore(
 }
 impl<T: TimeItem> State<T> {
     pub(crate) fn set_scale(self, scale: f64) {
-        self.transform.set(kivact::interaction::ViewTransform {
+        self.transform.set(kivact::interaction::ZoomPan {
             scale,
             ..self.transform.get_untracked()
         });
     }
     pub(crate) fn set_offset(self, offset: Point) {
-        self.transform.set(kivact::interaction::ViewTransform {
+        self.transform.set(kivact::interaction::ZoomPan {
             offset,
             ..self.transform.get_untracked()
         });

@@ -59,7 +59,8 @@ format's calls, and a test implements it with a fake:
 ```rust,test_harness
 use std::sync::Arc;
 
-use kivact::motion::FrameRate;
+use kivact::motion::{FrameRate, frame_loop};
+use kivact::view::EditPhase;
 use kivact::prelude::*;
 
 /// What the editor needs from the plugin. The wrapper implements it.
@@ -70,7 +71,8 @@ pub trait Params: Send + Sync + 'static {
     fn end_gesture(&self);
 }
 
-pub fn editor(params: Arc<dyn Params>) -> impl IntoView {
+#[component]
+pub fn editor(params: Arc<dyn Params>) -> impl Element {
     let value = signal(params.gain());
 
     // Follow what the host changes (automation, presets) once per display frame.
@@ -90,7 +92,7 @@ pub fn editor(params: Arc<dyn Params>) -> impl IntoView {
     // A drag or a key press is one gesture for the host's undo and automation.
     let gestures = params;
     column((
-        slider("Gain", gain)
+        slider(gain).label("Gain")
             .range(0.0..=1.0)
             .step(0.1)
             .on_edit(move |phase| match phase {
@@ -137,7 +139,7 @@ mod tests {
     #[test]
     fn the_editor_writes_gestures_and_follows_the_host() {
         let fake = Arc::new(Fake::default());
-        let params = fake.clone();
+        let params: Arc<dyn Params> = fake.clone();
         let screen = kivact::test::render(move || editor(params));
 
         screen.get_by_role(Role::Slider, "Gain").press_key(Key::ArrowRight);
@@ -167,7 +169,8 @@ The task belongs to the component and is canceled when the editor closes. Pollin
 ```rust,no_run
 use kivact::prelude::*;
 
-fn gain_label(incoming: async_channel::Receiver<f64>) -> impl IntoView {
+#[component]
+fn gain_label(incoming: async_channel::Receiver<f64>) -> impl Element {
     let value = signal(0.0);
     spawn(async move {
         while let Ok(next) = incoming.recv().await {
@@ -298,7 +301,7 @@ physical pixels per logical pixel.
 | `adjust_size` / `checkSizeConstraint` | Round to the wrapper's own limits; the host's `set_size` is not limited by `min_window_size`. |
 | `destroy` / `removed` | Drop the handle. |
 | the OS changes the display scale (Windows) | `Parent::on_notice` gives `EmbedNotice::ScaleChanged(scale)`; read `scale()` and keep the logical size by asking the host for `round(logical size * scale)`. |
-| the editor stopped (parent destroyed, failure, panic) | `Parent::on_notice` gives `EmbedNotice::Stopped`; read `status()`. |
+| the editor stopped (parent destroyed, failure, panic) | `Parent::on_notice` gives `EmbedNotice::Stopped(status)` once, with the `EmbedStatus` (`Closed`, `Failed` or `Panicked`). |
 
 ```rust,no_run
 use kivact::embed::Embedded;
@@ -513,7 +516,6 @@ can embed, pump its message loop and capture what the editor presented. It exist
 Windows and Linux.
 
 ```rust,no_run
-# #[cfg(any(windows, target_os = "linux"))]
 # fn example() -> kivact::Result<()> {
 use std::time::Duration;
 

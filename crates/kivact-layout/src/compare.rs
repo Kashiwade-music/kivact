@@ -3,7 +3,6 @@
 use crate::borrowed_tree::{LayoutTree, LeafMeasurer};
 use crate::columns::{Measured, NodeLayoutColumns};
 use crate::pass_state::LayoutState;
-use kivact_types::NodeId;
 
 /// Complete neutral geometry, opaque so cache and Taffy representations stay private.
 /// Equality includes rounded/unrounded location, size, overflow rectangle,
@@ -41,22 +40,6 @@ impl NodeLayoutColumns {
             unrounded: geometry(*values.unrounded.get(at)?),
         })
     }
-    /// Revalidate every recorded request only when the record is complete.
-    /// No result is copied back.
-    /// `slot` must be live and allocated in this instance's domain, and `id` must
-    /// identify that same node. The measurer must describe its current content.
-    pub(crate) fn remeasures_same(
-        &self,
-        slot: usize,
-        id: NodeId,
-        measure: &mut dyn LeafMeasurer,
-    ) -> bool {
-        let record = &self.states[slot + 1].measured;
-        record.state == crate::columns::RecordState::Complete
-            && record.sizes.iter().all(|(ask, retained)| {
-                Measured::of(&measure.measure(id, ask.request())) == *retained
-            })
-    }
     /// Compare retained requests with current content, including bounded incomplete records.
     /// This diagnostic operation never updates retained measurements or repairs layout.
     /// `tree` must have the same live identity-to-slot mapping and allocated slot
@@ -72,7 +55,10 @@ impl NodeLayoutColumns {
             let Some(id) = tree.id_at(slot) else {
                 continue;
             };
-            for (ask, retained) in &self.states[slot + 1].measured.sizes {
+            let Some(record) = self.states.get(slot + 1) else {
+                continue;
+            };
+            for (ask, retained) in &record.measured.sizes {
                 let request = ask.request();
                 let rebuilt = measure.measure(id, request);
                 if Measured::of(&rebuilt) != *retained {
@@ -110,7 +96,7 @@ impl NodeLayoutColumns {
         for record in &mut self.states {
             record.measured = Default::default();
         }
-        for cache in &mut self.values.caches {
+        for cache in self.values.caches.iter_mut().flatten() {
             cache.clear();
         }
         self.values.performed.clear();
@@ -132,12 +118,22 @@ impl NodeLayoutColumns {
                 continue;
             };
             let at = slot + 1;
-            if before.final_layout[at].is_none() && after.final_layout[at].is_none() {
+            // A column the other side never grew to holds no result: skip the slot.
+            let (Some(retained), Some(rebuilt)) =
+                (before.final_layout.get(at), after.final_layout.get(at))
+            else {
+                continue;
+            };
+            if retained.is_none() && rebuilt.is_none() {
                 continue;
             }
             if let Some(input) = before.performed.get(&(at as u64)).copied() {
-                let a = before.caches[at].clone().get(&input);
-                let b = after.caches[at].clone().get(&input);
+                let a = before.caches[at]
+                    .clone()
+                    .and_then(|mut cache| cache.get(&input));
+                let b = after.caches[at]
+                    .clone()
+                    .and_then(|mut cache| cache.get(&input));
                 if let (Some(a), Some(b)) = (a, b)
                     && a != b
                 {

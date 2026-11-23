@@ -2,6 +2,8 @@
 
 use super::state::SizeMotion;
 use crate::model::Model;
+use crate::model::motion_run::MotionRun;
+use kivact_types::motion::SpringRun;
 use kivact_types::{LayoutProps, NodeId, Orientation};
 
 /// The axis `l` animates its size along when it enters or exits: none
@@ -41,19 +43,22 @@ impl Model {
             .presence
             .sizes
             .get(&id)
-            .map_or(if entering { 0.0 } else { 1.0 }, |m| m.current[0]);
+            .map_or(if entering { 0.0 } else { 1.0 }, |m| m.run.current[0]);
         self.layout
             .set_presence_scale(&self.tree, n.index.0, Some((axis, from)));
+        let to = if entering { 1.0 } else { 0.0 };
+        let start = self.frame.request_motion_frame();
         self.presence.sizes.insert(
             id,
             SizeMotion {
                 axis,
-                transition,
-                start: self.frame.request_motion_frame(),
-                from,
-                to: if entering { 1.0 } else { 0.0 },
-                current: vec![from],
-                spring: Default::default(),
+                run: MotionRun::start(
+                    vec![from],
+                    vec![to],
+                    transition,
+                    SpringRun::default(),
+                    start,
+                ),
             },
         );
         self.changes
@@ -67,27 +72,19 @@ impl Model {
             let Some(n) = self.tree.get(*id) else {
                 return false;
             };
-            let done = (reduced && m.transition.decorative)
-                || m.transition.step(
-                    &[m.from],
-                    &[m.to],
-                    m.start,
-                    now,
-                    &mut m.current,
-                    &mut m.spring,
-                );
+            let done = m.run.step(now, reduced);
             self.layout.set_presence_scale(
                 &self.tree,
                 n.index.0,
-                if done && m.to == 1.0 {
+                if done && m.run.to[0] == 1.0 {
                     None
                 } else {
                     Some((
                         m.axis,
                         if done {
-                            m.to
+                            m.run.to[0]
                         } else {
-                            m.current[0].clamp(0.0, 1.0)
+                            m.run.current[0].clamp(0.0, 1.0)
                         },
                     ))
                 },
@@ -103,16 +100,5 @@ impl Model {
         let active = !sizes.is_empty();
         self.presence.sizes = sizes;
         active
-    }
-
-    pub(crate) fn shift_size_times(&mut self, paused: u64, now: u64) {
-        for m in self.presence.sizes.values_mut() {
-            m.start = if m.start <= paused {
-                m.start.saturating_add(now.saturating_sub(paused))
-            } else {
-                now
-            };
-            m.spring.last_ns = now;
-        }
     }
 }

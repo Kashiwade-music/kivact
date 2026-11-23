@@ -18,25 +18,26 @@ use kivact::style::ThemeMode;
 use kivact_ui_game as game;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-enum Difficulty {
+enum Level {
     Easy,
     Normal,
     Hard,
 }
 
-fn difficulty() -> impl IntoView {
-    let level = signal(Some(Difficulty::Normal));
+#[component]
+fn difficulty() -> impl Element {
+    let level = signal(Some(Level::Normal));
     column((
         radio_group(
             "Difficulty",
             vec![
-                ListItem::new(Difficulty::Easy, "EASY"),
-                ListItem::new(Difficulty::Normal, "NORMAL"),
-                ListItem::new(Difficulty::Hard, "HARD"),
+                ListItem::new(Level::Easy, "EASY"),
+                ListItem::new(Level::Normal, "NORMAL"),
+                ListItem::new(Level::Hard, "HARD"),
             ],
             level,
         )
-        .orientation(Orientation::Horizontal)
+        .orientation(kivact::view::Orientation::Horizontal)
         .variant(kivact::ui::RadioGroupVariant::Segmented),
         game::mono(move || format!("{:?}", level.get())),
     ))
@@ -66,7 +67,8 @@ such as a price.
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
-fn plans() -> impl IntoView {
+#[component]
+fn plans() -> impl Element {
     let plan = signal(Some("team"));
     radio_group(
         "Plan",
@@ -101,7 +103,8 @@ use kivact::prelude::*;
 use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
-fn menu() -> impl IntoView {
+#[component]
+fn menu() -> impl Element {
     let section = signal("inbox");
     tabs(
         "Sections",
@@ -111,8 +114,8 @@ fn menu() -> impl IntoView {
         ],
         section,
     )
-    .orientation(Orientation::Vertical)
-    .variant(game::Navigation)
+    .orientation(kivact::view::Orientation::Vertical)
+    .variant(game::TabsVariant::Navigation)
     .item(|item, state| {
         let count = match item.with(|item| *item.key()) {
             "inbox" => Some(kivact::ui::badge("3").tone(Tone::Info)),
@@ -127,7 +130,7 @@ fn menu() -> impl IntoView {
 
 `game::navigation_label` draws the icon, the label and the description; the
 slot puts a badge or a count after it. For horizontal tabs, the default look is
-underlined and `.variant(game::Boxed)` puts the tabs in a box, as in the
+underlined and `.variant(game::TabsVariant::Boxed)` puts the tabs in a box, as in the
 [tutorial](../getting-started/03-tabs-and-items.md). To keep what is typed in
 a panel when the player switches tabs, add `.keep_mounted()`: every panel is
 built once and hidden while its tab is not selected.
@@ -135,24 +138,21 @@ built once and hidden while its tab is not selected.
 ## Add quick actions to a toolbar
 
 `kivact::ui::toolbar(label).start(children)` is a dense bordered row, `kivact::ui::button_group(label, children)`
-packs related buttons together, and `game::tool_button(label)` is a square
-ghost button for an icon. Give a tool button its icon and hide its label; the
-label stays as the accessible name.
+packs related buttons together, and `kivact::ui::icon_button(icon, label)` is an icon-only button with a tooltip. Its label is the
+accessible name. `game::tool_button(label)` is the kit's square ghost
+button for a short text label.
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
-fn tools(zoom: Signal<f64>) -> impl IntoView {
+#[component]
+fn tools(zoom: Signal<f64>) -> impl Element {
     kivact::ui::toolbar("View tools").start((
         kivact::ui::button_group("Zoom", (
-            game::tool_button("Zoom out")
-                .icon(icon("chevron-down"))
-                .hide_label(true)
+            kivact::ui::icon_button("chevron-down", "Zoom out")
                 .on_press(move || zoom.update(|z| *z = (*z - 0.25).max(0.25))),
-            game::tool_button("Zoom in")
-                .icon(icon("chevron-up"))
-                .hide_label(true)
+            kivact::ui::icon_button("chevron-up", "Zoom in")
                 .on_press(move || zoom.update(|z| *z += 0.25)),
         )),
         game::mono(move || format!("{:.0}%", zoom.get() * 100.0)),

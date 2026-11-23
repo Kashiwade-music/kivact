@@ -1,5 +1,7 @@
 //! Role: The Accessibility panel.
 
+use kivact::state::IntoValue;
+use kivact::ui::{DataColumn, data_table};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -59,7 +61,7 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         ))
         .style(style().gap(8)),
     )
-    .style(style().grow(1.0).min_height(0.0))
+    .style(style().flex_grow(1.0).min_height(0.0))
 }
 
 /// The tree, audit and focus sections of one load.

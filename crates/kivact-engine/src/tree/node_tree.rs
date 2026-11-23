@@ -3,7 +3,7 @@
 use super::store::NodeStore;
 use crate::contract::NodeType;
 use crate::tree::node::{HostNode, NodeIndex, NodePresence, Place, Positioning};
-use kivact_types::NodeId;
+use kivact_types::{NodeId, Point};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
@@ -16,19 +16,22 @@ pub(crate) struct FlatChild {
     pub(crate) slot: NodeIndex,
 }
 
+// xtask-allow(state): independent: flat caches flat child lists (filled by flat_children, cleared by forget_flat_through, forget_flat_around and remove_with); root is written only by install and remove_with
 /// The node tree.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NodeTree {
     /// Cached flat children, indexed by the parent's slot.
     flat: RefCell<Vec<Option<Rc<[FlatChild]>>>>,
-    // xtask-allow(state-fields): independent: parents whose child order insert or detach edited, drained by pack_child_orders before layout; detached subtrees edit orders too, so pending work occurs with or without a root
     /// Derived packing work only; the child order remains solely in NodeLinks.
     pending_child_order: BTreeSet<NodeId>,
     pub(crate) nodes: NodeStore,
-    // xtask-allow(state-fields): independent: the Root-kind node, set when the client installs it and cleared when it is removed; detached subtrees queue child-order packing too, so pending work occurs with or without a root
     pub(crate) root: Option<NodeId>,
     pub(crate) overlays: Vec<NodeId>,
     pub(crate) scrollers: BTreeSet<NodeId>,
+    /// The offset of each scroll container that is scrolled (absent: at the origin).
+    scroll: kivact_types::IdMap<Point>,
+    /// How far each stuck sticky box is moved from its laid out position (absent: not moved).
+    shift: kivact_types::IdMap<Point>,
     pub(crate) observed: BTreeSet<NodeId>,
     /// Image leaves, attached or detached, ordered for asset polling.
     pub(crate) images: BTreeSet<NodeId>,
@@ -54,6 +57,42 @@ impl NodeTree {
 
     pub(crate) fn get_mut(&mut self, id: NodeId) -> Option<&mut HostNode> {
         self.nodes.get_mut(&id)
+    }
+
+    /// The scroll offset of `id`.
+    pub(crate) fn scroll_of(&self, id: NodeId) -> Point {
+        self.scroll.get(&id).copied().unwrap_or_default()
+    }
+
+    /// Set the scroll offset of `id`; whether it changed.
+    pub(crate) fn set_scroll_of(&mut self, id: NodeId, offset: Point) -> bool {
+        if self.scroll_of(id) == offset {
+            return false;
+        }
+        if offset == Point::default() {
+            self.scroll.remove(&id);
+        } else {
+            self.scroll.insert(id, offset);
+        }
+        true
+    }
+
+    /// How far the sticky box `id` is moved by its scrollport.
+    pub(crate) fn shift_of(&self, id: NodeId) -> Point {
+        self.shift.get(&id).copied().unwrap_or_default()
+    }
+
+    /// Set how far the sticky box `id` is moved; whether it changed.
+    pub(crate) fn set_shift_of(&mut self, id: NodeId, shift: Point) -> bool {
+        if self.shift_of(id) == shift {
+            return false;
+        }
+        if shift == Point::default() {
+            self.shift.remove(&id);
+        } else {
+            self.shift.insert(id, shift);
+        }
+        true
     }
 
     pub(crate) fn parent_id(&self, node: &HostNode) -> Option<NodeId> {
@@ -108,7 +147,7 @@ impl NodeTree {
     }
 
     /// The flat children of the node at `slot`, cached until the tree's
-    /// structure or a node's Contents role changes ([`NodeTree::forget_flat`]).
+    /// structure or a node's Contents role changes ([`NodeTree::forget_flat_through`]).
     fn flat_at(&self, slot: NodeIndex) -> Rc<[FlatChild]> {
         if let Some(Some(list)) = self.flat.borrow().get(slot.0) {
             return list.clone();
@@ -137,10 +176,22 @@ impl NodeTree {
         children
     }
 
-    /// A node started or stopped being a Contents node, or a Contents node
-    /// was hidden or shown: the flat children are derived again.
-    pub(crate) fn forget_flat(&mut self) {
-        self.flat.get_mut().clear();
+    /// `id` started or stopped being a Contents node, or a Contents node was
+    /// hidden or shown: forget its own flat list and the lists of its
+    /// ancestors up to its nearest box, which list its children.
+    pub(crate) fn forget_flat_through(&self, id: NodeId) {
+        let Some(start) = self.nodes.index_of(id) else {
+            return;
+        };
+        let mut flat = self.flat.borrow_mut();
+        for (index, n) in self.ancestors(start) {
+            if let Some(entry) = flat.get_mut(index.0) {
+                *entry = None;
+            }
+            if index != start && !n.is_transparent() {
+                break;
+            }
+        }
     }
 
     /// Forget the cached flat lists that list the children of `id`: its own,
@@ -212,17 +263,22 @@ impl NodeTree {
         out
     }
 
+    /// `index` and its ancestors with their nodes, nearest first, by the
+    /// links alone (no id lookups).
+    pub(crate) fn ancestors(
+        &self,
+        index: NodeIndex,
+    ) -> impl Iterator<Item = (NodeIndex, &HostNode)> + '_ {
+        std::iter::successors(Some(index), move |i| self.nodes.links(*i).parent)
+            .map(move |i| (i, self.nodes.at(i)))
+    }
+
     /// Nearest parent contributing a box.
     pub(crate) fn flat_parent(&self, node: &HostNode) -> Option<NodeId> {
-        let mut parent = self.parent_id(node);
-        while let Some(id) = parent {
-            let node = self.get(id)?;
-            if !node.is_transparent() {
-                return Some(id);
-            }
-            parent = self.parent_id(node);
-        }
-        None
+        self.ancestors(node.index)
+            .skip(1)
+            .find(|(_, n)| !n.is_transparent())
+            .map(|(i, _)| self.nodes.id_at(i))
     }
 
     /// `id` when it contributes a box, else its nearest parent that does:
@@ -238,26 +294,19 @@ impl NodeTree {
 
     /// `node` and its ancestors, nearest first (empty for `None`).
     pub(crate) fn chain(&self, node: Option<NodeId>) -> Vec<NodeId> {
-        let mut out = Vec::new();
-        let mut cur = node.filter(|n| self.nodes.contains_key(n));
-        while let Some(x) = cur {
-            out.push(x);
-            cur = self.nodes.get(&x).and_then(|n| self.parent_id(n));
-        }
-        out
+        node.and_then(|id| self.nodes.index_of(id))
+            .map_or_else(Vec::new, |start| {
+                self.ancestors(start)
+                    .map(|(i, _)| self.nodes.id_at(i))
+                    .collect()
+            })
     }
 
     /// The number of ancestors of `id`: 0 for a root.
     pub(crate) fn depth(&self, id: NodeId) -> usize {
-        let mut depth = 0;
-        let Some(mut cur) = self.nodes.index_of(id) else {
-            return depth;
-        };
-        while let Some(parent) = self.nodes.links(cur).parent {
-            depth += 1;
-            cur = parent;
-        }
-        depth
+        self.nodes
+            .index_of(id)
+            .map_or(0, |start| self.ancestors(start).count() - 1)
     }
 
     /// The child indices from the root down to `id`: ordering paths orders
@@ -282,16 +331,16 @@ impl NodeTree {
     }
 
     /// Whether `node` is `ancestor` or lies below it.
-    pub(crate) fn is_in_subtree(&self, mut node: NodeId, ancestor: NodeId) -> bool {
-        loop {
-            if node == ancestor {
-                return true;
-            }
-            match self.nodes.get(&node).and_then(|n| self.parent_id(n)) {
-                Some(p) => node = p,
-                None => return false,
-            }
+    pub(crate) fn is_in_subtree(&self, node: NodeId, ancestor: NodeId) -> bool {
+        if node == ancestor {
+            return true;
         }
+        let (Some(start), Some(target)) =
+            (self.nodes.index_of(node), self.nodes.index_of(ancestor))
+        else {
+            return false;
+        };
+        self.ancestors(start).any(|(i, _)| i == target)
     }
 
     /// Attached to the root, and neither `id` nor an ancestor is hidden or
@@ -367,19 +416,18 @@ impl NodeTree {
         self.nodes.contains_key(&id) && !self.leaving(id)
     }
 
-    fn attached_where(&self, mut id: NodeId, keep: impl Fn(NodeId, &HostNode) -> bool) -> bool {
-        loop {
-            let Some(n) = self.nodes.get(&id) else {
-                return false;
-            };
-            if !keep(id, n) {
+    fn attached_where(&self, id: NodeId, keep: impl Fn(NodeId, &HostNode) -> bool) -> bool {
+        let Some(start) = self.nodes.index_of(id) else {
+            return false;
+        };
+        let mut last = start;
+        for (i, n) in self.ancestors(start) {
+            if !keep(self.nodes.id_at(i), n) {
                 return false;
             }
-            match self.parent_id(n) {
-                Some(p) => id = p,
-                None => return self.root == Some(id),
-            }
+            last = i;
         }
+        self.root == Some(self.nodes.id_at(last))
     }
 
     /// Install a detached node into its reserved, initialized structural slot.
@@ -540,6 +588,11 @@ impl NodeTree {
         }
     }
 
+    /// Whether a sibling order waits for `pack_child_orders`.
+    pub(crate) fn child_orders_pending(&self) -> bool {
+        !self.pending_child_order.is_empty()
+    }
+
     /// Remove one node at a time, preparing its upper payload before slot reuse.
     /// The callback returns an opaque payload destroyed after this node's index
     /// cleanup and before the next descendant, matching structural removal order.
@@ -567,6 +620,8 @@ impl NodeTree {
                 self.pending_child_order.remove(&x);
                 self.overlays.retain(|o| *o != x);
                 self.scrollers.remove(&x);
+                self.scroll.remove(&x);
+                self.shift.remove(&x);
                 self.observed.remove(&x);
                 self.images.remove(&x);
                 self.sticky.remove(&x);

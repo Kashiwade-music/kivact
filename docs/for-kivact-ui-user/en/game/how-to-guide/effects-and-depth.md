@@ -15,15 +15,14 @@ edges.
 
 ## Keep the kit's colors and corners
 
-- Take colors from `game::ColorName` (`Cyan`, `Yellow`, `Navy`, `Canvas`, and so on)
-  and never from a fixed value. A `ColorName` is read from the theme the node is
-  painted in, so the effect follows a theme switch.
-- Game panels have hard edges: keep `.radius(0)`. For the signature corner, clip
+- Take colors from the kit's color constants (`game::color::CYAN`, `YELLOW`, `NAVY`,
+  `CANVAS`, and so on) and never from a fixed value. A constant reads a theme
+  variable from the theme the node is painted in, so the effect follows a theme switch.
+- Game panels have hard edges: keep `.border_radius(0)`. For the signature corner, clip
   the panel with `.clip_path(game::cut_corner(12.0))`, which cuts two opposite
   corners.
-- To make a glow or a tint, compute one new color from a token with `with_alpha`:
-  `use_theme().get().ext::<game::Tokens>().cyan.with_alpha(0.4)`. Use this only for a
-  color that does not exist in the kit.
+- To make a glow or a tint, compute one new color from a constant with `with_alpha`:
+  `game::color::CYAN.with_alpha(0.4)`. Use this only for a color that does not exist in the kit.
 
 ## The pointer HUD: parallax
 
@@ -39,7 +38,8 @@ use kivact::prelude::*;
 use kivact::view::pointer_position;
 use kivact_ui_game as game;
 
-fn parallax_hud() -> impl IntoView {
+#[component]
+fn parallax_hud() -> impl Element {
     let pointer = pointer_position();
     let window = platform::window_size();
     // The pointer as an offset from the centre, -0.5 to 0.5 on each axis.
@@ -55,7 +55,7 @@ fn parallax_hud() -> impl IntoView {
     );
 
     // A layer moves by its depth times the offset: the grid least, the readout most.
-    let layer = |depth: f64, content: Node| {
+    let layer = |depth: f64, content: kivact::view::Node| {
         content.style(move || {
             let (x, y) = offset.get();
             style().translate(x * depth, y * depth)
@@ -65,11 +65,11 @@ fn parallax_hud() -> impl IntoView {
     stack((
         layer(
             4.0,
-            node().style(style().size(260, 160).border(1, game::ColorName::Cyan)),
+            node().style(style().size(260, 160).border(1, game::color::CYAN)),
         ),
         layer(
             12.0,
-            text("TARGET LOCK").style(style().color(game::ColorName::Yellow).padding(12)),
+            text("TARGET LOCK").style(style().color(game::color::YELLOW).padding(12)),
         ),
     ))
 }
@@ -87,7 +87,7 @@ turns past a right angle. The card keeps the kit's navy panel, cyan border and c
 corner.
 
 ```rust,no_run
-use kivact::draw::Transform;
+use kivact::style::Transform;
 use kivact::motion::{Spring, Transition, animated};
 use kivact::platform;
 use kivact::prelude::*;
@@ -95,7 +95,8 @@ use kivact::style::BackfaceVisibility;
 use kivact::view::pointer_position;
 use kivact_ui_game as game;
 
-fn tilt_card() -> impl IntoView {
+#[component]
+fn tilt_card() -> impl Element {
     let pointer = pointer_position();
     let window = platform::window_size();
     // Rotations about the x and y axes, in degrees, from the pointer's place.
@@ -111,17 +112,17 @@ fn tilt_card() -> impl IntoView {
     );
 
     column((
-        text("OPERATOR").style(style().color(game::ColorName::Text2)),
-        text("Pilot 07").style(style().color(ColorToken::Text)),
+        text("OPERATOR").style(style().color(game::color::TEXT_2)),
+        text("Pilot 07").style(style().color(kivact::style::color::TEXT)),
     ))
     .style(move || {
         let (rx, ry) = tilt.get();
         style()
             .padding(20)
             .size(220, 120)
-            .background(game::ColorName::Navy)
-            .border(1, game::ColorName::Cyan)
-            .radius(0)
+            .background(game::color::NAVY)
+            .border(1, game::color::CYAN)
+            .border_radius(0)
             .clip_path(game::cut_corner(12.0))
             .transform(Transform::new().perspective(600.0).rotate_x(rx).rotate_y(ry))
             .backface_visibility(BackfaceVisibility::Hidden)
@@ -140,16 +141,18 @@ picture shows the same view that the node mounts. The
 [drawables guide](../../../../for-kivact-user/en/how-to-guide/drawables.md) explains the mechanism.
 
 ```rust,no_run
-use kivact::draw::{Layer, Transform};
+use kivact::draw::Layer;
 use kivact::geometry::Point;
+use kivact::style::Transform;
 use kivact::motion::{Spring, Transition, animated};
 use kivact::platform;
 use kivact::prelude::*;
 use kivact::style::BackfaceVisibility;
-use kivact::view::pointer_position;
+use kivact::view::{drawable, pointer_position};
 use kivact_ui_game as game;
 
-fn turning_panel() -> impl IntoView {
+#[component]
+fn turning_panel() -> impl Element {
     let panel = drawable();
     let pointer = pointer_position();
     let window = platform::window_size();
@@ -165,10 +168,10 @@ fn turning_panel() -> impl IntoView {
         .style(style().size(260, 180))
         .drawable(panel, || {
             column((
-                text("GAIN").style(style().color(game::ColorName::Yellow)),
-                text("CONTRAST").style(style().color(game::ColorName::Yellow)),
+                text("GAIN").style(style().color(game::color::YELLOW)),
+                text("CONTRAST").style(style().color(game::color::YELLOW)),
             ))
-            .style(style().padding(16).background(game::ColorName::Navy))
+            .style(style().padding(16).background(game::color::NAVY))
         })
         .draw(move |draw, size| {
             let angle = turn.get();
@@ -196,8 +199,8 @@ green channels, scaled by `strength`. Change the strength to make the glitch com
 and go, and the kit's yellow stays the title's color.
 
 ```rust,no_run
-use kivact::draw::filter::Channel;
-use kivact::draw::{Filter, FilterGraph, FilterInput};
+use kivact::style::filter::Channel;
+use kivact::style::{Filter, FilterGraph, FilterInput};
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
@@ -208,11 +211,12 @@ fn glitch(strength: f64) -> Filter {
     Filter::new().graph(graph)
 }
 
-fn title(strength: Signal<f64>) -> impl IntoView {
+#[component]
+fn title(strength: Signal<f64>) -> impl Element {
     text("SIGNAL LOST").style(move || {
         style()
             .padding(12)
-            .color(game::ColorName::Yellow)
+            .color(game::color::YELLOW)
             .filter(glitch(strength.get()))
     })
 }
@@ -225,13 +229,13 @@ and a large one tears the letters apart.
 ## A shader background with a fallback
 
 A paint shader draws a scanline pattern behind the content. Its colors come from
-the kit's `navy` token, read in the `draw` closure from the theme, so the shader
+the kit's `NAVY` color, which is read from the theme when the shader is painted, so the shader
 follows the theme too. The GPU runs the shader. A window that draws on the CPU draws the `fallback`
 instead, a solid navy, so the screen always shows the same background. The
 shader's clock ticks at 30 Hz, and it stops under reduced motion.
 
 ```rust,no_run
-use kivact::draw::PaintShader;
+use kivact::style::PaintShader;
 use kivact::geometry::Rect;
 use kivact::motion::FrameRate;
 use kivact::prelude::*;
@@ -246,18 +250,18 @@ fn paint(position: vec2<f32>, context: Context, params: Params) -> vec4<f32> {
 }
 "#;
 
-fn scanline_background(content: impl IntoView) -> impl IntoView {
+#[component]
+fn scanline_background(content: View) -> impl Element {
     let shader = PaintShader::wgsl(SCANLINES).expect("the scanline shader is valid WGSL");
     stack((
         node()
             .style(style().size(pct(100), pct(100)))
             .draw(move |draw, size| {
-                let navy = draw.theme().ext::<game::Tokens>().navy;
                 let paint = shader
                     .paint()
                     .param("speed", 1.5)
-                    .param("tint", navy)
-                    .fallback(navy)
+                    .param("tint", game::color::NAVY)
+                    .fallback(game::color::NAVY)
                     .animate(FrameRate::Hz(30.0));
                 draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), paint);
             }),
@@ -282,18 +286,20 @@ use kivact::motion::{At, Easing, Stagger, Timeline, Transition, timeline};
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
-fn log_line(tl: Timeline, at_ms: f64, label: &'static str) -> impl IntoView {
+#[component]
+fn log_line(tl: Timeline, at_ms: f64, label: &'static str) -> impl Element {
     let shown = tl.track(0.0_f64);
     tl.to(shown, 1.0, Transition::tween(180, Easing::EaseOut))
         .at(At::Time(at_ms));
     text(label).style(move || {
         style()
             .opacity(shown.get())
-            .color(game::ColorName::Cyan)
+            .color(game::color::CYAN)
     })
 }
 
-fn boot_log() -> impl IntoView {
+#[component]
+fn boot_log() -> impl Element {
     let tl = timeline();
     let stagger = Stagger::new(150.0);
     on_mount(move || tl.play());
@@ -302,7 +308,7 @@ fn boot_log() -> impl IntoView {
         log_line(tl, stagger.delay(1, 3), "> LOADING MODULES"),
         log_line(tl, stagger.delay(2, 3), "> READY"),
     ))
-    .style(style().gap(4).padding(16).background(game::ColorName::Canvas))
+    .style(style().gap(4).padding(16).background(game::color::CANVAS))
 }
 # fn main() {}
 ```
@@ -318,11 +324,12 @@ use kivact::prelude::*;
 use kivact::view::scroll_progress;
 use kivact_ui_game as game;
 
-fn log_list(entries: usize) -> impl IntoView {
+#[component]
+fn log_list(entries: usize) -> impl Element {
     let scroller = node_ref();
-    let progress = scroll_progress(scroller, Orientation::Vertical);
+    let progress = scroll_progress(scroller, kivact::view::Orientation::Vertical);
 
-    let rows: Vec<Node> = (0..entries)
+    let rows: Vec<kivact::view::Node> = (0..entries)
         .map(|i| text(format!("EVENT {i:03}")).style(style().padding(8)))
         .collect();
 
@@ -332,13 +339,13 @@ fn log_list(entries: usize) -> impl IntoView {
             style()
                 .height(56.0 - progress.get() * 24.0)
                 .padding(12)
-                .background(game::ColorName::Navy)
-                .radius(0)
+                .background(game::color::NAVY)
+                .border_radius(0)
                 .clip_path(game::cut_corner(10.0))
         }),
         scroll(column(rows))
             .node_ref(scroller)
-            .style(style().height(200).background(game::ColorName::Canvas)),
+            .style(style().height(200).background(game::color::CANVAS)),
     ))
 }
 # fn main() {}

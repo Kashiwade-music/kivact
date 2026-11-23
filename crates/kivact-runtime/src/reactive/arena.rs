@@ -26,7 +26,7 @@ pub(crate) struct Key {
 /// What is known about a freed key (for `Disposed` diagnostics).
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Tomb {
-    pub(crate) created_at: &'static Location<'static>,
+    pub(crate) created_at: Option<&'static Location<'static>>,
     pub(crate) disposed_by: Option<&'static Location<'static>>,
 }
 

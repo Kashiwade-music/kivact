@@ -120,7 +120,6 @@ struct Runner<'a> {
     phase: LoopPhase,
     started: Instant,
     waker: ShellWaker,
-    // xtask-allow(state-fields): independent: bits OR-ed in by the ShellWaker on any thread and swapped to zero by `user_event`; wakes arrive in every LoopPhase (before the main window, while running, after a stop) and are drained in each, so every pair with phase occurs
     /// Wake reasons accumulated until the event loop receives the notification.
     wake_reasons: Arc<AtomicU8>,
 }
@@ -273,8 +272,7 @@ impl Runner<'_> {
         let events = match input {
             InjectedInput::Accessibility { node, request } => native
                 .window
-                .accessibility
-                .request_action(node, request)
+                .request_accessibility_action(node, request)
                 .into_iter()
                 .collect(),
             input => {
@@ -350,7 +348,8 @@ impl ApplicationHandler<()> for Runner<'_> {
     }
 
     fn user_event(&mut self, el: &ActiveEventLoop, _: ()) {
-        let reasons = crate::wake::decode(self.wake_reasons.swap(0, Ordering::AcqRel));
+        let reasons =
+            arvane_shell::WakeReasons::from_bits(self.wake_reasons.swap(0, Ordering::AcqRel));
         if reasons.is_empty() {
             return;
         }
@@ -511,7 +510,7 @@ impl Backend for NativeBackend {
         let wake_reasons = Arc::new(AtomicU8::new(0));
         let pending = wake_reasons.clone();
         let waker = ShellWaker::new(move |reasons| {
-            let bits = crate::wake::encode(reasons);
+            let bits = reasons.bits();
             if bits != 0 && pending.fetch_or(bits, Ordering::AcqRel) == 0 {
                 let _ = proxy.send_event(());
             }
