@@ -1,13 +1,15 @@
 //! Role: Run dev/bench/run.sh through bash, for runners that start only cargo.
 //!
 //! `cargo xtask kpi-run [--no-catalog] <label>` runs the KPI script with the
-//! same arguments and returns its exit status. The script prints its report
-//! on stdout (and writes `dev/bench/results/<label>.md`), so a runner that
-//! keeps the command's output keeps the report. On Windows the bash on PATH
-//! can be WSL's, so Git for Windows' bash is taken from `git --exec-path`.
+//! same arguments and returns its exit status. The script's own stdout is
+//! dropped (it echoes only part of the report: some rows go to the report file
+//! alone), and the whole report file `dev/bench/results/<label>.md` is printed
+//! on stdout afterwards, so a runner that keeps the command's output keeps the
+//! report, INVALID or not. On Windows the bash on PATH can be WSL's, so Git for
+//! Windows' bash is taken from `git --exec-path`.
 
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
+use std::process::{Command, ExitCode, Stdio};
 
 /// Run `dev/bench/run.sh` with `arguments`.
 pub(crate) fn run(root: &Path, arguments: &[String]) -> ExitCode {
@@ -26,7 +28,9 @@ pub(crate) fn run(root: &Path, arguments: &[String]) -> ExitCode {
         .arg("dev/bench/run.sh")
         .args(arguments)
         .current_dir(root)
+        .stdout(Stdio::null())
         .status();
+    print_report(root, arguments);
     match status {
         Ok(status) => match status.code() {
             Some(0) => ExitCode::SUCCESS,
@@ -37,6 +41,18 @@ pub(crate) fn run(root: &Path, arguments: &[String]) -> ExitCode {
             eprintln!("kpi-run: cannot start {}: {error}", bash.display());
             ExitCode::from(2)
         }
+    }
+}
+
+/// Print the report the script wrote; the label is the last argument.
+fn print_report(root: &Path, arguments: &[String]) {
+    let Some(label) = arguments.last() else {
+        return;
+    };
+    let report = root.join("dev/bench/results").join(format!("{label}.md"));
+    match std::fs::read_to_string(&report) {
+        Ok(text) => print!("{text}"),
+        Err(error) => eprintln!("kpi-run: cannot read {}: {error}", report.display()),
     }
 }
 
