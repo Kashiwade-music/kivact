@@ -22,7 +22,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use xtask_core::TargetGraph;
+use xtask_core::{TargetAnalysis, TargetOutcome};
+use xtask_workspace::TargetKind;
 
 /// The `[module_rules]` of the policy, by package.
 #[derive(Debug, Default)]
@@ -115,16 +116,22 @@ fn within(id: &str, module: &str) -> bool {
 }
 
 /// Every reference of the library targets in `targets` against `rules`.
-pub(crate) fn check(rules: &Rules, targets: &[TargetGraph]) -> Vec<String> {
+pub(crate) fn check(rules: &Rules, targets: &[TargetAnalysis]) -> Vec<String> {
     let mut errors = BTreeSet::new();
     for (package, rules) in &rules.0 {
         let mut checked = false;
         let mut used = vec![false; rules.except.len()];
-        for target in targets.iter().filter(|target| {
-            target.package == *package && target.kind.split('+').any(|kind| kind == "lib")
-        }) {
+        let graphs = targets
+            .iter()
+            .filter(|target| target.package == *package && target.kinds.contains(&TargetKind::Lib))
+            .flat_map(|target| &target.outcomes)
+            .filter_map(|(_, outcome)| match outcome {
+                TargetOutcome::Analyzed(graph) => Some(graph),
+                _ => None,
+            });
+        for graph in graphs {
             checked = true;
-            for edge in &target.graph.edges {
+            for edge in &graph.edges {
                 let (Some(from), Some(to)) = (top(&edge.from), top(&edge.to)) else {
                     continue;
                 };

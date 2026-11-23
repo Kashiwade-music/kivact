@@ -15,7 +15,7 @@
 | `tools/window-lock.sh` | 実 window を開くコマンドを worktree 間で一つずつ実行する lock（`--if-mirror`） |
 | `tools/check-features.sh` | 公開の意味を持つ feature を一つずつコンパイルする |
 | `tools/subset-catalog-font.py` | catalog の Noto Sans JP を使う文字の subset に作り直す（要 fontTools、原本は `--source`） |
-| `xtask/` | workspace の規則の検査（`cargo xtask check`）と依存図の生成（`cargo xtask diagrams`、要 Node.js） |
+| `xtask/` | workspace の規則の検査（`cargo xtask check`）と依存図の生成（`cargo xtask diagrams`） |
 | `bench/` | 性能の指標（K1〜K6）を手動で測る probe と `run.sh`（[README](bench/README.md)、CI では実行しない） |
 
 ## 検査の 3 段
@@ -28,7 +28,7 @@ tier a（変更ごと。数分。lock は E2E だけ）：
 cargo fmt -p <crate>
 cargo check -p <crate> --all-targets
 cargo clippy -p <crate> --all-targets -- -D warnings
-cargo xtask check --no-write --crate <crate>                      # 局所の検査だけ
+cargo xtask check --crate <crate>                                # 局所の検査だけ
 cargo test -p <crate> <filter>                                     # lock の一覧に無い package
 dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p <crate> <filter>      # lock の一覧の package
 dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- <module>
@@ -41,7 +41,7 @@ tier b（まとまった変更の後）：
 
 ```text
 cargo fmt --all -- --check
-cargo xtask check --no-write
+cargo xtask check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs
 cargo check -p kivact-docs --all-targets --all-features
@@ -52,10 +52,10 @@ tier c（merge の前、native の経路を変えたとき）は [CONTRIBUTING](
 ## xtask の検査を絞る
 
 ```text
-cargo xtask check --no-write --crate kivact-ui-soft
-cargo xtask check --no-write --only state --crate kivact-ui-soft --module navigation_session
-cargo xtask check --no-write --only effect-writes,state --crate kivact-ui-soft
-cargo xtask check --no-write --only local
+cargo xtask check --crate kivact-ui-soft
+cargo xtask check --only state --crate kivact-ui-soft --module navigation_session
+cargo xtask check --only effect-writes,state --crate kivact-ui-soft
+cargo xtask check --only local
 ```
 
 `--crate` は局所の検査だけを行います（xtask-core の行数・`visible_to`・module の向き・style は全体の `cargo xtask check` で行います）。

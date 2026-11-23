@@ -1,13 +1,13 @@
 # `cargo xtask check`（xtask-core）が読む workspace の規則（CONTRIBUTING.md）。
 
-output = "architecture"
-
 [limits]
 # 1ファイルの code 行の上限。空行・comment だけの行・文字列 literal の中だけの行は数えない。
 max_code_lines = 1000
 
 [diagrams]
 targets = "lib-bin"
+# `cargo xtask diagrams` writes one file here (architecture/ is not committed).
+output = "architecture/workspace.xtaskmap"
 
 [visible_to]
 # dev-dependency は visible_to の対象外（dev/xtask の core_filters.rs。設計 6.3）。
@@ -82,10 +82,14 @@ trusted_macros = [
     "tracing::warn", "quote", "format_ident",
     # kivact-macros の proc-macro の入口（parse_macro_input・parse_quote）。展開の token は解析の外。
     "syn::parse_macro_input", "syn::parse_quote",
+    # serde_json の json!（kivact-devtools 系）と syn の Token![]。呼んだ path の token は解析の外。
+    "serde_json::json", "json", "syn::Token",
     # workspace の macro_rules と、それを呼ぶ path は dev/xtask（macros.rs）が自動で足す。
     # item を生成する macro は、呼んだ module を解析の外に置く。
 ]
 trusted_attributes = ["serde", "component"]
+# `use kivact::prelude::*` は標準の attribute（test・global_allocator）を上書きしない。
+trusted_globs = ["kivact::prelude"]
 # #[component] fn が作る Type（`fn button` が `Button`）を、その fn の隣に宣言する。
 generated_type_attributes = ["component"]
 trusted_derives = [
@@ -382,11 +386,6 @@ reason = "Kit E2E tests are written from the user's side and import `kivact::pre
 rule = "glob-imports"
 path = "dev/bench/src/bin/*"
 reason = "The bench binaries are measurement programs written from the user's side and start from `use kivact::prelude::*`."
-
-[[style.exceptions]]
-rule = "poison-access"
-path = "crates/arvane-asset/src/svg/fonts.rs"
-reason = "The locked value is a pure cache of immutable font data. Recovering a poisoned guard cannot expose a half-updated value, and the asset worker must keep parsing after an unrelated panic."
 
 [[style.exceptions]]
 rule = "poison-access"

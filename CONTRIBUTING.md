@@ -30,7 +30,7 @@
 - `unsafe` は `#[allow(unsafe_code, reason = "…")]` を明示した module だけで使い、ブロックごとに `// SAFETY:` で前提を書きます。
 - feature はその crate の振る舞いだけを変えます。他の crate が match する enum の variant や、他の crate が組み立てる struct の field を feature で増減しません。
 - library では `unwrap()` を使わず、避けられない前提は `expect("invariant: …")` に書きます。lint の `allow` には必ず `reason` を書きます。
-- `xtask` は `vendor/xtask-core` の submodule を使います。clone の後に `git submodule update --init` を実行します。図（`architecture/`、commit しない）は `cargo xtask diagrams` が書き、Node.js が要ります。`cargo xtask check` は図を書きません。
+- `xtask` は `vendor/xtask-core` の submodule を使います。clone の後に `git submodule update --init` を実行します。図（`architecture/workspace.xtaskmap` の 1 ファイル、commit しない）は `cargo xtask diagrams` が書き、`vendor/xtask-core` の xtask-viewer で開きます。`cargo xtask check` は図を書きません。
 
 ## ドキュメント
 
@@ -75,7 +75,7 @@ tier a（変更ごと。数分。lock は E2E だけ）：
 cargo fmt -p <crate>
 cargo check -p <crate> --all-targets
 cargo clippy -p <crate> --all-targets -- -D warnings
-cargo xtask check --no-write --crate <crate>                      # 局所の検査だけ
+cargo xtask check --crate <crate>                                # 局所の検査だけ
 cargo test -p <crate> <filter>                                     # lock の一覧に無い package
 dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p <crate> <filter>      # lock の一覧の package
 dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- <module>
@@ -88,7 +88,7 @@ tier b（まとまった変更の後）：
 
 ```text
 cargo fmt --all -- --check
-cargo xtask check --no-write
+cargo xtask check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs
 cargo check -p kivact-docs --all-targets --all-features
@@ -98,7 +98,7 @@ tier c（merge の前、native の経路を変えたとき）：
 
 ```text
 cargo fmt --all -- --check
-cargo xtask check --no-write
+cargo xtask check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --all-features
 dev/tools/window-lock.sh --timeout 5400 -- cargo test -p gpu-interop-producer --all-features -- --test-threads=1
@@ -117,7 +117,7 @@ dev/tools/check-features.sh
 
 状態の規則（`state`）は、`bool`・`Option`・名前の付いた counter・`Cell`・`RefCell`・`Mutex`・`RwLock`・`Atomic*`・`Signal`・`Var` の field を 2 つ以上持ち、作った後に書かれる（`&mut self` の method、内部可変の field、自分の method が書く `Signal`/`Var`）型と、状態の local を 2 つ以上持つ関数を対象にします。組合せは enum で閉じ、閉じない組合せは型（関数）の直前の 1 行 `// xtask-allow(state): <組合せの閉じ方>` に書きます。constructor・`Default`・値渡しの builder だけで書く field は状態ではありません。
 
-CI は fmt と `cargo xtask check --no-write` だけを実行します。`dev/tools/check-features.sh` は公開の意味を持つ feature を一つずつ有効にしてコンパイルします（tier c）。DevTools の JSON schema は protocol の型から `cargo test -p kivact-devtools-protocol --test schema_generated` が照合し、`KIVACT_WRITE_SCHEMA=1` を付けると書き直します。
+CI は fmt と `cargo xtask check` だけを実行します。`dev/tools/check-features.sh` は公開の意味を持つ feature を一つずつ有効にしてコンパイルします（tier c）。DevTools の JSON schema は protocol の型から `cargo test -p kivact-devtools-protocol --test schema_generated` が照合し、`KIVACT_WRITE_SCHEMA=1` を付けると書き直します。
 
 KPI（起動・メモリ・CPU・フレーム時間・更新レイテンシ・バイナリサイズ）は `dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh <label>` で測ります。
 実 window を開き release の build を 9 回行うため、時間がかかります。比べる二つの commit を同じ機械で測り、report を比べます（[dev/bench/README.md](dev/bench/README.md)）。

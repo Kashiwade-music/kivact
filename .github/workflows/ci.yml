@@ -28,6 +28,6 @@ jobs:
       - run: cargo fmt --all -- --check
       # xtask resolves features with --offline, so the registry must be filled first.
       - run: cargo fetch --locked
-      # --no-write checks every rule and the diagram structure without
-      # rendering SVGs (no Node); the diagrams are regenerated locally.
-      - run: cargo xtask check --no-write
+      # The check runs every rule and writes nothing; the diagrams are
+      # written locally by `cargo xtask diagrams`.
+      - run: cargo xtask check

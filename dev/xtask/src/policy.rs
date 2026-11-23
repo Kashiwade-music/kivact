@@ -1,7 +1,12 @@
-//! Role: Splits [module_rules] off the policy and writes the core policy xtask reads.
+//! Role: Splits the rule tables off the policy and writes the core policy xtask reads.
 
-/// Split `[module_rules]` off the policy, point `config` at the rest and
-/// trust the workspace's own macros.
+use std::collections::BTreeSet;
+use std::path::Path;
+
+use xtask_core::AnalysisSettings;
+
+/// Split `[module_rules]` and the local rule tables off the policy, point
+/// `config` at the rest and trust the workspace's own macros.
 pub(crate) fn prepare(
     config: &mut xtask_core::Config,
 ) -> Result<crate::module_rules::Rules, String> {
@@ -16,12 +21,8 @@ pub(crate) fn prepare(
         table.remove(&rule.replace('-', "_"));
     }
     let core = toml::to_string(&table).map_err(|error| error.to_string())?;
-    let mut analysis = xtask_core::Policy::from_toml(&core)
-        .map_err(located)?
-        .analysis;
-    analysis
-        .trusted_macros
-        .extend(crate::macros::workspace_macros(&config.root)?);
+    let policy = xtask_core::Policy::from_toml(&core).map_err(located)?;
+    let analysis = with_workspace_macros(policy.analysis(), &config.root)?;
     let derived = config.root.join("target/xtask/workspace.toml");
     if let Some(parent) = derived.parent() {
         std::fs::create_dir_all(parent)
@@ -31,4 +32,25 @@ pub(crate) fn prepare(
     config.policy = derived;
     config.analysis = Some(analysis);
     Ok(rules)
+}
+
+/// The policy's analysis settings, with the paths that invoke the workspace's
+/// own `macro_rules!` trusted.
+fn with_workspace_macros(
+    settings: &AnalysisSettings,
+    root: &Path,
+) -> Result<AnalysisSettings, String> {
+    let list = |names: &BTreeSet<String>| names.iter().cloned().collect::<Vec<_>>();
+    let mut macros = settings.trusted_macros().clone();
+    macros.extend(crate::macros::workspace_macros(root)?);
+    AnalysisSettings::new(
+        settings.target().map(str::to_owned),
+        settings.features().clone(),
+        list(settings.cfg()),
+        list(settings.trusted_attributes()),
+        list(settings.trusted_derives()),
+        list(&macros),
+        list(settings.trusted_globs()),
+    )?
+    .with_generated_type_attributes(list(settings.generated_type_attributes()))
 }
