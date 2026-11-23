@@ -120,6 +120,10 @@ print_stderr = "deny"
 # usually also carries outer attributes such as `#[cfg(test)]`.
 mixed_attributes_style = "allow"
 
+# xtask-core lays out its diagrams natively; unoptimized that is slow.
+[profile.dev.package.xtask-layout]
+opt-level = 3
+
 # The Arvane CPU rasterizer is unusable unoptimized (over a second per window
 # frame), so debug builds optimize its hot dependencies (and, further down,
 # the engine and Arvane).

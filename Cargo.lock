@@ -6122,39 +6122,43 @@ dependencies = [
  "syn 2.0.119",
  "toml",
  "xtask-core",
+ "xtask-workspace",
+]
+
+[[package]]
+name = "xtask-archive"
+version = "0.1.0"
+dependencies = [
+ "miniz_oxide 0.8.9",
 ]
 
 [[package]]
 name = "xtask-core"
 version = "0.1.0"
 dependencies = [
- "proc-macro2",
- "serde_json",
- "syn 2.0.119",
  "tempfile",
- "toml",
- "xtask-graph",
+ "xtask-archive",
+ "xtask-diagram",
  "xtask-modules",
+ "xtask-policy",
  "xtask-source",
+ "xtask-style",
  "xtask-workspace",
 ]
 
 [[package]]
-name = "xtask-graph"
+name = "xtask-diagram"
 version = "0.1.0"
 dependencies = [
+ "xtask-archive",
  "xtask-layout",
- "xtask-svg",
+ "xtask-modules",
+ "xtask-workspace",
 ]
 
 [[package]]
 name = "xtask-layout"
 version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tempfile",
-]
 
 [[package]]
 name = "xtask-modules"
@@ -6162,6 +6166,15 @@ version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "syn 2.0.119",
+ "xtask-source",
+]
+
+[[package]]
+name = "xtask-policy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "toml",
 ]
 
 [[package]]
@@ -6172,10 +6185,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "xtask-svg"
+name = "xtask-style"
 version = "0.1.0"
 dependencies = [
- "xtask-layout",
+ "proc-macro2",
+ "serde_json",
+ "syn 2.0.119",
+ "tempfile",
+ "toml",
+ "xtask-policy",
+ "xtask-source",
+ "xtask-workspace",
 ]
 
 [[package]]
@@ -6184,7 +6204,8 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "toml",
+ "xtask-policy",
+ "xtask-source",
 ]
 
 [[package]]

@@ -1,5 +1,8 @@
 //! Role: Parse local check selection independently of the shared xtask CLI.
 
+use std::path::Path;
+use std::process::ExitCode;
+
 /// The local rules, in report order.
 pub(crate) const RULES: [&str; 13] = [
     "state",
@@ -73,6 +76,15 @@ impl Options {
     }
 }
 
+/// The local help, then the shared one.
+pub(crate) fn help(root: &Path) -> ExitCode {
+    println!(
+        "Local checks: --only <local|{}> [--crate <crate> [--module <path>]] [--report]\n--crate runs only the local checks.\n`cargo xtask diagrams` writes the diagram file named by [diagrams] output (architecture/).\n`cargo xtask kpi-compare <B0> <CPn>` compares two dev/bench/run.sh reports (dev/bench/kpi.toml).\n`cargo xtask kpi-run [--no-catalog] <label>` runs dev/bench/run.sh through bash (for cargo-only runners).",
+        RULES.join("|")
+    );
+    xtask_core::main(root)
+}
+
 #[cfg(test)]
 mod tests {
     //! Role: Verify local selectors do not escape into the shared parser.
@@ -81,15 +93,8 @@ mod tests {
     fn parses_selection_and_rejects_invalid_scopes() {
         let (options, rest) = Options::parse(
             [
-                "check",
-                "--only",
-                "state",
-                "--crate",
-                "demo",
-                "--module",
-                "state",
-                "--report",
-                "--no-write",
+                "check", "--only", "state", "--crate", "demo", "--module", "state", "--report",
+                "--root", ".",
             ]
             .map(String::from)
             .to_vec(),
@@ -105,7 +110,7 @@ mod tests {
         assert!(Options::parse(vec!["--only".into(), "api-shape,unknown".into()]).is_err());
         assert!(options.report);
         assert_eq!(options.package.as_deref(), Some("demo"));
-        assert_eq!(rest, ["check", "--no-write"]);
+        assert_eq!(rest, ["check", "--root", "."]);
         assert!(Options::parse(vec!["--module".into(), "state".into()]).is_err());
         assert!(Options::parse(vec!["--only".into(), "unknown".into()]).is_err());
     }

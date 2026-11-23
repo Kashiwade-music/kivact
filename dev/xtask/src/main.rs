@@ -64,12 +64,7 @@ fn main() -> ExitCode {
         .iter()
         .any(|argument| matches!(argument.as_str(), "--help" | "-h"))
     {
-        println!(
-            "Local checks: --only <local|{}> [--crate <crate> [--module <path>]] [--report]\n--crate runs only the local checks.\n`cargo xtask diagrams` writes architecture/ (needs Node.js).\n`cargo xtask kpi-compare <B0> <CPn>` compares two dev/bench/run.sh reports (dev/bench/kpi.toml).
-`cargo xtask kpi-run [--no-catalog] <label>` runs dev/bench/run.sh through bash (for cargo-only runners).",
-            check_cli::RULES.join("|")
-        );
-        return xtask_core::main(root);
+        return check_cli::help(root);
     }
     let (options, arguments) = match check_cli::Options::parse(arguments) {
         Ok(parsed) => parsed,
@@ -79,14 +74,18 @@ fn main() -> ExitCode {
         }
     };
     let mut config = match xtask_core::parse_args(root, arguments) {
-        Ok(config) => config,
+        Ok(xtask_core::Command::Check(config)) => *config,
+        Ok(xtask_core::Command::Help) => return check_cli::help(root),
         Err(error) => {
             eprintln!("{error}");
             return ExitCode::from(2);
         }
     };
-    // The check validates the diagram model but never writes it; `cargo xtask diagrams` does.
-    config.no_write = true;
+    // The check never writes the diagram file; `cargo xtask diagrams` does.
+    if config.output != xtask_core::Output::None {
+        eprintln!("`cargo xtask check` writes nothing; use `cargo xtask diagrams`");
+        return ExitCode::from(2);
+    }
     let local = match local_checks::check(&config.root, &config.policy, &options) {
         Ok(errors) => errors,
         Err(error) => {
@@ -113,9 +112,7 @@ fn main() -> ExitCode {
     };
     core_filters::apply(&config.root, &mut report.errors);
     match xtask_core::analyze(&config) {
-        Ok(analysis) => report
-            .errors
-            .extend(module_rules::check(&rules, &analysis.targets)),
+        Ok((targets, _)) => report.errors.extend(module_rules::check(&rules, &targets)),
         Err(error) => report.errors.push(format!("module rules: {error}")),
     }
     report.errors.extend(impl_model::check(&config.root));
