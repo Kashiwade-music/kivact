@@ -2,13 +2,28 @@
 use kivact::prelude::*;
 use kivact::test::TestParent;
 use kivact::view::Node;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
-static SERIAL: Mutex<()> = Mutex::new(());
-/// Run the embed tests one at a time. The lock guards nothing but the order,
-/// so a test that panicked while holding it does not fail the ones after it.
-pub(super) fn serial() -> MutexGuard<'static, ()> {
-    SERIAL.lock().unwrap_or_else(PoisonError::into_inner)
+static SERIAL: AtomicBool = AtomicBool::new(false);
+/// Held while one embed test runs; dropping it (also while a panic unwinds)
+/// lets the next test start.
+pub(super) struct Serial(());
+impl Drop for Serial {
+    fn drop(&mut self) {
+        SERIAL.store(false, Ordering::Release);
+    }
+}
+/// Run the embed tests one at a time. The lock orders the tests and guards no
+/// data, so it has no poisoned state: a test that panicked while holding it
+/// does not fail the ones after it.
+pub(super) fn serial() -> Serial {
+    while SERIAL
+        .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+        .is_err()
+    {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    Serial(())
 }
 #[track_caller]
 pub(super) fn wait(parent: &TestParent, mut ready: impl FnMut() -> bool) {
