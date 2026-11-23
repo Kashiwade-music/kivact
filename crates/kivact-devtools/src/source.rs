@@ -70,6 +70,30 @@ impl Source {
         }
     }
 
+    /// Open `location` (relative to `root`) in the user's editor. `Live` runs
+    /// the editor command of `config` on a blocking thread; `Fixture` only
+    /// records an `open_in_editor` call, so a test never starts a program.
+    pub(crate) async fn open_in_editor(
+        &self,
+        config: p::DevtoolsConfig,
+        root: String,
+        location: p::SourceLocation,
+    ) -> Result<(), String> {
+        match self {
+            Source::Live(_) => {
+                blocking(move || crate::editor::open_in_editor(&config, &root, &location)).await
+            }
+            Source::Fixture(fixture) => {
+                let sent = serde_json::json!({ "root": root, "location": location });
+                fixture
+                    .calls
+                    .borrow_mut()
+                    .push(("open_in_editor".to_owned(), sent));
+                Ok(())
+            }
+        }
+    }
+
     /// Deliver notifications: `Live` reads the connection, `Fixture` replays its list.
     pub(crate) fn listen(
         &self,

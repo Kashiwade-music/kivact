@@ -1,10 +1,8 @@
 //! Role: The actions of one connected DevTools session.
 
 use kivact::prelude::*;
-use kivact::task::blocking;
 use kivact_devtools_protocol as p;
 
-use crate::editor;
 use crate::source::Source;
 use crate::state::{
     Connection, Inspected, MAIN_WINDOW, MAX_ERRORS, MAX_FRAMES, MAX_TURNS, Panel, Session, Target,
@@ -231,10 +229,9 @@ impl Session {
     pub(crate) fn open_source(self, location: p::SourceLocation) {
         let config = self.target.with(|t| (*t.config).clone());
         let root = self.workspace_root();
+        let source = self.source();
         spawn(async move {
-            if let Err(text) =
-                blocking(move || editor::open_in_editor(&config, &root, &location)).await
-            {
+            if let Err(text) = source.open_in_editor(config, root, location).await {
                 self.report(text);
             }
         });
