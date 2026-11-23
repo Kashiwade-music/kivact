@@ -4,7 +4,7 @@
 //! a pair are compared as token streams: comments, whitespace and the text of
 //! string literals may differ (translated or wrapped), while every token
 //! boundary, identifier, punctuation and other literal must match, and every
-//! string literal must be valid Rust (design 6.4, chapter 12 TV-06).
+//! string literal must be valid Rust.
 
 use proc_macro2::{Delimiter, Spacing, TokenStream, TokenTree};
 use std::collections::BTreeSet;

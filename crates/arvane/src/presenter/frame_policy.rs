@@ -521,7 +521,7 @@ impl Presenter {
             Some(Ok((presentation, present, report))) => {
                 window.surface().release_cpu_surface();
                 // The GPU drew this frame: the CPU frame state (its output and
-                // records) no longer matches what the window holds (AR-09).
+                // records) no longer matches what the window holds.
                 self.cpu.invalidate();
                 if presentation == Presentation::Shown {
                     self.keep_shown_frame(window, gpu);

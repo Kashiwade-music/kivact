@@ -1,4 +1,4 @@
-//! Role: Keep views out of kivact-interaction except an Api `surface` (design 6.3).
+//! Role: Keep views out of kivact-interaction except an Api `surface`.
 
 use crate::check_source::{Source, type_names};
 use syn::spanned::Spanned;

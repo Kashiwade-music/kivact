@@ -52,7 +52,7 @@ struct ExportRecord {
     size: (u32, u32),
     /// Device px per logical px.
     scale: f64,
-    /// The planned signature of the layer the frame was made from (AR-14).
+    /// The planned signature of the layer the frame was made from.
     signature: u64,
 }
 
@@ -114,7 +114,7 @@ pub struct CpuCompositor {
     output: Pixmap,
     /// The pixels the cache refers to.
     stores: Stores,
-    /// Temporary targets kept for reuse by size, at most POOL_BYTES in all (EA-17).
+    /// Temporary targets kept for reuse by size, at most POOL_BYTES in all.
     pool: Vec<Pixmap>,
 }
 
@@ -145,7 +145,7 @@ impl CpuCompositor {
 
     /// Whether the next frame must redraw everything (after a resize, a lost
     /// buffer, or when the window has been idle). The pooled targets are freed
-    /// with the rest (MEM-8).
+    /// with the rest (architecture.md MEM-8).
     pub fn invalidate(&mut self) {
         self.cache.clear();
         self.stores = Stores::default();
@@ -320,7 +320,7 @@ fn area(rect: &PixelRect) -> u64 {
     u64::from(rect.width) * u64::from(rect.height)
 }
 
-/// The most bytes of temporary targets kept between frames (EA-17).
+/// The most bytes of temporary targets kept between frames.
 const POOL_BYTES: usize = 64 * 1024 * 1024;
 
 /// A cleared target of `size`, reused from the pool when one has that size.

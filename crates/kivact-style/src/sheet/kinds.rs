@@ -1,7 +1,7 @@
 //! Role: The small enums of the style sheet: classes, groups, scrollbar width.
 
 /// Whether a declaration can be a host-evaluated paint delta of a state
-/// (`Delta`) or must be compiled into the node's style (`Rest`, ST-05).
+/// (`Delta`) or must be compiled into the node's style (`Rest`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PropClass {
     Delta,

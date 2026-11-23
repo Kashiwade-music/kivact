@@ -114,7 +114,7 @@ impl Source {
                 .any(|(start, end)| *start <= line && line <= *end)
     }
     /// A `#[doc(hidden)]` item is an internal contract: in the implementation crates behind the
-    /// facade without a marker (TL-05), elsewhere with `// xtask-allow(internal-contract): <reason>`.
+    /// facade without a marker, elsewhere with `// xtask-allow(internal-contract): <reason>`.
     pub(crate) fn internal_contract(
         &self,
         attrs: &[syn::Attribute],

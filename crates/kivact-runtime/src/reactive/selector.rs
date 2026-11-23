@@ -3,7 +3,7 @@
 //! value-less node per reading owner, and a change notifies only the nodes of
 //! the previous and the next key. An owner's disposal releases the key nodes
 //! its computations read. A key node is removed when its last reader stops
-//! reading it (12 章 ST-04).
+//! reading it.
 
 use crate::reactive::AppId;
 use std::cell::RefCell;

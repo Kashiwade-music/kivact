@@ -1,4 +1,4 @@
-//! Role: Judge one KPI row from its B0 and checkpoint values (design chapter 2).
+//! Role: Judge one KPI row from its B0 and checkpoint values.
 
 use super::config::Row;
 

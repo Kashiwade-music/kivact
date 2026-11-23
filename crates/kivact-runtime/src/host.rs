@@ -14,7 +14,7 @@ use std::rc::Rc;
 const EXIT_DRAIN_NS: u64 = 3_000_000_000;
 
 /// The work rounds (deferred handlers, timers and tasks) one turn may
-/// run, shared by all its settles (12 章 ST-03).
+/// run, shared by all its settles.
 const ASYNC_ROUNDS: u32 = 1000;
 /// Host configuration at App startup.
 pub struct RuntimeConfig {
@@ -76,9 +76,9 @@ impl Runtime {
         rt
     }
 
-    /// The app slot. Design 6.2 names `Runtime.app` as the one exception to
+    /// The app slot: `Runtime.app` is the one exception to
     /// "no object filled later": it is set once inside `Runtime::new`, before
-    /// any user code runs (12 章 ST-02). Reading it while the App is still
+    /// any user code runs. Reading it while the App is still
     /// being constructed is a bug of the host layer.
     fn app_slot(&self) -> &crate::reactive::AppSlot {
         debug_assert!(

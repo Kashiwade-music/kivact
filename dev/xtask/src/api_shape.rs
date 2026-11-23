@@ -122,7 +122,7 @@ fn check_type(source: &Source, ty: &syn::Type, f32_forbidden: bool, errors: &mut
     }
 }
 
-/// An `Arc` of shared mutation or of a trait object; an `Arc` of immutable data is a value (TL-05).
+/// An `Arc` of shared mutation or of a trait object; an `Arc` of immutable data is a value.
 fn shared_mutable_arc(names: &std::collections::BTreeSet<String>, text: &str) -> bool {
     names.contains("Arc")
         && (text.contains("dyn ")

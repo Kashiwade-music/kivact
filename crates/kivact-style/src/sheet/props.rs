@@ -127,7 +127,7 @@ const _: () = assert!(
 kivact_runtime::constant_value!(Style);
 
 impl Style {
-    /// Append `decl` (constant time: a setter never scans the list, PF-01).
+    /// Append `decl` (constant time: a setter never scans the list).
     pub(crate) fn push(mut self, decl: Decl) -> Self {
         self.decls.push(decl);
         self

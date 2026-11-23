@@ -107,7 +107,7 @@ where
 impl crate::reactive::sealed::IntoHandlerSeal<(), Handle> for crate::Callback<()> {}
 impl IntoHandler<(), Handle> for crate::Callback<()> {
     fn into_handler(self) -> Handler<()> {
-        // The handler's own result goes through (12 章 API-14).
+        // The handler's own result goes through.
         Handler(Rc::new(move |()| self.invoke(())))
     }
 }

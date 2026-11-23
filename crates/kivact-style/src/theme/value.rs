@@ -151,7 +151,7 @@ const _: () = {
 struct FontFiles(Vec<crate::asset::Asset>);
 
 /// The fallback values of the extensions this theme lacks, built once per
-/// theme value on the first read (ST-07). A cache: it is not part of the
+/// theme value on the first read. A cache: it is not part of the
 /// theme's equality, and a changed copy of the theme starts empty.
 #[derive(Default)]
 struct Fallbacks(Mutex<Vec<(TypeId, Arc<dyn Any + Send + Sync>)>>);

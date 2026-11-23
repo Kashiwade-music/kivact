@@ -258,7 +258,7 @@ chat、code block、stat、collections でも同じ原則を適用する。CodeB
 | MEM-4 | authored `Style` は field の群ごとの疎な struct で持ち、使った群だけを確保する。操作の履歴を保持しない |
 | MEM-5 | 部品 1 つの reactive node は、その部品で実際に独立して変わる値の数までにする。同じ source から導く複数の `memo<bool>` は、Copy な struct を返す一つの memo にする。使わない機能の clock・Machine・node は作らない |
 | MEM-6 | ノードごとの主要な型（`HostNode`、`NodeProperties`、`NodeStyle`、`Style`、`StateStyles`、`Look`）に `const` の大きさの上限を置き、超える変更をコンパイルできないようにする。上限を上げるときは同じ変更に理由を書く |
-| MEM-7 | 空の view・tuple・Vec は host node を作らない |
+| MEM-7 | 空の view・tuple・Vec と部品の境界（`#[component]`・`scope`・`provide`）は host node を作らない |
 | MEM-8 | idle の window は最後の present から 1 秒後に CPU compositor の frame state を手放す。状態は `LastPresent` の variant で表す |
 
 PERF-1 の Metadata の経路の例外は残す。ただし Metadata の経路で semantic order を二度数えず、clip の計算は attached な node だけを回る。

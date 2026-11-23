@@ -1,4 +1,4 @@
-//! Role: A state style applies every property to its node (ST-05).
+//! Role: A state style applies every property to its node.
 //! A paint callback of a state replaces the base's while the state applies.
 
 use std::cell::Cell;

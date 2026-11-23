@@ -280,7 +280,7 @@ fn merge_forced(mut s: Style, forced: StateSet) -> Style {
 impl Style {
     /// The declarations that are not paint deltas (`PropClass::Rest`),
     /// without the nested states and groups: what a host state compiles
-    /// into the node's style (ST-05).
+    /// into the node's style.
     pub(crate) fn rest(&self) -> Style {
         Style {
             decls: self
@@ -296,7 +296,7 @@ impl Style {
 }
 
 /// The host states that set more than paint (a paint callback included):
-/// the engine reports them for this node (ST-05). Enter and exit are left
+/// the engine reports them for this node. Enter and exit are left
 /// out: they are paint transitions.
 fn report_of(s: &Style) -> StateSet {
     let mut report = StateSet::EMPTY;
@@ -312,7 +312,7 @@ fn report_of(s: &Style) -> StateSet {
 }
 
 /// Merge the non-paint declarations of the host states the engine reports
-/// active into the base, in the order their deltas stack (ST-05). Enter and
+/// active into the base, in the order their deltas stack. Enter and
 /// exit are not merged: they are where a paint transition starts and ends.
 fn merge_active(mut s: Style, active: StateSet) -> Style {
     for host in StyleState::HOST {
@@ -409,7 +409,7 @@ pub fn compile_style(mut s: Style, theme: &Theme, mut state: Interactive) -> Com
     let report = report_of(&s);
     s = merge_active(s, state.active);
     // The callback is taken after the merge: a selected or disabled
-    // style's own callback is the node's (UI-S-02), and the state styles
+    // style's own callback is the node's, and the state styles
     // that remain never carry one.
     let retained_paint = s.local_paint();
     s.strip_local_paint();

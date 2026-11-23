@@ -324,7 +324,7 @@ pub(crate) fn bind_style(
 }
 
 /// Ask the engine for the host states of node `id` once its compiled state
-/// styles set more than paint (ST-05). The style effect then reads them as
+/// styles set more than paint. The style effect then reads them as
 /// `Interactive::active`, and runs again when they change.
 fn track_states(
     rt: &kivact_runtime::driver::Runtime,

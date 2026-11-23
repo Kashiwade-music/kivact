@@ -1,8 +1,8 @@
 //! Role: Drop xtask-core findings that this workspace's policy exempts.
 //!
-//! A dev-dependency never breaks `visible_to` (design 6.3), and examples,
+//! A dev-dependency never breaks `visible_to`, and examples,
 //! the app template and the docs tests are written as user code without
-//! `//! Role:` lines (design 4.3).
+//! `//! Role:` lines.
 
 use std::path::Path;
 

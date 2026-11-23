@@ -44,7 +44,7 @@ pub(crate) fn mount_in(
 /// The one owner boundary: a child owner of the mounting owner, `install`
 /// run in it, then `build` set up in it and mounted in its place. Its view is
 /// mounted once and never replaced, so the boundary adds no node of its own:
-/// the owner, not a node, holds what belongs to it.
+/// the owner, not a node, holds what belongs to it (architecture.md MEM-7).
 fn boundary<V: IntoView>(
     at: &'static Location<'static>,
     install: impl FnOnce(Owner) + 'static,

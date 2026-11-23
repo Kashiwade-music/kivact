@@ -60,7 +60,7 @@ pub struct GpuRaster {
 
 /// One window frame of GPU rasters: the image textures, atlas slots and
 /// derived tiles that any raster of the frame draws stay for the next
-/// frame (AR-01). Made by [`GpuRaster::frame`].
+/// frame. Made by [`GpuRaster::frame`].
 pub struct GpuFrameRaster<'a> {
     pub(super) device: &'a wgpu::Device,
     pub(super) queue: &'a wgpu::Queue,
@@ -133,7 +133,7 @@ impl GpuRaster {
         self.caches.validation.clear();
     }
 
-    /// Run `body` as one frame (AR-01). Atlas slots no raster of the
+    /// Run `body` as one frame. Atlas slots no raster of the
     /// frame drew are destroyed after it, in one submission.
     pub fn frame<R>(
         &mut self,

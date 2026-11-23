@@ -75,7 +75,7 @@ impl<I> Clone for RunInfo<I> {
     }
 }
 
-/// Where a resource or an action stands (12 章 ST-01). `last` is the last
+/// Where a resource or an action stands. `last` is the last
 /// successful value, kept while a new run is pending or failed; a `Ready`
 /// phase always has its value, so no combination misses it.
 pub(crate) enum AsyncPhase<T> {

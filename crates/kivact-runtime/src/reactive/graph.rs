@@ -132,7 +132,7 @@ pub(crate) fn watch<T: 'static>(
 impl Runtime {
     /// Whether new graph nodes keep their type and creation site
     /// (`Diag::node_meta`): always with the `devtools` feature, else while
-    /// a recorder is on (12 章 ST-06).
+    /// a recorder is on.
     fn keeps_node_meta(&self) -> bool {
         cfg!(feature = "devtools") || self.diag.borrow().record.any()
     }

@@ -37,7 +37,7 @@ pub(crate) const CYCLE_LIMIT: usize = 100;
 pub struct TurnGuard<'a> {
     pub(crate) rt: &'a Runtime,
     pub(crate) started: std::time::Instant,
-    /// The deferred, timer and task rounds this turn ran (12 章 ST-03).
+    /// The deferred, timer and task rounds this turn ran.
     pub(crate) work_rounds: std::cell::Cell<u32>,
 }
 
@@ -346,7 +346,7 @@ impl RNode {
 /// The type and creation site of one graph node (`Diag::node_meta`):
 /// always kept in a build with the `devtools` feature (recording may
 /// start later, and `why` still names every node), else only for nodes
-/// created while a recorder is on (12 章 ST-06). Never in the node itself.
+/// created while a recorder is on. Never in the node itself.
 #[derive(Clone, Copy)]
 pub(crate) struct NodeMeta {
     pub(crate) at: &'static Location<'static>,

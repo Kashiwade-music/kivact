@@ -85,7 +85,7 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    // The check validates the diagram model but never writes it; `cargo xtask diagrams` does (TL-02).
+    // The check validates the diagram model but never writes it; `cargo xtask diagrams` does.
     config.no_write = true;
     let local = match local_checks::check(&config.root, &config.policy, &options) {
         Ok(errors) => errors,

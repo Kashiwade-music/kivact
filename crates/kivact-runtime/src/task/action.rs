@@ -8,7 +8,7 @@
 //! The cell's `Runner` is an owner task for `action` and a worker queue for
 //! `queued_action`. Disposing the action's owner cancels every run (queued
 //! ones included), drops its `on_complete` handlers, and the action never
-//! publishes again (12 章 ST-07, ST-08). App exit waits for the queued runs
+//! publishes again. App exit waits for the queued runs
 //! of live actions (the exit drain in `host.rs`).
 //!
 //! Invariants:
@@ -75,8 +75,7 @@ enum Worker {
 }
 
 /// Whether the action's owner still shows it. Disposing the owner cancels
-/// every run (queued ones included) and the action never publishes again
-/// (12 章 ST-07, ST-08).
+/// every run (queued ones included) and the action never publishes again.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Lifecycle {
     Open,
@@ -259,7 +258,7 @@ where
     }
     let weak = Rc::downgrade(&cell);
     // Disposing the owner cancels every run of the action, queued ones
-    // included, and it publishes nothing afterwards (12 章 ST-07, ST-08).
+    // included, and it publishes nothing afterwards.
     // Work that must outlive a screen uses an action of the App's root owner.
     let on_dispose = move |_rt: &Runtime| {
         let Some(cell) = weak.upgrade() else { return };
@@ -290,7 +289,7 @@ impl<T: Clone + 'static, I: 'static> Drain for ActionCell<T, I> {
 
 impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
     /// The only way the action writes its public state: nothing once its
-    /// owner is disposed (12 章 ST-07).
+    /// owner is disposed.
     fn publish(&self, f: impl FnOnce(&AsyncCell<T, I>)) {
         if self.lifecycle.get() == Lifecycle::Open {
             f(&self.async_state);

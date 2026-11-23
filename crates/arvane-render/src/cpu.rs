@@ -83,7 +83,7 @@ impl CpuRaster {
     }
 
     /// Run `body` as one frame: every raster it makes shares the frame's
-    /// image and derived-tile caches (AR-01).
+    /// image and derived-tile caches.
     pub fn frame<R>(&mut self, body: impl FnOnce(&mut CpuFrameRaster<'_>) -> R) -> R {
         let CpuRaster {
             context,
@@ -159,7 +159,7 @@ impl CpuFrameRaster<'_> {
     }
 
     /// Draw `scene` into the damaged `rects` of `out` with one validation
-    /// and one encode (AR-04): the rects' bounding box is rendered once and
+    /// and one encode: the rects' bounding box is rendered once and
     /// only the rects are copied.
     pub fn raster_rects(
         &mut self,

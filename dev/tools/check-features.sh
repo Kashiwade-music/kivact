@@ -10,7 +10,7 @@
 # Usage: dev/tools/check-features.sh
 #
 # Shared values live in kivact-types; engine client contracts live in kivact-engine.
-# Only features with a public meaning are checked (TL-17): the facade's, the GPU
+# Only features with a public meaning are checked: the facade's, the GPU
 # renderer, native embedding and the texture-sharing crate.
 # Each entry is `crate/feature`. The facade (`kivact`, `kivact-ui`) is built
 # with only that feature turned on; the first failure stops the run with a

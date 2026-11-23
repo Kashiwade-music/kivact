@@ -52,7 +52,7 @@ pub fn derive_prop(item: TokenStream) -> TokenStream {
     };
     let name = &input.ident;
     // Keep the type's own where-clause and add `Self: 'static` (a prop value
-    // lives in the App's arena; 12 章 API-6).
+    // lives in the App's arena).
     let mut generics = input.generics.clone();
     generics
         .make_where_clause()

@@ -1,8 +1,8 @@
-# KPI rows of REWORK_DESIGN.md chapter 2, read by `cargo xtask kpi-compare <B0 report> <checkpoint report>`.
+# KPI rows (dev/bench/README.md), read by `cargo xtask kpi-compare <B0 report> <checkpoint report>`.
 # line   : the start of the report row after "- " (K1 uses renderer=default, K2 to K5 the CPU rows).
 # field  : the `key=value` read from that row; "last" = the row's last word (K6 bytes).
 # kind   : "time" (no regression up to 1.05) or "size" (up to 1.02).
-# target : the recorded goal ratio; improve : the required improvement ratio (chapter 2, PF-01).
+# target : the recorded goal ratio; improve : the required improvement ratio.
 # floor  : below this B0 value the ratio is not used; the checkpoint value must be <= floor.
 # catalog: a basic-catalog row (skipped by `run.sh --no-catalog`); warning: an fps/interval row a WARNING invalidates.
 

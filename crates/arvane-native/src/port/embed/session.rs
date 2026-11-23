@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-/// The embedded child's life on its UI thread (AR-15): whether App code
+/// The embedded child's life on its UI thread: whether App code
 /// may run, whether its handler is lent to a callback, and what is left
 /// to clean up once it stopped.
 pub(in crate::port) enum Child {
@@ -591,7 +591,7 @@ impl Drop for ModuleRetention {
 
 #[cfg(test)]
 mod tests {
-    //! Role: Tests of the embedded child's lifecycle transitions (AR-15, TV-09).
+    //! Role: Tests of the embedded child's lifecycle transitions.
     use super::*;
     use std::cell::Cell;
     use std::rc::Rc;

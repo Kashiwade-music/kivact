@@ -8,7 +8,7 @@ pub(super) enum Kind {
 }
 
 impl Kind {
-    /// The largest ratio that still counts as no regression (design chapter 2).
+    /// The largest ratio that still counts as no regression.
     pub(super) fn allowance(self) -> f64 {
         match self {
             Kind::Time => 1.05,

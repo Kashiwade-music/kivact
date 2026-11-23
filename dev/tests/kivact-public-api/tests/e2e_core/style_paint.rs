@@ -150,7 +150,7 @@ fn merged_paint_runs_between_caller_draw_and_children_and_clears_independently()
     assert!(screen.errors().is_empty());
 }
 
-/// A state style applies every property (ST-05); a state nested in a state is ignored and reported once.
+/// A state style applies every property; a state nested in a state is ignored and reported once.
 #[test]
 fn a_state_inside_a_state_is_reported() {
     let screen = render(|| {
