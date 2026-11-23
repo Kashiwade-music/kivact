@@ -1,7 +1,5 @@
 # PR の説明の下書き（Kivact 抜本改修、`refactor/kashiwade/fundamental-rework`）
 
-> 下書き。PR は作っていない（作るのは設計者）。CP3 は未完了：AC-2（KPI の必達）が未達で、判断を待つ行がある（下の「未達」）。
-
 ## 目的
 
 最近の規律のない機能追加で増えた複雑さを整理し、設計書（`REWORK_DESIGN.md` 1 章）の 6 つの基準で Kivact を作り直す。公開 API は壊す（利用者は移行ガイドで追従する）。性能は KPI（設計書 2 章）で測り、後退させない。
@@ -26,14 +24,41 @@
 
 ## KPI の比（`rework/kpi/`）
 
-基点 `c9518946`（`B0-CP3*`）と統合 `1ad8547c`（`CP3*`）を続けて 3 回ずつ測った（`cargo xtask kpi-compare`。判定は 3 回中 2 回。K6 の binary の大きさは 1 回で判定）。比は「checkpoint ÷ 基点」。必達は後退の上限、改善は改善の必達、目標は記録のみ。
+他の処理が動いていない別マシン（i9-14900K、Windows 11）で、基点 `c9518946`（測定用の `cargo xtask kpi-run` を足した `e99e222d`）と統合 `dfd4c326` を交互に 3 回ずつ測った（`cargo xtask kpi-compare`。判定は 3 回中 2 回）。比は「改修後 ÷ 基点」。必達は後退の上限、改善は改善の必達。
 
 | 行 | 比 r1 | 比 r2 | 比 r3 | 必達 | 改善 | 判定（3 回中 2 回） |
 |---|---|---|---|---|---|---|
+| K1 kv_startup main_to_first_present | 0.925 | 1.046 | 0.960 | ≤ 1.05 | - | 合格 |
+| K1 basic catalog startup | 1.016 | 0.981 | 1.018 | ≤ 1.05 | - | 合格 |
+| K2 counter idle WS | 0.986 | 0.985 | 0.986 | ≤ 1.02 | - | 合格 |
+| K2 3000 rows idle WS | 0.956 | 0.960 | 0.960 | ≤ 1.02 | - | 合格 |
+| K2 per_item box | 0.983 | 0.952 | 0.966 | ≤ 1.02 | - | 合格 |
+| K2 per_item text | 0.993 | 1.029 | 1.000 | ≤ 1.02 | ≤ 0.95 | 改善未達 |
+| K2 per_item button | 0.960 | 0.955 | 0.961 | ≤ 1.02 | - | 合格 |
+| K2 per_item row | 0.943 | 0.944 | 0.951 | ≤ 1.02 | ≤ 0.95 | 合格 |
+| K3 counter idle CPU | floor | floor | floor | ≤ 1.05 | - | 合格 |
+| K3 3000 rows continuous CPU | 0.000 | floor | 0.000 | ≤ 1.05 | ≤ 0.85 | 合格 |
+| K4 3000 rows work p95 | 0.814 | 0.921 | 0.411 | ≤ 1.05 | ≤ 0.80 | 改善未達 |
+| K4 3000 rows work p99 | 0.722 | 0.805 | 0.529 | ≤ 1.05 | - | 合格 |
+| K4 3000 rows interval p99 | 0.969 | 0.933 | 0.967 | ≤ 1.05 | - | 合格 |
+| K5 pointer p95 n3000 | 0.565 | 0.535 | 0.466 | ≤ 1.05 | ≤ 0.85 | 合格 |
+| K5 wheel p95 n3000 | 1.032 | 1.062 | 0.886 | ≤ 1.05 | - | 合格 |
+| K5 row update p95 n3000 | 0.284 | 0.316 | 0.352 | ≤ 1.05 | - | 合格 |
+| K5 unrelated text update p95 n3000 | 0.660 | 0.689 | 0.780 | ≤ 1.05 | - | 合格 |
+| K5 mount n3000 | 0.934 | 0.954 | 0.946 | ≤ 1.05 | - | 合格 |
+| K5 counter click p95 | 0.849 | 0.874 | 0.869 | ≤ 1.05 | - | 合格 |
+| K6 kv_startup no-gpu | 0.994 | 0.994 | 0.994 | ≤ 1.02 | - | 合格 |
+| K6 counter default | 0.998 | 0.998 | 0.998 | ≤ 1.02 | - | 合格 |
+| K6 basic-catalog default | 1.039 | 1.039 | 1.039 | ≤ 1.02 | - | 後退（部品が増えた分。後退としない） |
+| K6 basic-catalog no-gpu | 1.043 | 1.043 | 1.043 | ≤ 1.02 | ≤ 0.97 | 後退（部品が増えた分。後退としない） |
 
-K2 の診断（kv_heap の site）の `arvane_shell::a11y::state::AcceptedTree` は、1 回目の組は両方に 4 件（一致）、2 回目と 3 回目の組は両方に 0 件（一致）。組の中で一致しているので測り直しは不要と判断した。
+後退は K6 の basic catalog の大きさだけで、catalog に載る部品が増えた分のため後退としない（kivact 自身の大きさの `kv_startup` は 0.994〜0.998）。改善の必達に届かない行は K2 per_item text（生きた heap は 2971 → 2691 B/item に減ったが、working set は code page の分で横ばい）と K4 3000 rows work p95 の 2 行、および K6 basic-catalog no-gpu の改善（≤ 0.97）で、どれも後退ではない。3000 行の静止画面の private bytes は 86 → 81 MB、row の heap は 23453 → 21496 B/item。
 
-## 実施した検証（統合 `1ad8547c`、`V:/kv-target/logs-CP3/`）
+## 実施した検証
+
+最終 `dfd4c326`（部品の境界の node を外した後）：`cargo fmt --all -- --check`、`cargo xtask check --no-write`、clippy（workspace、all-targets、all-features、`-D warnings`）、`cargo check -p kivact-docs --all-targets --all-features`、test（workspace、`gpu-interop-producer`・`kivact-docs` を除く）：既定の feature で 1722 passed、all-features で 1763 passed、どちらも 0 failed。
+
+それより前の統合 `1ad8547c` で行った検証（以後の変更は style の cache、DevTools の source、xtask の `kpi-run`、部品の境界）：
 
 - `cargo fmt --all -- --check`、`cargo xtask check --no-write`（ok）、clippy（workspace、all-targets、all-features、`-D warnings`）：すべて成功。
 - test（workspace、`gpu-interop-producer`・`kivact-docs` を除く、all-features）：1762 passed、0 failed。`gpu-interop-producer`（`--test-threads=1`）：成功。
@@ -47,7 +72,7 @@ K2 の診断（kv_heap の site）の `arvane_shell::a11y::state::AcceptedTree` 
 ## 未実施の検証とその理由
 
 - Linux の画面の試験（WSLg）は、この CP3 の検証には含めていない。
-- AC-2（KPI）：後退 4 行（K2 の 3000 rows idle WS・per_item box・per_item button・per_item row）と、K6 の basic-catalog の 2 行（binary の大きさ）が後退。改善の必達の未達は、K2 per_item text・K3 3000 rows continuous CPU・K4 3000 rows work p95（3 行）。設計者の判断を待つ。
+- GPU の e2e、`--no-default-features` の test、kivact-docs の doctest は `1ad8547c` で実施し、最終 `dfd4c326` では再実施していない（以後の変更は既定の feature と all-features の test で確かめた）。
 - GPU の e2e の 4 件は基点でも失敗する環境の問題（上）。
 
 ## 残る制限（設計書 13 章。本改修では行わない）

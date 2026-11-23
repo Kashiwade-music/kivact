@@ -1749,3 +1749,12 @@ lane P（heading の variant、styled_text の node_ref、chat_composer の Shif
 5. **作業指示書 2.5 節**（`` の byte、`constant_value` の行の `EXCL`）：本文は直さない（公開に向けた整理で作業指示書ごと消す）。Orchestrator が直して走らせた検査を、AC-4 の結果として認める。
 6. **(vii)(b) の分類**：`RadialExtent::Radii`（CSS の radial の大きさ）と外部の型 13 行（taffy・D3D12 の `Dimension`、`proc_macro2::Spacing`）は (vii)(b) でよい。外部の型は、そもそも消した名前の対象外。
 7. **後片付け**：設計者が行う。W: の空きが 0 になったので、merge 済みで clean な lane（`rw-W11x-X1`〜`X7`・`rw-G16`・`rw-W11c-G1`）と `rw-kpi-cp2` の `target/` を先に消した。worktree そのものは公開に向けた整理で消す。
+
+## 設計者の判定（2026-11-23、CP3 の KPI、最終）
+
+1. 測る場所を別マシン（remote-agent、i9-14900K、他の処理なし）に移した。手元は a11y の木の有無が偶然で揺れ、測り直しが減らないため。依頼は 0047（統合 dd9c4dad）と 0048（統合 dfd4c326）。基点は `bench/kashiwade/kpi-base`（c9518946 + `cargo xtask kpi-run`、e99e222d）。report は `rework/kpi/{B0,CP3}-{remote,final}-r<n>.md`、比は `CP3-{remote,final}-r<n>-ratio.md`。AcceptedTree は全 report で 0 件（組の不一致なし）。
+2. `cargo xtask kpi-run` は script の stdout を捨て、report の file 全体を stdout に出す（idle の行は file にしか書かれず、0046 の log から落ちていた。dd9c4dad）。
+3. 0047 の調査で、list の行の node が 5 → 6 に増えていた原因を見つけた：部品の境界（`#[component]`・`scope`・`provide`）が、一度 mount した中身を display: contents の node で包んでいた（ボタンが `#[component]` になって 1 個 1 node 増えた）。境界の中身は差し替えないので node は不要。owner が持ち物を持つ。dfd4c326 で外した（試験 1763 passed、0 failed）。3000 行の private bytes は 86 → 81 MB、row の heap は 23453 → 21496 B/item。
+4. 最終（0048、3 回中 2 回）：K6 の basic catalog 2 行を除き後退なし。K6 の catalog は答え 3 のとおり部品が増えた分で後退としない。1 回だけの後退（K3 3000 rows continuous CPU の r2：基点 0 に対し 2.31%、K5 wheel p95 の r2：1.062）は規則により後退としない。
+5. 改善の必達の未達（記録）：K2 per_item text（0.99〜1.03、必達 ≤ 0.95。WS は code page の分で、生きた heap は 2971 → 2691 B/item に減った）、K4 3000 rows work p95（0.81・0.92・0.41、必達 ≤ 0.80）。どちらも後退ではない。AC-2 は「必達の後退なし、改善の未達 2 行を記録」で閉じる。
+6. 手元で出ていた K5 counter click の後退は別マシンでは出ない（0.85〜0.87）。手元の雑音と判断した。
