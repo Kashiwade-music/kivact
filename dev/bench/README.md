@@ -7,6 +7,8 @@ Kivact の性能の指標（K1〜K6）を手動で測る probe と、それを�
 dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh <label>
 ```
 
+cargo しか起動できない実行役（別マシンの bench の queue など）からは `cargo xtask kpi-run [--no-catalog] <label>` で同じ `run.sh` を流す（Windows では Git for Windows の bash を使う。report は stdout にも出る）。
+
 `run.sh --no-catalog <label>` は basic catalog の build・起動・idle・大きさの行をすべて外し、report に `SKIPPED: basic catalog (--no-catalog)` を書く（kit と catalog が compile できない間の計測。改修の CP2）。二つの report の比較は `cargo xtask kpi-compare <基準の report> <比べる report>` が `dev/bench/kpi.toml` の行（行の key、単位、許容、改善の必達、雑音の下限）で行い、Markdown の表を出す。終了の状態は 0（全行が合格）、1（後退した行がある）、3（改善の必達に届かない行がある）、2（`INVALID:` の report、行の欠落、表の誤り）。`WARNING` の run の描画間隔の行は「未検証」になる。
 
 `run.sh` は `dev/bench/results/<label>.md` に K1〜K6 を書く（このディレクトリは commit しない）。改善や後退は、比べる二つの commit（例：変更前を `base`、変更後を `head`）を同じ機械・同じ条件で測った report の比で判定する。build の失敗、frame を出さない probe、`T main` の欠落、5 秒で 100 frame 未満の `kv_stress`、17 個の場面を出さない `kv_latency`、heap の計測の失敗のどれかがあると、report の末尾に `INVALID:` を書いて非 0 で終わる。INVALID の report は比較に使わない。表示周期に対して fps が 8 割未満なら `WARNING` を書く（OS が window の描画を間引いた。work の時間は有効だが、fps と描画間隔は使えない）。
