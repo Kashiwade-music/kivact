@@ -389,11 +389,6 @@ reason = "The bench binaries are measurement programs written from the user's si
 
 [[style.exceptions]]
 rule = "poison-access"
-path = "crates/arvane-asset/src/svg/fonts.rs"
-reason = "The locked value is a pure cache of immutable font data. Recovering a poisoned guard cannot expose a half-updated value, and the asset worker must keep parsing after an unrelated panic."
-
-[[style.exceptions]]
-rule = "poison-access"
 path = "crates/arvane-native/src/port/embed/child.rs"
 reason = "The child's command queue and applied values are plain data. The lock is taken on the host's thread and in the platform's window procedure, where unwrapping a poisoned guard would panic outside the panic boundary and unwind into the host (ADR-68)."
 
