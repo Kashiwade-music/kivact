@@ -372,8 +372,9 @@ impl Model {
     }
 
     /// Apply the asset store's finished work: measure again the images
-    /// whose natural size changed and redraw (a raster at a new size may
-    /// have landed), report failures. Laying out is left to the next
+    /// whose natural size changed and draw every node again (a raster at a
+    /// new size may have landed, and a kept drawing made before it shows
+    /// nothing), report failures. Laying out is left to the next
     /// [`Model::settle`].
     pub(crate) fn poll_assets(&mut self) {
         let (changed, failed) = self.assets.borrow_mut().poll();
@@ -395,7 +396,9 @@ impl Model {
                 }
             }
             self.changes.restack = true;
-            self.changes.paint = true;
+            // A raster that landed changes what a node draws without changing
+            // the node: every kept drawing may show the pixels of before.
+            self.invalidate_paint();
         }
         self.sync();
         if failed {
