@@ -158,6 +158,27 @@ pub fn focus_window() -> impl Future<Output = Result<(), UiError>> + 'static {
     async move { slot.await.and_then(platform_result).map(|_| ()) }
 }
 
+/// Show or hide the window of the calling owner without closing it.
+///
+/// A hidden window keeps its App running: tasks, timers and other threads
+/// continue, and a later `set_window_visible(true)` shows the same window
+/// again. Together with [`on_close_request`](crate::platform::on_close_request)
+/// returning `Handled::Yes`, the close button hides the window instead of
+/// ending the App. Called in the App's root setup with `false`, the main
+/// window never appears until it is shown. Only this window changes; windows
+/// declared with `window(..)` follow their own `open` signal. Needs no
+/// capability. `ErrorKind::Unsupported` in an embedded editor, whose host
+/// shows and hides it.
+#[track_caller]
+pub fn set_window_visible(visible: bool) -> impl Future<Output = Result<(), UiError>> + 'static {
+    let slot = ask_platform(
+        "set_window_visible",
+        PlatformRequest::SetWindowVisible(visible),
+        Location::caller(),
+    );
+    async move { slot.await.and_then(platform_result).map(|_| ()) }
+}
+
 /// Override the window's reduced-motion preference. Pass `None` to follow
 /// the system again. The override also applies to the host's transitions.
 #[track_caller]

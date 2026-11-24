@@ -314,7 +314,7 @@ fn settings() -> impl IntoView {
 
 ## 現在のウィンドウを問い合わせる
 
-`platform` の問い合わせとサービスは、呼び出した owner のウィンドウを対象にします。`window_size`、`scale_factor`、`is_fullscreen`、`safe_area`、`keyboard_inset`、`theme_hint`、`is_surface_active`、`is_motion_reduced`、`pointer_settings` と、`request_window_size`、`set_fullscreen`、`focus_window`、ファイルダイアログ（ダイアログの親）です。ハンドラーと callback は、実行した場所ではなく作った場所のウィンドウに属します。ウィンドウの中で使う callback は、そのウィンドウの content の中で作ってください。
+`platform` の問い合わせとサービスは、呼び出した owner のウィンドウを対象にします。`window_size`、`scale_factor`、`is_fullscreen`、`safe_area`、`keyboard_inset`、`theme_hint`、`is_surface_active`、`is_motion_reduced`、`pointer_settings` と、`request_window_size`、`set_fullscreen`、`set_window_visible`、`focus_window`、ファイルダイアログ（ダイアログの親）です。ハンドラーと callback は、実行した場所ではなく作った場所のウィンドウに属します。ウィンドウの中で使う callback は、そのウィンドウの content の中で作ってください。
 
 間違い: callback を main window で作っているので、それが開くダイアログの親は main window になります。
 

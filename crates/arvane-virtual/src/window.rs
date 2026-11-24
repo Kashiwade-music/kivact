@@ -141,7 +141,7 @@ pub(crate) struct VirtualPlatform {
     pub(crate) fail_next: RefCell<Option<ShellError>>,
 }
 
-// xtask-allow(state): record: what the app last asked of one scripted window, one ShellWindow setter per field (title, min_size, ime_purpose, ime, ime_text, cursor, soft_keyboard_shown, foreign_child, resizable); env and occluded are written by script items; redraw is the undelivered request; soft_keyboard_requests and focus_requests are statistics
+// xtask-allow(state): record: what the app last asked of one scripted window, one ShellWindow setter per field (title, min_size, ime_purpose, ime, ime_text, cursor, soft_keyboard_shown, foreign_child, resizable, visible); env and occluded are written by script items; redraw is the undelivered request; soft_keyboard_requests and focus_requests are statistics
 /// One virtual window: the state of a single window of the loop.
 pub(crate) struct VirtualWindow {
     /// The loop state this window's requests go to.
@@ -184,6 +184,8 @@ pub(crate) struct VirtualWindow {
     pub(crate) surface: SurfacePresence,
     /// How often the application asked to bring this window to the front.
     pub(crate) focus_requests: Cell<u32>,
+    /// Whether the application last asked for the window to be on screen.
+    pub(crate) visible: Cell<bool>,
     /// Key presses nobody handled since a test last read them.
     pub(crate) unhandled_keys: RefCell<Vec<kivact_types::KeyCode>>,
 }
@@ -231,6 +233,7 @@ impl VirtualWindow {
             failing: 0,
             surface: SurfacePresence::new(),
             focus_requests: Cell::new(0),
+            visible: Cell::new(true),
             unhandled_keys: RefCell::new(Vec::new()),
         }
     }
@@ -383,6 +386,10 @@ impl ShellWindow for VirtualWindow {
                     ShellError::Failed(failure) => PlatformResult::Failed(failure),
                 },
             );
+        }
+        if let PlatformRequest::SetWindowVisible(visible) = request {
+            self.visible.set(visible);
+            return PlatformResult::Done;
         }
         if let PlatformRequest::Fullscreen(fullscreen) = request {
             self.env.borrow_mut().fullscreen = fullscreen;

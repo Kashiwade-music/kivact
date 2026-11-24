@@ -59,7 +59,7 @@ native でしか確かめられない項目です。自動 E2E では確認で�
 
 | 環境 | 確かめること |
 |---|---|
-| Windows | `Tool` の window が親の上に残り taskbar に出ない。`Modal` は親が無効になり、閉じると戻る。`CenterOnParent`・`NextToParent` の位置。window ごとの focus と Tab 順。2 つ目の window の IME。title bar の閉じるが `on_dismiss` に届く。`platform::focus_window()` が window を前面に出す（出せないときは task bar の点滅） |
+| Windows | `Tool` の window が親の上に残り taskbar に出ない。`Modal` は親が無効になり、閉じると戻る。`CenterOnParent`・`NextToParent` の位置。window ごとの focus と Tab 順。2 つ目の window の IME。title bar の閉じるが `on_dismiss` に届く。`platform::focus_window()` が window を前面に出す（出せないときは task bar の点滅）。`platform::set_window_visible(false)` で window が消えて process が残り、`true` で同じ window が戻る。root の setup で `false` を呼ぶと起動時に window が一瞬も出ない |
 | X11 | `Utility`・`Dialog` の window type |
 | Wayland | 位置が `Auto` に落ちる。`focus_window()` は何も起きないが error にならない |
 | DevTools | 実際の native の App で F12・Ctrl+Shift+I・Ctrl+Shift+C が DevTools アプリを起動する／すでに開いていれば前面に出る。Ctrl+Shift+C は押した window で pick を始める。pick と重ね表示が内容の上に描かれる。DevTools アプリの「Open source」が editor を開く（Windows の `code.cmd` を含む） |

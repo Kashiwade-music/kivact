@@ -8,8 +8,9 @@
 
 use kivact::geometry::Size;
 
-use kivact::prelude::{spawn, text};
+use kivact::prelude::{callback, spawn, text};
 use kivact::test::RenderOptions;
+use kivact_public_api_tests::support::mount;
 
 #[test]
 fn resize_requests_are_clamped_to_the_apps_single_minimum() {
@@ -47,4 +48,34 @@ fn resize_dimensions_must_fit_finite_positive_f64() {
         assert_eq!(screen.errors().len(), 1);
         assert_eq!(*screen.errors()[0].kind(), kivact::ErrorKind::Message);
     }
+}
+
+#[test]
+fn set_window_visible_hides_and_shows_the_window_without_ending_the_app() {
+    let (screen, set_visible) = mount(|| {
+        let set_visible = callback(move |visible: bool| {
+            spawn(kivact::platform::set_window_visible(visible));
+        });
+        (set_visible, text("visible"))
+    });
+    screen.run_until_idle();
+    assert!(screen.is_window_visible(), "a window starts on screen");
+    set_visible.call(false);
+    screen.run_until_idle();
+    assert!(!screen.is_window_visible(), "hidden on request");
+    set_visible.call(true);
+    screen.run_until_idle();
+    assert!(screen.is_window_visible(), "shown again on request");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn set_window_visible_in_root_setup_hides_the_window_from_the_start() {
+    let screen = kivact::test::render_with(RenderOptions::default(), || {
+        spawn(kivact::platform::set_window_visible(false));
+        text("hidden")
+    });
+    screen.run_until_idle();
+    assert!(!screen.is_window_visible());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

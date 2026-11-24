@@ -350,7 +350,7 @@ fn app() -> impl Element {
 
 ## 呼び出したウィンドウを問い合わせる
 
-環境の読み取りとサービスは、呼び出した owner のウィンドウを対象にします。main window ではありません。`window_size`・`scale_factor`・`is_fullscreen`・`safe_area`・`keyboard_inset`・`theme_hint`・`is_surface_active`・`is_motion_reduced`・`pointer_settings` と、`request_window_size`・`set_fullscreen`・`focus_window`・ファイルダイアログ（ダイアログの親）です。ハンドラーやコールバックは、実行されるウィンドウではなく、作られたウィンドウに属します。そのウィンドウの content の中で作ってください。
+環境の読み取りとサービスは、呼び出した owner のウィンドウを対象にします。main window ではありません。`window_size`・`scale_factor`・`is_fullscreen`・`safe_area`・`keyboard_inset`・`theme_hint`・`is_surface_active`・`is_motion_reduced`・`pointer_settings` と、`request_window_size`・`set_fullscreen`・`set_window_visible`・`focus_window`・ファイルダイアログ（ダイアログの親）です。ハンドラーやコールバックは、実行されるウィンドウではなく、作られたウィンドウに属します。そのウィンドウの content の中で作ってください。
 
 `platform::focus_window()` は、呼び出した owner のウィンドウを前面に出し、キーボードのフォーカスを与えます。
 
@@ -367,6 +367,24 @@ fn settings() -> impl Element {
 ```
 
 これは最善の努力です。Windows では taskbar の項目が点滅するだけのことがあり、Wayland ではウィンドウを前面に出す方法がありません。capability は不要です。埋め込みの editor では `ErrorKind::Unsupported` で失敗し、開いているウィンドウの binding に `true` を書き直しても前面に出ません。[ウィンドウを前面に出す](windows.md#ウィンドウを前面に出す) を参照してください。
+
+`platform::set_window_visible(false)` は、App を終了せずに、呼び出した owner のウィンドウを隠します。`set_window_visible(true)` で同じウィンドウをもう一度表示します。隠れている間も、タスク、タイマー、自分で起動したスレッドは動き続けます。閉じるボタンで App を終了せずに main window を隠すには、close request でウィンドウを残して隠します。
+
+```rust,no_run
+use kivact::platform;
+use kivact::prelude::*;
+
+#[component]
+fn app() -> impl Element {
+    platform::on_close_request(|| {
+        spawn(platform::set_window_visible(false));
+        Handled::Yes
+    });
+    text("Closing this window hides it")
+}
+```
+
+root の setup で `false` を渡して呼ぶと、ウィンドウを表示せずに起動します。別のスレッドから表示するには、ウィンドウの中で `task::remote_trigger()` を作り、それを track する effect から `set_window_visible(true)` を呼び、ワーカー側で `notify()` を呼びます。変わるのは呼び出したウィンドウだけです。`window(..)` で宣言したウィンドウは、それぞれの `open` signal に従います。埋め込みエディターでは `ErrorKind::Unsupported` で失敗します。表示と非表示はホストが決めるためです。
 
 ## 関連項目
 

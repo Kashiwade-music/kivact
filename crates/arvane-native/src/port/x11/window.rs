@@ -93,6 +93,13 @@ impl Window {
         ))
     }
 
+    /// The host shows and hides an embedded editor's window.
+    fn refuse_visibility() -> Result<(), ShellError> {
+        Err(ShellError::unsupported(
+            "set_window_visible in an embedded editor",
+        ))
+    }
+
     fn reduced_motion(&self) -> bool {
         crate::native_input::reduced_motion()
     }
@@ -213,6 +220,9 @@ impl ShellWindow for Window {
                 crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
             }
             PlatformRequest::FocusWindow => self.focus().map(|()| PlatformResult::Done),
+            PlatformRequest::SetWindowVisible(_) => {
+                Self::refuse_visibility().map(|()| PlatformResult::Done)
+            }
             PlatformRequest::Fullscreen(_) => return PlatformResult::Unsupported,
         }
         .unwrap_or_else(|error| match error {

@@ -184,8 +184,8 @@ impl Runner<'_> {
                 None => self.handler.start(&mut lp, self.waker.clone()),
             };
             for id in lp.table.take_pending_show() {
-                if let Some(native) = lp.table.get(id) {
-                    native.window.window.set_visible(true);
+                if let Some(native) = lp.table.get_mut(id) {
+                    native.window.show_first();
                 }
             }
             result
@@ -493,7 +493,7 @@ impl Runner<'_> {
                 self.phase = LoopPhase::Running(table);
                 self.callback(el, EventTarget::Loop, None);
                 self.with_window(self.main.id, |native| {
-                    native.window.window.set_visible(true);
+                    native.window.show_first();
                 });
             }
             Err(error) => {
