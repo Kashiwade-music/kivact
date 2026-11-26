@@ -19,6 +19,8 @@ mod form_layout;
 mod foundation;
 #[path = "consumer/grouped_table.rs"]
 mod grouped_table;
+#[path = "consumer/keeps_tab.rs"]
+mod keeps_tab;
 #[path = "consumer/menu_press.rs"]
 mod menu_press;
 #[path = "consumer/metrics.rs"]

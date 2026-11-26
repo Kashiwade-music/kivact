@@ -380,6 +380,12 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
         self
     }
 
+    /// Tab and Shift+Tab reach the key handlers while the node has focus.
+    fn keeps_tab(mut self, on: impl IntoValue<bool>) -> Self {
+        self.node_mut().common.keeps_tab = Some(on.into_prop());
+        self
+    }
+
     /// Give this group one Tab stop and move between its eligible controls
     /// with unhandled arrows along `orientation`, Home and End. A text field
     /// keeps arrows that still move its caret or selection.
@@ -546,6 +552,7 @@ pub(crate) struct Common {
     /// Canonical authored semantic patches, in declaration order.
     pub semantics: Vec<crate::view::semantics_data::SemanticsPatch>,
     pub focusable_when_disabled: Option<InputProp<bool>>,
+    pub keeps_tab: Option<InputProp<bool>>,
     pub roving_focus: Option<InputProp<kivact_engine::contract::RovingFocus>>,
     /// `Some(false)`: the pointer passes through the subtree.
     pub hit_testable: Option<InputProp<bool>>,

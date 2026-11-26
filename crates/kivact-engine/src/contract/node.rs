@@ -131,16 +131,24 @@ pub enum InputFlag {
     ListenFile,
     /// `false`: the pointer passes through the node and its subtree; unset is `true`.
     HitTestable,
+    /// While the node has keyboard focus, Tab and Shift+Tab reach its key handlers instead of moving focus.
+    KeepsTab,
 }
 
-/// Each [`InputFlag`] unset, false or true, in two bits.
+/// Each [`InputFlag`] unset, false or true, in two bits. The bits live in one
+/// `u32`, so at most 16 flags fit. A new flag goes at the end of
+/// [`InputFlag`]; the check below must stay true, and if it does not, the
+/// type must be widened.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct InputFlags(u16);
+pub struct InputFlags(u32);
+
+/// Every flag has two bits in [`InputFlags`]: the last flag must fit in 32 bits.
+const _: () = assert!((InputFlag::KeepsTab as usize + 1) * 2 <= u32::BITS as usize);
 
 impl InputFlags {
     /// The value of `flag` (`None`: unset).
     pub fn get(self, flag: InputFlag) -> Option<bool> {
-        match (self.0 >> (2 * flag as u16)) & 0b11 {
+        match (self.0 >> (2 * flag as u32)) & 0b11 {
             0 => None,
             1 => Some(false),
             _ => Some(true),
@@ -149,13 +157,69 @@ impl InputFlags {
 
     /// Set `flag` to `value`.
     pub fn set(&mut self, flag: InputFlag, value: Option<bool>) {
-        let shift = 2 * flag as u16;
+        let shift = 2 * flag as u32;
         let bits = match value {
             None => 0,
             Some(false) => 1,
             Some(true) => 2,
         };
         self.0 = (self.0 & !(0b11 << shift)) | (bits << shift);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of the input flag bits, alone and in a mixed pattern.
+
+    use super::{InputFlag, InputFlags};
+
+    /// Every flag, in declaration order.
+    const ALL: [InputFlag; 9] = [
+        InputFlag::Disabled,
+        InputFlag::Hidden,
+        InputFlag::Focusable,
+        InputFlag::FocusableWhenDisabled,
+        InputFlag::ListenPointer,
+        InputFlag::ListenWheel,
+        InputFlag::ListenFile,
+        InputFlag::HitTestable,
+        InputFlag::KeepsTab,
+    ];
+
+    /// The value for the `i`th flag in the mixed pattern.
+    fn pattern(i: usize) -> Option<bool> {
+        match i % 3 {
+            0 => None,
+            1 => Some(false),
+            _ => Some(true),
+        }
+    }
+
+    #[test]
+    fn every_flag_sets_and_reads_without_disturbing_the_others() {
+        assert_eq!(ALL.len(), InputFlag::KeepsTab as usize + 1);
+        for flag in ALL {
+            let mut flags = InputFlags::default();
+            flags.set(flag, Some(true));
+            assert_eq!(flags.get(flag), Some(true), "{flag:?}");
+            for other in ALL.into_iter().filter(|other| *other != flag) {
+                assert_eq!(flags.get(other), None, "{other:?} after {flag:?}");
+            }
+        }
+
+        let mut flags = InputFlags::default();
+        for (i, flag) in ALL.into_iter().enumerate() {
+            flags.set(flag, pattern(i));
+        }
+        for (i, flag) in ALL.into_iter().enumerate() {
+            assert_eq!(flags.get(flag), pattern(i), "{flag:?}");
+        }
+
+        flags.set(InputFlag::KeepsTab, Some(false));
+        assert_eq!(flags.get(InputFlag::KeepsTab), Some(false));
+        for (i, flag) in ALL.into_iter().enumerate().take(8) {
+            assert_eq!(flags.get(flag), pattern(i), "{flag:?} after KeepsTab");
+        }
     }
 }
 

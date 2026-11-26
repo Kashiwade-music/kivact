@@ -292,6 +292,80 @@ What the list gives you:
 - **Only one tab stop.** The row is one stop of Tab, and the arrow keys move inside.
   Disabled items (`ListItem::disabled(true)`) are skipped.
 
+## Let a control use Tab
+
+By default Tab moves the focus to the next control. A control that needs Tab for its own
+keys, such as a code editor that indents with Tab, sets `keeps_tab(true)`. While it has
+the focus, Tab and Shift+Tab reach its key handlers as ordinary keys. Ctrl+Tab and
+Ctrl+Shift+Tab still move the focus, so the keyboard user can always leave the control.
+
+```rust,test_harness
+use kivact::prelude::*;
+use kivact::view::Modifiers;
+
+/// The styles the picker cycles through.
+const STYLES: [&str; 3] = ["Plain", "Bold", "Italic"];
+
+/// A focusable control that cycles its own styles on Tab and Shift+Tab.
+#[component]
+pub fn style_picker() -> impl Element {
+    let index = signal(0usize);
+    node()
+        .name("Text style")
+        .role(Role::Button)
+        .focusable(true)
+        .keeps_tab(true)
+        .on_key(move |event| {
+            if event.key() == Key::Tab {
+                let step = if event.modifiers().shift { STYLES.len() - 1 } else { 1 };
+                index.set((index.get_untracked() + step) % STYLES.len());
+            }
+        })
+        .child(text(move || STYLES[index.get()].to_string()))
+}
+
+fn app() -> impl IntoView {
+    column((
+        node().name("Other").role(Role::Button).focusable(true).child(text("Other")),
+        style_picker(),
+    ))
+    .style(style().gap(8).padding(16))
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Style picker").run(app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tab_cycles_the_style_and_ctrl_tab_leaves_the_control() {
+        let screen = kivact::test::render(app);
+        let picker = screen.get_by_role(Role::Button, "Text style");
+        picker.focus();
+        screen.press_key(Key::Tab);
+        screen.get_by_text("Bold");
+        assert!(picker.is_focused());
+
+        screen.press_key_with(Key::Tab, Modifiers { shift: true, ..Modifiers::default() });
+        screen.get_by_text("Plain");
+
+        screen.press_key_with(Key::Tab, Modifiers { ctrl: true, ..Modifiers::default() });
+        assert!(screen.get_by_role(Role::Button, "Other").is_focused());
+    }
+}
+```
+
+What `keeps_tab` gives you:
+
+- **Only the focused control.** Other controls keep the usual Tab order.
+- **Leaving.** Ctrl+Tab moves the focus forward and Ctrl+Shift+Tab moves it back.
+  Ctrl+Alt+Tab reaches the handlers as an ordinary key.
+- **Switchable.** Pass a reactive value, such as `move || editing.get()`, to turn the
+  behavior on and off.
+
 ## Open and close a list
 
 A dropdown adds opening, closing, focus return and dismissal on top of a list.
