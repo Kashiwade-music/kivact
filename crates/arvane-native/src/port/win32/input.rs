@@ -1,12 +1,18 @@
 //! Role: Win32 mouse normalization, keyboard text and synchronous cursor answers.
 use super::state::State;
+use crate::hand_cursor::{Hand, hand_factor, hand_rgba};
 use crate::port::embed::keys::Verdict;
 use crate::port::winit::key_code;
 use arvane_shell::ShellEvent;
+use kivact_types::cell::SharedDeferred;
 use kivact_types::{ButtonPress, Cursor, Modifiers, MouseButton, Point, PointerPhase};
+use std::ffi::c_void;
 use std::rc::Rc;
-use windows_sys::Win32::Foundation::{LPARAM, LRESULT, POINT, WPARAM};
-use windows_sys::Win32::Graphics::Gdi::ScreenToClient;
+use windows_sys::Win32::Foundation::{FALSE, LPARAM, LRESULT, POINT, WPARAM};
+use windows_sys::Win32::Graphics::Gdi::{
+    BI_RGB, BITMAPINFO, BITMAPINFOHEADER, CreateBitmap, CreateDIBSection, DIB_RGB_COLORS,
+    DeleteObject, RGBQUAD, ScreenToClient,
+};
 use windows_sys::Win32::System::SystemServices::{
     MK_LBUTTON, MK_MBUTTON, MK_RBUTTON, MK_XBUTTON1, MK_XBUTTON2,
 };
@@ -17,24 +23,114 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     VK_LMENU, VK_LWIN, VK_MENU, VK_RCONTROL, VK_RMENU, VK_RWIN, VK_SHIFT,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetParent, LoadCursorW, PM_REMOVE, PeekMessageW, PostMessageW, SetCursor, WM_CAPTURECHANGED,
-    WM_CHAR, WM_DEADCHAR, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN,
-    WM_MBUTTONUP, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP,
-    WM_SYSKEYDOWN, WM_SYSKEYUP, WM_XBUTTONDOWN, WM_XBUTTONUP, XBUTTON1,
+    CreateIconIndirect, GetParent, HCURSOR, ICONINFO, IDC_ARROW, LoadCursorW, PM_REMOVE,
+    PeekMessageW, PostMessageW, SetCursor, WM_CAPTURECHANGED, WM_CHAR, WM_DEADCHAR, WM_KEYDOWN,
+    WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEHWHEEL,
+    WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
+    WM_XBUTTONDOWN, WM_XBUTTONUP, XBUTTON1,
 };
 
-pub(super) fn cursor(cursor: Cursor) {
-    let id = arvane_shell::pipeline::cursor_to_vk_cursor(cursor) as usize as *const u16;
-    let handle = if id.is_null() {
-        0
-    } else {
-        // SAFETY: stock cursor identifiers are borrowed system resources.
-        unsafe { LoadCursorW(0, id) }
+/// The hand cursors Windows lacks, by hand and pixel factor (1 to 4), made on first use.
+static HANDS: [[SharedDeferred<usize>; 4]; 2] = [const { [const { SharedDeferred::new() }; 4] }; 2];
+
+/// Show `cursor` at a display `scale`: the hands are drawn, the others are stock cursors.
+pub(super) fn cursor(cursor: Cursor, scale: f64) {
+    let handle = match cursor {
+        Cursor::Grab => hand_handle(Hand::Open, scale),
+        Cursor::Grabbing => hand_handle(Hand::Closed, scale),
+        _ => {
+            let id = arvane_shell::pipeline::cursor_to_vk_cursor(cursor) as usize as *const u16;
+            if id.is_null() {
+                0
+            } else {
+                // SAFETY: stock cursor identifiers are borrowed system resources.
+                unsafe { LoadCursorW(0, id) }
+            }
+        }
     };
-    // SAFETY: SetCursor borrows the stock cursor; null intentionally hides it.
+    // SAFETY: SetCursor borrows the cursor, which lives as long as the process; null
+    // intentionally hides it.
     unsafe {
         SetCursor(handle);
     }
+}
+
+/// The cached handle of `hand` at the pixel factor of `scale`, made on first use.
+fn hand_handle(hand: Hand, scale: f64) -> HCURSOR {
+    let factor = hand_factor(scale);
+    let cached =
+        HANDS[hand as usize][factor as usize - 1].get_or_init(|| make_hand(hand, factor) as usize);
+    *cached as HCURSOR
+}
+
+/// Create the cursor of `hand` at `factor` from its RGBA pixels; the arrow if Windows refuses.
+fn make_hand(hand: Hand, factor: u32) -> HCURSOR {
+    let (rgba, side, (hot_x, hot_y)) = hand_rgba(hand, factor);
+    // The mask's pixels are opaque or clear, so the BGRA colours are already premultiplied.
+    let bgra: Vec<u8> = rgba
+        .chunks_exact(4)
+        .flat_map(|p| [p[2], p[1], p[0], p[3]])
+        .collect();
+    let header = BITMAPINFOHEADER {
+        biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+        biWidth: side as i32,
+        // Negative height: the rows run top down, as the RGBA rows do.
+        biHeight: -(side as i32),
+        biPlanes: 1,
+        biBitCount: 32,
+        biCompression: BI_RGB,
+        biSizeImage: 0,
+        biXPelsPerMeter: 0,
+        biYPelsPerMeter: 0,
+        biClrUsed: 0,
+        biClrImportant: 0,
+    };
+    let info = BITMAPINFO {
+        bmiHeader: header,
+        bmiColors: [RGBQUAD {
+            rgbBlue: 0,
+            rgbGreen: 0,
+            rgbRed: 0,
+            rgbReserved: 0,
+        }],
+    };
+    let mut bits: *mut c_void = std::ptr::null_mut();
+    // SAFETY: a null DC is valid for DIB_RGB_COLORS; `info` lives for the call, and
+    // `bits` receives the address of the section's pixels on success.
+    let color = unsafe { CreateDIBSection(0, &info, DIB_RGB_COLORS, &mut bits, 0, 0) };
+    if color == 0 || bits.is_null() {
+        return arrow();
+    }
+    // SAFETY: `bits` addresses side * side * 4 writable bytes, and `bgra` has that length.
+    unsafe { std::ptr::copy_nonoverlapping(bgra.as_ptr(), bits.cast::<u8>(), bgra.len()) };
+    // One bit per pixel, rows of whole WORDs: a side of 16 * factor makes them whole bytes.
+    let zeros = vec![0u8; (side as usize / 8) * side as usize];
+    // SAFETY: CreateBitmap copies `zeros`, which holds the rows of a monochrome bitmap.
+    let mask = unsafe { CreateBitmap(side as i32, side as i32, 1, 1, zeros.as_ptr().cast()) };
+    let icon = ICONINFO {
+        fIcon: FALSE,
+        xHotspot: hot_x,
+        yHotspot: hot_y,
+        hbmMask: mask,
+        hbmColor: color,
+    };
+    // SAFETY: CreateIconIndirect copies both bitmaps, so they are released after it.
+    let cursor = unsafe { CreateIconIndirect(&icon) };
+    // SAFETY: the mask belongs to this function and is no longer used.
+    unsafe {
+        DeleteObject(mask);
+    }
+    // SAFETY: the colour bitmap belongs to this function and is no longer used.
+    unsafe {
+        DeleteObject(color);
+    }
+    if cursor == 0 { arrow() } else { cursor }
+}
+
+/// The stock arrow, which every hand falls back to.
+fn arrow() -> HCURSOR {
+    // SAFETY: stock cursor identifiers are borrowed system resources.
+    unsafe { LoadCursorW(0, IDC_ARROW) }
 }
 pub(super) fn cancel(state: &Rc<State>) {
     let mut mouse = state.mouse.get();

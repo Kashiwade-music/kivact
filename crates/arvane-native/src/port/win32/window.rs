@@ -274,7 +274,7 @@ impl ShellWindow for Window {
         let located = unsafe { GetCursorPos(&mut point) } != 0;
         // SAFETY: WindowFromPoint only reads the window tree for a screen point.
         if captured || (located && unsafe { WindowFromPoint(point) } == hwnd) {
-            super::input::cursor(cursor);
+            super::input::cursor(cursor, self.0.shared.scale());
         }
     }
     /// Enable or disable IME input for the focused editor, as `ime` asks.
