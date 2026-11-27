@@ -695,6 +695,9 @@ impl WindowProbe {
     pub fn focus_requests(&self) -> u32 {
         self.with(|window| window.focus_requests.get())
     }
+    pub fn visible(&self) -> bool {
+        self.with(|window| window.visible.get())
+    }
 }
 
 #[cfg(test)]

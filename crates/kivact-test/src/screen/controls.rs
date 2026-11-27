@@ -26,6 +26,12 @@ impl Screen {
             .collect()
     }
 
+    /// Whether the window is on screen as `platform::set_window_visible` last
+    /// left it (`true` until the App hides it).
+    pub fn is_window_visible(&self) -> bool {
+        self.host().window_visible(self.window).unwrap_or(false)
+    }
+
     /// Report native window focus loss or restoration (cancels pointer capture).
     pub fn set_window_focused(&self, focused: bool) {
         self.send(kivact_engine::testing::ShellEvent::Focused(focused));

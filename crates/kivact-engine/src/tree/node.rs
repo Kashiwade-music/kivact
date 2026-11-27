@@ -434,6 +434,12 @@ impl HostNode {
             && !self.hidden()
     }
 
+    /// Whether Tab and Shift+Tab reach the node's key handlers while it has
+    /// keyboard focus ([`InputFlag::KeepsTab`]).
+    pub(crate) fn keeps_tab(&self) -> bool {
+        self.properties.input.flags.get(InputFlag::KeepsTab) == Some(true)
+    }
+
     /// The declared native pointer focus destination, if currently bound.
     pub(crate) fn focus_on_press(&self) -> Option<kivact_types::FocusTarget> {
         self.properties.input.focus_on_press

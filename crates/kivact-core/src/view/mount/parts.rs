@@ -18,6 +18,7 @@ impl Common {
         replace_fields!(
             exit_layout,
             focusable_when_disabled,
+            keeps_tab,
             exit_complete,
             roving_focus,
             hit_testable,
@@ -99,6 +100,12 @@ impl Common {
                 Some(kivact_runtime::Prop::computed(Rc::new(move || {
                     caller.as_ref().is_some_and(|v| v.get()) || required.get()
                 })));
+        }
+        if let Some(required) = part.keeps_tab.take() {
+            let caller = self.keeps_tab.take();
+            self.keeps_tab = Some(kivact_runtime::Prop::computed(Rc::new(move || {
+                caller.as_ref().is_some_and(|v| v.get()) || required.get()
+            })));
         }
         self.part_constraints
             .disabled

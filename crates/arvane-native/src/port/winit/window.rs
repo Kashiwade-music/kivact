@@ -32,7 +32,18 @@ pub(super) enum Surface {
     },
 }
 
-// xtask-allow(state): independent: foreign and subclass are set once by open (foreign content, the Windows subclass install) and only dropped; monitor is the last-seen monitor, written only by the move and scale-change handler
+/// Whether a window is on screen, as the runtime and the application left it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Presence {
+    /// Created hidden; the runtime shows it after the accepting callback.
+    AwaitingFirstShow,
+    /// Shown by the runtime's first show or by the application.
+    Shown,
+    /// Hidden by the application; the first show does not override it.
+    Hidden,
+}
+
+// xtask-allow(state): independent: foreign and subclass are set once by open (foreign content, the Windows subclass install) and only dropped; monitor is the last-seen monitor, written only by the move and scale-change handler; presence is the on-screen state machine (Presence), written only by show_first and set_visible
 /// Native window and CPU surface; deliberately !Send and !Sync through Rc.
 pub struct WinitWindow {
     /// The child window that fills a foreign window's content area.
@@ -58,6 +69,8 @@ pub struct WinitWindow {
     pub(super) monitor: Option<winit::monitor::MonitorHandle>,
     /// The refresh period of that monitor (`frame_period_ns`).
     pub(super) frame_period_ns: u64,
+    /// On-screen state; written only by `show_first` and `set_visible`.
+    pub(super) presence: Presence,
 }
 impl ShellWindow for WinitWindow {
     fn perform(&mut self, request: PlatformRequest) -> PlatformResult {
@@ -87,6 +100,9 @@ impl ShellWindow for WinitWindow {
                 crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
             }
             PlatformRequest::FocusWindow => self.focus().map(|()| PlatformResult::Done),
+            PlatformRequest::SetWindowVisible(visible) => {
+                self.set_visible(visible).map(|()| PlatformResult::Done)
+            }
             PlatformRequest::Fullscreen(fullscreen) => {
                 self.window.set_fullscreen(
                     fullscreen.then_some(winit::window::Fullscreen::Borderless(None)),
@@ -428,6 +444,26 @@ impl WinitWindow {
     /// Bring the window to the front and give the keyboard focus.
     fn focus(&mut self) -> Result<(), ShellError> {
         self.window.focus_window();
+        Ok(())
+    }
+
+    /// Show the window after its accepting callback, unless the application
+    /// already decided whether it is on screen.
+    pub(super) fn show_first(&mut self) {
+        if self.presence == Presence::AwaitingFirstShow {
+            self.window.set_visible(true);
+            self.presence = Presence::Shown;
+        }
+    }
+
+    /// Show or hide the window on the application's request.
+    fn set_visible(&mut self, visible: bool) -> Result<(), ShellError> {
+        self.window.set_visible(visible);
+        self.presence = if visible {
+            Presence::Shown
+        } else {
+            Presence::Hidden
+        };
         Ok(())
     }
 

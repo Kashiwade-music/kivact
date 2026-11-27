@@ -139,6 +139,16 @@ impl Node {
         Element::focusable_when_disabled(self, on)
     }
 
+    /// While this node has keyboard focus, Tab and Shift+Tab reach its key
+    /// handlers as ordinary key presses instead of moving the focus.
+    /// Ctrl+Tab and Ctrl+Shift+Tab then move the focus forward and back, so
+    /// the keyboard user can always leave the node; Ctrl+Alt+Tab stays an
+    /// ordinary key, and Ctrl+Meta+Tab moves the focus like Ctrl+Tab. Other
+    /// nodes are not affected.
+    pub fn keeps_tab(self, on: impl IntoValue<bool>) -> Self {
+        Element::keeps_tab(self, on)
+    }
+
     /// Give this group one Tab stop and move between its eligible controls
     /// with unhandled arrows along `orientation`, Home and End. A text field
     /// keeps arrows that still move its caret or selection.

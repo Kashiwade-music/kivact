@@ -17,6 +17,7 @@ pub(super) struct FirstWrite {
     pub(super) exit_layout: crate::view::ExitLayout,
     pub(super) exit_complete: Option<kivact_runtime::Handler<()>>,
     pub(super) focusable_when_disabled: Option<InputProp<bool>>,
+    pub(super) keeps_tab: Option<InputProp<bool>>,
     pub(super) roving_focus: Option<InputProp<kivact_engine::contract::RovingFocus>>,
     pub(super) hit_testable: Option<InputProp<bool>>,
     /// The accessibility actions the node offers, its own and its parts'.
@@ -82,6 +83,7 @@ pub(super) fn write(
         exit_layout,
         exit_complete,
         focusable_when_disabled,
+        keeps_tab,
         roving_focus,
         hit_testable,
         handlers,
@@ -132,6 +134,9 @@ pub(super) fn write(
     }
     if let Some(f) = focusable_when_disabled {
         cx.bind(id, f, PropValue::FocusableWhenDisabled, at);
+    }
+    if let Some(f) = keeps_tab {
+        cx.bind(id, f, PropValue::KeepsTab, at);
     }
     if let Some(props) = editing {
         editing::bind(cx, id, props, report_session, at);

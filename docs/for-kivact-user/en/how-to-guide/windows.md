@@ -374,7 +374,7 @@ The `platform` queries and services act on the window of the owner that calls
 them: `window_size`, `scale_factor`, `is_fullscreen`, `safe_area`,
 `keyboard_inset`, `theme_hint`, `is_surface_active`, `is_motion_reduced` and
 `pointer_settings`, and the services `request_window_size`, `set_fullscreen`,
-`focus_window` and the file dialogs (the parent of the dialog). A handler or
+`set_window_visible`, `focus_window` and the file dialogs (the parent of the dialog). A handler or
 callback belongs to the window where it was created, not to the window where it
 runs, so create the callback inside the window's content when that window uses
 it.

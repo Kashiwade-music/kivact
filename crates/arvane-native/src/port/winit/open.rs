@@ -4,7 +4,7 @@ use crate::a11y::native::NativeAccessibility;
 use crate::native_input::state::NativeInput;
 use crate::port::winit::foreign::ForeignConnections;
 use crate::port::winit::foreign::ForeignOs;
-use crate::port::winit::window::{Surface, WinitWindow};
+use crate::port::winit::window::{Presence, Surface, WinitWindow};
 use crate::present::CpuSurface;
 use crate::services::Services;
 use arvane_shell::{ShellError, ShellWaker};
@@ -99,6 +99,7 @@ pub(super) fn create_window(
         services: Services::default(),
         monitor,
         frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
+        presence: Presence::AwaitingFirstShow,
     };
     window.read_frame_period();
     Ok(window)

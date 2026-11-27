@@ -206,6 +206,10 @@ props! {
     FocusableWhenDisabled: set_focusable_when_disabled(v: bool)
         => flag(crate::contract::InputFlag::FocusableWhenDisabled),
         mut = Mut::NONE;
+    /// Whether Tab and Shift+Tab reach the node's key handlers while it has focus.
+    KeepsTab: set_keeps_tab(v: bool)
+        => flag(crate::contract::InputFlag::KeepsTab),
+        mut = Mut::NONE;
     /// Group native Tab stops at this node.
     RovingFocus: set_roving_focus(v: crate::contract::RovingFocus)
         => field(Some(v), |p| Some(&mut p.input.roving_focus)),

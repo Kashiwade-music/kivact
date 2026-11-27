@@ -250,6 +250,75 @@ mod tests {
 - **ナビゲーション。** `ListOptions` で、軸、端での折り返し、移動で選択するか、先頭文字による検索、確定を起動操作で行うかを決めます。プリセットの `ListOptions::tabs()`、`radio()`、`menu()`、`listbox()` が一般的な部品をカバーします。ポリシーは `use_list` の 3 番目の引数で渡します。
 - **タブストップは 1 つ。** 行全体が Tab の停止位置 1 つで、中は矢印キーで移動します。無効な項目 (`ListItem::disabled(true)`) は飛ばされます。
 
+## コントロールに Tab を使わせる
+
+標準では Tab を押すと、フォーカスは次のコントロールへ移ります。インデントを Tab で行うコード編集欄のように、Tab を自分のキーとして使いたいコントロールは `keeps_tab(true)` を指定します。フォーカスがあるあいだ、Tab と Shift+Tab は通常のキーとしてそのハンドラーに届きます。Ctrl+Tab と Ctrl+Shift+Tab は引き続きフォーカスを動かすので、キーボードの利用者はいつでもそのコントロールから出られます。
+
+```rust,test_harness
+use kivact::prelude::*;
+use kivact::view::Modifiers;
+
+/// The styles the picker cycles through.
+const STYLES: [&str; 3] = ["Plain", "Bold", "Italic"];
+
+/// A focusable control that cycles its own styles on Tab and Shift+Tab.
+#[component]
+pub fn style_picker() -> impl Element {
+    let index = signal(0usize);
+    node()
+        .name("Text style")
+        .role(Role::Button)
+        .focusable(true)
+        .keeps_tab(true)
+        .on_key(move |event| {
+            if event.key() == Key::Tab {
+                let step = if event.modifiers().shift { STYLES.len() - 1 } else { 1 };
+                index.set((index.get_untracked() + step) % STYLES.len());
+            }
+        })
+        .child(text(move || STYLES[index.get()].to_string()))
+}
+
+fn app() -> impl IntoView {
+    column((
+        node().name("Other").role(Role::Button).focusable(true).child(text("Other")),
+        style_picker(),
+    ))
+    .style(style().gap(8).padding(16))
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Style picker").run(app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tab_cycles_the_style_and_ctrl_tab_leaves_the_control() {
+        let screen = kivact::test::render(app);
+        let picker = screen.get_by_role(Role::Button, "Text style");
+        picker.focus();
+        screen.press_key(Key::Tab);
+        screen.get_by_text("Bold");
+        assert!(picker.is_focused());
+
+        screen.press_key_with(Key::Tab, Modifiers { shift: true, ..Modifiers::default() });
+        screen.get_by_text("Plain");
+
+        screen.press_key_with(Key::Tab, Modifiers { ctrl: true, ..Modifiers::default() });
+        assert!(screen.get_by_role(Role::Button, "Other").is_focused());
+    }
+}
+```
+
+`keeps_tab` でできること:
+
+- **フォーカスのあるコントロールだけ。** ほかのコントロールの Tab の順番は変わりません。
+- **出る操作。** Ctrl+Tab はフォーカスを前へ、Ctrl+Shift+Tab は後ろへ動かします。Ctrl+Alt+Tab は通常のキーとしてハンドラーに届きます。
+- **切り替えられる。** `move || editing.get()` のようなリアクティブな値を渡すと、この動作をオン・オフできます。
+
 ## リストを開閉する
 
 ドロップダウンは、リストの上に開閉、フォーカスの復帰、閉じる操作を足したものです。`use_select` は 3 つの Part を渡します。**trigger** (コンボボックス)、**content** (浮かぶ面)、選択肢ごとの **item** です。`is_open()` が true のあいだ、`show` と `overlay` で content を mount します。

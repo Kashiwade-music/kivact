@@ -60,6 +60,9 @@ pub enum PlatformRequest {
     RevealPath(PathBuf),
     /// Bring the window to the front and give it the keyboard focus (best effort).
     FocusWindow,
+    /// Show or hide the window without closing it. The result is `Done`, or
+    /// `Unsupported` where a host owns the window (an embedded editor).
+    SetWindowVisible(bool),
 }
 
 /// Stable classification of a boundary failure, independent of external libraries.

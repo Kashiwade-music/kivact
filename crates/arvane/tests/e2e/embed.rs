@@ -41,6 +41,11 @@ impl Handler for Host {
             kivact_types::PlatformResult::Unsupported,
             "an embedded window cannot be raised"
         );
+        assert_eq!(
+            window.perform(kivact_types::PlatformRequest::SetWindowVisible(false)),
+            kivact_types::PlatformResult::Unsupported,
+            "the host shows and hides an embedded window"
+        );
         let deadline = window.now_ns() + 50_000_000;
         let mut seen = self
             .0

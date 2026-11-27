@@ -1080,6 +1080,12 @@ impl ArvaneTestHost {
             .map_or(0, |probe| probe.focus_requests())
     }
 
+    /// Whether window `window` is on screen as the application last asked;
+    /// `None` when the window is closed or was never opened.
+    pub fn window_visible(&self, window: WindowId) -> Option<bool> {
+        self.probe.window(window).map(|probe| probe.visible())
+    }
+
     /// Run `f` on window `window`'s model.
     fn with_window<R>(&self, window: WindowId, f: impl FnOnce(&Model) -> R) -> Option<R> {
         let launch = self.host.borrow();

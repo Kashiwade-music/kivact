@@ -427,7 +427,7 @@ The environment reads and the services act on the window of the owner that calls
 them, not on the main window: `window_size`, `scale_factor`, `is_fullscreen`,
 `safe_area`, `keyboard_inset`, `theme_hint`, `is_surface_active`,
 `is_motion_reduced` and `pointer_settings`, and the services
-`request_window_size`, `set_fullscreen`, `focus_window` and the file dialogs
+`request_window_size`, `set_fullscreen`, `set_window_visible`, `focus_window` and the file dialogs
 (the dialog's parent). A handler or callback belongs to the window where it was
 created, not to the window where it runs, so create it inside that window's
 content.
@@ -452,6 +452,31 @@ way to raise a window. It needs no capability. In an embedded editor it fails
 with `ErrorKind::Unsupported`, and writing `true` to an already open window's
 binding does not raise it. See
 [Bring a window to the front](windows.md#bring-a-window-to-the-front).
+
+`platform::set_window_visible(false)` hides the calling owner's window without ending the App, and
+`set_window_visible(true)` shows the same window again. Tasks, timers and your own threads keep running while
+the window is hidden. To make the close button hide the main window instead of ending the App, keep the window
+on a close request and hide it:
+
+```rust,no_run
+use kivact::platform;
+use kivact::prelude::*;
+
+#[component]
+fn app() -> impl Element {
+    platform::on_close_request(|| {
+        spawn(platform::set_window_visible(false));
+        Handled::Yes
+    });
+    text("Closing this window hides it")
+}
+```
+
+Call it with `false` in the root setup to start without a visible window. To show the window from another
+thread, make a `task::remote_trigger()` in the window, call `set_window_visible(true)` from an effect that
+tracks it, and call `notify()` on the worker. Only the calling window changes; windows declared with
+`window(..)` follow their own `open` signal. In an embedded editor the call fails with
+`ErrorKind::Unsupported`, because the host shows and hides the editor.
 
 ## See also
 

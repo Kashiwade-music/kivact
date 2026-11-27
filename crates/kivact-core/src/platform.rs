@@ -1,6 +1,6 @@
 //! Role: Platform services and window loop entry.
 //!
-//! Platform services (fullscreen, clipboard, file and folder dialogs,
+//! Platform services (fullscreen, window visibility, clipboard, file and folder dialogs,
 //! opening and revealing paths) as free functions returning futures, and
 //! the host environment (fullscreen, reduced motion, scale, window size,
 //! safe area, surface activity, capabilities) as free functions reading
@@ -40,6 +40,7 @@ pub use kivact_types::NativeWindow;
 pub use services::{
     FileDialog, copy_text, focus_window, open_path, pick_file, pick_files, pick_folder, read_text,
     request_window_size, reveal_path, save_file, save_state, set_fullscreen, set_reduced_motion,
+    set_window_visible,
 };
 pub(crate) use window_loop::run_native;
 

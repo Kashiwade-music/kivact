@@ -18,9 +18,11 @@
 //! Invariants:
 //! - While the focused text input composes, every key is the IME's.
 //! - Tab and Shift+Tab move focus unless the focused editor's behavior
-//!   consumes them. A native editor can explicitly forward selected control
-//!   keys to the client; they skip focus and editing. Ctrl/Alt/Meta and
-//!   Shift (except Shift+Tab) never use this opt-in path.
+//!   consumes them, or the focused node keeps Tab (`keeps_tab`): it then
+//!   reports them as ordinary keys, and Ctrl+Tab moves focus. A native editor
+//!   can explicitly forward selected control keys to the client; they skip
+//!   focus and editing. Ctrl/Alt/Meta and Shift (except Shift+Tab) never use
+//!   this opt-in path.
 //! - An explicit spin control's unmodified Home/End reach its handler. A focusable
 //!   spin ancestor's nested text editor keeps its native boundary keys.
 //! - A key the focused text input consumes is never reported; a key that
@@ -332,7 +334,15 @@ impl Model {
             return KeyResult::Consumed;
         }
         let forward = self.forward_edit_key(input, editor, &key, modifiers);
-        let focus_key = !forward && key == Key::Tab && !modifiers.ctrl && !modifiers.alt;
+        // A focused node that keeps Tab takes Tab and Shift+Tab as ordinary
+        // keys; Ctrl+Tab still moves the focus (Ctrl+Alt+Tab stays a key).
+        let keeps = self
+            .focused()
+            .and_then(|target| self.tree.get(target.node))
+            .is_some_and(|node| node.keeps_tab());
+        let tab = key == Key::Tab;
+        let focus_key = !forward && tab && !keeps && !modifiers.ctrl && !modifiers.alt;
+        let focus_leave = keeps && tab && modifiers.ctrl && !modifiers.alt;
         if let Some(i) = input.filter(|_| !forward) {
             let node = self.tree.get(i).expect("invariant: focused input exists");
             let flags = (node.multiline(), node.read_only(), node.password());
@@ -386,7 +396,7 @@ impl Model {
                 return KeyResult::Consumed;
             }
         }
-        if focus_key {
+        if focus_key || focus_leave {
             self.move_focus(modifiers.shift);
             return KeyResult::Consumed;
         }
