@@ -628,11 +628,7 @@ impl Presenter {
                                 write_rect(buffer, rgba, width, *rect);
                             }
                         }
-                        _ => {
-                            for (px, src) in buffer.iter_mut().zip(rgba.as_chunks::<4>().0) {
-                                *px = pixel_0rgb(src);
-                            }
-                        }
+                        _ => convert_row(buffer, rgba),
                     }
                     true
                 });
@@ -703,6 +699,17 @@ fn pixel_0rgb(p: &[u8; 4]) -> u32 {
         | (u32::from(p[2]) + white).min(255)
 }
 
+/// One row of RGBA bytes as 0RGB pixels.
+fn convert_row(out: &mut [u32], rgba: &[u8]) {
+    for (px, src) in out.iter_mut().zip(rgba.as_chunks::<4>().0) {
+        *px = if src[3] == 255 {
+            (u32::from(src[0]) << 16) | (u32::from(src[1]) << 8) | u32::from(src[2])
+        } else {
+            pixel_0rgb(src)
+        };
+    }
+}
+
 /// Write the pixels of `rect` from the frame `rgba` (`width` px wide) into
 /// the window's `buffer` (the same width), clipped to both.
 fn write_rect(buffer: &mut [u32], rgba: &[u8], width: u32, rect: PixelRect) {
@@ -710,15 +717,18 @@ fn write_rect(buffer: &mut [u32], rgba: &[u8], width: u32, rect: PixelRect) {
     let rows = rgba.len() / 4 / row_pixels.max(1);
     let x_end = rect.x.saturating_add(rect.width).min(width);
     let y_end = rect.y.saturating_add(rect.height).min(rows as u32);
+    if rect.x >= x_end {
+        return;
+    }
+    let (x_start, x_stop) = (rect.x as usize, x_end as usize);
     for y in rect.y..y_end {
-        for x in rect.x..x_end {
-            let index = y as usize * row_pixels + x as usize;
-            let (Some(px), Some(src)) = (buffer.get_mut(index), rgba.get(index * 4..index * 4 + 4))
-            else {
-                continue;
-            };
-            *px = pixel_0rgb(src.try_into().expect("four bytes"));
-        }
+        let start = y as usize * row_pixels + x_start;
+        let stop = y as usize * row_pixels + x_stop;
+        let (Some(dst), Some(src)) = (buffer.get_mut(start..stop), rgba.get(start * 4..stop * 4))
+        else {
+            continue;
+        };
+        convert_row(dst, src);
     }
 }
 
@@ -744,4 +754,31 @@ pub(super) fn make_surface(
         surface.keep_frames();
     }
     Ok(surface)
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of the RGBA to 0RGB conversion of presented rows.
+    use super::{convert_row, pixel_0rgb};
+
+    #[test]
+    fn convert_row_matches_pixel_0rgb() {
+        const LEVELS: [u8; 4] = [0, 85, 170, 255];
+        for alpha in 0..=255_u8 {
+            for r in LEVELS {
+                for g in LEVELS {
+                    for b in LEVELS {
+                        let src = [r, g, b, alpha];
+                        let mut out = [0_u32; 1];
+                        convert_row(&mut out, &src);
+                        assert_eq!(
+                            out[0],
+                            pixel_0rgb(&src),
+                            "rgba {src:?} converted differently"
+                        );
+                    }
+                }
+            }
+        }
+    }
 }
