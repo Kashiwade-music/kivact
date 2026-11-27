@@ -1,6 +1,8 @@
 //! Role: Creates one winit window from a window request.
 
 use crate::a11y::native::NativeAccessibility;
+#[cfg(windows)]
+use crate::hand_cursor::{Hand, hand_rgba};
 use crate::native_input::state::NativeInput;
 use crate::port::winit::foreign::ForeignConnections;
 use crate::port::winit::foreign::ForeignOs;
@@ -17,6 +19,8 @@ use std::sync::Arc;
 use std::time::Instant;
 use winit::dpi::{LogicalSize, PhysicalPosition};
 use winit::event_loop::ActiveEventLoop;
+#[cfg(windows)]
+use winit::window::CustomCursor;
 use winit::window::Window;
 
 /// Create a hidden window; its caller shows it after the accepting callback.
@@ -83,6 +87,8 @@ pub(super) fn create_window(
     ));
     let monitor = window.current_monitor();
     let foreign = foreign_child(request, &window, connections)?;
+    #[cfg(windows)]
+    let hands = hand_cursors(el)?;
     let mut window = WinitWindow {
         foreign,
         #[cfg(windows)]
@@ -99,10 +105,41 @@ pub(super) fn create_window(
         services: Services::default(),
         monitor,
         frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
+        #[cfg(windows)]
+        hands,
         presence: Presence::AwaitingFirstShow,
     };
     window.read_frame_period();
     Ok(window)
+}
+
+/// The hand cursors Windows lacks, made once for a window at each pixel factor.
+#[cfg(windows)]
+fn hand_cursors(el: &ActiveEventLoop) -> Result<[[CustomCursor; 4]; 2], ShellError> {
+    Ok([
+        [
+            hand_cursor(el, Hand::Open, 1)?,
+            hand_cursor(el, Hand::Open, 2)?,
+            hand_cursor(el, Hand::Open, 3)?,
+            hand_cursor(el, Hand::Open, 4)?,
+        ],
+        [
+            hand_cursor(el, Hand::Closed, 1)?,
+            hand_cursor(el, Hand::Closed, 2)?,
+            hand_cursor(el, Hand::Closed, 3)?,
+            hand_cursor(el, Hand::Closed, 4)?,
+        ],
+    ])
+}
+
+/// One hand cursor from its RGBA pixels at `factor`.
+#[cfg(windows)]
+fn hand_cursor(el: &ActiveEventLoop, hand: Hand, factor: u32) -> Result<CustomCursor, ShellError> {
+    let (rgba, side, (hot_x, hot_y)) = hand_rgba(hand, factor);
+    let source =
+        CustomCursor::from_rgba(rgba, side as u16, side as u16, hot_x as u16, hot_y as u16)
+            .map_err(|e| ShellError::new(e.to_string()))?;
+    Ok(el.create_custom_cursor(source))
 }
 
 /// The child window a foreign window's content is drawn into.

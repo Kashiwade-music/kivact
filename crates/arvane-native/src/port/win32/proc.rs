@@ -241,7 +241,7 @@ fn window_message(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPA
         // sends real mouse input through the embedded surface to its parent.
         WM_NCHITTEST => HTCLIENT as isize,
         WM_SETCURSOR if l as u16 == HTCLIENT as u16 => {
-            super::input::cursor(state.cursor.get());
+            super::input::cursor(state.cursor.get(), state.shared.scale());
             1
         }
         WM_SETFOCUS | WM_KILLFOCUS => {

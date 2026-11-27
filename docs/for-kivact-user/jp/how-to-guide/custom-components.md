@@ -449,6 +449,35 @@ fn main() -> kivact::Result<()> {
 
 スナップショットは、コンポーネントがマウントされたときに取られます。上の例のように本体の中で読んでください。アプリがこれを必要とすることは、ほとんどありません。
 
+## ポインタに合わせてカーソルが変わるキャンバス
+
+スタイルの `cursor` は、Web の `canvas.style.cursor` と同じく、シグナルを読めます。`on_pointer` でシグナルを設定し、スタイルの中で読んでください。ポインタは、シグナルが持つカーソルを示します。このキャンバスは、長方形の上では `Cursor::Grab`、ボタンを押している間は `Cursor::Grabbing` を示します。
+
+```rust,no_run
+use kivact::geometry::Rect;
+use kivact::prelude::*;
+
+#[component]
+pub fn drag_area() -> impl Element {
+    let dragging = signal(false);
+    canvas(|draw, size| draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), color::ACCENT))
+        .on_pointer(move |event: PointerEvent| match event.phase() {
+            PointerPhase::Down(_) => dragging.set(true),
+            PointerPhase::Up(_) => dragging.set(false),
+            _ => {}
+        })
+        .style(move || {
+            style()
+                .size(240, 160)
+                .cursor(if dragging.get() { Cursor::Grabbing } else { Cursor::Grab })
+        })
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Drag").run(drag_area)
+}
+```
+
 ## コンポーネントの誤用を報告する
 
 コンポーネントが処理できない引数を受け取ったら、開発者が原因を見られる場所で失敗させてください。`kivact::custom::raise` は、場所付きのメッセージで panic します。Kivact 自身の誤用と同じ扱いです。アプリは終了し、試験は失敗します。

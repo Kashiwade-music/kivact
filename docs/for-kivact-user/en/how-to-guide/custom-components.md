@@ -532,6 +532,38 @@ fn main() -> kivact::Result<()> {
 The snapshot is taken when the component mounts. Read it in the body, as above;
 apps rarely need it.
 
+## A canvas whose cursor follows the pointer
+
+A style's `cursor` may read a signal, as the web's `canvas.style.cursor` can.
+Set the signal in `on_pointer` and read it in the style: the pointer shows the
+cursor the signal holds. This canvas shows `Cursor::Grab` over its rectangle
+and `Cursor::Grabbing` while the button is down:
+
+```rust,no_run
+use kivact::geometry::Rect;
+use kivact::prelude::*;
+
+#[component]
+pub fn drag_area() -> impl Element {
+    let dragging = signal(false);
+    canvas(|draw, size| draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), color::ACCENT))
+        .on_pointer(move |event: PointerEvent| match event.phase() {
+            PointerPhase::Down(_) => dragging.set(true),
+            PointerPhase::Up(_) => dragging.set(false),
+            _ => {}
+        })
+        .style(move || {
+            style()
+                .size(240, 160)
+                .cursor(if dragging.get() { Cursor::Grabbing } else { Cursor::Grab })
+        })
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Drag").run(drag_area)
+}
+```
+
 ## Report misuse of your component
 
 When a component gets an argument it cannot honor, fail where the developer can

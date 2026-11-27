@@ -23,6 +23,7 @@ mod feedback;
 mod indicators;
 mod interaction_calendar;
 mod interaction_combobox;
+mod interaction_cursor;
 mod interaction_delayed;
 mod interaction_dialog;
 mod interaction_drag_edit;

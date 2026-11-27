@@ -1,6 +1,8 @@
 //! Role: A winit window with its CPU presentation surface and platform services.
 
 use crate::a11y::native::NativeAccessibility;
+#[cfg(windows)]
+use crate::hand_cursor::hand_factor;
 use crate::native_input::state::NativeInput;
 use crate::present::CpuSurface;
 use crate::services::Services;
@@ -71,6 +73,9 @@ pub struct WinitWindow {
     pub(super) frame_period_ns: u64,
     /// On-screen state; written only by `show_first` and `set_visible`.
     pub(super) presence: Presence,
+    /// The hand cursors Windows lacks, at each pixel factor: `[open, closed][factor - 1]`.
+    #[cfg(windows)]
+    pub(super) hands: [[winit::window::CustomCursor; 4]; 2],
 }
 impl ShellWindow for WinitWindow {
     fn perform(&mut self, request: PlatformRequest) -> PlatformResult {
@@ -321,6 +326,15 @@ impl ShellWindow for WinitWindow {
     /// Show `cursor` while the pointer is over the window's content.
     fn set_cursor(&self, cursor: ShellCursor) {
         self.window.set_cursor_visible(cursor != ShellCursor::None);
+        #[cfg(windows)]
+        {
+            if matches!(cursor, ShellCursor::Grab | ShellCursor::Grabbing) {
+                let hand = usize::from(cursor == ShellCursor::Grabbing);
+                let factor = hand_factor(self.window.scale_factor()) as usize;
+                self.window.set_cursor(self.hands[hand][factor - 1].clone());
+                return;
+            }
+        }
         self.window.set_cursor(match cursor {
             ShellCursor::Auto | ShellCursor::Default => CursorIcon::Default,
             ShellCursor::Text => CursorIcon::Text,

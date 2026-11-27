@@ -1,11 +1,13 @@
 //! Role: Map portable cursors to native resource identifiers and names.
 use kivact_types::Cursor;
 use std::ffi::CStr;
+/// The Windows system cursor of `cursor`. Grab and Grabbing have no system
+/// cursor on Windows; the ports draw them (`hand_cursor`) and do not ask here.
 pub fn cursor_to_vk_cursor(cursor: Cursor) -> u16 {
     match cursor {
         Cursor::None => 0,
         Cursor::Text => 32513,
-        Cursor::Pointer | Cursor::Grab | Cursor::Grabbing => 32649,
+        Cursor::Pointer => 32649,
         Cursor::ColResize | Cursor::EwResize => 32644,
         Cursor::RowResize | Cursor::NsResize => 32645,
         Cursor::Crosshair => 32515,
@@ -26,5 +28,16 @@ pub fn cursor_to_x11_name(cursor: Cursor) -> &'static CStr {
         Cursor::Crosshair => c"crosshair",
         Cursor::NotAllowed => c"X_cursor",
         _ => c"left_ptr",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of the Windows cursor identifiers.
+    use super::*;
+
+    #[test]
+    fn grab_has_no_system_cursor_and_falls_to_the_arrow() {
+        assert_eq!(cursor_to_vk_cursor(Cursor::Grab), 32512);
     }
 }
