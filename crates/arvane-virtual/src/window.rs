@@ -561,15 +561,11 @@ impl WindowSurface for VirtualWindow {
         if (width, height) != self.physical_size() {
             return Err(ShellError::new("frame size differs from window surface"));
         }
-        // With damage, the buffer is the CPU frame presented last time, taken from the surface and
-        // updated in place (copied only while a mirror or a screenshot still holds it).
-        // A GPU frame kept for the device-loss fallback is not that frame.
+        // The buffer is the CPU frame presented last time, taken from the surface and updated in
+        // place (copied only while a mirror or a screenshot still holds it), whenever its size
+        // matches. A GPU frame kept for the device-loss fallback is not that frame.
         let kept = match std::mem::replace(&mut self.shown, Shown::Nothing) {
-            Shown::OnCpuSurface(kept)
-                if damage.is_some() && (kept.width, kept.height) == (width, height) =>
-            {
-                Some(kept)
-            }
+            Shown::OnCpuSurface(kept) if (kept.width, kept.height) == (width, height) => Some(kept),
             other => {
                 self.shown = other;
                 None
@@ -577,7 +573,9 @@ impl WindowSurface for VirtualWindow {
         };
         let reused = kept.is_some();
         let (mut pixels, age): (Arc<[u32]>, BufferAge) = match kept {
-            Some(kept) => (kept.pixels, BufferAge::Previous),
+            // Without damage the whole frame is written, so the old contents do not matter.
+            Some(kept) if damage.is_some() => (kept.pixels, BufferAge::Previous),
+            Some(kept) => (kept.pixels, BufferAge::Unknown),
             None => (
                 vec![0_u32; width as usize * height as usize].into(),
                 BufferAge::Unknown,
@@ -679,4 +677,60 @@ pub fn is_native_window_alive(window: NativeWindow) -> Option<bool> {
         .expect("invariant: the virtual native window registry is not poisoned")
         .get(&std::thread::current().id())
         .and_then(|windows| windows.get(&id.get()).copied())
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of the virtual window's CPU buffer across full presents.
+    use super::{Display, Shown, VirtualOptions, VirtualPlatform, VirtualWindow};
+    use crate::clock::Clock;
+    use arvane_shell::{Accessibility, BufferAge, WindowSurface};
+    use std::cell::{Cell, RefCell};
+    use std::collections::{BTreeMap, VecDeque};
+    use std::rc::Rc;
+    use std::sync::Arc;
+
+    /// The address of the buffer the window shows on its CPU surface.
+    fn shown_buffer(window: &VirtualWindow) -> *const u32 {
+        match &window.shown {
+            Shown::OnCpuSurface(kept) => Arc::as_ptr(&kept.pixels).cast(),
+            _ => panic!("the window shows no frame on its CPU surface"),
+        }
+    }
+
+    #[test]
+    fn a_full_present_keeps_its_buffer() {
+        let options = VirtualOptions::default();
+        let platform = Rc::new(VirtualPlatform {
+            saved_state: Rc::new(RefCell::new(BTreeMap::new())),
+            responders: RefCell::new(Vec::new()),
+            now: Clock::default(),
+            capabilities: options.capabilities.clone(),
+            clipboard: RefCell::new(String::new()),
+            dialogs: RefCell::new(VecDeque::new()),
+            opened: RefCell::new(Vec::new()),
+            revealed: RefCell::new(Vec::new()),
+            next_foreign_child: Cell::new(0),
+            fail_next: RefCell::new(None),
+        });
+        let mut window = VirtualWindow::new(
+            &platform,
+            &options,
+            &options.main,
+            Display::Headless(Accessibility::new()),
+        );
+        let present = |window: &mut VirtualWindow| {
+            window
+                .present_with(800, 600, None, &mut |_: &mut [u32], _: BufferAge| true)
+                .expect("a full present")
+        };
+        assert!(present(&mut window));
+        let first = shown_buffer(&window);
+        assert!(present(&mut window));
+        assert_eq!(
+            shown_buffer(&window),
+            first,
+            "the second full present allocated a new buffer"
+        );
+    }
 }
