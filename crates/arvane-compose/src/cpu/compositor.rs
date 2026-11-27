@@ -303,13 +303,29 @@ fn raster_chunk(
         && let Some(mut px) = chunks.remove(&task.key)
         && px.size() == task.size
     {
-        raster.raster_rects(scene, task.origin, task.scale, size, rects, &mut px.data)?;
+        raster.raster_rects(
+            scene,
+            task.origin,
+            task.scale,
+            size,
+            rects,
+            &mut px.data,
+            None,
+        )?;
         counts.pixels += rects.iter().map(area).sum::<u64>();
         chunks.insert(task.key, px);
         return Ok(());
     }
     let mut px = Pixmap::new(w, h);
-    raster.raster(scene, task.origin, task.scale, size, None, &mut px.data)?;
+    raster.raster(
+        scene,
+        task.origin,
+        task.scale,
+        size,
+        None,
+        &mut px.data,
+        None,
+    )?;
     counts.pixels += u64::from(w) * u64::from(h);
     chunks.insert(task.key, px);
     Ok(())

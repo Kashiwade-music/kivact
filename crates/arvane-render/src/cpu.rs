@@ -133,7 +133,8 @@ struct Target {
 impl CpuFrameRaster<'_> {
     /// Draw `scene` (logical px, `origin` at the frame's top left, `scale`
     /// device px per logical px) into `out`, a premultiplied RGBA8 frame of
-    /// `size` device px; only `clip` when given.
+    /// `size` device px; only `clip` when given. Command `i` is drawn only
+    /// when `keep[i]` is true; `None` draws every command.
     pub fn raster(
         &mut self,
         scene: &RenderScene,
@@ -142,7 +143,9 @@ impl CpuFrameRaster<'_> {
         size: (u16, u16),
         clip: Option<PixelRect>,
         out: &mut [u8],
+        keep: Option<&[bool]>,
     ) -> Result<(), RenderError> {
+        check_mask(scene, keep)?;
         let full = PixelRect {
             x: 0,
             y: 0,
@@ -155,12 +158,13 @@ impl CpuFrameRaster<'_> {
             scale,
             size,
         };
-        self.render(scene, target, region, &[region], out)
+        self.render(scene, target, region, &[region], out, keep)
     }
 
     /// Draw `scene` into the damaged `rects` of `out` with one validation
     /// and one encode: the rects' bounding box is rendered once and
-    /// only the rects are copied.
+    /// only the rects are copied. Command `i` is drawn only when `keep[i]`
+    /// is true; `None` draws every command.
     pub fn raster_rects(
         &mut self,
         scene: &RenderScene,
@@ -169,7 +173,9 @@ impl CpuFrameRaster<'_> {
         size: (u16, u16),
         rects: &[PixelRect],
         out: &mut [u8],
+        keep: Option<&[bool]>,
     ) -> Result<(), RenderError> {
+        check_mask(scene, keep)?;
         let Some(bounds) = bounding(rects) else {
             return Ok(());
         };
@@ -178,7 +184,7 @@ impl CpuFrameRaster<'_> {
             scale,
             size,
         };
-        self.render(scene, target, bounds, rects, out)
+        self.render(scene, target, bounds, rects, out, keep)
     }
 
     /// Draw `scene` into `region` of the frame, then copy the `copy` rects
@@ -190,6 +196,7 @@ impl CpuFrameRaster<'_> {
         region: PixelRect,
         copy: &[PixelRect],
         out: &mut [u8],
+        keep: Option<&[bool]>,
     ) -> Result<(), RenderError> {
         let Target {
             origin,
@@ -241,6 +248,7 @@ impl CpuFrameRaster<'_> {
             &mut self.derived,
             scene,
             &frame,
+            keep,
         );
         self.context.flush();
         // A single rect that is the whole frame is drawn straight into `out`.
@@ -258,6 +266,16 @@ impl CpuFrameRaster<'_> {
         self.context.render(target, &mut *self.resources);
         copy_rects(&self.scratch[..len], region, frame_width, copy, out);
         Ok(())
+    }
+}
+
+/// Refuse a mask that does not hold one entry per command of `scene`.
+fn check_mask(scene: &RenderScene, keep: Option<&[bool]>) -> Result<(), RenderError> {
+    match keep {
+        Some(keep) if keep.len() != scene.commands.len() => Err(RenderError::InvalidComposition(
+            "the raster mask does not match the scene".into(),
+        )),
+        _ => Ok(()),
     }
 }
 
@@ -456,5 +474,80 @@ impl draw::Canvas for CpuCanvas<'_, '_> {
         self.context.set_paint_transform(pattern.transform);
         self.context.fill_path(path);
         self.context.reset_paint_transform();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of the raster's command mask.
+
+    use super::*;
+    use arvane_protocol::{RasterPaint, RenderCmd};
+    use kivact_types::color::Rgba;
+
+    fn solid(r: f64, g: f64, b: f64) -> RasterPaint {
+        RasterPaint::Solid(Rgba { r, g, b, a: 1.0 })
+    }
+
+    /// Rasters a 20 × 10 red and blue scene with `keep` as its mask.
+    fn raster_with(scene: &RenderScene, keep: Option<&[bool]>) -> Result<Vec<u8>, RenderError> {
+        let mut out = vec![0u8; 20 * 10 * 4];
+        CpuRaster::new().frame(|frame| {
+            frame.raster(
+                scene,
+                Point { x: 0.0, y: 0.0 },
+                1.0,
+                (20, 10),
+                None,
+                &mut out,
+                keep,
+            )
+        })?;
+        Ok(out)
+    }
+
+    /// The premultiplied RGBA of the pixel at (`x`, `y`) of the 20-px-wide raster.
+    fn pixel(out: &[u8], x: usize, y: usize) -> [u8; 4] {
+        let at = (y * 20 + x) * 4;
+        [out[at], out[at + 1], out[at + 2], out[at + 3]]
+    }
+
+    /// A command the mask leaves out is not drawn; `None` draws all of them;
+    /// a mask of the wrong length is refused before anything is drawn.
+    #[test]
+    fn a_masked_command_is_not_drawn() {
+        let scene = RenderScene {
+            commands: vec![
+                RenderCmd::Rect {
+                    rect: kivact_types::Rect {
+                        x: 0.0,
+                        y: 0.0,
+                        width: 10.0,
+                        height: 10.0,
+                    },
+                    fill: solid(1.0, 0.0, 0.0),
+                },
+                RenderCmd::Rect {
+                    rect: kivact_types::Rect {
+                        x: 10.0,
+                        y: 0.0,
+                        width: 10.0,
+                        height: 10.0,
+                    },
+                    fill: solid(0.0, 0.0, 1.0),
+                },
+            ],
+        };
+        let masked = raster_with(&scene, Some(&[true, false])).unwrap();
+        assert_eq!(pixel(&masked, 5, 5), [255, 0, 0, 255]);
+        assert_eq!(pixel(&masked, 15, 5), [0, 0, 0, 0]);
+        let whole = raster_with(&scene, None).unwrap();
+        assert_eq!(pixel(&whole, 15, 5), [0, 0, 255, 255]);
+        assert_eq!(
+            raster_with(&scene, Some(&[true])),
+            Err(RenderError::InvalidComposition(
+                "the raster mask does not match the scene".into()
+            ))
+        );
     }
 }

@@ -90,13 +90,18 @@ pub(crate) struct Frame {
     pub(crate) visible: LogicalRect,
 }
 
-/// Record `scene`'s commands into `canvas` for `frame`.
+/// Record `scene`'s commands into `canvas` for `frame`. Command `i` is
+/// recorded only when `keep[i]` is true; `None` records every command. A
+/// group's open and close commands must be both kept or both left out, or
+/// the open groups no longer match. The caller checks that `keep` has one
+/// entry per command.
 pub(crate) fn draw(
     canvas: &mut impl Canvas,
     caches: &mut Caches,
     derived: &mut DerivedScope<'_>,
     scene: &RenderScene,
     frame: &Frame,
+    keep: Option<&[bool]>,
 ) {
     let root = root_transform(frame);
     canvas.set_transform(root);
@@ -114,8 +119,10 @@ pub(crate) fn draw(
         device_scale: frame.scale,
         stack: Vec::new(),
     };
-    for command in &scene.commands {
-        painter.command(command);
+    for (index, command) in scene.commands.iter().enumerate() {
+        if keep.is_none_or(|keep| keep[index]) {
+            painter.command(command);
+        }
     }
 }
 
