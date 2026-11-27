@@ -13,7 +13,7 @@ use super::blend::combine;
 use super::surface::{Pixmap, Premul, Texels, sample_bilinear, sample_nearest};
 use crate::RenderError;
 use crate::cache::ChunkKey;
-use crate::plan::{DrawOp, Sampling, Scissor, Source};
+use crate::plan::{DrawOp, Sampling, Scissor, Source, integer_translation, pixel_rect};
 
 /// The chunks of the frame (this frame's and the kept ones), by key.
 pub(crate) type Chunks = HashMap<ChunkKey, Pixmap>;
@@ -269,42 +269,8 @@ fn resolve<'a>(
     })
 }
 
-/// The integer translation `(tx, ty)` of `map` (target px to texel), when it is one.
-fn integer_translation(map: &Projective) -> Option<(i64, i64)> {
-    let m = &map.m;
-    let unit = m[0][0] == 1.0
-        && m[0][1] == 0.0
-        && m[1][0] == 0.0
-        && m[1][1] == 1.0
-        && m[2][0] == 0.0
-        && m[2][1] == 0.0
-        && m[2][2] == 1.0;
-    let (tx, ty) = (m[0][2], m[1][2]);
-    (unit && tx.is_finite() && ty.is_finite() && tx.fract() == 0.0 && ty.fract() == 0.0)
-        .then_some((tx as i64, ty as i64))
-}
-
-/// The pixel rectangle `[x0, x1) × [y0, y1)` of `points` when they are the
-/// four distinct corners of an axis-aligned rectangle on integer coordinates.
-fn pixel_rect(points: &[Point]) -> Option<(i64, i64, i64, i64)> {
-    if points.len() != 4
-        || points
-            .iter()
-            .any(|p| p.x.fract() != 0.0 || p.y.fract() != 0.0)
-    {
-        return None;
-    }
-    let x0 = points.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
-    let x1 = points.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max);
-    let y0 = points.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
-    let y1 = points.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
-    let corner = |x: f64, y: f64| points.iter().any(|p| p.x == x && p.y == y);
-    let all = corner(x0, y0) && corner(x1, y0) && corner(x1, y1) && corner(x0, y1);
-    (all && x0 < x1 && y0 < y1).then_some((x0 as i64, x1 as i64, y0 as i64, y1 as i64))
-}
-
 /// `paint` for a source-over copy of a premultiplied texture moved by whole
-/// pixels into a pixel-aligned rectangle, the common case of a cached chunk: integer src-over per byte.
+/// pixels into a pixel-aligned rectangle, the common case of a cached chunk: integer src-over per row.
 /// None when the op is not of that kind.
 fn paint_fast(
     dst: &mut Pixmap,
@@ -323,30 +289,47 @@ fn paint_fast(
         return None;
     }
     let (tx, ty) = integer_translation(&op.map)?;
-    let (x0, x1, y0, y1) = pixel_rect(&op.polygon.points)?;
+    let bounds = pixel_rect(&op.polygon.points)?;
     let (w, h) = dst.size();
     let (sw, sh) = src.size();
-    let (x0, y0) = (x0.max(0), y0.max(0));
-    let (x1, y1) = (x1.min(i64::from(w)), y1.min(i64::from(h)));
-    for y in y0..y1 {
-        let sy = y + ty;
-        if sy < 0 || sy >= i64::from(sh) {
-            continue;
-        }
-        for x in x0..x1 {
-            if let Scissor::Rects(rects) = &op.scissor
-                && !rects.iter().any(|r| inside(r, x as u32, y as u32))
-            {
+    for (x0, x1, y0, y1) in spans(clip_span(bounds, (w, h)), &op.scissor) {
+        for y in y0..y1 {
+            let sy = i64::from(y) + ty;
+            if sy < 0 || sy >= i64::from(sh) {
                 continue;
             }
-            let sx = x + tx;
-            if sx < 0 || sx >= i64::from(sw) {
+            // The columns whose source pixel lies inside the chunk.
+            let (x0, x1) = (
+                i64::from(x0).max(-tx),
+                i64::from(x1).min(i64::from(sw) - tx),
+            );
+            if x0 >= x1 {
                 continue;
             }
-            dst.blend_src_over(x as u32, y as u32, src.byte_texel(sx as u32, sy as u32));
+            let stride = w as usize * 4;
+            let d0 = y as usize * stride + x0 as usize * 4;
+            let d1 = y as usize * stride + x1 as usize * 4;
+            let s0 = sy as usize * sw as usize * 4 + (x0 + tx) as usize * 4;
+            blend_row(&mut dst.data[d0..d1], &src.data[s0..s0 + d1 - d0]);
         }
     }
     Some(())
+}
+
+/// Source-over of the premultiplied RGBA8 pixels `src` onto `dst` (equal lengths, whole pixels):
+/// a source alpha of 255 copies the pixel, 0 leaves it, else the integer source-over.
+fn blend_row(dst: &mut [u8], src: &[u8]) {
+    for (d, s) in dst.chunks_exact_mut(4).zip(src.chunks_exact(4)) {
+        let a = u16::from(s[3]);
+        if a == 255 {
+            d.copy_from_slice(s);
+        } else if a != 0 {
+            for (dc, &sc) in d.iter_mut().zip(s) {
+                let dv = u16::from(*dc);
+                *dc = (u16::from(sc) + (dv * (255 - a) + 127) / 255).min(255) as u8;
+            }
+        }
+    }
 }
 
 /// Blends every covered pixel of `dst` with the texture sampled through the op's map.
@@ -363,37 +346,79 @@ fn paint(
     }
     let (w, h) = dst.size();
     let (x0, y0, x1, y1) = shape.pixel_bounds(w, h);
-    for y in y0..y1 {
-        for x in x0..x1 {
-            if let Scissor::Rects(rects) = &op.scissor
-                && !rects.iter().any(|r| inside(r, x, y))
-            {
-                continue;
+    for (x0, x1, y0, y1) in spans((x0, x1, y0, y1), &op.scissor) {
+        for y in y0..y1 {
+            for x in x0..x1 {
+                let p = Point::new(f64::from(x) + 0.5, f64::from(y) + 0.5);
+                let coverage = shape.coverage(p);
+                if coverage <= 0.0 {
+                    continue;
+                }
+                let Some(q) = map.apply(p) else {
+                    continue;
+                };
+                let cover_alpha =
+                    cover.map_or(1.0, |c| f64::from(c.texel(i64::from(x), i64::from(y))[3]));
+                let k = op.opacity * coverage * cover_alpha;
+                if k <= 0.0 {
+                    continue;
+                }
+                let s = texture.sample(q, op.sampling == Sampling::Nearest);
+                let s: Premul = s.map(|v| v * k as f32);
+                let d = dst.get(x, y);
+                dst.set(x, y, combine(s, d, op.blend, op.composite));
             }
-            let p = Point::new(f64::from(x) + 0.5, f64::from(y) + 0.5);
-            let coverage = shape.coverage(p);
-            if coverage <= 0.0 {
-                continue;
-            }
-            let Some(q) = map.apply(p) else {
-                continue;
-            };
-            let cover_alpha =
-                cover.map_or(1.0, |c| f64::from(c.texel(i64::from(x), i64::from(y))[3]));
-            let k = op.opacity * coverage * cover_alpha;
-            if k <= 0.0 {
-                continue;
-            }
-            let s = texture.sample(q, op.sampling == Sampling::Nearest);
-            let s: Premul = s.map(|v| v * k as f32);
-            let d = dst.get(x, y);
-            dst.set(x, y, combine(s, d, op.blend, op.composite));
         }
     }
     Ok(())
 }
 
-/// Whether pixel (`x`, `y`) lies in `r`.
-fn inside(r: &PixelRect, x: u32, y: u32) -> bool {
-    x >= r.x && y >= r.y && x - r.x < r.width && y - r.y < r.height
+/// A rectangle of target px `[x0, x1) × [y0, y1)`.
+pub(crate) type Span = (u32, u32, u32, u32);
+
+/// The rectangles a draw loops over: `bounds` alone without a scissor, else
+/// `bounds` intersected with each scissor rectangle (non-empty ones only).
+pub(crate) fn spans(bounds: Span, scissor: &Scissor) -> Vec<Span> {
+    let (x0, x1, y0, y1) = bounds;
+    match scissor {
+        Scissor::Off => vec![bounds],
+        Scissor::Rects(rects) => {
+            debug_assert!(disjoint(rects), "the scissor rectangles overlap");
+            rects
+                .iter()
+                .filter_map(|r| {
+                    let span = (
+                        x0.max(r.x),
+                        x1.min(r.x + r.width),
+                        y0.max(r.y),
+                        y1.min(r.y + r.height),
+                    );
+                    (span.0 < span.1 && span.2 < span.3).then_some(span)
+                })
+                .collect()
+        }
+    }
+}
+
+/// Whether no two of `rects` overlap.
+fn disjoint(rects: &[PixelRect]) -> bool {
+    rects.iter().enumerate().all(|(i, a)| {
+        rects[i + 1..].iter().all(|b| {
+            a.x + a.width <= b.x
+                || b.x + b.width <= a.x
+                || a.y + a.height <= b.y
+                || b.y + b.height <= a.y
+        })
+    })
+}
+
+/// The pixel rectangle `(x0, x1, y0, y1)` clipped to a target of `size`.
+pub(crate) fn clip_span((x0, x1, y0, y1): (i64, i64, i64, i64), size: (u32, u32)) -> Span {
+    let (w, h) = (i64::from(size.0), i64::from(size.1));
+    (
+        x0.clamp(0, w) as u32,
+        x1.clamp(0, w) as u32,
+        y0.clamp(0, h) as u32,
+        y1.clamp(0, h) as u32,
+    )
 }

@@ -64,31 +64,39 @@ impl Pixmap {
         }
     }
 
-    /// The premultiplied bytes at (`x`, `y`), which must be inside.
-    pub(crate) fn byte_texel(&self, x: u32, y: u32) -> [u8; 4] {
-        let i = (y as usize * self.width as usize + x as usize) * 4;
-        [
-            self.data[i],
-            self.data[i + 1],
-            self.data[i + 2],
-            self.data[i + 3],
-        ]
-    }
-
-    /// Source-over of the premultiplied bytes `s` at (`x`, `y`), which must be inside.
-    pub(crate) fn blend_src_over(&mut self, x: u32, y: u32, s: [u8; 4]) {
-        let i = (y as usize * self.width as usize + x as usize) * 4;
-        let a = u16::from(s[3]);
-        if a == 255 {
-            self.data[i..i + 4].copy_from_slice(&s);
-            return;
-        }
-        if a == 0 {
-            return;
-        }
-        for (c, &s) in s.iter().enumerate() {
-            let d = u16::from(self.data[i + c]);
-            self.data[i + c] = (u16::from(s) + (d * (255 - a) + 127) / 255).min(255) as u8;
+    /// Copies the pixels of `src` at each rectangle of `rects`, moved by `offset` (target px to
+    /// chunk px), over the rectangle. Where `src` has no pixel the target becomes transparent,
+    /// as a draw leaves it.
+    pub(crate) fn copy_rects_from(
+        &mut self,
+        src: &Pixmap,
+        offset: (i64, i64),
+        rects: &[PixelRect],
+    ) {
+        let (w, h) = (i64::from(self.width), i64::from(self.height));
+        let (sw, sh) = (i64::from(src.width), i64::from(src.height));
+        let (ox, oy) = offset;
+        let stride = self.width as usize * 4;
+        for r in rects {
+            let x0 = i64::from(r.x).min(w);
+            let x1 = (i64::from(r.x) + i64::from(r.width)).min(w);
+            let y_end = (i64::from(r.y) + i64::from(r.height)).min(h);
+            for y in i64::from(r.y).min(h)..y_end {
+                let row = y as usize * stride;
+                let sy = y + oy;
+                // The columns whose source pixel lies inside the chunk: [vx0, vx1).
+                let (vx0, vx1) = (x0.max(-ox), x1.min(sw - ox));
+                if sy < 0 || sy >= sh || vx0 >= vx1 {
+                    self.data[row + x0 as usize * 4..row + x1 as usize * 4].fill(0);
+                    continue;
+                }
+                let d0 = row + vx0 as usize * 4;
+                let d1 = row + vx1 as usize * 4;
+                let s0 = sy as usize * src.width as usize * 4 + (vx0 + ox) as usize * 4;
+                self.data[d0..d1].copy_from_slice(&src.data[s0..s0 + d1 - d0]);
+                self.data[row + x0 as usize * 4..d0].fill(0);
+                self.data[d1..row + x1 as usize * 4].fill(0);
+            }
         }
     }
 

@@ -93,6 +93,9 @@ struct Executed {
     chunk_forgets: Vec<ChunkKey>,
     /// The layer records to store.
     layer_records: Vec<(LayerKey, LayerRecord)>,
+    /// The pixels the ops visited or copied (tests only).
+    #[cfg(test)]
+    composited: u64,
 }
 
 /// Counts of the rasters of a frame.
@@ -102,6 +105,9 @@ struct Counts {
     chunks: u32,
     /// Pixels rastered.
     pixels: u64,
+    /// Pixels the ops visited or copied (tests only).
+    #[cfg(test)]
+    composited: u64,
 }
 
 /// The CPU compositor: a rasterizer and the frame state kept between frames.
@@ -116,6 +122,9 @@ pub struct CpuCompositor {
     stores: Stores,
     /// Temporary targets kept for reuse by size, at most POOL_BYTES in all.
     pool: Vec<Pixmap>,
+    /// The pixels the last frame's draws visited and copies wrote (tests only).
+    #[cfg(test)]
+    composited: u64,
 }
 
 impl Default for CpuCompositor {
@@ -133,6 +142,8 @@ impl CpuCompositor {
             output: Pixmap::default(),
             stores: Stores::default(),
             pool: Vec::new(),
+            #[cfg(test)]
+            composited: 0,
         }
     }
 
@@ -189,6 +200,10 @@ impl CpuCompositor {
         );
         self.stores.prune(&self.cache, composition);
         self.output = done.output;
+        #[cfg(test)]
+        {
+            self.composited = done.composited;
+        }
         Ok(CpuOutput {
             rgba: &self.output.data,
             width: size.0,
@@ -258,6 +273,10 @@ fn run(
                     ..
                 }
         );
+        #[cfg(test)]
+        {
+            counts.composited += written_pixels(op, &targets);
+        }
         exec(op, &mut targets, &stores.chunks, &mut missed)?;
     }
     let exports = export_frames(composition, &plan.exports, &targets, stores);
@@ -282,7 +301,45 @@ fn run(
         chunk_records: plan.chunk_records,
         chunk_forgets: plan.chunk_forgets,
         layer_records: plan.layer_records,
+        #[cfg(test)]
+        composited: counts.composited,
     })
+}
+
+/// The pixels an op visits (a draw's spans in its target) or copies (a copy's rectangles), clipped to the target (tests only).
+#[cfg(test)]
+fn written_pixels(op: &Op<'_>, targets: &[Pixmap]) -> u64 {
+    match op {
+        Op::Draw(draw_op) => {
+            let Some((x0, x1, y0, y1)) = plan::pixel_rect(&draw_op.polygon.points) else {
+                return 0;
+            };
+            let size = targets[draw_op.target as usize].size();
+            let bounds = draw::clip_span((x0, x1, y0, y1), size);
+            draw::spans(bounds, &draw_op.scissor)
+                .into_iter()
+                .map(span_area)
+                .sum()
+        }
+        Op::Copy { target, rects, .. } => {
+            let size = targets[*target as usize].size();
+            rects
+                .iter()
+                .map(|r| {
+                    let (x, y) = (i64::from(r.x), i64::from(r.y));
+                    let span = (x, x + i64::from(r.width), y, y + i64::from(r.height));
+                    span_area(draw::clip_span(span, size))
+                })
+                .sum()
+        }
+        _ => 0,
+    }
+}
+
+/// The area of a span, zero when it is empty.
+#[cfg(test)]
+fn span_area((x0, x1, y0, y1): draw::Span) -> u64 {
+    u64::from(x1.saturating_sub(x0)) * u64::from(y1.saturating_sub(y0))
 }
 
 /// Rasters one chunk task into the chunk store: the whole chunk, or only its changed rectangles.
@@ -416,6 +473,14 @@ fn exec(
 ) -> Result<(), RenderError> {
     match op {
         Op::Clear { target, rect } => targets[*target as usize].clear(*rect),
+        Op::Copy {
+            target,
+            source,
+            offset,
+            rects,
+        } => {
+            targets[*target as usize].copy_rects_from(chunk(chunks, source)?, *offset, rects);
+        }
         Op::Draw(draw_op) => draw::draw(draw_op, targets, chunks, missed)?,
         Op::Filter {
             input,
@@ -530,13 +595,170 @@ fn export_frames(
 #[cfg(test)]
 mod tests {
     //! Role: Tests of the CPU compositor's frame composition.
-    use arvane_protocol::{CompositeLayer, LayerEffects, LayerItem, Plane, RasterGrid};
+    use arvane_protocol::{
+        CompositeLayer, LayerEffects, LayerItem, Plane, RasterGrid, RasterPaint, RenderBackdrop,
+        RenderCmd,
+    };
+    use kivact_types::Rgba;
     use kivact_types::geometry::Rect;
     use kivact_types::geometry3d::Matrix4;
     use kivact_types::ids::NodeId;
     use kivact_types::paint::BackfaceVisibility;
+    use kivact_types::scene::Outline;
 
     use super::*;
+
+    /// A composition of one root layer of `size` px whose only item is `scene`.
+    fn root_only(scene: RenderScene, content_version: u64, size: (u32, u32)) -> Composition {
+        let root = CompositeLayer {
+            key: LayerKey::Root,
+            transform: Matrix4::IDENTITY,
+            bounds: Rect::new(0.0, 0.0, f64::from(size.0), f64::from(size.1)),
+            plane: Plane::Flat,
+            backface: BackfaceVisibility::Visible,
+            grid: RasterGrid::Target,
+            effects: LayerEffects::default(),
+            content_version,
+            items: vec![LayerItem::Raster(scene)],
+        };
+        Composition {
+            layers: vec![root],
+            exports: Vec::new(),
+        }
+    }
+
+    /// 3 000 squares of 8 × 8 px, one per cell of a 60 × 50 grid of 32 × 20 px
+    /// cells; the square `recolored` (an index) is drawn in another colour.
+    fn grid_scene(recolored: Option<usize>) -> RenderScene {
+        let commands = (0..3000)
+            .map(|i| {
+                let (col, row) = (i % 60, i / 60);
+                let red = if recolored == Some(i) { 0.9 } else { 0.2 };
+                RenderCmd::FillShape {
+                    shape: Outline::Rect(Rect::new(col as f64 * 32.0, row as f64 * 20.0, 8.0, 8.0)),
+                    paint: RasterPaint::Solid(Rgba {
+                        r: red,
+                        g: 0.5,
+                        b: 0.3,
+                        a: 1.0,
+                    }),
+                }
+            })
+            .collect();
+        RenderScene { commands }
+    }
+
+    /// A frame that changes one small square of a large raster composites only that square.
+    #[test]
+    fn a_small_change_composites_only_its_damage() {
+        let size = (2048, 1024);
+        let mut compositor = CpuCompositor::new();
+        compositor
+            .frame(&root_only(grid_scene(None), 1, size), size, 1.0)
+            .expect("frame 1 draws");
+        let damage_pixels = compositor
+            .frame(&root_only(grid_scene(Some(1234)), 2, size), size, 1.0)
+            .expect("frame 2 draws")
+            .report
+            .stats
+            .damage_pixels;
+        assert_eq!(damage_pixels, 64, "one 8 × 8 square changed");
+        assert!(
+            compositor.composited <= 4 * damage_pixels,
+            "frame 2 composited {} px for {damage_pixels} px of damage",
+            compositor.composited
+        );
+    }
+
+    /// A full frame of a root-only composition is one copy of the root's chunk, with no clear.
+    #[test]
+    fn a_full_frame_is_a_copy() {
+        let size = (2048, 1024);
+        let composition = root_only(grid_scene(None), 1, size);
+        let cache = CacheIndex::default();
+        let plan = plan::build(&composition, size, 1.0, &cache, false).expect("the root plans");
+        assert!(
+            plan.ops.iter().any(|op| matches!(op, Op::Copy { .. })),
+            "a full frame copies its chunk onto the output"
+        );
+        assert!(
+            !plan.ops.iter().any(|op| matches!(op, Op::Clear { .. })),
+            "the copy replaces the output's clear"
+        );
+        let mut compositor = CpuCompositor::new();
+        compositor
+            .frame(&composition, size, 1.0)
+            .expect("the root draws");
+        let chunks: Vec<&Pixmap> = compositor.stores.chunks.values().collect();
+        assert_eq!(chunks.len(), 1, "the root raster is one chunk");
+        assert!(
+            compositor.output.data == chunks[0].data,
+            "the output bytes equal the chunk bytes"
+        );
+    }
+
+    /// A plan that reads the output before its first writer keeps the output's clear and has no copy.
+    #[test]
+    fn an_early_read_of_the_output_keeps_the_clears() {
+        let size = (64, 64);
+        let root = CompositeLayer {
+            key: LayerKey::Root,
+            transform: Matrix4::IDENTITY,
+            bounds: Rect::new(0.0, 0.0, 64.0, 64.0),
+            plane: Plane::Flat,
+            backface: BackfaceVisibility::Visible,
+            grid: RasterGrid::Target,
+            effects: LayerEffects::default(),
+            content_version: 1,
+            items: vec![
+                LayerItem::Layer {
+                    index: 1,
+                    clips: Vec::new(),
+                },
+                LayerItem::Raster(RenderScene::default()),
+            ],
+        };
+        // The child's backdrop reads what lies behind it: the output, before the root's raster draws it.
+        let child = CompositeLayer {
+            key: LayerKey::Node(NodeId(1)),
+            transform: Matrix4::IDENTITY,
+            bounds: Rect::new(8.0, 8.0, 32.0, 32.0),
+            plane: Plane::Flat,
+            backface: BackfaceVisibility::Visible,
+            grid: RasterGrid::Target,
+            effects: LayerEffects {
+                backdrop: Some(RenderBackdrop {
+                    shape: Outline::Rect(Rect::new(8.0, 8.0, 32.0, 32.0)),
+                    filters: Vec::new(),
+                }),
+                ..LayerEffects::default()
+            },
+            content_version: 1,
+            items: vec![LayerItem::Raster(RenderScene::default())],
+        };
+        let composition = Composition {
+            layers: vec![root, child],
+            exports: Vec::new(),
+        };
+        let cache = CacheIndex::default();
+        let plan = plan::build(&composition, size, 1.0, &cache, false).expect("the layers plan");
+        assert!(
+            plan.ops
+                .iter()
+                .any(|op| matches!(op, Op::Draw(draw) if matches!(draw.source, Source::Target(0)))),
+            "the backdrop reads the output"
+        );
+        assert!(
+            plan.ops
+                .iter()
+                .any(|op| matches!(op, Op::Clear { target: 0, .. })),
+            "the output keeps its clear"
+        );
+        assert!(
+            !plan.ops.iter().any(|op| matches!(op, Op::Copy { .. })),
+            "a plan that reads the output early has no copy"
+        );
+    }
 
     /// A 64 × 64 px window: a root that draws one blurred child layer, which
     /// is drawn through a temporary target (its filter's input).

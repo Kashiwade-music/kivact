@@ -196,6 +196,12 @@ impl GpuContext {
         for op in ops {
             match op {
                 Op::Clear { target, rect } => self.record_clear(encoder, *target, *rect, frame)?,
+                // The plan makes copies only for the CPU (`patch_output`).
+                Op::Copy { .. } => {
+                    return Err(RenderError::InvalidComposition(
+                        "a copy op on the GPU".into(),
+                    ));
+                }
                 Op::Draw(draw) => self.record_draw(encoder, draw, frame)?,
                 Op::Filter {
                     input,

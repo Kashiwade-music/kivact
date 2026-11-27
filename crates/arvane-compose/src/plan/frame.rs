@@ -162,6 +162,40 @@ pub(crate) fn px_map(from: &Matrix4, to: &Matrix4) -> Option<Projective> {
     Some(from.flatten().invert()?.then(to.flatten()))
 }
 
+/// The integer translation `(tx, ty)` of `map` (target px to texel), when it is one.
+pub(crate) fn integer_translation(map: &Projective) -> Option<(i64, i64)> {
+    let m = &map.m;
+    let unit = m[0][0] == 1.0
+        && m[0][1] == 0.0
+        && m[1][0] == 0.0
+        && m[1][1] == 1.0
+        && m[2][0] == 0.0
+        && m[2][1] == 0.0
+        && m[2][2] == 1.0;
+    let (tx, ty) = (m[0][2], m[1][2]);
+    (unit && tx.is_finite() && ty.is_finite() && tx.fract() == 0.0 && ty.fract() == 0.0)
+        .then_some((tx as i64, ty as i64))
+}
+
+/// The pixel rectangle `[x0, x1) × [y0, y1)` of `points` when they are the
+/// four distinct corners of an axis-aligned rectangle on integer coordinates.
+pub(crate) fn pixel_rect(points: &[Point]) -> Option<(i64, i64, i64, i64)> {
+    if points.len() != 4
+        || points
+            .iter()
+            .any(|p| p.x.fract() != 0.0 || p.y.fract() != 0.0)
+    {
+        return None;
+    }
+    let x0 = points.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
+    let x1 = points.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max);
+    let y0 = points.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
+    let y1 = points.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
+    let corner = |x: f64, y: f64| points.iter().any(|p| p.x == x && p.y == y);
+    let all = corner(x0, y0) && corner(x1, y0) && corner(x1, y1) && corner(x0, y1);
+    (all && x0 < x1 && y0 < y1).then_some((x0 as i64, x1 as i64, y0 as i64, y1 as i64))
+}
+
 /// The filled rectangle of a size, as a polygon in its own px.
 pub(crate) fn full_polygon(size: (u32, u32)) -> Polygon {
     let (w, h) = (f64::from(size.0), f64::from(size.1));
