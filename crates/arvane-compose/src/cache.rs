@@ -127,6 +127,8 @@ pub(crate) struct LayerRecord {
     pub(crate) signature: u64,
     /// Hash of the layer's own drawing parameters and window mapping.
     pub(crate) own: u64,
+    /// The `content_version` the raster items were hashed at, and the folded hash of those items.
+    pub(crate) raster_hash: (u64, u64),
     /// Where the layer's surface lands in the window, None when it drew nothing.
     pub(crate) window_bounds: Option<Rect>,
     /// The frame that last used the record.

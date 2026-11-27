@@ -1,6 +1,7 @@
 //! Role: Chunk rasters and window damage: which chunks and rectangles change.
 
 use std::borrow::Cow;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use arvane_protocol::{PixelRect, RenderCmd, RenderScene};
@@ -12,7 +13,7 @@ use super::builder::Builder;
 use super::frame::{area, ceil_px, floor_px};
 use super::hash;
 use super::ops::{ChunkTask, Damage, Grid, PlanError, Redraw};
-use crate::cache::{ChunkKey, ChunkRecord, Indexed, LayerRecord, Reach, Retained};
+use crate::cache::{ChunkKey, ChunkRecord, Indexed, LayerRecord, Reach};
 
 /// Changed commands beyond which their bounds merge into one rectangle.
 const MERGE_AT: usize = 17;
@@ -215,10 +216,14 @@ impl<'a> Builder<'a> {
             return Ok(());
         }
         let bounds = scene_bounds(&scene)?;
-        let mut retain: Vec<Retained> = Vec::new();
-        let hashes = hash::scene_hashes(&scene, &mut retain);
-        let index: Arc<[Indexed]> = hashes
-            .into_iter()
+        let hashed = match &scene {
+            Cow::Borrowed(borrowed) => self.hashed(*borrowed),
+            Cow::Owned(owned) => Rc::new(hash::scene_hashed(owned)),
+        };
+        let index: Arc<[Indexed]> = hashed
+            .hashes
+            .iter()
+            .copied()
             .zip(bounds)
             .zip(scene.commands.iter())
             .map(|((h, b), command)| {
@@ -276,7 +281,7 @@ impl<'a> Builder<'a> {
                     index,
                     version,
                     frame: self.frame,
-                    retain,
+                    retain: hashed.retain.clone(),
                 },
             ));
         } else {

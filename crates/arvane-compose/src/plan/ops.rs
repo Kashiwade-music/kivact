@@ -346,6 +346,9 @@ pub(crate) struct Plan<'a> {
     pub(crate) frame: u64,
     /// The statistics this plan decides (the executor adds the raster counts).
     pub(crate) stats: FrameStats,
+    /// Commands hashed while this plan was built (tests only).
+    #[cfg(test)]
+    pub(crate) hashed_commands: usize,
 }
 
 /// Whether the frame's surfaces and chunks are cached or planned for an export (no reuse, no records).
