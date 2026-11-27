@@ -42,12 +42,13 @@ t1=$(date +%s)
 [ "$catalog_on" = 0 ] || build catalog kivact-ui-basic-catalog -p kivact-ui-basic-catalog
 build kv_startup kv_startup -p kivact-bench --bin kv_startup
 build kv_stress kv_stress -p kivact-bench --bin kv_stress
+build kv_canvas kv_canvas -p kivact-bench --bin kv_canvas
 build kv_startup_min kv_startup -p kivact-bench --no-default-features --bin kv_startup
 build kv_startup_nogpu kv_startup -p kivact-bench --no-default-features --features complex-scripts --bin kv_startup
 [ "$catalog_on" = 0 ] || build catalog_nogpu kivact-ui-basic-catalog -p kivact-ui-basic-catalog --no-default-features --features complex-scripts
 build kv_latency kv_latency -p kivact-bench --features latency --bin kv_latency
 CARGO_PROFILE_RELEASE_STRIP=none CARGO_PROFILE_RELEASE_DEBUG=line-tables-only   build kv_heap kv_heap -p kivact-bench --bin kv_heap
-startup="$kpi/kv_startup$exe"; stress="$kpi/kv_stress$exe"; catalog="$kpi/catalog$exe"; counter="$kpi/counter$exe"
+startup="$kpi/kv_startup$exe"; stress="$kpi/kv_stress$exe"; canvas="$kpi/kv_canvas$exe"; catalog="$kpi/catalog$exe"; counter="$kpi/counter$exe"
 log ""
 log "release build of kivact-example-counter (cold for its own target dir): $((t1 - t0)) s"
 
@@ -177,6 +178,24 @@ for rows in 0 3000; do
     log "- rows=$rows renderer=$r frames=$n fps=$fps_now frame_period_ns=${period:-NA} cpu_pct_of_core=$(awk -v a="$c0" -v b="$c1" -v t=$((w1 - w0)) 'BEGIN{printf "%.2f", (b - a) / 1e4 / (t / 1e9) / 10}') ws_kib=$ws work_ms p50=$(col 3 0.5) p95=$(col 3 0.95) p99=$(col 3 0.99) scene_p95=$(col 4 0.95) raster_p95=$(col 5 0.95) interval_p99=$iv"
     rm -f "$flog" "$flog.f"
   done
+done
+
+# ---- K4 large canvas: a 300-row panel under two canvases that change a little each frame
+renderer_env cpu
+for mode in small pan meter; do
+  flog="$(mktemp)"
+  MODE=$mode KIVACT_FRAME_LOG="$(winpath "$flog")" "$canvas" 2>/dev/null &
+  wait_frame "$flog" || { kill_exe "$canvas"; invalid "kv_canvas mode=$mode presented no frame"; }
+  sleep 3
+  l0=$(grep -c '^F ' "$flog")
+  sleep 5
+  l1=$(grep -c '^F ' "$flog")
+  kill_exe "$canvas"
+  grep '^F ' "$flog" | sed -n "$((l0 + 1)),${l1}p" > "$flog.f"
+  n=$(wc -l < "$flog.f")
+  [ "$n" -ge 100 ] || invalid "kv_canvas mode=$mode: only $n frames in 5 s"
+  log "- canvas mode=$mode renderer=cpu frames=$n work_ms p50=$(col 3 0.5) p95=$(col 3 0.95) p99=$(col 3 0.99) raster_p95=$(col 5 0.95)"
+  rm -f "$flog" "$flog.f"
 done
 unset ARVANE_RENDERER
 

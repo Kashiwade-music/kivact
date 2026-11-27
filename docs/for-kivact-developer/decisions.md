@@ -60,6 +60,7 @@ API の抜本的な改修で行った決定。設計者が決め、作者が PR 
 | 2026-11-18 | DEC-13 | 遅延初期化 | `kivact_types::cell::Deferred<T>`（UI thread）と `SharedDeferred<T>`（static）だけ。std の lazy 型の禁止は続ける。ADR-17・ADR-21 の内部の OnceCell はこの二つに読み替える | 性能の規則が求める「使う時に作る」と、S-7（未完成の object を作らない）の区別を一つの道具で表す |
 | 2026-11-18 | DEC-17 | 状態の印の機械的な変換 | 既存の印から機械的に作った印は `// xtask-allow(state): legacy: ...` と書いて区別する。CP1 で全件を台帳にし、設計者が一件ずつ閉じ方を決めて実装する。`legacy:` が 0 件で完了 | 印の件数 0 は状態機械の解消の証拠にならない |
 | 2026-11-18 | DEC-18 | 依存の fork | しない。依存は二つの群（いま上げる群と、wgpu・vello・parley・skrifa・usvg などの連動する群）で更新する | 主な依存は活発に版が出ており、fork の追従の費用が性能の利益を上回る |
+| 2026-11-27 | DEC-19 | 大きな canvas の合成と layer | CPU の合成・コピー・present は傷んだ画素だけを回る（PERF-12）。大きな canvas の layer を cache として使わない（`will_change` を付けない） | 1440×900、200 %、6 341 画素の変化で合成が 8.6 ms かかったのは、画素ごとの判定で target 全体を回っていたため。`will_change` を大きな canvas に付けると frame が遅くなった（pan 185 ms、fader 32 ms、200 %） |
 | 2026-11-18 | DEC-15 | `update` の戻り値 | 返さない（`Signal`・`Var` とも）。破棄された signal への `set` と `update` は位置付きの `WriteAfterDispose` を一度記録して何もしない | 監査の提案（`Option<R>`）では最も多い `on_press(move \|\| x.update(..))` が handler の結果の型に合わなくなる |
 | 2026-11-18 | DEC-16 | payload のある handler の型 | `impl Fn(E) -> R`。`IntoHandler` は payload の無い handler だけ | closure の引数の型の推論は `Fn` の bound からしか働かない。`Callback<E>` は `Fn` を実装できない |
 | 2026-11-18 | DEC-14 | 改修の途中の kit | style の改修から kit の移行までの間、5 つの kit・catalog・kit の試験を compile から外し、kit は最終の API に一度で移す | 途中の API への追従を二度するより安い |

@@ -252,6 +252,7 @@ chat、code block、stat、collections でも同じ原則を適用する。CodeB
 | PERF-9 | 診断の記録（turn の trace、原因の文字列、node の provenance）は、DevTools・`kivact::test` の trace・debug の trace sink が有効にしたときだけ行う。release で常に持つのは counter だけ |
 | PERF-10 | 起動の critical path（main から最初の present まで）で、DevTools agent の起動・asset worker の起動・使わない GPU pipeline の compile をしない。system font の走査は process の開始時に別 thread で始めて window と GPU の準備に重ね、最初の文字の計測は残りの時間だけ待つ |
 | PERF-11 | 項目の多い collection（list、combobox、menu、select、tabs、tree、table、palette）は、collection ごとに一つの key の索引（`Index<K>`）と `selector` を使い、項目あたりの memo は最大 2 つ。例外：menu の項目は最大 5 つ（press-drag の間の pointer の移動ごとに全行の effect と submenu の timer を動かさないため） |
+| PERF-12 | CPU の合成・コピー・present は傷んだ画素だけを回り、target 全体を画素ごとの判定で回らない。raster は、到達範囲が自分の領域に届く command だけを encode する。raster の scene の hash は 1 frame に高々 1 回で、layer が content_version を保つ間は 0 回（PERF-7） |
 | MEM-1 | ノードごとの値は、既定値なら保持しない（None）。読む側は None を既定値として扱う |
 | MEM-2 | 64 byte を超える値を、多数のノードが持つ `Option<T>`・`Rc<RefCell<Option<T>>>`・`Rc<Cell<Option<T>>>` の field にしない。`Option<Box<T>>` にする |
 | MEM-3 | 多数のノードが同じ値（継承した computed text style、prop、style）を持つときは `Rc` を共有する。親と同じなら親の `Rc`、そうでなければ `kivact_types::cell::Recent` で直近の等しい値の `Rc` を使う |
