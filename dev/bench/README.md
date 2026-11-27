@@ -28,6 +28,7 @@ package は一つずつ build する（feature の統合で他の package の fe
 |---|---|
 | `kv_startup` | K1・K6：`main` の先頭と root の setup で時刻を出す counter。`WIN_W`・`WIN_H` で window の大きさを変える |
 | `kv_stress` | K2・K3・K4：`ROWS` 個の静的な item と、毎 frame 書き換わる 1 つの text。`MODE`=row/text/box/button/checkbox、`STILL=1` で frame loop を止める（K2 の大画面の idle） |
+| `kv_canvas` | K4：大きな canvas 3 枚と 300 行の panel。`MODE`=small/pan/meter（毎 frame 1 つの矩形の色／A の平行移動 1 px／B の全矩形の高さ） |
 | `kv_latency` | K5（feature `latency`） |
 | `kv_heap` | K2 の原因の診断（指標の行ではない）。計数 allocator で、root の mount から `SETTLE_SECS`（既定 3）秒後の生存 byte を割当て元の関数ごとに item あたりで出す。`CARGO_PROFILE_RELEASE_STRIP=none CARGO_PROFILE_RELEASE_DEBUG=line-tables-only` で build する（release の profile は strip するため）。`CHAIN`（既定 1）で site に出す Kivact/Arvane 関数の数（` <- ` でつなぐ）、`TOP`（既定 40）で出力行数を変える |
 

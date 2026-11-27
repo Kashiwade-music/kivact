@@ -109,6 +109,30 @@ target = 0.95
 warning = true
 
 [[row]]
+name = "K4 canvas small p95"
+line = "canvas mode=small renderer=cpu"
+field = "p95"
+kind = "time"
+target = 0.30
+improve = 0.50
+
+[[row]]
+name = "K4 canvas meter p95"
+line = "canvas mode=meter renderer=cpu"
+field = "p95"
+kind = "time"
+target = 0.50
+improve = 0.70
+
+[[row]]
+name = "K4 canvas pan p95"
+line = "canvas mode=pan renderer=cpu"
+field = "p95"
+kind = "time"
+target = 0.80
+improve = 0.90
+
+[[row]]
 name = "K5 pointer p95 n3000"
 line = "L pointer_move_n3000"
 field = "p95"
