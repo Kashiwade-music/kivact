@@ -262,6 +262,17 @@ pub(crate) enum Op<'a> {
         /// The rectangle, None for all of it.
         rect: Option<PixelRect>,
     },
+    /// Copy a chunk's pixels into a target: the chunk's pixels at rect + offset replace the target's.
+    Copy {
+        /// The target.
+        target: TargetId,
+        /// The chunk the pixels come from.
+        source: ChunkKey,
+        /// The offset from target px to chunk px.
+        offset: (i64, i64),
+        /// The rectangles of the target copied.
+        rects: Vec<PixelRect>,
+    },
     /// Draw a source into a target.
     Draw(DrawOp<'a>),
     /// `output` = filter(`input`); both have the same size and space.

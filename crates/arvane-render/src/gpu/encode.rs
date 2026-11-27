@@ -105,6 +105,7 @@ impl GpuFrameRaster<'_> {
                 &mut self.derived,
                 source,
                 frame,
+                None,
             );
             canvas.uploads.take()
         };

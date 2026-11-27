@@ -18,6 +18,7 @@ mod polygon;
 mod validate;
 
 pub(crate) use builder::build;
+pub(crate) use frame::{integer_translation, pixel_rect};
 pub use ops::Damage;
 #[cfg(feature = "gpu")]
 pub(crate) use ops::INLINE_TARGET_LIMIT;

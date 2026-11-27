@@ -2,15 +2,19 @@
 
 use std::collections::{HashMap, HashSet};
 
-use arvane_protocol::{Composition, LayerKey, Plane};
+use arvane_protocol::{Composition, LayerKey, PixelRect, Plane};
+use kivact_types::Composite;
 use kivact_types::Matrix4;
 use kivact_types::export::FrameStats;
 use kivact_types::geometry::{Point, Rect};
+use kivact_types::pixel::BlendMode;
 
-use super::frame::{Behind, Dest, ItemCtx, area, inline_candidate};
+use super::frame::{
+    Behind, Dest, ItemCtx, area, inline_candidate, integer_translation, pixel_rect,
+};
 use super::ops::{
     Caching, ChunkTask, Damage, Grid, INLINE_TARGET_LIMIT, OUTPUT, Op, Plan, PlanError,
-    PlannedExport, Scissor, TargetId, TargetKind, TargetSpec,
+    PlannedExport, Scissor, Source, TargetId, TargetKind, TargetSpec,
 };
 use super::validate;
 use crate::cache::{CacheIndex, ChunkKey, ChunkRecord, LayerRecord};
@@ -270,7 +274,7 @@ impl<'a> Builder<'a> {
         }
     }
 
-    /// Put the output's clears in front of the ops and the scissor on its draws. Returns the damage area.
+    /// Put the output's clears (or the copy that replaces them) in front of the ops and the scissor on its draws. Returns the damage area.
     fn patch_output(&mut self, damage: &Damage) -> u64 {
         let window_area = u64::from(self.window.0) * u64::from(self.window.1);
         if self.gpu {
@@ -279,40 +283,115 @@ impl<'a> Builder<'a> {
                 Damage::Rects(rects) => rects.iter().map(area).sum(),
             };
         }
-        match damage {
-            Damage::Full => {
-                self.ops.insert(
-                    0,
-                    Op::Clear {
-                        target: OUTPUT,
-                        rect: None,
-                    },
-                );
-                window_area
+        let mut front: Vec<Op<'a>> = match self.output_copy(damage) {
+            Some((at, copy)) => {
+                // The copy replaces the first output draw, which it is made from.
+                self.ops.remove(at);
+                vec![copy]
             }
-            Damage::Rects(rects) => {
-                let mut clears: Vec<Op<'a>> = rects
+            None => match damage {
+                Damage::Full => vec![Op::Clear {
+                    target: OUTPUT,
+                    rect: None,
+                }],
+                Damage::Rects(rects) => rects
                     .iter()
                     .map(|r| Op::Clear {
                         target: OUTPUT,
                         rect: Some(*r),
                     })
-                    .collect();
-                for op in &mut self.ops {
-                    match op {
-                        Op::Draw(draw) if draw.target == OUTPUT => {
-                            draw.scissor = Scissor::Rects(rects.clone());
-                        }
-                        Op::Shader(shader) if shader.target == OUTPUT => {
-                            shader.scissor = Scissor::Rects(rects.clone());
-                        }
-                        _ => {}
+                    .collect(),
+            },
+        };
+        if let Damage::Rects(rects) = damage {
+            for op in &mut self.ops {
+                match op {
+                    Op::Draw(draw) if draw.target == OUTPUT => {
+                        draw.scissor = Scissor::Rects(rects.clone());
                     }
+                    Op::Shader(shader) if shader.target == OUTPUT => {
+                        shader.scissor = Scissor::Rects(rects.clone());
+                    }
+                    _ => {}
                 }
-                clears.append(&mut self.ops);
-                self.ops = clears;
-                rects.iter().map(area).sum()
             }
+        }
+        front.append(&mut self.ops);
+        self.ops = front;
+        match damage {
+            Damage::Full => window_area,
+            Damage::Rects(rects) => rects.iter().map(area).sum(),
+        }
+    }
+
+    /// The copy that stands in for the output's clears and its first writer, with the index of that
+    /// writer. It applies when the first op that writes the output is a plain draw of a chunk that
+    /// covers every damaged rectangle with a whole-pixel translation, and no op before it reads the output.
+    fn output_copy(&self, damage: &Damage) -> Option<(usize, Op<'a>)> {
+        let at = self.ops.iter().position(writes_output)?;
+        let Op::Draw(draw) = &self.ops[at] else {
+            return None;
+        };
+        let Source::Chunk(source) = &draw.source else {
+            return None;
+        };
+        if draw.opacity != 1.0
+            || draw.blend != BlendMode::Normal
+            || draw.composite != Composite::SourceOver
+            || draw.coverage.is_some()
+        {
+            return None;
+        }
+        let offset = integer_translation(&draw.map)?;
+        let (x0, x1, y0, y1) = pixel_rect(&draw.polygon.points)?;
+        let rects = match damage {
+            Damage::Full => vec![PixelRect {
+                x: 0,
+                y: 0,
+                width: self.window.0,
+                height: self.window.1,
+            }],
+            Damage::Rects(rects) => rects.clone(),
+        };
+        let covered = rects.iter().all(|r| {
+            x0 <= i64::from(r.x)
+                && i64::from(r.x) + i64::from(r.width) <= x1
+                && y0 <= i64::from(r.y)
+                && i64::from(r.y) + i64::from(r.height) <= y1
+        });
+        if !covered || self.ops[..at].iter().any(reads_output) {
+            return None;
+        }
+        let copy = Op::Copy {
+            target: OUTPUT,
+            source: *source,
+            offset,
+            rects,
+        };
+        Some((at, copy))
+    }
+}
+
+/// Whether `op` writes the output.
+fn writes_output(op: &Op<'_>) -> bool {
+    match op {
+        Op::Clear { target, .. }
+        | Op::Copy { target, .. }
+        | Op::Mask { target, .. }
+        | Op::Clip { target, .. } => *target == OUTPUT,
+        Op::Draw(draw) => draw.target == OUTPUT,
+        Op::Shader(shader) => shader.target == OUTPUT,
+        Op::Filter { output, .. } => *output == OUTPUT,
+    }
+}
+
+/// Whether `op` reads the output as a source.
+fn reads_output(op: &Op<'_>) -> bool {
+    match op {
+        Op::Draw(draw) => matches!(draw.source, Source::Target(target) if target == OUTPUT),
+        Op::Filter { input, .. } => *input == OUTPUT,
+        Op::Clear { .. } | Op::Copy { .. } | Op::Mask { .. } | Op::Clip { .. } | Op::Shader(_) => {
+            false
         }
     }
 }
