@@ -1,5 +1,6 @@
 //! Role: The tooltip builder, its surface and its arrow placement.
 
+use crate::kbd::kbd;
 use crate::layer::with_recipe_style;
 use crate::tooltip::look::TooltipArrowState;
 use crate::tooltip::look::TooltipTheme;
@@ -8,9 +9,10 @@ use kivact_core::geometry::Rect;
 use kivact_core::state::Value;
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::view::Variants;
-use kivact_core::view::{Element, Node, node, text};
+use kivact_core::view::{Element, Node, node, row, text};
 use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
 
+// xtask-allow(state): align and shortcut are independent optional settings; every combination is valid
 /// A themed hint for a trigger, created by [`tooltip`]. The builder is the
 /// trigger's element: its modifiers, `.style(..)` and `.test_id(..)` among
 /// them, go to the trigger's root.
@@ -21,6 +23,8 @@ pub struct Tooltip<T> {
     placement: Placement,
     align: Option<OverlayAlign>,
     offset: f64,
+    /// The keys shown after the label, when no content is set.
+    shortcut: Option<Value<String>>,
     content: Option<kivact_core::view::ViewFn>,
 }
 /// A tooltip that says `label` for `trigger`, shown above it by default.
@@ -40,14 +44,23 @@ pub fn tooltip<T: Element + IntoView>(label: impl IntoText, trigger: T) -> Toolt
         placement: Placement::Above,
         align: None,
         offset: 4.0,
+        shortcut: None,
         content: None,
     }
 }
-impl<T> Tooltip<T> {}
 impl<T> Tooltip<T> {
     /// Render rich caller content in a fresh tooltip owner on each opening.
     pub fn content<V: IntoView>(mut self, factory: impl kivact_core::view::IntoViewFn<V>) -> Self {
         self.content = Some(factory.into_view_fn());
+        self
+    }
+
+    /// Show these keys after the label, as key caps, written as for [`kbd`](crate::kbd):
+    /// `"Ctrl+Z"`. Like `<Tooltip label="Undo" shortcut="Ctrl+Z">`. A tooltip with
+    /// [`content`](Self::content) shows its content instead.
+    #[track_caller]
+    pub fn shortcut(mut self, keys: impl IntoText) -> Self {
+        self.shortcut = Some(keys.into_text_value());
         self
     }
 
@@ -96,12 +109,19 @@ impl<T: Element + IntoView> IntoView for Tooltip<T> {
         let part = behavior.trigger();
         let anchor = node_ref();
         let enabled = self.enabled;
+        let description = match self.shortcut {
+            Some(keys) => {
+                let label = self.label;
+                kivact_core::state::memo(move || format!("{}, {}", label.get(), keys.get()))
+            }
+            None => self.label,
+        };
         let fallback = kivact_core::custom::Part::new(part.state(), move |mut node| {
             // Earlier parts publish their semantics when the node is resolved.
             if node.has_description() || !enabled.get_untracked() {
                 node
             } else {
-                node.description(self.label)
+                node.description(description)
             }
         });
         let trigger = self
@@ -112,17 +132,27 @@ impl<T: Element + IntoView> IntoView for Tooltip<T> {
             let part = behavior.content();
             let state = part.state();
             let placed = node_ref();
+            let content = match (self.content.as_ref(), self.shortcut) {
+                (Some(factory), _) => factory.call(()),
+                (None, Some(keys)) => with_recipe_style(
+                    row((text(self.label), kbd(keys))),
+                    |r: &TooltipTheme| r.shortcut_row_recipe(),
+                    &variants,
+                    move || state.get(),
+                )
+                .into_view(),
+                (None, None) => text(self.label).into_view(),
+            };
             let layer = overlay(
                 anchor,
                 self.placement,
                 with_recipe_style(
-                    node()
-                        .node_ref(placed)
-                        .child(self.content.as_ref().map_or_else(
-                            || text(self.label).into_view(),
-                            |factory| factory.call(()),
-                        ))
-                        .child(arrow(anchor, placed, self.placement, &variants)),
+                    node().node_ref(placed).child(content).child(arrow(
+                        anchor,
+                        placed,
+                        self.placement,
+                        &variants,
+                    )),
                     |r: &TooltipTheme| r.surface_recipe(),
                     &variants,
                     move || state.get(),

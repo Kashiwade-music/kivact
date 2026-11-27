@@ -195,3 +195,57 @@ fn a_tooltip_built_disabled_shows_no_hint() {
     assert!(!shown(&screen, "Tip A"), "focus does not open it either");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_tooltip_with_a_shortcut_shows_the_keys() {
+    let (screen, ()) = mount(|| {
+        (
+            (),
+            kivact::ui::tooltip("Undo", kivact::ui::button("Undo")).shortcut("Ctrl+Z"),
+        )
+    });
+    screen.get_by_role(Role::Button, "Undo").focus();
+    screen.advance(DELAY);
+    let tip = screen.within(screen.get_by_role(Role::Tooltip, "Undo"));
+    tip.get_by_role(Role::Image, "Control + Z");
+    tip.get_by_text("Undo");
+    tip.get_by_text("\u{2303}");
+    tip.get_by_text("Z");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_tooltip_with_a_shortcut_describes_the_trigger_with_the_keys() {
+    let (screen, ()) = mount(|| {
+        (
+            (),
+            kivact::ui::tooltip("Undo", kivact::ui::button("Undo")).shortcut("Ctrl+Z"),
+        )
+    });
+    assert_eq!(
+        screen.get_by_role(Role::Button, "Undo").description(),
+        "Undo, Ctrl+Z"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn content_wins_over_the_shortcut() {
+    let (screen, ()) = mount(|| {
+        (
+            (),
+            kivact::ui::tooltip("Undo", kivact::ui::button("Undo"))
+                .content(|| text("Rich"))
+                .shortcut("Ctrl+Z"),
+        )
+    });
+    screen.get_by_role(Role::Button, "Undo").focus();
+    screen.advance(DELAY);
+    let tip = screen.within(screen.get_by_role(Role::Tooltip, "Undo"));
+    tip.get_by_text("Rich");
+    assert!(
+        tip.query_by_role(Role::Image, "Control + Z").is_none(),
+        "the content replaces the key caps"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
