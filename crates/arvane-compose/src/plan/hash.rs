@@ -571,6 +571,21 @@ pub(crate) fn scene_hashes(scene: &RenderScene, retain: &mut Vec<Retained>) -> V
     scene.commands.iter().map(|c| command(c, retain)).collect()
 }
 
+/// The command hashes of one scene, computed once a frame.
+pub(crate) struct Hashed {
+    /// The hash of each command, in order.
+    pub(crate) hashes: Vec<u64>,
+    /// The allocations the hashes name by address.
+    pub(crate) retain: Vec<Retained>,
+}
+
+/// Hash a whole scene into a [`Hashed`].
+pub(crate) fn scene_hashed(scene: &RenderScene) -> Hashed {
+    let mut retain = Vec::new();
+    let hashes = scene_hashes(scene, &mut retain);
+    Hashed { hashes, retain }
+}
+
 /// Fold in a layer key.
 pub(crate) fn layer_key(h: &mut WordHash, key: LayerKey) {
     match key {

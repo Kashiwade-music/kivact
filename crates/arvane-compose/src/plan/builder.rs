@@ -1,8 +1,9 @@
 //! Role: The planning state of one frame and the entry that plans it.
 
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
-use arvane_protocol::{Composition, LayerKey, PixelRect, Plane};
+use arvane_protocol::{Composition, LayerKey, PixelRect, Plane, RenderScene};
 use kivact_types::Composite;
 use kivact_types::Matrix4;
 use kivact_types::export::FrameStats;
@@ -12,6 +13,7 @@ use kivact_types::pixel::BlendMode;
 use super::frame::{
     Behind, Dest, ItemCtx, area, inline_candidate, integer_translation, pixel_rect,
 };
+use super::hash::{self, Hashed};
 use super::ops::{
     Caching, ChunkTask, Damage, Grid, INLINE_TARGET_LIMIT, OUTPUT, Op, Plan, PlanError,
     PlannedExport, Scissor, Source, TargetId, TargetKind, TargetSpec,
@@ -93,6 +95,13 @@ pub(crate) struct Builder<'a> {
     pub(crate) reused_surfaces: u32,
     /// Memoised signatures by layer: (hash of the matrix and size, signature).
     pub(crate) signatures: HashMap<u32, (u64, u64)>,
+    /// The hashes of the raster scenes of the composition, by address.
+    pub(crate) hashed: HashMap<*const RenderScene, Rc<Hashed>>,
+    /// Commands hashed this frame (tests only).
+    #[cfg(test)]
+    pub(crate) hashed_commands: usize,
+    /// The folded raster hash of each layer signed this frame, for its record.
+    pub(crate) rasters: HashMap<LayerKey, u64>,
 }
 
 impl<'a> Builder<'a> {
@@ -131,7 +140,26 @@ impl<'a> Builder<'a> {
             behind: Vec::new(),
             reused_surfaces: 0,
             signatures: HashMap::new(),
+            hashed: HashMap::new(),
+            #[cfg(test)]
+            hashed_commands: 0,
+            rasters: HashMap::new(),
         }
+    }
+
+    /// The command hashes of a raster scene of the composition, hashed once a frame.
+    pub(crate) fn hashed(&mut self, scene: &'a RenderScene) -> Rc<Hashed> {
+        let key = std::ptr::from_ref(scene);
+        if let Some(hashed) = self.hashed.get(&key) {
+            return Rc::clone(hashed);
+        }
+        let hashed = Rc::new(hash::scene_hashed(scene));
+        #[cfg(test)]
+        {
+            self.hashed_commands += hashed.hashes.len();
+        }
+        self.hashed.insert(key, Rc::clone(&hashed));
+        hashed
     }
 
     /// Whether this frame's surfaces and chunks are cached (false while planning exports).
@@ -271,6 +299,8 @@ impl<'a> Builder<'a> {
             layer_records: self.layer_records,
             frame: self.frame,
             stats,
+            #[cfg(test)]
+            hashed_commands: self.hashed_commands,
         }
     }
 
@@ -395,3 +425,6 @@ fn reads_output(op: &Op<'_>) -> bool {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

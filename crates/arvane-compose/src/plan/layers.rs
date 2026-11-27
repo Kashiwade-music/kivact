@@ -273,13 +273,13 @@ impl<'a> Builder<'a> {
         }
         let mut retain = Vec::new();
         hash::effects(&mut h, &layer.effects, &mut retain);
+        let raster = self.raster_hash(layer);
+        self.rasters.insert(layer.key, raster);
         for item in &layer.items {
             match item {
-                LayerItem::Raster(scene) => {
+                LayerItem::Raster(_) => {
                     h.tag(1);
-                    for c in hash::scene_hashes(scene, &mut retain) {
-                        h.u64(c);
-                    }
+                    h.u64(raster);
                 }
                 LayerItem::Layer {
                     index: child,
@@ -311,6 +311,29 @@ impl<'a> Builder<'a> {
         let sig = h.finish();
         self.signatures.insert(index, (key, sig));
         Ok(sig)
+    }
+
+    /// The folded command hashes of a layer's raster items: the hash kept by
+    /// its record while the layer keeps its content version, else the hashes
+    /// of its scenes now.
+    fn raster_hash(&mut self, layer: &'a CompositeLayer) -> u64 {
+        let cache = self.cache;
+        if let Some(record) = cache.layer(&layer.key)
+            && record.raster_hash.0 == layer.content_version
+        {
+            return record.raster_hash.1;
+        }
+        let mut h = WordHash::new();
+        for item in &layer.items {
+            if let LayerItem::Raster(scene) = item {
+                let hashed = self.hashed(scene);
+                h.len(hashed.hashes.len());
+                for c in &hashed.hashes {
+                    h.u64(*c);
+                }
+            }
+        }
+        h.finish()
     }
 
     /// Plan a layer drawn into `dest` (its target, map and size, with an inherited cover), with `clips` on its item.
@@ -672,6 +695,10 @@ impl<'a> Builder<'a> {
                 window_bounds: win,
                 frame: self.frame,
                 retain: layer_retain(layer),
+                raster_hash: (
+                    layer.content_version,
+                    self.rasters.get(&layer.key).copied().unwrap_or(0),
+                ),
             },
         ));
         self.seen.insert(layer.key);
