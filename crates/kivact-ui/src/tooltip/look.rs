@@ -2,7 +2,7 @@
 
 use crate::recipe::recipe_table;
 use crate::theme::Look;
-use kivact_core::style::{Position, Style, Theme, style};
+use kivact_core::style::{Align, Position, Style, Theme, style};
 use kivact_interaction::PopupState;
 pub(crate) fn tooltip(t: &Theme, _: &Look<PopupState>) -> Style {
     style()
@@ -17,6 +17,11 @@ pub(crate) fn tooltip(t: &Theme, _: &Look<PopupState>) -> Style {
 /// No arrow: an empty box out of the layout.
 pub(crate) fn no_arrow(_: &Theme, _: &Look<TooltipArrowState>) -> Style {
     style().position(Position::Absolute)
+}
+
+/// The label and the key caps side by side, centred, 8 px apart.
+pub(crate) fn shortcut_row(_: &Theme, _: &Look<PopupState>) -> Style {
+    style().gap(8).align_items(Align::Center)
 }
 
 /// Where a tooltip's arrow points, for the tooltip's arrow recipe.
@@ -41,5 +46,7 @@ recipe_table! {
         /// surface, given the side the tooltip shows on and where the
         /// trigger's centre is along that edge. The default draws no arrow.
         arrow(arrow_recipe): TooltipArrowState = no_arrow,
+        /// The row of the label and the key caps of a tooltip with a shortcut.
+        shortcut_row(shortcut_row_recipe): PopupState = shortcut_row,
     }
 }

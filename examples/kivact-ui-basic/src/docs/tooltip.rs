@@ -33,6 +33,12 @@ pub(crate) fn page() -> Page {
             "content replaces the text with kivact::ui::kbd key caps in a row.",
             shortcut,
         ))
+        .example(Example::new(
+            "text-shortcut",
+            "Shortcut text",
+            "shortcut writes the keys after the label as key caps, with no content.",
+            text_shortcut,
+        ))
 }
 
 // example: default
@@ -101,5 +107,11 @@ fn shortcut() -> impl IntoView {
         ))
         .style(style().gap(8).align_items(kivact::style::Align::Center))
     })
+}
+// end example
+
+// example: text-shortcut
+fn text_shortcut() -> impl IntoView {
+    tooltip("Undo", button("Undo")).shortcut("Ctrl+Z")
 }
 // end example
