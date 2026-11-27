@@ -269,6 +269,7 @@ impl<'a> Builder<'a> {
                 scale: grid.scale,
                 size: grid.size,
                 redraw,
+                index: Arc::clone(&index),
             });
         }
         if cached {

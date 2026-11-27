@@ -3,6 +3,7 @@
 //! The plan knows no backend. A CPU or GPU executor draws these ops in order.
 
 use std::borrow::Cow;
+use std::sync::Arc;
 
 use arvane_protocol::{LayerFilter, LayerKey, PixelRect, RenderScene};
 use kivact_types::Composite;
@@ -16,7 +17,7 @@ use kivact_types::ids::DrawableId;
 use kivact_types::paint::{MaskComposite, MaskMode};
 use kivact_types::pixel::{BlendMode, Pixels};
 
-use crate::cache::{ChunkKey, ChunkRecord, LayerRecord};
+use crate::cache::{ChunkKey, ChunkRecord, Indexed, LayerRecord};
 
 /// Index of a target: 0 is the output, the rest are scratch or kept surfaces of this frame.
 pub(crate) type TargetId = u32;
@@ -131,6 +132,8 @@ pub(crate) struct ChunkTask<'a> {
     pub(crate) size: (u32, u32),
     /// The part to raster.
     pub(crate) redraw: Redraw,
+    /// Each command's pixel reach, for culling.
+    pub(crate) index: Arc<[Indexed]>,
 }
 
 /// Where a draw reads its pixels from.
