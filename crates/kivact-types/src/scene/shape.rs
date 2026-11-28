@@ -322,6 +322,13 @@ impl Outline {
         match self {
             Outline::Rect(r) => *r,
             Outline::RoundedRect(r) => r.rect,
+            Outline::Path { cmds, .. }
+                if !cmds
+                    .iter()
+                    .any(|c| matches!(c, PathCmd::Arc { .. } | PathCmd::ArcTo { .. })) =>
+            {
+                points_bounds(cmds.iter().flat_map(cmd_points))
+            }
             _ => points_bounds(self.outline().iter().flat_map(cmd_points)),
         }
     }
