@@ -36,7 +36,7 @@ use crate::lower::fill::Boxes;
 use crate::lower::sanitize;
 
 /// A CSS blur radius as a standard deviation, sanitized.
-fn blur_px(px: f64) -> f64 {
+pub(super) fn blur_px(px: f64) -> f64 {
     if px.is_finite() { px.max(0.0) } else { 0.0 }
 }
 

@@ -131,7 +131,9 @@ impl Layer {
     }
     /// A canvas shadow, following the painted silhouette (after the
     /// layer's filter). Spread and inset belong to box shadows: they are
-    /// dropped and reported as unsupported.
+    /// dropped and reported as unsupported. A shadow over one filled
+    /// rectangle, rounded rectangle, circle or ellipse is drawn as a box
+    /// shadow, without a compositor layer.
     pub fn shadow(mut self, shadow: Shadow) -> Self {
         self.shadow = Some(shadow);
         self

@@ -1,4 +1,5 @@
 //! Role: Tests for canvas pixels, shaping, compositing, and hit regions.
+use kivact::ErrorKind;
 use kivact::draw::LineCap;
 use kivact::draw::{FillRule, ImageOptions, Layer, Mix};
 use kivact::prelude::*;
@@ -343,4 +344,102 @@ fn snapshot_returns_the_node_pixels() {
         "snapshot includes the drawing and the node background"
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// Raised plates, knobs and a bar: each a canvas layer with one drop shadow over one shape
+/// (`twice`: the shape drawn twice, which keeps the layer a compositor surface).
+fn plates(twice: bool) -> impl IntoView {
+    canvas(move |d, _| {
+        let shadow = Shadow::new(0.0, 1.0, 4.0, rgb(0x000000).with_alpha(0.4));
+        for i in 0..20 {
+            let r = Rect::new(
+                10.0 + f64::from(i % 5) * 40.0,
+                10.0 + f64::from(i / 5) * 30.0,
+                24.0,
+                16.0,
+            );
+            d.layer(Layer::new().shadow(shadow), |d| {
+                d.fill_rect(r, rgb(0xd0d0d8));
+                if twice {
+                    d.fill_rect(r, rgb(0xd0d0d8));
+                }
+            });
+        }
+        for i in 0..5 {
+            let center = Point::new(30.0 + f64::from(i) * 40.0, 150.0);
+            d.layer(Layer::new().shadow(shadow), |d| {
+                d.circle(center, 12.0, rgb(0xd0d0d8));
+                if twice {
+                    d.circle(center, 12.0, rgb(0xd0d0d8));
+                }
+            });
+        }
+        let bar = Rect::new(10.0, 175.0, 200.0, 20.0);
+        let wide = Shadow::new(0.0, 2.0, 6.0, rgb(0x000000).with_alpha(0.5));
+        d.layer(Layer::new().shadow(wide), |d| {
+            d.rounded_rect(bar, 6.0, rgb(0xd0d0d8));
+            if twice {
+                d.rounded_rect(bar, 6.0, rgb(0xd0d0d8));
+            }
+        });
+    })
+    .style(style().size(220, 210).background(rgb(0x303038)))
+}
+
+/// A shadow over one simple shape opens no compositor surface and looks like the drop shadow.
+#[test]
+fn a_shadow_over_one_simple_shape_needs_no_surface() {
+    let screen = render(|| plates(false));
+    let shot = screen.screenshot();
+    assert_eq!(
+        screen.frame_stats().targets,
+        1,
+        "a shadowed shape opened a surface"
+    );
+    let expected = render(|| plates(true)).screenshot();
+    let diff = shot.raster_difference(&expected);
+    assert!(
+        diff.within_raster_tolerance(),
+        "the box shadows differ from the drop shadows: {diff:?}"
+    );
+}
+
+/// A shadow over a shape with a NaN corner is dropped and counted as it is without a shadow,
+/// and the frame still draws.
+#[test]
+fn a_shadow_over_a_nan_shape_is_dropped() {
+    let shadowed = render(|| {
+        canvas(|d, _| {
+            let shadow = Shadow::new(0.0, 1.0, 4.0, rgb(0x000000));
+            d.layer(Layer::new().shadow(shadow), |d| {
+                d.fill_rect(Rect::new(f64::NAN, 10.0, 24.0, 16.0), rgb(0xd0d0d8));
+            });
+        })
+        .style(style().size(100, 60))
+    });
+    let bare = render(|| {
+        canvas(|d, _| {
+            d.fill_rect(Rect::new(f64::NAN, 10.0, 24.0, 16.0), rgb(0xd0d0d8));
+        })
+        .style(style().size(100, 60))
+    });
+    let shot = shadowed.screenshot();
+    let expected = bare.screenshot();
+    let errors = shadowed.errors();
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert_eq!(*errors[0].kind(), ErrorKind::Unsupported, "{errors:?}");
+    let bare_errors = bare.errors();
+    assert_eq!(
+        bare_errors
+            .iter()
+            .map(|e| e.kind().clone())
+            .collect::<Vec<_>>(),
+        errors.iter().map(|e| e.kind().clone()).collect::<Vec<_>>(),
+        "the shadow changed the errors: {errors:?} against {bare_errors:?}"
+    );
+    let diff = shot.raster_difference(&expected);
+    assert!(
+        diff.within_raster_tolerance(),
+        "the shadowed frame differs from the bare one: {diff:?}"
+    );
 }

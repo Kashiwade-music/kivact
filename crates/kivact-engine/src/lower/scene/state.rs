@@ -14,6 +14,8 @@ pub(super) enum Frame {
     Group,
     /// A drawing layer lowered as a child layer of the output.
     Surface,
+    /// A drawing layer whose shadow was drawn as a box shadow: its pop draws nothing.
+    Flat,
 }
 
 pub(super) struct State<'a> {
@@ -50,6 +52,7 @@ impl<'a> State<'a> {
                 Frame::Transform { .. } => self.out.push(D::PopTransform),
                 Frame::Group => self.out.push(D::PopGroup),
                 Frame::Surface => self.out.close_layer(),
+                Frame::Flat => {}
             }
         }
     }

@@ -309,6 +309,10 @@ fn gpu_frames_in_a_real_window_match_cpu_frames() {
     let (gpu, gpu_renderer) = shot_of(true, || canvas_vocabulary().into_view());
     assert_eq!(gpu_renderer, Some(Renderer::Gpu));
     assert_close(&cpu, &gpu, "gpu_canvas");
+    let (cpu, _) = shot_of(false, || plates(false).into_view());
+    let (gpu, gpu_renderer) = shot_of(true, || plates(false).into_view());
+    assert_eq!(gpu_renderer, Some(Renderer::Gpu));
+    assert_close(&cpu, &gpu, "gpu_shadows");
 }
 
 /// A host transition is sampled before presenting through each real surface.
@@ -584,4 +588,45 @@ fn effect_position(x: i32, y: i32, w: i32, h: i32) -> kivact_style::Style {
         .left(x)
         .top(y)
         .size(w, h)
+}
+
+/// Raised plates, knobs and a bar: each a canvas layer with one drop shadow over one shape
+/// (`twice`: the shape drawn twice, which keeps the layer a compositor surface).
+fn plates(twice: bool) -> impl IntoView {
+    use kivact_core::draw::Layer;
+    canvas(move |d, _| {
+        let shadow = Shadow::new(0.0, 1.0, 4.0, rgb(0x000000).with_alpha(0.4));
+        for i in 0..20 {
+            let r = Rect::new(
+                10.0 + f64::from(i % 5) * 40.0,
+                10.0 + f64::from(i / 5) * 30.0,
+                24.0,
+                16.0,
+            );
+            d.layer(Layer::new().shadow(shadow), |d| {
+                d.fill_rect(r, rgb(0xd0d0d8));
+                if twice {
+                    d.fill_rect(r, rgb(0xd0d0d8));
+                }
+            });
+        }
+        for i in 0..5 {
+            let center = Point::new(30.0 + f64::from(i) * 40.0, 150.0);
+            d.layer(Layer::new().shadow(shadow), |d| {
+                d.circle(center, 12.0, rgb(0xd0d0d8));
+                if twice {
+                    d.circle(center, 12.0, rgb(0xd0d0d8));
+                }
+            });
+        }
+        let bar = Rect::new(10.0, 175.0, 200.0, 20.0);
+        let wide = Shadow::new(0.0, 2.0, 6.0, rgb(0x000000).with_alpha(0.5));
+        d.layer(Layer::new().shadow(wide), |d| {
+            d.rounded_rect(bar, 6.0, rgb(0xd0d0d8));
+            if twice {
+                d.rounded_rect(bar, 6.0, rgb(0xd0d0d8));
+            }
+        });
+    })
+    .style(style().size(220, 210).background(rgb(0x303038)))
 }
