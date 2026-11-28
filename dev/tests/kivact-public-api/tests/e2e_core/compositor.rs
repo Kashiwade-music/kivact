@@ -639,3 +639,78 @@ fn a_clipped_change_damages_only_its_clip() {
     let fresh = render(|| clipped_line(signal(RED))).screenshot();
     assert_same_pixels(&changed, &fresh, 2, "the clipped line");
 }
+
+/// 400 boxes of 8 × 8 in the top-left 200 × 200 and one 20 × 20 box at (760, 560), all coloured by
+/// `colour`.
+fn far_apart(colour: Signal<u32>) -> impl IntoView {
+    canvas(move |d, _| {
+        let c = rgb(colour.get());
+        for i in 0..400 {
+            d.fill_rect(
+                Rect::new(f64::from(i % 20) * 10.0, f64::from(i / 20) * 10.0, 8.0, 8.0),
+                c,
+            );
+        }
+        d.fill_rect(Rect::new(760.0, 560.0, 20.0, 20.0), c);
+    })
+    .style(style().size(800, 600).background(Color::WHITE))
+}
+
+/// Changes far apart damage and raster two places, not the space between them.
+#[test]
+fn changes_far_apart_damage_two_places() {
+    let (screen, colour) = mount(|| {
+        let colour = signal(BLUE);
+        (colour, far_apart(colour))
+    });
+    screen.screenshot();
+    colour.set(RED);
+    let changed = screen.screenshot();
+    let stats = screen.frame_stats();
+    assert!(
+        stats.damage_pixels <= 200 * 200 + 20 * 20,
+        "the two places merged: {} px",
+        stats.damage_pixels
+    );
+    assert!(
+        stats.pixels_rastered <= 200 * 200 + 20 * 20,
+        "the raster covers the space between: {} px",
+        stats.pixels_rastered
+    );
+    let fresh = render(|| far_apart(signal(RED))).screenshot();
+    assert_same_pixels(&changed, &fresh, 2, "the two places");
+}
+
+/// Twenty 8 × 8 boxes on a diagonal, each 20 px from the last, coloured by `colour`.
+fn diagonal(colour: Signal<u32>) -> impl IntoView {
+    canvas(move |d, _| {
+        let c = rgb(colour.get());
+        for i in 0..20 {
+            d.fill_rect(
+                Rect::new(f64::from(i) * 20.0, f64::from(i) * 20.0, 8.0, 8.0),
+                c,
+            );
+        }
+    })
+    .style(style().size(800, 600).background(Color::WHITE))
+}
+
+/// Twenty scattered changes stay a partial redraw: more clusters than the whole-window limit
+/// become their union, not the whole window.
+#[test]
+fn many_scattered_changes_stay_partial() {
+    let (screen, colour) = mount(|| {
+        let colour = signal(BLUE);
+        (colour, diagonal(colour))
+    });
+    screen.screenshot();
+    colour.set(RED);
+    let changed = screen.screenshot();
+    let damage = screen.frame_stats().damage_pixels;
+    assert!(
+        damage < 800 * 600,
+        "twenty changes redrew the whole window: {damage} px"
+    );
+    let fresh = render(|| diagonal(signal(RED))).screenshot();
+    assert_same_pixels(&changed, &fresh, 2, "the diagonal");
+}

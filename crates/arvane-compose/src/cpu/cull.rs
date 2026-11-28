@@ -41,32 +41,6 @@ pub(crate) fn keep_mask(scene: &RenderScene, index: &[Indexed], region: PixelRec
         .collect()
 }
 
-/// The bounding box of `rects`, or an empty rectangle when there are none.
-pub(crate) fn bounding(rects: &[PixelRect]) -> PixelRect {
-    let Some(first) = rects.first() else {
-        return PixelRect {
-            x: 0,
-            y: 0,
-            width: 0,
-            height: 0,
-        };
-    };
-    let (mut x0, mut y0) = (first.x, first.y);
-    let (mut x1, mut y1) = (first.x + first.width, first.y + first.height);
-    for r in &rects[1..] {
-        x0 = x0.min(r.x);
-        y0 = y0.min(r.y);
-        x1 = x1.max(r.x + r.width);
-        y1 = y1.max(r.y + r.height);
-    }
-    PixelRect {
-        x: x0,
-        y: y0,
-        width: x1 - x0,
-        height: y1 - y0,
-    }
-}
-
 /// Whether two px rectangles share a pixel.
 fn overlaps(a: PixelRect, b: PixelRect) -> bool {
     a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
