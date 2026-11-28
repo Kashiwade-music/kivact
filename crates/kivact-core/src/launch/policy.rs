@@ -20,10 +20,11 @@ pub(crate) enum ClosePolicy {
     Embedded(kivact_engine::contract::CloseSignal),
 }
 
-/// A kivact-test run: its turn timing reporter and the test's name (the
-/// trace file is named after it).
+/// A kivact-test run: its turn timing reporter and the test's name (in debug
+/// builds the trace file is named after it).
 pub(crate) struct TestRun {
     pub(crate) timing: Rc<dyn Fn(u64)>,
+    #[cfg(debug_assertions)]
     pub(crate) name: String,
 }
 
@@ -44,10 +45,17 @@ impl LaunchPolicy {
     }
     /// A kivact-test run.
     pub fn test(name: String, timing: Rc<dyn Fn(u64)>, devtools: bool) -> Self {
+        // Only debug builds write the trace, which is named after the test.
+        #[cfg(not(debug_assertions))]
+        let _ = name;
         Self {
             close: ClosePolicy::Accept,
             devtools,
-            test: Some(TestRun { timing, name }),
+            test: Some(TestRun {
+                timing,
+                #[cfg(debug_assertions)]
+                name,
+            }),
         }
     }
     /// A window run without a test harness (kivact-test's own launch tests).
