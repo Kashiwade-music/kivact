@@ -127,6 +127,8 @@ pub(crate) enum Redraw {
     All,
     /// Only these rectangles (chunk px) changed.
     Rects(Vec<PixelRect>),
+    /// A new pixmap, rastered only in these parts (chunk px); the rest stays transparent.
+    Fresh(Vec<PixelRect>),
 }
 
 /// A chunk to raster before the ops run.

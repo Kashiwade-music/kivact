@@ -112,6 +112,8 @@ pub(crate) struct ChunkRecord {
     pub(crate) size: (u32, u32),
     /// The part of the layer's grid the chunk covers, in that grid's px; `None`: it draws nothing.
     pub(crate) cell: Option<PixelRect>,
+    /// The clusters its commands reach (layer grid px); empty for a chunk that is not a content chunk.
+    pub(crate) drawn: Vec<PixelRect>,
     /// Per command: its index entry.
     pub(crate) index: Arc<[Indexed]>,
     /// The layer's content version the chunk was rastered at (content chunks only).

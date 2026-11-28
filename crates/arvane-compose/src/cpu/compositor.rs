@@ -343,7 +343,8 @@ fn span_area((x0, x1, y0, y1): draw::Span) -> u64 {
     u64::from(x1.saturating_sub(x0)) * u64::from(y1.saturating_sub(y0))
 }
 
-/// Rasters one chunk task into the chunk store: the whole chunk, or only its changed rectangles.
+/// Rasters one chunk task into the chunk store: a fresh chunk in its drawn parts, a redrawn one in
+/// its changed rectangles, or else the whole chunk.
 fn raster_chunk(
     raster: &mut CpuFrameRaster<'_>,
     task: &ChunkTask<'_>,
@@ -357,28 +358,17 @@ fn raster_chunk(
     );
     let scene: &RenderScene = &task.scene;
     counts.chunks += 1;
+    if let Redraw::Fresh(parts) = &task.redraw {
+        let mut px = Pixmap::new(w, h);
+        raster_rects(raster, task, parts, size, &mut px, counts)?;
+        chunks.insert(task.key, px);
+        return Ok(());
+    }
     if let Redraw::Rects(rects) = &task.redraw
         && let Some(mut px) = chunks.remove(&task.key)
         && px.size() == task.size
     {
-        let masks: Vec<Vec<bool>> = rects
-            .iter()
-            .map(|r| {
-                let region = PixelRect {
-                    x: r.x + task.offset.0,
-                    y: r.y + task.offset.1,
-                    ..*r
-                };
-                keep_mask(scene, &task.index, region)
-            })
-            .collect();
-        let parts: Vec<(PixelRect, &[bool])> = rects
-            .iter()
-            .zip(&masks)
-            .map(|(r, m)| (*r, m.as_slice()))
-            .collect();
-        raster.raster_parts(scene, task.origin, task.scale, size, &parts, &mut px.data)?;
-        counts.pixels += rects.iter().map(area).sum::<u64>();
+        raster_rects(raster, task, rects, size, &mut px, counts)?;
         chunks.insert(task.key, px);
         return Ok(());
     }
@@ -401,6 +391,37 @@ fn raster_chunk(
     )?;
     counts.pixels += u64::from(w) * u64::from(h);
     chunks.insert(task.key, px);
+    Ok(())
+}
+
+/// Rasters the chunk px `rects` of `task` into `px`, each with the mask of its commands.
+fn raster_rects(
+    raster: &mut CpuFrameRaster<'_>,
+    task: &ChunkTask<'_>,
+    rects: &[PixelRect],
+    size: (u16, u16),
+    px: &mut Pixmap,
+    counts: &mut Counts,
+) -> Result<(), RenderError> {
+    let scene: &RenderScene = &task.scene;
+    let masks: Vec<Vec<bool>> = rects
+        .iter()
+        .map(|r| {
+            let region = PixelRect {
+                x: r.x + task.offset.0,
+                y: r.y + task.offset.1,
+                ..*r
+            };
+            keep_mask(scene, &task.index, region)
+        })
+        .collect();
+    let parts: Vec<(PixelRect, &[bool])> = rects
+        .iter()
+        .zip(&masks)
+        .map(|(r, m)| (*r, m.as_slice()))
+        .collect();
+    raster.raster_parts(scene, task.origin, task.scale, size, &parts, &mut px.data)?;
+    counts.pixels += rects.iter().map(area).sum::<u64>();
     Ok(())
 }
 
@@ -718,6 +739,89 @@ mod tests {
         assert!(
             compositor.output.data == chunks[0].data,
             "the output bytes equal the chunk bytes"
+        );
+    }
+
+    /// An 800 × 600 root of a white raster and a default-effects layer holding the L shape of the
+    /// e2e test: a panel along the right edge and a bar along the bottom that overlaps it by 5 px.
+    fn l_layers() -> Composition {
+        let fill = |r: Rect| RenderCmd::FillShape {
+            shape: Outline::Rect(r),
+            paint: RasterPaint::Solid(Rgba {
+                r: 0.0,
+                g: 0.0,
+                b: 1.0,
+                a: 1.0,
+            }),
+        };
+        let key = |n: u32| PieceKey { node: NodeId(0), n };
+        let layer = |key_of: LayerKey, items: Vec<LayerItem>| CompositeLayer {
+            key: key_of,
+            transform: Matrix4::IDENTITY,
+            bounds: Rect::new(0.0, 0.0, 800.0, 600.0),
+            plane: Plane::Flat,
+            backface: BackfaceVisibility::Visible,
+            grid: RasterGrid::Target,
+            effects: LayerEffects::default(),
+            content_version: 1,
+            items,
+        };
+        let white = RenderScene {
+            commands: vec![RenderCmd::FillShape {
+                shape: Outline::Rect(Rect::new(0.0, 0.0, 800.0, 600.0)),
+                paint: RasterPaint::Solid(Rgba {
+                    r: 1.0,
+                    g: 1.0,
+                    b: 1.0,
+                    a: 1.0,
+                }),
+            }],
+        };
+        let l = RenderScene {
+            commands: vec![
+                fill(Rect::new(600.0, 0.0, 200.0, 580.0)),
+                fill(Rect::new(0.0, 575.0, 800.0, 25.0)),
+            ],
+        };
+        let root = layer(
+            LayerKey::Root,
+            vec![
+                LayerItem::Raster {
+                    scene: white,
+                    key: key(0),
+                },
+                LayerItem::Layer {
+                    index: 1,
+                    clips: Vec::new(),
+                    key: key(1),
+                },
+            ],
+        );
+        let child = layer(
+            LayerKey::Node(NodeId(2)),
+            vec![LayerItem::Raster {
+                scene: l,
+                key: key(0),
+            }],
+        );
+        Composition {
+            layers: vec![root, child],
+            exports: Vec::new(),
+        }
+    }
+
+    /// A chunk is composited only over the clusters it draws, not over its whole cell.
+    #[test]
+    fn a_chunk_composites_only_what_it_draws() {
+        let size = (800, 600);
+        let mut compositor = CpuCompositor::new();
+        compositor
+            .frame(&l_layers(), size, 1.0)
+            .expect("the frame draws");
+        assert!(
+            compositor.composited <= 480_000 + 140_000,
+            "the L chunk was composited over its cell: {} px",
+            compositor.composited
         );
     }
 
