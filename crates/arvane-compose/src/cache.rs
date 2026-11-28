@@ -109,6 +109,8 @@ pub(crate) struct ChunkRecord {
     pub(crate) origin: kivact_types::geometry::Point,
     /// Size in px.
     pub(crate) size: (u32, u32),
+    /// The part of the layer's grid the chunk covers, in that grid's px; `None`: it draws nothing.
+    pub(crate) cell: Option<PixelRect>,
     /// Per command: its index entry.
     pub(crate) index: Arc<[Indexed]>,
     /// The layer's content version the chunk was rastered at (content chunks only).
