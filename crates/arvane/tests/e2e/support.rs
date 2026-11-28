@@ -87,7 +87,13 @@ pub(crate) fn fill(x: f64, y: f64, width: f64, height: f64, rgb: u32) -> RenderC
 
 /// A raster item of `commands` in layer space.
 pub(crate) fn raster(commands: Vec<RenderCmd>) -> LayerItem {
-    LayerItem::Raster(RenderScene { commands })
+    LayerItem::Raster {
+        scene: RenderScene { commands },
+        key: arvane_protocol::PieceKey {
+            node: kivact_types::ids::NodeId(0),
+            n: 0,
+        },
+    }
 }
 
 /// A content version never given before in this process.
@@ -112,8 +118,28 @@ pub(crate) fn layer(
         grid: RasterGrid::Target,
         effects,
         content_version: next_version(),
-        items,
+        items: by_position(items),
     }
+}
+
+/// The items with their keys set to their positions: no node opens the items of a test layer.
+fn by_position(items: Vec<LayerItem>) -> Vec<LayerItem> {
+    items
+        .into_iter()
+        .enumerate()
+        .map(|(n, mut item)| {
+            let key = arvane_protocol::PieceKey {
+                node: kivact_types::ids::NodeId(0),
+                n: n as u32,
+            };
+            match &mut item {
+                LayerItem::Raster { key: k, .. } | LayerItem::Layer { key: k, .. } => *k = key,
+                LayerItem::External(e) => e.key = key,
+                LayerItem::Shader(s) => s.key = key,
+            }
+            item
+        })
+        .collect()
 }
 
 /// The key of the test layer numbered `n` (a node's layer).

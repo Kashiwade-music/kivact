@@ -794,3 +794,180 @@ fn a_flat_child_in_3d_redraws_its_part() {
     assert_same_pixels(&fresh, &flat, 2, "a flat child in 3D draws as it does flat");
     assert_same_pixels(&shot, &fresh, 2, "the changed flat child in 3D");
 }
+
+/// Blurred box A, 50 boxes X1, blurred box B while `b` holds, 50 boxes X2, blurred box C, then
+/// 200 boxes Y in the lower half.
+fn pieces(b: Signal<bool>) -> impl IntoView {
+    let boxes = |n: i32, x: i32, y: i32| -> Vec<Node> {
+        (0..n)
+            .map(|i| {
+                node().style(at(x + (i % 10) * 20, y + (i / 10) * 20, 12, 12).background(rgb(BLUE)))
+            })
+            .collect()
+    };
+    let blurred = |x: i32, y: i32| {
+        node().style(
+            at(x, y, 40, 40)
+                .background(rgb(GREEN))
+                .filter(Filter::new().blur(3)),
+        )
+    };
+    node()
+        .child((
+            blurred(700, 10),
+            boxes(50, 10, 10),
+            show(move || b.get(), move || blurred(700, 80)),
+            boxes(50, 250, 10),
+            blurred(700, 150),
+            boxes(200, 10, 300),
+        ))
+        .style(style().size(800, 600).background(Color::WHITE))
+}
+
+/// A layer inserted early in a parent leaves the parent's later raster pieces as they were.
+#[test]
+fn an_inserted_layer_keeps_the_later_pieces() {
+    let (screen, b) = mount(|| {
+        let b = signal(false);
+        (b, pieces(b))
+    });
+    screen.screenshot();
+    b.set(true);
+    let shot = screen.screenshot();
+    let rastered = screen.frame_stats().pixels_rastered;
+    // The inserted layer, the new piece and the shrunk first piece are rastered (68 900 px); the
+    // 200 boxes after the layer (their cell, 256 * 344 = 88 064 px) are not. Re-rastering them fails.
+    assert!(
+        rastered < 256 * 344,
+        "the pieces after the new layer were rastered again: {rastered} px"
+    );
+    let fresh = render(|| pieces(signal(true))).screenshot();
+    assert_same_pixels(&shot, &fresh, 2, "after the inserted layer");
+    b.set(false);
+    let shot = screen.screenshot();
+    let fresh = render(|| pieces(signal(false))).screenshot();
+    assert_same_pixels(&shot, &fresh, 2, "after the removed layer");
+}
+
+/// Blurred box A, box X, then while `b` holds a blurred box B and a box Z of 100 × 100 at (100, 400).
+fn tail(b: Signal<bool>) -> impl IntoView {
+    let blurred = |x: i32, y: i32| {
+        node().style(
+            at(x, y, 40, 40)
+                .background(rgb(GREEN))
+                .filter(Filter::new().blur(3)),
+        )
+    };
+    node()
+        .child((
+            blurred(10, 10),
+            node().style(at(100, 100, 100, 100).background(rgb(BLUE))),
+            show(move || b.get(), move || blurred(300, 10)),
+            show(
+                move || b.get(),
+                || node().style(at(100, 400, 100, 100).background(rgb(BLUE))),
+            ),
+        ))
+        .style(style().size(800, 600).background(Color::WHITE))
+}
+
+/// A raster piece that goes away leaves nothing on the screen.
+#[test]
+fn a_removed_tail_piece_leaves_nothing() {
+    let (screen, b) = mount(|| {
+        let b = signal(true);
+        (b, tail(b))
+    });
+    screen.screenshot();
+    b.set(false);
+    let shot = screen.screenshot();
+    let fresh = render(|| tail(signal(false))).screenshot();
+    assert_same_pixels(&shot, &fresh, 2, "after the removed tail");
+}
+
+/// A layer moved by `dx` holding a blurred box and, while `b` holds, a box of 100 × 100 at (100, 100).
+fn moved_tail(dx: Signal<f64>, b: Signal<bool>) -> impl IntoView {
+    node()
+        .child(
+            node()
+                .child((
+                    node().style(
+                        at(10, 10, 40, 40)
+                            .background(rgb(GREEN))
+                            .filter(Filter::new().blur(3)),
+                    ),
+                    show(
+                        move || b.get(),
+                        || node().style(at(100, 100, 100, 100).background(rgb(BLUE))),
+                    ),
+                ))
+                .style(move || {
+                    at(0, 0, 400, 300)
+                        .will_change(WillChange::Transform)
+                        .transform(Transform::new().translate(dx.get(), 0.0))
+                }),
+        )
+        .style(style().size(800, 600).background(Color::WHITE))
+}
+
+/// A layer that moved and then loses a raster piece leaves nothing at the piece's new place.
+#[test]
+fn a_moved_layer_loses_a_piece() {
+    let (screen, (dx, b)) = mount(|| {
+        let (dx, b) = (signal(0.0), signal(true));
+        ((dx, b), moved_tail(dx, b))
+    });
+    screen.screenshot();
+    dx.set(200.0);
+    screen.screenshot();
+    b.set(false);
+    let shot = screen.screenshot();
+    let fresh = render(|| moved_tail(signal(200.0), signal(false))).screenshot();
+    assert_same_pixels(&shot, &fresh, 2, "after the moved layer lost its piece");
+}
+
+/// While `b` holds a blurred box, then a clipping parent holding a `will_change` layer (its item has clips).
+fn clipped_after(b: Signal<bool>) -> impl IntoView {
+    node()
+        .child((
+            show(
+                move || b.get(),
+                || {
+                    node().style(
+                        at(10, 10, 40, 40)
+                            .background(rgb(GREEN))
+                            .filter(Filter::new().blur(3)),
+                    )
+                },
+            ),
+            node()
+                .child(
+                    node().style(
+                        at(0, 0, 300, 300)
+                            .background(rgb(BLUE))
+                            .will_change(WillChange::Transform),
+                    ),
+                )
+                .style(at(200, 200, 200, 200).overflow(Overflow::Hidden)),
+        ))
+        .style(style().size(800, 600).background(Color::WHITE))
+}
+
+/// A layer inserted before a clipped child leaves the child's clip chunk as it was.
+#[test]
+fn an_inserted_layer_keeps_a_later_clip() {
+    let (screen, b) = mount(|| {
+        let b = signal(false);
+        (b, clipped_after(b))
+    });
+    screen.screenshot();
+    b.set(true);
+    let shot = screen.screenshot();
+    let rastered = screen.frame_stats().pixels_rastered;
+    assert!(
+        rastered < 100_000,
+        "the later item's clip was rastered again: {rastered} px"
+    );
+    let fresh = render(|| clipped_after(signal(true))).screenshot();
+    assert_same_pixels(&shot, &fresh, 2, "after the inserted layer");
+}

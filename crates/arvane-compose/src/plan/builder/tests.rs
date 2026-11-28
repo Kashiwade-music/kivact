@@ -1,8 +1,8 @@
 //! Role: Tests of the plan builder's hashing of raster scenes across frames.
 
 use arvane_protocol::{
-    CompositeLayer, Composition, LayerEffects, LayerFilter, LayerItem, LayerKey, Plane, RasterGrid,
-    RasterPaint, RenderCmd, RenderScene,
+    CompositeLayer, Composition, LayerEffects, LayerFilter, LayerItem, LayerKey, PieceKey, Plane,
+    RasterGrid, RasterPaint, RenderCmd, RenderScene,
 };
 use kivact_types::Matrix4;
 use kivact_types::Rgba;
@@ -46,7 +46,13 @@ fn root_only(content_version: u64, recolored: Option<usize>) -> Composition {
         grid: RasterGrid::Target,
         effects: LayerEffects::default(),
         content_version,
-        items: vec![LayerItem::Raster(RenderScene { commands })],
+        items: vec![LayerItem::Raster {
+            scene: RenderScene { commands },
+            key: PieceKey {
+                node: NodeId(0),
+                n: 0,
+            },
+        }],
     };
     Composition {
         layers: vec![root],
@@ -90,19 +96,22 @@ fn each_scene_is_hashed_once_and_a_kept_layer_never() {
     assert_ne!(changed, first, "a new version changes the signature");
 }
 
-/// A raster item of one solid square covering `rect`.
-fn raster(rect: Rect) -> LayerItem {
-    LayerItem::Raster(RenderScene {
-        commands: vec![RenderCmd::FillShape {
-            shape: Outline::Rect(rect),
-            paint: RasterPaint::Solid(Rgba {
-                r: 0.2,
-                g: 0.5,
-                b: 0.3,
-                a: 1.0,
-            }),
-        }],
-    })
+/// A raster item of one solid square covering `rect`, at position `n` of its layer.
+fn raster(rect: Rect, n: u32) -> LayerItem {
+    LayerItem::Raster {
+        scene: RenderScene {
+            commands: vec![RenderCmd::FillShape {
+                shape: Outline::Rect(rect),
+                paint: RasterPaint::Solid(Rgba {
+                    r: 0.2,
+                    g: 0.5,
+                    b: 0.3,
+                    a: 1.0,
+                }),
+            }],
+        },
+        key: PieceKey { node: NodeId(0), n },
+    }
 }
 
 /// The window with two small squares and a blurred child layer between them.
@@ -117,12 +126,16 @@ fn small_items() -> Composition {
         effects: LayerEffects::default(),
         content_version: 1,
         items: vec![
-            raster(Rect::new(100.0, 100.0, 10.0, 10.0)),
+            raster(Rect::new(100.0, 100.0, 10.0, 10.0), 0),
             LayerItem::Layer {
                 index: 1,
                 clips: vec![],
+                key: PieceKey {
+                    node: NodeId(0),
+                    n: 1,
+                },
             },
-            raster(Rect::new(900.0, 50.0, 10.0, 10.0)),
+            raster(Rect::new(900.0, 50.0, 10.0, 10.0), 2),
         ],
     };
     let child = CompositeLayer {
@@ -137,7 +150,7 @@ fn small_items() -> Composition {
             ..LayerEffects::default()
         },
         content_version: 1,
-        items: vec![raster(Rect::new(500.0, 700.0, 100.0, 100.0))],
+        items: vec![raster(Rect::new(500.0, 700.0, 100.0, 100.0), 0)],
     };
     Composition {
         layers: vec![root, child],

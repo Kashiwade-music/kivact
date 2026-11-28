@@ -82,20 +82,36 @@ fn vocabulary_root(checker: &Pixels) -> CompositeLayer {
             LayerItem::Layer {
                 index: 1,
                 clips: Vec::new(),
+                key: arvane_protocol::PieceKey {
+                    node: kivact_types::ids::NodeId(0),
+                    n: 0,
+                },
             },
             LayerItem::Layer {
                 index: 2,
                 clips: Vec::new(),
+                key: arvane_protocol::PieceKey {
+                    node: kivact_types::ids::NodeId(0),
+                    n: 0,
+                },
             },
             LayerItem::Layer {
                 index: 3,
                 clips: Vec::new(),
+                key: arvane_protocol::PieceKey {
+                    node: kivact_types::ids::NodeId(0),
+                    n: 0,
+                },
             },
             raster(stroke_scene(checker.clone())),
             raster(shadow_scene(checker.clone())),
             LayerItem::Layer {
                 index: 4,
                 clips: Vec::new(),
+                key: arvane_protocol::PieceKey {
+                    node: kivact_types::ids::NodeId(0),
+                    n: 0,
+                },
             },
             raster(vec![RenderCmd::FillShape {
                 shape: Outline::RoundedRect(RoundedRect::new(rect(10.0, 150.0, 70.0, 40.0), 12.0)),
@@ -104,6 +120,10 @@ fn vocabulary_root(checker: &Pixels) -> CompositeLayer {
             LayerItem::Layer {
                 index: 5,
                 clips: Vec::new(),
+                key: arvane_protocol::PieceKey {
+                    node: kivact_types::ids::NodeId(0),
+                    n: 0,
+                },
             },
             raster(tiled_scene(checker.clone())),
         ],
@@ -247,6 +267,10 @@ fn scaled_vocabulary() -> Composition {
         vec![LayerItem::Layer {
             index: 1,
             clips: Vec::new(),
+            key: arvane_protocol::PieceKey {
+                node: kivact_types::ids::NodeId(0),
+                n: 0,
+            },
         }],
     );
     let mut all = vec![root, vocab];

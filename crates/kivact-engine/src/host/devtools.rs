@@ -144,11 +144,21 @@ pub(super) fn append_overlay_layer(
         grid: RasterGrid::Target,
         effects: LayerEffects::default(),
         content_version: crate::lower::content_versions::fresh_content_version(),
-        items: vec![LayerItem::Raster(overlay_scene(overlay, engine))],
+        items: vec![LayerItem::Raster {
+            scene: overlay_scene(overlay, engine),
+            key: arvane_protocol::PieceKey {
+                node: kivact_types::ids::NodeId(0),
+                n: 0,
+            },
+        }],
     });
     composition.layers[0].items.push(LayerItem::Layer {
         index,
         clips: Vec::new(),
+        key: arvane_protocol::PieceKey {
+            node: kivact_types::ids::NodeId(0),
+            n: 1,
+        },
     });
     composition
 }

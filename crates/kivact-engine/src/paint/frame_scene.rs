@@ -335,6 +335,7 @@ impl Model {
         engine: &mut arvane_text::TextEngine,
         out: &mut SceneOut,
     ) {
+        out.at_node(step.id);
         let id = step.id;
         if self.node(id).is_none() {
             return;
@@ -573,6 +574,7 @@ impl Model {
         engine: &mut arvane_text::TextEngine,
         out: &mut SceneOut,
     ) {
+        out.at_node(step.id);
         match self.take_draw(step, pass) {
             Some(mut draw) => {
                 out.set_keeping(matches!(

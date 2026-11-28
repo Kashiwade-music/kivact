@@ -612,12 +612,13 @@ fn export_frames(
 mod tests {
     //! Role: Tests of the CPU compositor's frame composition.
     use arvane_protocol::{
-        CompositeLayer, LayerEffects, LayerItem, Plane, RasterGrid, RasterPaint, RenderBackdrop,
-        RenderCmd,
+        CompositeLayer, ExternalItem, LayerEffects, LayerItem, PieceKey, Plane, RasterGrid,
+        RasterPaint, RenderBackdrop, RenderCmd,
     };
     use kivact_types::Rgba;
-    use kivact_types::geometry::Rect;
+    use kivact_types::geometry::{Affine, Rect};
     use kivact_types::geometry3d::Matrix4;
+    use kivact_types::gpu::ExternalImageId;
     use kivact_types::ids::NodeId;
     use kivact_types::paint::BackfaceVisibility;
     use kivact_types::scene::Outline;
@@ -635,7 +636,13 @@ mod tests {
             grid: RasterGrid::Target,
             effects: LayerEffects::default(),
             content_version,
-            items: vec![LayerItem::Raster(scene)],
+            items: vec![LayerItem::Raster {
+                scene,
+                key: PieceKey {
+                    node: NodeId(0),
+                    n: 0,
+                },
+            }],
         };
         Composition {
             layers: vec![root],
@@ -731,8 +738,18 @@ mod tests {
                 LayerItem::Layer {
                     index: 1,
                     clips: Vec::new(),
+                    key: PieceKey {
+                        node: NodeId(0),
+                        n: 0,
+                    },
                 },
-                LayerItem::Raster(RenderScene::default()),
+                LayerItem::Raster {
+                    scene: RenderScene::default(),
+                    key: PieceKey {
+                        node: NodeId(0),
+                        n: 1,
+                    },
+                },
             ],
         };
         // The child's backdrop reads what lies behind it: the output, before the root's raster draws it.
@@ -751,7 +768,13 @@ mod tests {
                 ..LayerEffects::default()
             },
             content_version: 1,
-            items: vec![LayerItem::Raster(RenderScene::default())],
+            items: vec![LayerItem::Raster {
+                scene: RenderScene::default(),
+                key: PieceKey {
+                    node: NodeId(0),
+                    n: 0,
+                },
+            }],
         };
         let composition = Composition {
             layers: vec![root, child],
@@ -792,6 +815,10 @@ mod tests {
             items: vec![LayerItem::Layer {
                 index: 1,
                 clips: Vec::new(),
+                key: PieceKey {
+                    node: NodeId(0),
+                    n: 0,
+                },
             }],
         };
         let child = CompositeLayer {
@@ -806,7 +833,13 @@ mod tests {
                 ..LayerEffects::default()
             },
             content_version: 1,
-            items: vec![LayerItem::Raster(RenderScene::default())],
+            items: vec![LayerItem::Raster {
+                scene: RenderScene::default(),
+                key: PieceKey {
+                    node: NodeId(0),
+                    n: 0,
+                },
+            }],
         };
         Composition {
             layers: vec![root, child],
@@ -847,5 +880,90 @@ mod tests {
         );
         compositor.invalidate();
         assert!(compositor.pool.is_empty());
+    }
+
+    /// A 64 × 64 root of a white raster and, while `with`, an external item of 16 × 16 red CPU pixels at (8, 8).
+    fn with_external(with: bool) -> Composition {
+        let white = RenderScene {
+            commands: vec![RenderCmd::FillShape {
+                shape: Outline::Rect(Rect::new(0.0, 0.0, 64.0, 64.0)),
+                paint: RasterPaint::Solid(Rgba {
+                    r: 1.0,
+                    g: 1.0,
+                    b: 1.0,
+                    a: 1.0,
+                }),
+            }],
+        };
+        let mut items = vec![LayerItem::Raster {
+            scene: white,
+            key: PieceKey {
+                node: NodeId(0),
+                n: 0,
+            },
+        }];
+        if with {
+            items.push(LayerItem::External(ExternalItem {
+                frame: ExternalFrame {
+                    image: ExternalImageId(1),
+                    slot: 0,
+                    value: 1,
+                },
+                rect: Rect::new(8.0, 8.0, 16.0, 16.0),
+                source: None,
+                transform: Affine::IDENTITY,
+                clips: Vec::new(),
+                opacity: 1.0,
+                pixelated: true,
+                cpu: Some(Pixels::new(16, 16, [255u8, 0, 0, 255].repeat(256))),
+                key: PieceKey {
+                    node: NodeId(0),
+                    n: 1,
+                },
+            }));
+        }
+        let root = CompositeLayer {
+            key: LayerKey::Root,
+            transform: Matrix4::IDENTITY,
+            bounds: Rect::new(0.0, 0.0, 64.0, 64.0),
+            plane: Plane::Flat,
+            backface: BackfaceVisibility::Visible,
+            grid: RasterGrid::Target,
+            effects: LayerEffects::default(),
+            content_version: 1,
+            items,
+        };
+        Composition {
+            layers: vec![root],
+            exports: Vec::new(),
+        }
+    }
+
+    /// An external item that goes away leaves nothing on the output.
+    #[test]
+    fn a_removed_external_leaves_nothing() {
+        let size = (64, 64);
+        let mut compositor = CpuCompositor::new();
+        compositor
+            .frame(&with_external(true), size, 1.0)
+            .expect("frame 1 draws");
+        compositor
+            .frame(&with_external(false), size, 1.0)
+            .expect("frame 2 draws");
+        let mut fresh = CpuCompositor::new();
+        fresh
+            .frame(&with_external(false), size, 1.0)
+            .expect("the fresh frame draws");
+        let differ = compositor
+            .output
+            .data
+            .chunks(4)
+            .zip(fresh.output.data.chunks(4))
+            .filter(|(a, b)| a != b)
+            .count();
+        assert_eq!(
+            differ, 0,
+            "after the removed external: {differ} pixels differ"
+        );
     }
 }

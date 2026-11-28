@@ -59,8 +59,6 @@ const PX_EPSILON: f64 = 1e-6;
 pub(super) struct ItemCtx<'a> {
     /// The layer that owns the items.
     pub(super) layer: &'a CompositeLayer,
-    /// Position of `items[0]` in `layer.items`.
-    pub(super) first: usize,
     /// The items to draw, in order.
     pub(super) items: &'a [LayerItem],
     /// The grid of the layer's chunks.
@@ -71,14 +69,6 @@ pub(super) struct ItemCtx<'a> {
     pub(super) to_win: Matrix4,
     /// Whether the rasters are cached (false for inline layers, which draw into their parent).
     pub(super) cache_chunks: bool,
-}
-
-/// The number of Raster items before position `at` of the layer (the chunk ordinal of a raster).
-pub(super) fn raster_ordinal(layer: &CompositeLayer, at: usize) -> u32 {
-    layer.items[..at]
-        .iter()
-        .filter(|item| matches!(item, LayerItem::Raster(_)))
-        .count() as u32
 }
 
 /// A white coverage scene: the rectangle `rect` clipped by every shape of `clips`.
@@ -130,7 +120,7 @@ pub(super) fn inline_candidate(comp: &Composition, index: u32) -> bool {
         return false;
     }
     layer.items.iter().all(|item| match item {
-        LayerItem::Raster(scene) => scene
+        LayerItem::Raster { scene, .. } => scene
             .commands
             .iter()
             .all(|c| !matches!(c, RenderCmd::PushGroup(g) if g.blend != BlendMode::Normal)),

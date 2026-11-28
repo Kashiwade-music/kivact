@@ -9,12 +9,16 @@
 //!   again, in the same order, in the next chunk.
 //! - A layer's pieces, in paint order, are its raster chunks, its items and
 //!   its child layers. The composition numbers the layers when it is built.
+//! - A piece or item is keyed by the node that opened it and how many pieces
+//!   and items that node opened before it in the layer ([`PieceKey`]).
 //! - `space` is the transform from the open layer's space to the chunk's
 //!   current space. Clips and items are kept in layer space.
 
+use std::collections::HashMap;
+
 use arvane_protocol::{
-    CompositeLayer, Composition, Group, LayerEffects, LayerItem, LayerKey, Plane, RasterGrid,
-    RasterPaint, RenderCmd as D, RenderScene,
+    CompositeLayer, Composition, Group, LayerEffects, LayerItem, LayerKey, PieceKey, Plane,
+    RasterGrid, RasterPaint, RenderCmd as D, RenderScene,
 };
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
@@ -116,14 +120,14 @@ impl LayerProps {
 /// One thing of a layer, in paint order.
 #[derive(Debug)]
 enum Piece {
-    /// Vello-drawn commands.
-    Raster(RenderScene),
+    /// Vello-drawn commands, with the key of the piece.
+    Raster(RenderScene, PieceKey),
     /// An external frame or a shader.
     Item(Box<LayerItem>),
     /// A child layer.
     Layer(Box<Layer>),
-    /// A canvas drawable's composed layers, placed at its command.
-    Drawable(Box<DrawablePiece>),
+    /// A canvas drawable's composed layers, placed at its command, with its key.
+    Drawable(Box<DrawablePiece>, PieceKey),
 }
 
 /// A canvas drawable's composed layers: the root layer first, with layer
@@ -147,7 +151,7 @@ pub(crate) enum LayerChange {
     Untracked,
 }
 
-// xtask-allow(state): reopen and deepest track the chunk's open groups; touched says a command not kept from the last frame reached it (SceneOut::push); independent
+// xtask-allow(state): reopen and deepest track the chunk's open groups; touched says a command not kept from the last frame reached it (SceneOut::push); first names the open chunk's opener only while the chunk is non-empty; independent
 /// A layer under construction: its properties, the clips its parent
 /// applies, its finished pieces and the open chunk.
 #[derive(Debug)]
@@ -159,6 +163,12 @@ struct Layer {
     stack: Vec<Opened>,
     space: Affine,
     deepest: usize,
+    /// The key of this layer as a child of its parent (the root's is unused).
+    key: PieceKey,
+    /// The node of the open chunk's first command (read only while the chunk is not empty).
+    first: NodeId,
+    /// How many pieces and items each node opened in this layer this frame.
+    opened: HashMap<NodeId, u32>,
     /// The groups of `stack` are to be opened again at the start of the
     /// next chunk (a split closed them).
     reopen: bool,
@@ -167,8 +177,8 @@ struct Layer {
 }
 
 impl Layer {
-    /// An empty open layer.
-    fn new(props: LayerProps, clips: Vec<Outline>) -> Self {
+    /// An empty open layer, keyed `key` as a child.
+    fn new(props: LayerProps, clips: Vec<Outline>, key: PieceKey) -> Self {
         Layer {
             props,
             clips,
@@ -177,13 +187,27 @@ impl Layer {
             stack: Vec::new(),
             space: Affine::IDENTITY,
             deepest: 0,
+            key,
+            first: NodeId(0),
+            opened: HashMap::new(),
             reopen: false,
             touched: false,
         }
     }
 
-    /// Append `command` to the chunk, keeping the groups it opens or closes.
-    fn push(&mut self, command: D) {
+    /// The key of the next piece or item `node` opens in this layer this frame.
+    fn next_key(&mut self, node: NodeId) -> PieceKey {
+        let slot = self.opened.entry(node).or_insert(0);
+        let n = *slot;
+        *slot += 1;
+        PieceKey { node, n }
+    }
+
+    /// Append `command`, drawn for `node`, to the chunk, keeping the groups it opens or closes.
+    fn push(&mut self, command: D, node: NodeId) {
+        if self.chunk.commands.is_empty() {
+            self.first = node;
+        }
         self.reopen_pending();
         match &command {
             D::PushTransform(t) => self.open(Opened::Transform(*t)),
@@ -241,7 +265,8 @@ impl Layer {
             chunk
                 .commands
                 .extend(self.stack.iter().rev().map(Opened::close));
-            self.pieces.push(Piece::Raster(chunk));
+            let key = self.next_key(self.first);
+            self.pieces.push(Piece::Raster(chunk, key));
         }
         self.reopen = reopen && !self.stack.is_empty();
     }
@@ -313,6 +338,8 @@ fn holds_pixels(command: &D) -> bool {
 #[derive(Debug)]
 pub(crate) struct SceneOut {
     layers: Vec<Layer>,
+    /// The node whose commands are drawn now.
+    node: NodeId,
     owner: (NodeId, u8),
     ordinal: u32,
     recording: Option<Recording>,
@@ -322,8 +349,13 @@ pub(crate) struct SceneOut {
 
 impl Default for SceneOut {
     fn default() -> Self {
+        let root_key = PieceKey {
+            node: NodeId(0),
+            n: 0,
+        };
         SceneOut {
-            layers: vec![Layer::new(LayerProps::root(), Vec::new())],
+            layers: vec![Layer::new(LayerProps::root(), Vec::new(), root_key)],
+            node: NodeId(0),
             owner: (NodeId(0), 0),
             ordinal: 0,
             recording: None,
@@ -347,6 +379,11 @@ impl SceneOut {
             Some(layer) => layer,
             None => unreachable!("invariant: the root layer is always open"),
         }
+    }
+
+    /// The commands and items that follow are `id`'s.
+    pub(crate) fn at_node(&mut self, id: NodeId) {
+        self.node = id;
     }
 
     /// The next commands are (`true`) or are not kept from the last frame.
@@ -386,7 +423,8 @@ impl SceneOut {
         if !self.keeping {
             self.top().touched = true;
         }
-        self.top().push(command);
+        let node = self.node;
+        self.top().push(command, node);
     }
 
     /// Start recording what the next commands draw (one recording at a time).
@@ -453,13 +491,15 @@ impl SceneOut {
         if !self.keeping {
             self.top().touched = true;
         }
+        let node = self.node;
         let parent = self.top();
         let clips = parent.clips();
         let space = parent.space;
         parent.split(true);
+        let key = parent.next_key(node);
         let mut props = props;
         props.transform = props.transform.then(Matrix4::from_affine(space));
-        self.layers.push(Layer::new(props, clips));
+        self.layers.push(Layer::new(props, clips, key));
     }
 
     /// Close the innermost child layer, which becomes a piece of its parent.
@@ -476,15 +516,17 @@ impl SceneOut {
         self.top().pieces.push(Piece::Layer(Box::new(child)));
     }
 
-    /// Add an item to the innermost layer, between its chunks.
-    pub(crate) fn item(&mut self, item: LayerItem) {
+    /// Add the item that `make` builds from its key to the innermost layer, between its chunks.
+    pub(crate) fn item(&mut self, make: impl FnOnce(PieceKey) -> LayerItem) {
         self.spoil();
         if !self.keeping {
             self.top().touched = true;
         }
+        let node = self.node;
         let top = self.top();
         top.split(true);
-        top.pieces.push(Piece::Item(Box::new(item)));
+        let key = top.next_key(node);
+        top.pieces.push(Piece::Item(Box::new(make(key))));
     }
 
     /// Place a canvas drawable's composed `layers` at `at` in the innermost
@@ -495,17 +537,19 @@ impl SceneOut {
         if !self.keeping {
             self.top().touched = true;
         }
+        let node = self.node;
         let top = self.top();
         let clips = top.clips();
         let space = top.space;
         top.split(true);
+        let key = top.next_key(node);
         let transform = Matrix4::translate(at.x, at.y, 0.0).then(Matrix4::from_affine(space));
         let piece = DrawablePiece {
             layers,
             transform,
             clips,
         };
-        top.pieces.push(Piece::Drawable(Box::new(piece)));
+        top.pieces.push(Piece::Drawable(Box::new(piece), key));
     }
 
     /// `scene` (in the chunk's space) inside the groups and clips open now:
@@ -566,7 +610,7 @@ impl SceneOut {
         let mut commands = Vec::new();
         for piece in root.pieces {
             match piece {
-                Piece::Raster(scene) => commands.extend(scene.commands),
+                Piece::Raster(scene, _) => commands.extend(scene.commands),
                 _ => debug_assert!(false, "invariant: a plain scene has no items or layers"),
             }
         }
@@ -576,7 +620,7 @@ impl SceneOut {
 
 /// Append a drawable's layers to `layers` (its root first, its indices
 /// moved past the ones already there) and return the item that shows it.
-fn adopt(drawable: DrawablePiece, layers: &mut Vec<CompositeLayer>) -> LayerItem {
+fn adopt(drawable: DrawablePiece, layers: &mut Vec<CompositeLayer>, key: PieceKey) -> LayerItem {
     let DrawablePiece {
         layers: mut sub,
         transform,
@@ -597,6 +641,7 @@ fn adopt(drawable: DrawablePiece, layers: &mut Vec<CompositeLayer>) -> LayerItem
     LayerItem::Layer {
         index: offset,
         clips,
+        key,
     }
 }
 
@@ -610,10 +655,10 @@ fn flatten(
     pieces
         .into_iter()
         .map(|piece| match piece {
-            Piece::Raster(scene) => LayerItem::Raster(scene),
+            Piece::Raster(scene, key) => LayerItem::Raster { scene, key },
             Piece::Item(item) => *item,
-            Piece::Drawable(drawable) => {
-                let item = adopt(*drawable, layers);
+            Piece::Drawable(drawable, key) => {
+                let item = adopt(*drawable, layers, key);
                 changes.resize(layers.len(), LayerChange::Untracked);
                 item
             }
@@ -623,6 +668,7 @@ fn flatten(
                     clips,
                     pieces,
                     touched,
+                    key,
                     ..
                 } = *child;
                 let index = layers.len();
@@ -637,6 +683,7 @@ fn flatten(
                 LayerItem::Layer {
                     index: index as u32,
                     clips,
+                    key,
                 }
             }
         })

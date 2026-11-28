@@ -4,7 +4,8 @@ use std::borrow::Cow;
 use std::f64::consts::SQRT_2;
 
 use arvane_protocol::{
-    CompositeLayer, LayerEffects, LayerItem, Plane, RasterGrid, RenderBackdrop, RenderScene,
+    CompositeLayer, LayerEffects, LayerItem, PieceKey, Plane, RasterGrid, RenderBackdrop,
+    RenderScene,
 };
 use kivact_types::Composite;
 use kivact_types::Matrix4;
@@ -85,13 +86,13 @@ pub(super) fn placed(
     Some((points, map))
 }
 
-/// The scene of a layer that is a single raster with default effects: its chunk is its surface.
-fn chunk_shortcut(layer: &CompositeLayer) -> Option<&RenderScene> {
+/// The scene of a layer that is a single raster with default effects, and its key: its chunk is its surface.
+fn chunk_shortcut(layer: &CompositeLayer) -> Option<(&RenderScene, PieceKey)> {
     if layer.effects != LayerEffects::default() || layer.items.len() != 1 {
         return None;
     }
     match &layer.items[0] {
-        LayerItem::Raster(scene) => Some(scene),
+        LayerItem::Raster { scene, key } => Some((scene, *key)),
         _ => None,
     }
 }
@@ -184,6 +185,23 @@ fn layer_retain(layer: &CompositeLayer) -> Vec<Retained> {
         }
     }
     retain
+}
+
+/// The window bounds of a layer's External and Shader items (their content is not rastered into chunks).
+fn item_rects(layer: &CompositeLayer, to_win: &Matrix4) -> Vec<Rect> {
+    layer
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            LayerItem::External(e) => {
+                mapped_bounds(&Matrix4::from_affine(e.transform).then(*to_win), e.rect)
+            }
+            LayerItem::Shader(s) => {
+                mapped_bounds(&Matrix4::from_affine(s.transform).then(*to_win), s.rect)
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 impl<'a> Builder<'a> {
@@ -300,13 +318,14 @@ impl<'a> Builder<'a> {
         self.rasters.insert(layer.key, raster);
         for item in &layer.items {
             match item {
-                LayerItem::Raster(_) => {
+                LayerItem::Raster { .. } => {
                     h.tag(1);
                     h.u64(raster);
                 }
                 LayerItem::Layer {
                     index: child,
                     clips,
+                    ..
                 } => {
                     h.tag(2);
                     let child_layer = self.layer(*child)?;
@@ -348,7 +367,7 @@ impl<'a> Builder<'a> {
         }
         let mut h = WordHash::new();
         for item in &layer.items {
-            if let LayerItem::Raster(scene) = item {
+            if let LayerItem::Raster { scene, .. } = item {
                 let hashed = self.hashed(scene);
                 h.len(hashed.hashes.len());
                 for c in &hashed.hashes {
@@ -388,7 +407,6 @@ impl<'a> Builder<'a> {
         if inline {
             let cx = ItemCtx {
                 layer,
-                first: 0,
                 items: &layer.items,
                 grid: geo.grid(),
                 dest: Dest {
@@ -423,10 +441,10 @@ impl<'a> Builder<'a> {
         to_win: &Matrix4,
         sig: u64,
     ) -> Result<(Source<'a>, Option<Drawn>), PlanError> {
-        if let Some(scene) = chunk_shortcut(layer) {
+        if let Some((scene, piece)) = chunk_shortcut(layer) {
             let key = ChunkKey {
                 layer: layer.key,
-                role: ChunkRole::Content(0),
+                role: ChunkRole::Content(piece),
             };
             let version = Some(layer.content_version);
             let cell = self.chunk(key, Cow::Borrowed(scene), geo.grid(), to_win, true, version)?;
@@ -477,7 +495,6 @@ impl<'a> Builder<'a> {
         }
         let cx = ItemCtx {
             layer,
-            first: 0,
             items: &layer.items,
             grid: geo.grid(),
             dest: Dest {
@@ -706,6 +723,7 @@ impl<'a> Builder<'a> {
             return;
         }
         let own = own_hash(layer, to_win, clips);
+        let items_win = item_rects(layer, to_win);
         let cache = self.cache;
         match cache.layer(&layer.key) {
             None => self.damage.extend(win),
@@ -718,7 +736,8 @@ impl<'a> Builder<'a> {
                     self.damage.extend(prev.window_bounds);
                     self.damage.extend(win);
                 } else {
-                    self.item_damage(layer, to_win);
+                    self.damage.extend(prev.items_win.iter().copied());
+                    self.damage.extend(items_win.iter().copied());
                 }
             }
             Some(_) => {}
@@ -729,6 +748,8 @@ impl<'a> Builder<'a> {
                 signature: sig,
                 own,
                 window_bounds: win,
+                to_win: *to_win,
+                items_win,
                 frame: self.frame,
                 retain: layer_retain(layer),
                 raster_hash: (
@@ -738,23 +759,6 @@ impl<'a> Builder<'a> {
             },
         ));
         self.seen.insert(layer.key);
-    }
-
-    /// Damage the window bounds of a layer's external and shader items (their content is not rastered into chunks).
-    fn item_damage(&mut self, layer: &CompositeLayer, to_win: &Matrix4) {
-        for item in &layer.items {
-            match item {
-                LayerItem::External(e) => {
-                    let m = Matrix4::from_affine(e.transform).then(*to_win);
-                    self.damage.extend(mapped_bounds(&m, e.rect));
-                }
-                LayerItem::Shader(s) => {
-                    let m = Matrix4::from_affine(s.transform).then(*to_win);
-                    self.damage.extend(mapped_bounds(&m, s.rect));
-                }
-                _ => {}
-            }
-        }
     }
 
     /// Mark a reused surface's descendants: their records and chunks are carried over unchanged.

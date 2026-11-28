@@ -209,15 +209,22 @@ impl Context<'_> {
                 }),
             );
         });
-        let item = ShaderItem {
-            shader,
-            rect: shape.rect(),
-            transform: out.space(),
-            coverage: out.within_open(coverage),
-            fallback: out.within_open(fallback),
-            opacity: tint.alpha,
-        };
-        out.item(LayerItem::Shader(item));
+        let transform = out.space();
+        let coverage = out.within_open(coverage);
+        let fallback = out.within_open(fallback);
+        let rect = shape.rect();
+        let opacity = tint.alpha;
+        out.item(|key| {
+            LayerItem::Shader(ShaderItem {
+                key,
+                shader,
+                rect,
+                transform,
+                coverage,
+                fallback,
+                opacity,
+            })
+        });
     }
 
     /// The shader use of `spec` at its clock's time with its images at their
