@@ -603,3 +603,39 @@ fn frames_within_keep_time_stay_partial() {
         );
     }
 }
+
+/// A canvas filling the window whose long line, coloured by `colour`, is clipped to the 100 × 60
+/// rectangle at (40, 40).
+fn clipped_line(colour: Signal<u32>) -> impl IntoView {
+    canvas(move |d, _| {
+        let c = rgb(colour.get());
+        d.layer(
+            Layer::new().clip_rect(Rect::new(40.0, 40.0, 100.0, 60.0)),
+            |d| {
+                d.line(
+                    Point::new(-2000.0, 70.0),
+                    Point::new(4000.0, 70.0),
+                    Stroke::new(2.0),
+                    c,
+                );
+            },
+        );
+    })
+    .style(style().size(800, 600).background(Color::WHITE))
+}
+
+/// A change inside a clip damages only the clip, and the frame equals a fresh one.
+#[test]
+fn a_clipped_change_damages_only_its_clip() {
+    let (screen, colour) = mount(|| {
+        let colour = signal(BLUE);
+        (colour, clipped_line(colour))
+    });
+    screen.screenshot();
+    colour.set(RED);
+    let changed = screen.screenshot();
+    let damage = screen.frame_stats().damage_pixels;
+    assert!(damage <= 1000, "the damage leaves the clip: {damage} px");
+    let fresh = render(|| clipped_line(signal(RED))).screenshot();
+    assert_same_pixels(&changed, &fresh, 2, "the clipped line");
+}
