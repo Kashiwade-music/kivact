@@ -76,6 +76,10 @@ fn external(frame: ExternalFrame, x: u32, y: u32, pixelated: bool) -> LayerItem 
         opacity: 1.0,
         pixelated,
         cpu: None,
+        key: arvane_protocol::PieceKey {
+            node: kivact_types::ids::NodeId(0),
+            n: 0,
+        },
     })
 }
 

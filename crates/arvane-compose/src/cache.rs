@@ -6,26 +6,27 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use arvane_protocol::{LayerKey, PixelRect};
+use arvane_protocol::{LayerKey, PieceKey, PixelRect};
 use kivact_types::AssetBytes;
+use kivact_types::Matrix4;
 use kivact_types::geometry::Rect;
 use kivact_types::shaped::GlyphRunSnapshot;
 
 /// What a chunk of a layer holds (the key's second half).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum ChunkRole {
-    /// The n-th Raster item of the layer.
-    Content(u32),
-    /// Clips of the n-th item (LayerItem::Layer / External).
-    Clip(u32),
+    /// A raster piece of the layer, by its key.
+    Content(PieceKey),
+    /// Clips of the item with this key (a child layer or an external item).
+    Clip(PieceKey),
     /// The layer's own clip (LayerEffects::clip).
     LayerClip,
-    /// The n-th RenderMask.
+    /// The n-th mask of the layer's own mask property (not an item).
     Mask(u32),
-    /// The coverage of the n-th Shader item.
-    Coverage(u32),
-    /// The fallback of the n-th Shader item.
-    Fallback(u32),
+    /// The coverage of the shader item with this key.
+    Coverage(PieceKey),
+    /// The fallback of the shader item with this key.
+    Fallback(PieceKey),
     /// The backdrop shape.
     Backdrop,
 }
@@ -133,6 +134,10 @@ pub(crate) struct LayerRecord {
     pub(crate) raster_hash: (u64, u64),
     /// Where the layer's surface lands in the window, None when it drew nothing.
     pub(crate) window_bounds: Option<Rect>,
+    /// Layer space → window px when recorded.
+    pub(crate) to_win: Matrix4,
+    /// Window bounds of its External and Shader items.
+    pub(crate) items_win: Vec<Rect>,
     /// The frame that last used the record.
     pub(crate) frame: u64,
     /// Allocations the signature hashes by address (images, shader and filter pixels).

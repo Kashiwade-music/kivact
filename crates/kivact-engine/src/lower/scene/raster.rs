@@ -46,17 +46,22 @@ impl Context<'_> {
             } => {
                 // A frame of an external engine is a layer item; the CPU
                 // compositor draws its `cpu` pixels when it has them.
-                let item = ExternalItem {
-                    frame: *frame,
-                    rect: rect(*r),
-                    source: *source,
-                    transform: state.out.space(),
-                    clips: state.out.clips(),
-                    opacity: opacity.clamp(0.0, 1.0) * tint.alpha,
-                    pixelated: *pixelated,
-                    cpu: cpu_pixels.clone(),
-                };
-                state.out.item(LayerItem::External(item));
+                let transform = state.out.space();
+                let clips = state.out.clips();
+                let opacity = opacity.clamp(0.0, 1.0) * tint.alpha;
+                state.out.item(|key| {
+                    LayerItem::External(ExternalItem {
+                        key,
+                        frame: *frame,
+                        rect: rect(*r),
+                        source: *source,
+                        transform,
+                        clips,
+                        opacity,
+                        pixelated: *pixelated,
+                        cpu: cpu_pixels.clone(),
+                    })
+                });
                 true
             }
             DrawCmd::ImagePart { .. } => {

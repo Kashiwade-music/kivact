@@ -204,7 +204,6 @@ impl<'a> Builder<'a> {
         };
         let cx = ItemCtx {
             layer: root,
-            first: 0,
             items: &root.items,
             grid,
             dest: Dest {

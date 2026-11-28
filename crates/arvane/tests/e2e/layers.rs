@@ -16,6 +16,10 @@ fn child(index: u32) -> LayerItem {
     LayerItem::Layer {
         index,
         clips: Vec::new(),
+        key: arvane_protocol::PieceKey {
+            node: kivact_types::ids::NodeId(0),
+            n: 0,
+        },
     }
 }
 

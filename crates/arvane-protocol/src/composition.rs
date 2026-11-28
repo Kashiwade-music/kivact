@@ -175,17 +175,34 @@ pub struct RenderBackdrop {
     pub filters: Vec<LayerFilter>,
 }
 
+/// The stable key of a piece or an item of a layer: the node that opened it and how many pieces
+/// and items that node opened earlier in the same layer in this frame.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PieceKey {
+    /// The node of the piece's first command, or the node drawing when the item was added.
+    pub node: NodeId,
+    /// How many pieces and items `node` opened before it in this layer.
+    pub n: u32,
+}
+
 /// One item of a compositor layer, drawn in order.
 #[derive(Clone, Debug, PartialEq)]
 pub enum LayerItem {
     /// Vello-drawn commands in layer space.
-    Raster(RenderScene),
+    Raster {
+        /// The commands.
+        scene: RenderScene,
+        /// The piece's stable key.
+        key: PieceKey,
+    },
     /// A child layer, clipped by `clips` (parent layer space, all applied) when drawn into this layer.
     Layer {
         /// Index into `Composition::layers`.
         index: u32,
         /// Clips applied to the child, in parent layer space.
         clips: Vec<Outline>,
+        /// The item's stable key.
+        key: PieceKey,
     },
     /// A frame of an external render engine's image.
     External(ExternalItem),
@@ -212,6 +229,8 @@ pub struct ExternalItem {
     pub pixelated: bool,
     /// Pixels the CPU compositor draws instead (Draw::gpu_frame_with_pixels).
     pub cpu: Option<Pixels>,
+    /// The item's stable key.
+    pub key: PieceKey,
 }
 
 /// A shader drawn as a layer item.
@@ -229,6 +248,8 @@ pub struct ShaderItem {
     pub fallback: RenderScene,
     /// Alpha multiplier.
     pub opacity: f64,
+    /// The item's stable key.
+    pub key: PieceKey,
 }
 
 /// Draw `layers[layer]` into the export sink of `sink` at `size` device px

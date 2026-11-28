@@ -16,7 +16,7 @@ mod text;
 
 pub use composition::{
     CompositeLayer, Composition, Export, ExportLoss, ExportMode, ExternalItem, FrameReport,
-    LayerEffects, LayerFilter, LayerItem, LayerKey, MAX_CONTEXT_PLANES, PixelRect, Plane,
+    LayerEffects, LayerFilter, LayerItem, LayerKey, MAX_CONTEXT_PLANES, PieceKey, PixelRect, Plane,
     RasterGrid, RenderBackdrop, RenderMask, ShaderItem,
 };
 pub use effect::BoxShadow;

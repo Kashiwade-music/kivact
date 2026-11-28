@@ -1,10 +1,11 @@
 //! Role: Chunk rasters and window damage: which chunks and rectangles change.
 
 use std::borrow::Cow;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use arvane_protocol::{PixelRect, RenderCmd, RenderScene};
+use arvane_protocol::{LayerKey, PixelRect, RenderCmd, RenderScene};
 use kivact_types::Matrix4;
 use kivact_types::geometry::{Point, Rect};
 
@@ -13,7 +14,7 @@ use super::builder::Builder;
 use super::frame::{area, ceil_px, floor_px};
 use super::hash;
 use super::ops::{ChunkTask, Damage, Grid, PlanError, Redraw};
-use crate::cache::{ChunkKey, ChunkRecord, Indexed, LayerRecord, Reach};
+use crate::cache::{ChunkKey, ChunkRecord, ChunkRole, Indexed, LayerRecord, Reach};
 
 /// How far a chunk's diff searches for a command that moved.
 const SEARCH: usize = 64;
@@ -329,6 +330,16 @@ impl<'a> Builder<'a> {
                 height: grid.size.1,
             })
         };
+        // A content chunk new to the cache damages its cell where its layer was drawn.
+        let cache = self.cache;
+        if cached
+            && version.is_some()
+            && cache.chunk(&key).is_none()
+            && cache.layer(&key.layer).is_some()
+        {
+            self.damage
+                .extend(cell.and_then(|c| mapped_bounds(to_win, layer_rect(c, grid))));
+        }
         let redraw = self.redraw_chunk(key, cached, grid, to_win, &index, cell);
         if let (Some(cell), Some(redraw)) = (cell, redraw) {
             let sub = grid.cell(cell);
@@ -436,13 +447,37 @@ impl<'a> Builder<'a> {
     pub(super) fn finish_damage(&mut self) -> Damage {
         let cache = self.cache;
         // After a resize, `invalidate()` or a failed frame, the whole output is redrawn.
-        let crate::cache::Records::Kept { layers, .. } = &cache.records else {
+        let crate::cache::Records::Kept { chunks, layers } = &cache.records else {
             return Damage::Full;
         };
         // A layer recorded last frame and not this frame vanished: its old place changes.
         for (key, prev) in layers {
             if !self.seen.contains(key) {
                 self.damage.extend(prev.window_bounds);
+            }
+        }
+        // A content chunk drawn last frame and not this frame vanished: its cell changes where its layer is placed now.
+        let now: HashSet<ChunkKey> = self.chunk_records.iter().map(|(k, _)| *k).collect();
+        let placed: HashMap<LayerKey, Matrix4> = self
+            .layer_records
+            .iter()
+            .map(|(k, r)| (*k, r.to_win))
+            .collect();
+        for (key, prev) in chunks {
+            let vanished = prev.frame + 1 == self.frame
+                && matches!(key.role, ChunkRole::Content(_))
+                && !self.reused_chunks.contains(&key.layer)
+                && !now.contains(key);
+            if let Some(map) = placed.get(&key.layer).filter(|_| vanished)
+                && let Some(cell) = prev.cell
+            {
+                let grid = Grid {
+                    origin: prev.origin,
+                    scale: prev.scale,
+                    size: prev.size,
+                };
+                self.damage
+                    .extend(mapped_bounds(map, layer_rect(cell, grid)));
             }
         }
         // A backdrop redraws when what it covers changes (fixed point: a backdrop's damage can reach another).

@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use arvane_protocol::{ExternalItem, LayerItem, RenderScene, ShaderItem};
+use arvane_protocol::{ExternalItem, LayerItem, PieceKey, RenderScene, ShaderItem};
 use kivact_types::Composite;
 use kivact_types::Matrix4;
 use kivact_types::geometry::Size;
@@ -10,20 +10,21 @@ use kivact_types::pixel::BlendMode;
 use kivact_types::scene::Outline;
 
 use super::builder::Builder;
-use super::frame::{Dest, ItemCtx, coverage_scene, px_map, raster_ordinal, wrapped};
+use super::frame::{Dest, ItemCtx, coverage_scene, px_map, wrapped};
 use super::ops::{DrawOp, Op, PlanError, Sampling, Scissor, ShaderOp, Source};
 use crate::cache::{ChunkKey, ChunkRole};
 
 impl<'a> Builder<'a> {
     /// Draw every item of `cx` in order.
     pub(super) fn emit_items(&mut self, cx: &ItemCtx<'a>) -> Result<(), PlanError> {
-        for (offset, item) in cx.items.iter().enumerate() {
-            let at = cx.first + offset;
+        for item in cx.items {
             match item {
-                LayerItem::Raster(scene) => self.emit_raster(cx, at, scene)?,
-                LayerItem::External(external) => self.emit_external(cx, at, external)?,
-                LayerItem::Shader(shader) => self.emit_shader(cx, at, shader)?,
-                LayerItem::Layer { index, clips } => self.emit_child(cx, at, *index, clips)?,
+                LayerItem::Raster { scene, key } => self.emit_raster(cx, scene, *key)?,
+                LayerItem::External(external) => self.emit_external(cx, external)?,
+                LayerItem::Shader(shader) => self.emit_shader(cx, shader)?,
+                LayerItem::Layer { index, clips, key } => {
+                    self.emit_child(cx, *index, clips, *key)?
+                }
             }
         }
         Ok(())
@@ -33,12 +34,12 @@ impl<'a> Builder<'a> {
     fn emit_raster(
         &mut self,
         cx: &ItemCtx<'a>,
-        at: usize,
         scene: &'a RenderScene,
+        piece: PieceKey,
     ) -> Result<(), PlanError> {
         let key = ChunkKey {
             layer: cx.layer.key,
-            role: ChunkRole::Content(raster_ordinal(cx.layer, at)),
+            role: ChunkRole::Content(piece),
         };
         let Some(cell) = self.chunk(
             key,
@@ -78,13 +79,12 @@ impl<'a> Builder<'a> {
     fn emit_external(
         &mut self,
         cx: &ItemCtx<'a>,
-        at: usize,
         external: &'a ExternalItem,
     ) -> Result<(), PlanError> {
         let coverage = if external.clips.is_empty() {
             cx.dest.cover
         } else {
-            Some(self.clip_key(cx, at, &external.clips)?)
+            Some(self.clip_key(cx, &external.clips, external.key)?)
         };
         let h = Matrix4::from_affine(external.transform)
             .then(cx.dest.to)
@@ -113,19 +113,14 @@ impl<'a> Builder<'a> {
     }
 
     /// Plan a shader: its coverage and fallback chunks, and the shader op.
-    fn emit_shader(
-        &mut self,
-        cx: &ItemCtx<'a>,
-        at: usize,
-        shader: &'a ShaderItem,
-    ) -> Result<(), PlanError> {
+    fn emit_shader(&mut self, cx: &ItemCtx<'a>, shader: &'a ShaderItem) -> Result<(), PlanError> {
         let coverage = ChunkKey {
             layer: cx.layer.key,
-            role: ChunkRole::Coverage(at as u32),
+            role: ChunkRole::Coverage(shader.key),
         };
         let fallback = ChunkKey {
             layer: cx.layer.key,
-            role: ChunkRole::Fallback(at as u32),
+            role: ChunkRole::Fallback(shader.key),
         };
         self.chunk(
             coverage,
@@ -173,15 +168,15 @@ impl<'a> Builder<'a> {
     fn emit_child(
         &mut self,
         cx: &ItemCtx<'a>,
-        at: usize,
         index: u32,
         clips: &'a [Outline],
+        piece: PieceKey,
     ) -> Result<(), PlanError> {
         let child = self.layer(index)?;
         let cover = if clips.is_empty() {
             cx.dest.cover
         } else {
-            Some(self.clip_key(cx, at, clips)?)
+            Some(self.clip_key(cx, clips, piece)?)
         };
         if child.backface == kivact_types::paint::BackfaceVisibility::Hidden
             && child.transform.shows_back()
@@ -199,16 +194,16 @@ impl<'a> Builder<'a> {
         self.emit_layer(index, dest, win_child, clips)
     }
 
-    /// The coverage chunk of the clips of item `at` of the layer, on the layer's grid.
+    /// The coverage chunk of the clips of the item `piece` of the layer, on the layer's grid.
     fn clip_key(
         &mut self,
         cx: &ItemCtx<'a>,
-        at: usize,
         clips: &[Outline],
+        piece: PieceKey,
     ) -> Result<ChunkKey, PlanError> {
         let key = ChunkKey {
             layer: cx.layer.key,
-            role: ChunkRole::Clip(at as u32),
+            role: ChunkRole::Clip(piece),
         };
         let scene = coverage_scene(clips, cx.grid.rect());
         self.chunk(

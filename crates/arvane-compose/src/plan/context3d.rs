@@ -192,7 +192,6 @@ impl<'a> Builder<'a> {
         let surface = self.new_temp(geo.size);
         let cx = ItemCtx {
             layer: owner,
-            first: start,
             items: &owner.items[start..end],
             grid: geo.grid(),
             dest: Dest {
@@ -279,6 +278,7 @@ impl<'a> Builder<'a> {
             let LayerItem::Layer {
                 index: child,
                 clips,
+                ..
             } = item
             else {
                 continue;

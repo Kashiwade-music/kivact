@@ -50,6 +50,10 @@ fn a_backdrop_blurs_what_is_behind_its_shape_and_nothing_else() {
                     LayerItem::Layer {
                         index: 1,
                         clips: Vec::new(),
+                        key: arvane_protocol::PieceKey {
+                            node: kivact_types::ids::NodeId(0),
+                            n: 0,
+                        },
                     },
                     // Drawn after the backdrop: not in it.
                     raster(vec![fill(0.0, 90.0, 200.0, 10.0, RED)]),
