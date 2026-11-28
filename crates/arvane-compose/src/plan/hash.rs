@@ -16,7 +16,7 @@ use kivact_types::geometry::{Affine, Point, Rect};
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::{BackfaceVisibility, Extend, MaskComposite, MaskMode};
 use kivact_types::pixel::Pixels;
-use kivact_types::scene::{FillRule, Outline, Stroke};
+use kivact_types::scene::{FillRule, Outline, PathCmd, Stroke};
 
 use crate::cache::Retained;
 
@@ -248,6 +248,64 @@ fn gradient(h: &mut WordHash, g: &RasterGradient) {
     });
 }
 
+/// Fold in one path segment: its kind, then each of its values by their bits.
+fn path_cmd(h: &mut WordHash, cmd: &PathCmd) {
+    match *cmd {
+        PathCmd::MoveTo(p) => {
+            h.tag(0);
+            h.point(p);
+        }
+        PathCmd::LineTo(p) => {
+            h.tag(1);
+            h.point(p);
+        }
+        PathCmd::QuadTo(control, p) => {
+            h.tag(2);
+            h.point(control);
+            h.point(p);
+        }
+        PathCmd::CubicTo(c1, c2, p) => {
+            h.tag(3);
+            h.point(c1);
+            h.point(c2);
+            h.point(p);
+        }
+        PathCmd::Close => h.tag(4),
+        PathCmd::ArcTo {
+            rx,
+            ry,
+            x_rotation_deg,
+            large_arc,
+            sweep,
+            to,
+        } => {
+            h.tag(5);
+            h.f64(rx);
+            h.f64(ry);
+            h.f64(x_rotation_deg);
+            h.bool(large_arc);
+            h.bool(sweep);
+            h.point(to);
+        }
+        PathCmd::Arc {
+            center,
+            rx,
+            ry,
+            x_rotation_deg,
+            start_deg,
+            sweep_deg,
+        } => {
+            h.tag(6);
+            h.point(center);
+            h.f64(rx);
+            h.f64(ry);
+            h.f64(x_rotation_deg);
+            h.f64(start_deg);
+            h.f64(sweep_deg);
+        }
+    }
+}
+
 /// Fold in a shape.
 pub(crate) fn shape(h: &mut WordHash, s: &Outline) {
     match s {
@@ -275,9 +333,7 @@ pub(crate) fn shape(h: &mut WordHash, s: &Outline) {
             h.tag(3);
             h.len(cmds.len());
             for cmd in cmds {
-                // Path segments are rare and small; their debug form is exact
-                // (float Debug prints every distinct value).
-                h.bytes(format!("{cmd:?}").as_bytes());
+                path_cmd(h, cmd);
             }
             rule(h, *r);
         }
@@ -509,7 +565,7 @@ fn path_command(h: &mut WordHash, cmd: &RenderCmd) {
         h.tag(7);
         h.len(cmds.len());
         for cmd in cmds {
-            h.bytes(format!("{cmd:?}").as_bytes());
+            path_cmd(h, cmd);
         }
         match fill {
             Some(c) => {
@@ -772,3 +828,6 @@ pub(crate) fn shader_item(h: &mut WordHash, s: &ShaderItem, retain: &mut Vec<Ret
     scene(h, &s.fallback, retain);
     h.f64(s.opacity);
 }
+
+#[cfg(test)]
+mod tests;
