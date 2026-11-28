@@ -359,7 +359,8 @@ fn raster_chunk(
     });
     let mut part = None;
     match redraw {
-        Redraw::All => {
+        // A fresh chunk is rastered whole: the GPU has no masks, so the parts would gain nothing.
+        Redraw::All | Redraw::Fresh(_) => {
             let canvas = canvas(task.origin, task.scale, (w, h))?;
             frame.raster(&mut encoder, &task.scene, canvas, &view(&texture))?;
             stats.pixels_rastered += u64::from(w) * u64::from(h);

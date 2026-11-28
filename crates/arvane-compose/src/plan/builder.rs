@@ -15,7 +15,7 @@ use super::frame::{
 };
 use super::hash::{self, Hashed};
 use super::ops::{
-    Caching, ChunkTask, Damage, Grid, INLINE_TARGET_LIMIT, OUTPUT, Op, Plan, PlanError,
+    Caching, ChunkTask, Damage, DrawOp, Grid, INLINE_TARGET_LIMIT, OUTPUT, Op, Plan, PlanError,
     PlannedExport, Scissor, Source, TargetId, TargetKind, TargetSpec,
 };
 use super::validate;
@@ -102,6 +102,9 @@ pub(crate) struct Builder<'a> {
     pub(crate) hashed_commands: usize,
     /// The folded raster hash of each layer signed this frame, for its record.
     pub(crate) rasters: HashMap<LayerKey, u64>,
+    /// The clusters each content chunk of this frame draws, in chunk px: the output's draws from
+    /// it are limited to them.
+    pub(crate) drawn_px: HashMap<ChunkKey, Vec<PixelRect>>,
 }
 
 impl<'a> Builder<'a> {
@@ -144,6 +147,7 @@ impl<'a> Builder<'a> {
             #[cfg(test)]
             hashed_commands: 0,
             rasters: HashMap::new(),
+            drawn_px: HashMap::new(),
         }
     }
 
@@ -332,17 +336,27 @@ impl<'a> Builder<'a> {
                     .collect(),
             },
         };
-        if let Damage::Rects(rects) = damage {
-            for op in &mut self.ops {
-                match op {
-                    Op::Draw(draw) if draw.target == OUTPUT => {
-                        draw.scissor = Scissor::Rects(rects.clone());
-                    }
-                    Op::Shader(shader) if shader.target == OUTPUT => {
+        let window = PixelRect {
+            x: 0,
+            y: 0,
+            width: self.window.0,
+            height: self.window.1,
+        };
+        let base: Vec<PixelRect> = match damage {
+            Damage::Full => vec![window],
+            Damage::Rects(rects) => rects.clone(),
+        };
+        for op in &mut self.ops {
+            match op {
+                Op::Draw(draw) if draw.target == OUTPUT => {
+                    draw.scissor = scissor(draw, damage, &base, &self.drawn_px);
+                }
+                Op::Shader(shader) if shader.target == OUTPUT => {
+                    if let Damage::Rects(rects) = damage {
                         shader.scissor = Scissor::Rects(rects.clone());
                     }
-                    _ => {}
                 }
+                _ => {}
             }
         }
         front.append(&mut self.ops);
@@ -399,6 +413,56 @@ impl<'a> Builder<'a> {
         };
         Some((at, copy))
     }
+}
+
+/// The scissor of a draw into the output: `base` (the damage, or the window when the whole output
+/// redraws), narrowed to the clusters its chunk draws when it is a source-over draw of a content
+/// chunk with a whole-pixel translation. Otherwise the damage, or no limit when the whole output
+/// redraws. Outside its clusters such a chunk is transparent, so a source-over draw leaves those
+/// pixels as they are.
+fn scissor(
+    draw: &DrawOp<'_>,
+    damage: &Damage,
+    base: &[PixelRect],
+    drawn: &HashMap<ChunkKey, Vec<PixelRect>>,
+) -> Scissor {
+    let narrowed = match (&draw.source, &draw.composite) {
+        (Source::Chunk(key), Composite::SourceOver) => {
+            integer_translation(&draw.map).and_then(|offset| drawn.get(key).map(|p| (p, offset)))
+        }
+        _ => None,
+    };
+    match (narrowed, damage) {
+        (Some((parts, offset)), _) => Scissor::Rects(narrow(base, parts, offset)),
+        (None, Damage::Rects(rects)) => Scissor::Rects(rects.clone()),
+        (None, Damage::Full) => Scissor::Off,
+    }
+}
+
+/// The parts of `base` (target px) inside `parts` (chunk px, moved by `-offset` into target px):
+/// nonempty pieces only.
+fn narrow(base: &[PixelRect], parts: &[PixelRect], (tx, ty): (i64, i64)) -> Vec<PixelRect> {
+    let mut out = Vec::new();
+    for part in parts {
+        let x0 = i64::from(part.x) - tx;
+        let y0 = i64::from(part.y) - ty;
+        let (x1, y1) = (x0 + i64::from(part.width), y0 + i64::from(part.height));
+        for b in base {
+            let (bx0, by0) = (i64::from(b.x), i64::from(b.y));
+            let (bx1, by1) = (bx0 + i64::from(b.width), by0 + i64::from(b.height));
+            let (ix0, iy0) = (x0.max(bx0), y0.max(by0));
+            let (ix1, iy1) = (x1.min(bx1), y1.min(by1));
+            if ix1 > ix0 && iy1 > iy0 {
+                out.push(PixelRect {
+                    x: ix0 as u32,
+                    y: iy0 as u32,
+                    width: (ix1 - ix0) as u32,
+                    height: (iy1 - iy0) as u32,
+                });
+            }
+        }
+    }
+    out
 }
 
 /// Whether `op` writes the output.

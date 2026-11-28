@@ -18,8 +18,8 @@ use crate::cache::{ChunkKey, ChunkRecord, ChunkRole, Indexed, LayerRecord, Reach
 
 /// How far a chunk's diff searches for a command that moved.
 const SEARCH: usize = 64;
-/// Damaged rectangles beyond which the whole window redraws.
-const FULL_AT: usize = 17;
+/// The most clusters damage or a chunk's drawn area is kept as.
+const MAX_CLUSTERS: usize = 16;
 /// The cell, in px, a content chunk's grid snaps out to.
 const CHUNK_CELL_PX: u32 = 64;
 
@@ -74,19 +74,48 @@ fn union_px(rects: &[PixelRect]) -> Option<PixelRect> {
     })
 }
 
-/// Whether two px rectangles share a pixel.
-fn overlaps_px(a: PixelRect, b: PixelRect) -> bool {
-    a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
-}
-
-/// Whether two px rectangles are one change: they share a pixel, or their union is at most 1.5
-/// times their two areas.
+/// Whether two px rectangles are one change: their union is at most 1.5 times their two areas.
 fn near(a: PixelRect, b: PixelRect) -> bool {
-    if overlaps_px(a, b) {
-        return true;
-    }
     let u = union_px(&[a, b]).expect("two rects");
     2 * area(&u) <= 3 * (area(&a) + area(&b))
+}
+
+/// The px rectangle of `x0..x1` by `y0..y1`; None when it is empty.
+fn span(x0: u32, x1: u32, y0: u32, y1: u32) -> Option<PixelRect> {
+    (x1 > x0 && y1 > y0).then(|| PixelRect {
+        x: x0,
+        y: y0,
+        width: x1 - x0,
+        height: y1 - y0,
+    })
+}
+
+/// The parts of `r` outside `c`: the band above `c`, the band below it (both the full width of
+/// `r`), then the parts left and right of `c` in the rows `c` covers. `r` itself when they do not
+/// overlap. Empty parts are dropped.
+fn minus(r: PixelRect, c: PixelRect) -> Vec<PixelRect> {
+    let (r_right, r_bottom) = (r.x + r.width, r.y + r.height);
+    let (c_right, c_bottom) = (c.x + c.width, c.y + c.height);
+    if !(r.x < c_right && c.x < r_right && r.y < c_bottom && c.y < r_bottom) {
+        return vec![r];
+    }
+    let (top, bottom) = (r.y.max(c.y), r_bottom.min(c_bottom));
+    [
+        span(r.x, r_right, r.y, c.y),
+        span(r.x, r_right, c_bottom, r_bottom),
+        span(r.x, c.x, top, bottom),
+        span(c_right, r_right, top, bottom),
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
+}
+
+/// The parts of `rects` outside every rect of `cut` (pairwise disjoint when `rects` are).
+fn subtract_all(rects: Vec<PixelRect>, cut: &[PixelRect]) -> Vec<PixelRect> {
+    cut.iter().fold(rects, |rects, c| {
+        rects.into_iter().flat_map(|r| minus(r, *c)).collect()
+    })
 }
 
 /// Replace two near clusters by their union until no two clusters are near.
@@ -105,9 +134,9 @@ fn merge_near(clusters: &mut Vec<PixelRect>) {
     }
 }
 
-/// Rectangles grouped into clusters of nearby changes: two merge when they overlap or their union
-/// is at most 1.5 times their two areas. More than `FULL_AT - 1` clusters become their union, so
-/// each cluster stays a rectangle of its own below the whole-window limit.
+/// Rectangles grouped into clusters of nearby changes: two merge when their union is at most 1.5
+/// times their two areas; overlapping clusters that do not merge are cut into disjoint pieces;
+/// more than `MAX_CLUSTERS` become their union.
 fn cluster(rects: Vec<PixelRect>) -> Vec<PixelRect> {
     let mut clusters: Vec<PixelRect> = Vec::new();
     for rect in &rects {
@@ -115,28 +144,39 @@ fn cluster(rects: Vec<PixelRect>) -> Vec<PixelRect> {
             Some(i) => clusters[i] = union_px(&[clusters[i], *rect]).expect("two rects"),
             None => clusters.push(*rect),
         }
-        if clusters.len() >= FULL_AT {
+        if clusters.len() > MAX_CLUSTERS {
             // Near clusters are one cluster: merge them before giving up.
             merge_near(&mut clusters);
-            if clusters.len() >= FULL_AT {
+            if clusters.len() > MAX_CLUSTERS {
                 return union_px(&rects).into_iter().collect();
             }
         }
     }
     merge_near(&mut clusters);
-    clusters
+    let mut pieces: Vec<PixelRect> = Vec::new();
+    for c in clusters {
+        pieces.extend(subtract_all(vec![c], &pieces));
+        if pieces.len() > MAX_CLUSTERS {
+            return union_px(&rects).into_iter().collect();
+        }
+    }
+    pieces
 }
 
-/// The cells of a chunk grid of `size` px that `index` draws: the union of its `Reach::Draws` rects, its left and top edges rounded down and its right and bottom edges rounded up to `CHUNK_CELL_PX`, kept inside the grid; `None` when nothing draws.
-fn content_cell(index: &[Indexed], size: (u32, u32)) -> Option<PixelRect> {
-    let draws: Vec<PixelRect> = index
+/// The rectangles of the commands of `index` that draw, in chunk px.
+fn draws(index: &[Indexed]) -> Vec<PixelRect> {
+    index
         .iter()
         .filter_map(|entry| match entry.reach {
             Reach::Draws(rect) => Some(rect),
             Reach::Opens(_) | Reach::Nothing => None,
         })
-        .collect();
-    let union = union_px(&draws)?;
+        .collect()
+}
+
+/// The cell of a chunk grid of `size` px that `draws` cover: their union, its left and top edges rounded down and its right and bottom edges rounded up to `CHUNK_CELL_PX`, kept inside the grid; `None` when nothing draws.
+fn content_cell(draws: &[PixelRect], size: (u32, u32)) -> Option<PixelRect> {
+    let union = union_px(draws)?;
     let cell = CHUNK_CELL_PX;
     let x0 = union.x / cell * cell;
     let y0 = union.y / cell * cell;
@@ -168,18 +208,51 @@ fn cut(r: PixelRect, cell: PixelRect) -> Option<PixelRect> {
     }
 }
 
+/// The parts of `drawn` (layer grid px) inside `cell`, in the cell's px.
+fn parts_of(drawn: &[PixelRect], cell: PixelRect) -> Vec<PixelRect> {
+    drawn.iter().filter_map(|r| cut(*r, cell)).collect()
+}
+
+/// The redraw of a whole chunk with `cell`: the clusters it draws when it has them (a content
+/// chunk, whose `drawn` is not empty), else the whole cell.
+fn whole_redraw(drawn: &[PixelRect], cell: PixelRect) -> Redraw {
+    if drawn.is_empty() {
+        Redraw::All
+    } else {
+        Redraw::Fresh(parts_of(drawn, cell))
+    }
+}
+
+/// The cell a chunk covers and the clusters it draws, in its grid's px. A content chunk covers the
+/// cell its commands reach and draws the clusters of them; another chunk covers its whole grid and
+/// draws no clusters.
+fn coverage(index: &[Indexed], grid: Grid, content: bool) -> (Option<PixelRect>, Vec<PixelRect>) {
+    if !content {
+        let whole = PixelRect {
+            x: 0,
+            y: 0,
+            width: grid.size.0,
+            height: grid.size.1,
+        };
+        return (Some(whole), Vec::new());
+    }
+    let rects = draws(index);
+    (content_cell(&rects, grid.size), cluster(rects))
+}
+
 /// What a chunk of an unchanged grid redraws when `changed` (layer grid px) changed: nothing when its
 /// cell draws nothing, the whole cell when the cell moved, else the changed parts of the cell.
 fn redraw_of(
     changed: &[PixelRect],
     cell: Option<PixelRect>,
     prev_cell: Option<PixelRect>,
+    drawn: &[PixelRect],
 ) -> Option<Redraw> {
     let cell = cell?;
     if changed.is_empty() {
         None
     } else if prev_cell != Some(cell) {
-        Some(Redraw::All)
+        Some(whole_redraw(drawn, cell))
     } else {
         let parts: Vec<PixelRect> = changed.iter().filter_map(|r| cut(*r, cell)).collect();
         (!parts.is_empty()).then_some(Redraw::Rects(parts))
@@ -319,28 +392,18 @@ impl<'a> Builder<'a> {
                 indexed(command, h, clipped)
             })
             .collect();
-        // A content chunk covers the cells its commands reach; the other chunks cover their whole grid.
-        let cell = if version.is_some() {
-            content_cell(&index, grid.size)
-        } else {
-            Some(PixelRect {
-                x: 0,
-                y: 0,
-                width: grid.size.0,
-                height: grid.size.1,
-            })
-        };
-        // A content chunk new to the cache damages its cell where its layer was drawn.
+        let content = version.is_some();
+        let (cell, drawn) = coverage(&index, grid, content);
         let cache = self.cache;
-        if cached
-            && version.is_some()
-            && cache.chunk(&key).is_none()
-            && cache.layer(&key.layer).is_some()
-        {
-            self.damage
-                .extend(cell.and_then(|c| mapped_bounds(to_win, layer_rect(c, grid))));
+        let prev = cache.chunk(&key).filter(|_| cached);
+        // A content chunk new to the cache damages the places its clusters are drawn.
+        if cached && content && prev.is_none() && cache.layer(&key.layer).is_some() {
+            for rect in &drawn {
+                self.damage
+                    .extend(mapped_bounds(to_win, layer_rect(*rect, grid)));
+            }
         }
-        let redraw = self.redraw_chunk(key, cached, grid, to_win, &index, cell);
+        let redraw = self.redraw_chunk(prev, grid, to_win, &index, cell, &drawn);
         if let (Some(cell), Some(redraw)) = (cell, redraw) {
             let sub = grid.cell(cell);
             self.chunks.push(ChunkTask {
@@ -354,6 +417,9 @@ impl<'a> Builder<'a> {
                 index: Arc::clone(&index),
             });
         }
+        if let Some(cell) = cell.filter(|_| content) {
+            self.drawn_px.insert(key, parts_of(&drawn, cell));
+        }
         if cached {
             self.chunk_records.push((
                 key,
@@ -362,6 +428,7 @@ impl<'a> Builder<'a> {
                     origin: grid.origin,
                     size: grid.size,
                     cell,
+                    drawn,
                     index,
                     version,
                     frame: self.frame,
@@ -374,19 +441,18 @@ impl<'a> Builder<'a> {
         Ok(cell)
     }
 
-    /// What a chunk with `index` and `cell` redraws against the record kept for `key` (none when the
-    /// cache keeps none), damaging the window where its pixels change.
+    /// What a chunk with `index`, `cell` and `drawn` redraws against its previous record `prev` (none
+    /// when the cache keeps none), damaging the window where its pixels change.
     fn redraw_chunk(
         &mut self,
-        key: ChunkKey,
-        cached: bool,
+        prev: Option<&ChunkRecord>,
         grid: Grid,
         to_win: &Matrix4,
         index: &[Indexed],
         cell: Option<PixelRect>,
+        drawn: &[PixelRect],
     ) -> Option<Redraw> {
-        let cache = self.cache;
-        match cache.chunk(&key).filter(|_| cached) {
+        match prev {
             Some(prev)
                 if prev.scale == grid.scale
                     && prev.origin.x == grid.origin.x
@@ -401,21 +467,21 @@ impl<'a> Builder<'a> {
                         self.damage
                             .extend(mapped_bounds(to_win, layer_rect(*rect, grid)));
                     }
-                    redraw_of(&changed, cell, prev.cell)
+                    redraw_of(&changed, cell, prev.cell, drawn)
                 }
             }
             Some(_) => {
                 self.damage.extend(mapped_bounds(to_win, grid.rect()));
-                cell.map(|_| Redraw::All)
+                cell.map(|c| whole_redraw(drawn, c))
             }
-            None => cell.map(|_| Redraw::All),
+            None => cell.map(|c| whole_redraw(drawn, c)),
         }
     }
 
     /// The previous record of a content chunk whose layer has the same content
     /// version and grid, when it is kept: nothing is hashed, diffed or drawn.
     fn keep_chunk(
-        &self,
+        &mut self,
         key: ChunkKey,
         scene: &RenderScene,
         grid: Grid,
@@ -440,6 +506,9 @@ impl<'a> Builder<'a> {
         if cfg!(debug_assertions) {
             check_version(scene, prev, grid, key, version)?;
         }
+        if let Some(cell) = prev.cell {
+            self.drawn_px.insert(key, parts_of(&prev.drawn, cell));
+        }
         Ok(Some(prev.clone()))
     }
 
@@ -456,7 +525,7 @@ impl<'a> Builder<'a> {
                 self.damage.extend(prev.window_bounds);
             }
         }
-        // A content chunk drawn last frame and not this frame vanished: its cell changes where its layer is placed now.
+        // A content chunk drawn last frame and not this frame vanished: its clusters change where its layer is placed now.
         let now: HashSet<ChunkKey> = self.chunk_records.iter().map(|(k, _)| *k).collect();
         let placed: HashMap<LayerKey, Matrix4> = self
             .layer_records
@@ -468,16 +537,16 @@ impl<'a> Builder<'a> {
                 && matches!(key.role, ChunkRole::Content(_))
                 && !self.reused_chunks.contains(&key.layer)
                 && !now.contains(key);
-            if let Some(map) = placed.get(&key.layer).filter(|_| vanished)
-                && let Some(cell) = prev.cell
-            {
+            if let Some(map) = placed.get(&key.layer).filter(|_| vanished) {
                 let grid = Grid {
                     origin: prev.origin,
                     scale: prev.scale,
                     size: prev.size,
                 };
-                self.damage
-                    .extend(mapped_bounds(map, layer_rect(cell, grid)));
+                for rect in &prev.drawn {
+                    self.damage
+                        .extend(mapped_bounds(map, layer_rect(*rect, grid)));
+                }
             }
         }
         // A backdrop redraws when what it covers changes (fixed point: a backdrop's damage can reach another).
@@ -503,7 +572,7 @@ impl<'a> Builder<'a> {
             .collect();
         let rects = cluster(rects);
         let total: u64 = rects.iter().map(area).sum();
-        if rects.len() >= FULL_AT || total as f64 > 0.5 * window_area {
+        if total as f64 > 0.5 * window_area {
             Damage::Full
         } else {
             Damage::Rects(rects)
@@ -535,5 +604,58 @@ impl<'a> Builder<'a> {
                 self.chunk_records.push((*key, record));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of the clusters that window damage and chunk draws are cut into.
+    use super::*;
+
+    /// A rect of `x, y, width, height`.
+    fn px(x: u32, y: u32, width: u32, height: u32) -> PixelRect {
+        PixelRect {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
+    /// Whether no two rects share a pixel.
+    fn disjoint(rects: &[PixelRect]) -> bool {
+        rects.iter().enumerate().all(|(i, a)| {
+            rects[i + 1..].iter().all(|b| {
+                a.x + a.width <= b.x
+                    || b.x + b.width <= a.x
+                    || a.y + a.height <= b.y
+                    || b.y + b.height <= a.y
+            })
+        })
+    }
+
+    /// Two rects that overlap by a few px and are not near stay apart, as disjoint pieces of their union.
+    #[test]
+    fn overlapping_far_rects_become_disjoint_pieces() {
+        let pieces = cluster(vec![px(600, 0, 200, 580), px(0, 575, 800, 25)]);
+        assert_eq!(pieces.len(), 3, "the panel and the bar merged: {pieces:?}");
+        assert!(disjoint(&pieces), "the pieces overlap: {pieces:?}");
+        assert_eq!(
+            pieces.iter().map(area).sum::<u64>(),
+            135_000,
+            "the pieces do not cover the union exactly"
+        );
+    }
+
+    /// Crossing lines that cut each other into more than 16 pieces become their union.
+    #[test]
+    fn too_many_pieces_become_their_union() {
+        let mut rects: Vec<PixelRect> = (1..=4).map(|i| px(0, i * 100, 800, 1)).collect();
+        rects.extend((0..4).map(|i| px(100 + i * 200, 0, 1, 600)));
+        assert_eq!(
+            cluster(rects),
+            vec![px(0, 0, 800, 600)],
+            "the pieces were not capped"
+        );
     }
 }

@@ -971,3 +971,40 @@ fn an_inserted_layer_keeps_a_later_clip() {
     let fresh = render(|| clipped_after(signal(true))).screenshot();
     assert_same_pixels(&shot, &fresh, 2, "after the inserted layer");
 }
+
+/// While `on` holds, a layer holding a panel along the right edge and a bar along the bottom
+/// that overlaps it by 5 px, with nothing between.
+fn l_shape(on: Signal<bool>) -> impl IntoView {
+    node()
+        .child(show(
+            move || on.get(),
+            || {
+                node()
+                    .child((
+                        node().style(at(600, 0, 200, 580).background(rgb(BLUE))),
+                        node().style(at(0, 575, 800, 25).background(rgb(BLUE))),
+                    ))
+                    .style(at(0, 0, 800, 600).will_change(WillChange::Transform))
+            },
+        ))
+        .style(style().size(800, 600).background(Color::WHITE))
+}
+
+/// A whole redraw rasters only the clusters a chunk draws, not their bounding box.
+#[test]
+fn a_whole_redraw_rasters_only_what_is_drawn() {
+    let (screen, on) = mount(|| {
+        let on = signal(false);
+        (on, l_shape(on))
+    });
+    screen.screenshot();
+    on.set(true);
+    let shown = screen.screenshot();
+    let rastered = screen.frame_stats().pixels_rastered;
+    assert!(
+        rastered <= 200 * 640 + 800 * 64,
+        "a whole redraw rastered the bounding box: {rastered} px"
+    );
+    let fresh = render(|| l_shape(signal(true))).screenshot();
+    assert_same_pixels(&shown, &fresh, 2, "the L shape");
+}
