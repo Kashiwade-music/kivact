@@ -15,8 +15,6 @@ use super::hash;
 use super::ops::{ChunkTask, Damage, Grid, PlanError, Redraw};
 use crate::cache::{ChunkKey, ChunkRecord, Indexed, LayerRecord, Reach};
 
-/// Changed commands beyond which their bounds merge into one rectangle.
-const MERGE_AT: usize = 17;
 /// How far a chunk's diff searches for a command that moved.
 const SEARCH: usize = 64;
 /// Damaged rectangles beyond which the whole window redraws.
@@ -78,30 +76,52 @@ fn overlaps_px(a: PixelRect, b: PixelRect) -> bool {
     a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 }
 
-/// Fewer, slightly larger rectangles: the CPU raster passes over a chunk's
-/// commands once per rectangle. Overlapping rectangles merge; then all merge
-/// into their union when it is at most twice their area.
-fn coalesce(mut rects: Vec<PixelRect>) -> Vec<PixelRect> {
-    if rects.len() > 64 {
-        return union_px(&rects).into_iter().collect();
+/// Whether two px rectangles are one change: they share a pixel, or their union is at most 1.5
+/// times their two areas.
+fn near(a: PixelRect, b: PixelRect) -> bool {
+    if overlaps_px(a, b) {
+        return true;
     }
+    let u = union_px(&[a, b]).expect("two rects");
+    2 * area(&u) <= 3 * (area(&a) + area(&b))
+}
+
+/// Replace two near clusters by their union until no two clusters are near.
+fn merge_near(clusters: &mut Vec<PixelRect>) {
     'again: loop {
-        for i in 0..rects.len() {
-            for j in i + 1..rects.len() {
-                if overlaps_px(rects[i], rects[j]) {
-                    rects[i] = union_px(&[rects[i], rects[j]]).expect("two rects");
-                    rects.swap_remove(j);
+        for i in 0..clusters.len() {
+            for j in i + 1..clusters.len() {
+                if near(clusters[i], clusters[j]) {
+                    clusters[i] = union_px(&[clusters[i], clusters[j]]).expect("two rects");
+                    clusters.swap_remove(j);
                     continue 'again;
                 }
             }
         }
         break;
     }
-    let total: u64 = rects.iter().map(area).sum();
-    match union_px(&rects) {
-        Some(u) if rects.len() > 1 && area(&u) <= 2 * total => vec![u],
-        _ => rects,
+}
+
+/// Rectangles grouped into clusters of nearby changes: two merge when they overlap or their union
+/// is at most 1.5 times their two areas. More than `FULL_AT - 1` clusters become their union, so
+/// each cluster stays a rectangle of its own below the whole-window limit.
+fn cluster(rects: Vec<PixelRect>) -> Vec<PixelRect> {
+    let mut clusters: Vec<PixelRect> = Vec::new();
+    for rect in &rects {
+        match clusters.iter().position(|c| near(*c, *rect)) {
+            Some(i) => clusters[i] = union_px(&[clusters[i], *rect]).expect("two rects"),
+            None => clusters.push(*rect),
+        }
+        if clusters.len() >= FULL_AT {
+            // Near clusters are one cluster: merge them before giving up.
+            merge_near(&mut clusters);
+            if clusters.len() >= FULL_AT {
+                return union_px(&rects).into_iter().collect();
+            }
+        }
     }
+    merge_near(&mut clusters);
+    clusters
 }
 
 /// The index entry of a command with its chunk px bounds.
@@ -162,10 +182,7 @@ fn diff(old: &[Indexed], new: &[Indexed]) -> Vec<PixelRect> {
             j += 1;
         }
     }
-    if changed.len() >= MERGE_AT {
-        return union_px(&changed).into_iter().collect();
-    }
-    changed
+    cluster(changed)
 }
 
 /// Debug builds: a kept content version must mean the same commands.
@@ -364,7 +381,7 @@ impl<'a> Builder<'a> {
             .iter()
             .filter_map(|d| clip_px(*d, Point::new(0.0, 0.0), 1.0, self.window))
             .collect();
-        let rects = coalesce(rects);
+        let rects = cluster(rects);
         let total: u64 = rects.iter().map(area).sum();
         if rects.len() >= FULL_AT || total as f64 > 0.5 * window_area {
             Damage::Full

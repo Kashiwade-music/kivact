@@ -12,7 +12,7 @@ use kivact_types::gpu::ExternalFrame;
 use kivact_types::ids::DrawableId;
 use kivact_types::pixel::{BlendMode, Pixels};
 
-use super::cull::{bounding, keep_mask};
+use super::cull::keep_mask;
 use super::draw::{self, Chunks};
 use super::filters;
 use super::mask;
@@ -361,16 +361,16 @@ fn raster_chunk(
         && let Some(mut px) = chunks.remove(&task.key)
         && px.size() == task.size
     {
-        let keep = keep_mask(scene, &task.index, bounding(rects));
-        raster.raster_rects(
-            scene,
-            task.origin,
-            task.scale,
-            size,
-            rects,
-            &mut px.data,
-            Some(keep.as_slice()),
-        )?;
+        let masks: Vec<Vec<bool>> = rects
+            .iter()
+            .map(|r| keep_mask(scene, &task.index, *r))
+            .collect();
+        let parts: Vec<(PixelRect, &[bool])> = rects
+            .iter()
+            .zip(&masks)
+            .map(|(r, m)| (*r, m.as_slice()))
+            .collect();
+        raster.raster_parts(scene, task.origin, task.scale, size, &parts, &mut px.data)?;
         counts.pixels += rects.iter().map(area).sum::<u64>();
         chunks.insert(task.key, px);
         return Ok(());

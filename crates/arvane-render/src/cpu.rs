@@ -146,6 +146,7 @@ impl CpuFrameRaster<'_> {
         keep: Option<&[bool]>,
     ) -> Result<(), RenderError> {
         check_mask(scene, keep)?;
+        validate::scene(scene, &mut self.caches.validation)?;
         let full = PixelRect {
             x: 0,
             y: 0,
@@ -158,43 +159,44 @@ impl CpuFrameRaster<'_> {
             scale,
             size,
         };
-        self.render(scene, target, region, &[region], out, keep)
+        self.render_region(scene, target, region, out, keep)
     }
 
-    /// Draw `scene` into the damaged `rects` of `out` with one validation
-    /// and one encode: the rects' bounding box is rendered once and
-    /// only the rects are copied. Command `i` is drawn only when `keep[i]`
-    /// is true; `None` draws every command.
-    pub fn raster_rects(
+    /// Draw `scene` into each part of `out` (a frame of `size` device px)
+    /// with one validation: part `i` is the rectangle `parts[i].0`, drawn
+    /// with only the commands its mask `parts[i].1` keeps (`true` keeps).
+    pub fn raster_parts(
         &mut self,
         scene: &RenderScene,
         origin: Point,
         scale: f64,
         size: (u16, u16),
-        rects: &[PixelRect],
+        parts: &[(PixelRect, &[bool])],
         out: &mut [u8],
-        keep: Option<&[bool]>,
     ) -> Result<(), RenderError> {
-        check_mask(scene, keep)?;
-        let Some(bounds) = bounding(rects) else {
-            return Ok(());
-        };
+        for &(_, keep) in parts {
+            check_mask(scene, Some(keep))?;
+        }
+        validate::scene(scene, &mut self.caches.validation)?;
         let target = Target {
             origin,
             scale,
             size,
         };
-        self.render(scene, target, bounds, rects, out, keep)
+        for &(region, keep) in parts {
+            self.render_region(scene, target, region, out, Some(keep))?;
+        }
+        Ok(())
     }
 
-    /// Draw `scene` into `region` of the frame, then copy the `copy` rects
-    /// of `region` into `out` (the whole frame, `target.size` device px).
-    fn render(
+    /// Draw `scene` into `region` of the frame and copy the region into
+    /// `out` (the whole frame, `target.size` device px). The scene is
+    /// validated by the caller.
+    fn render_region(
         &mut self,
         scene: &RenderScene,
         target: Target,
         region: PixelRect,
-        copy: &[PixelRect],
         out: &mut [u8],
         keep: Option<&[bool]>,
     ) -> Result<(), RenderError> {
@@ -235,7 +237,6 @@ impl CpuFrameRaster<'_> {
                 height: f64::from(height) / scale,
             },
         };
-        validate::scene(scene, &mut self.caches.validation)?;
         self.context.reset_and_resize(width, height);
         let mut canvas = CpuCanvas {
             context: &mut *self.context,
@@ -254,7 +255,7 @@ impl CpuFrameRaster<'_> {
         // A single rect that is the whole frame is drawn straight into `out`.
         // Its target is covered by the scene, so vello_cpu writes every pixel
         // without clearing first.
-        if copy.len() == 1 && region.width == frame_width && region.height == frame_height {
+        if region.width == frame_width && region.height == frame_height {
             let target = PixmapMut::new(width, height, out).ok_or(RenderError::InvalidSize)?;
             self.context.render(target, &mut *self.resources);
             return Ok(());
@@ -264,7 +265,7 @@ impl CpuFrameRaster<'_> {
         let target = PixmapMut::new(width, height, &mut self.scratch[..len])
             .ok_or(RenderError::InvalidSize)?;
         self.context.render(target, &mut *self.resources);
-        copy_rects(&self.scratch[..len], region, frame_width, copy, out);
+        copy_region(&self.scratch[..len], region, frame_width, out);
         Ok(())
     }
 }
@@ -279,47 +280,17 @@ fn check_mask(scene: &RenderScene, keep: Option<&[bool]>) -> Result<(), RenderEr
     }
 }
 
-/// Copy each of `copy` (rects inside `region`) from `scratch`, the region's
-/// pixels, into `out`, the frame's pixels `frame_width` device px a row.
-fn copy_rects(
-    scratch: &[u8],
-    region: PixelRect,
-    frame_width: u32,
-    copy: &[PixelRect],
-    out: &mut [u8],
-) {
-    let region_stride = region.width as usize * 4;
+/// Copy `region` from `scratch`, the region's pixels, into `out`, the
+/// frame's pixels `frame_width` device px a row.
+fn copy_region(scratch: &[u8], region: PixelRect, frame_width: u32, out: &mut [u8]) {
+    let span = region.width as usize * 4;
     let frame_stride = frame_width as usize * 4;
-    for rect in copy {
-        let span = rect.width as usize * 4;
-        let left = (rect.x - region.x) as usize * 4;
-        let top = (rect.y - region.y) as usize;
-        for row in 0..rect.height as usize {
-            let from = (top + row) * region_stride + left;
-            let to = (rect.y as usize + row) * frame_stride + rect.x as usize * 4;
-            out[to..to + span].copy_from_slice(&scratch[from..from + span]);
-        }
+    let left = region.x as usize * 4;
+    for row in 0..region.height as usize {
+        let from = row * span;
+        let to = (region.y as usize + row) * frame_stride + left;
+        out[to..to + span].copy_from_slice(&scratch[from..from + span]);
     }
-}
-
-/// The smallest rect holding every rect of `rects`; `None` when empty.
-fn bounding(rects: &[PixelRect]) -> Option<PixelRect> {
-    let mut iter = rects.iter();
-    let first = *iter.next()?;
-    let (mut x0, mut y0) = (first.x, first.y);
-    let (mut x1, mut y1) = (first.x + first.width, first.y + first.height);
-    for r in iter {
-        x0 = x0.min(r.x);
-        y0 = y0.min(r.y);
-        x1 = x1.max(r.x + r.width);
-        y1 = y1.max(r.y + r.height);
-    }
-    Some(PixelRect {
-        x: x0,
-        y: y0,
-        width: x1 - x0,
-        height: y1 - y0,
-    })
 }
 
 /// The CPU rasterizer's [`draw::Canvas`].
