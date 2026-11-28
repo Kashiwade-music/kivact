@@ -11,6 +11,7 @@ use kivact_types::scene::Outline;
 use super::bounds::mapped_bounds;
 use super::builder::Builder;
 use super::frame::{Dest, ItemCtx, px_map};
+use super::layers::placed;
 use super::ops::{DrawOp, Op, PlanError, Sampling, Scissor, Source};
 use super::polygon::{Plane, Poly, Split, plane_of, project_rect, split};
 
@@ -240,14 +241,14 @@ impl<'a> Builder<'a> {
         };
         let sig = self.signature(index, &part.to_t, tsize)?;
         let mark = self.damage.len();
-        let source = self.build_surface(index, owner, &geo, &part.to_win, sig)?;
+        let (source, drawn) = self.build_surface(index, owner, &geo, &part.to_win, sig)?;
         self.expand_effects(owner, &geo, mark, &part.to_win);
         let win = mapped_bounds(&part.to_win, geo.rect);
         self.record(owner, win, sig, &part.to_win, &[], false);
-        let (Some(pts), Some(map)) = (
-            project_rect(&part.to_t, geo.rect),
-            px_map(&part.to_t, &geo.ms),
-        ) else {
+        let Some(drawn) = drawn else {
+            return Ok(None);
+        };
+        let Some((pts, map)) = placed(&part.to_t, &geo.ms, drawn) else {
             return Ok(None);
         };
         let draw = Draw {

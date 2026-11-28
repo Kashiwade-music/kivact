@@ -363,7 +363,14 @@ fn raster_chunk(
     {
         let masks: Vec<Vec<bool>> = rects
             .iter()
-            .map(|r| keep_mask(scene, &task.index, *r))
+            .map(|r| {
+                let region = PixelRect {
+                    x: r.x + task.offset.0,
+                    y: r.y + task.offset.1,
+                    ..*r
+                };
+                keep_mask(scene, &task.index, region)
+            })
             .collect();
         let parts: Vec<(PixelRect, &[bool])> = rects
             .iter()
@@ -377,8 +384,8 @@ fn raster_chunk(
     }
     let mut px = Pixmap::new(w, h);
     let whole = PixelRect {
-        x: 0,
-        y: 0,
+        x: task.offset.0,
+        y: task.offset.1,
         width: w,
         height: h,
     };
@@ -682,7 +689,8 @@ mod tests {
     /// A full frame of a root-only composition is one copy of the root's chunk, with no clear.
     #[test]
     fn a_full_frame_is_a_copy() {
-        let size = (2048, 1024);
+        // The squares reach 1 896 px across: the root's cell is the whole 1 920 px window.
+        let size = (1920, 1024);
         let composition = root_only(grid_scene(None), 1, size);
         let cache = CacheIndex::default();
         let plan = plan::build(&composition, size, 1.0, &cache, false).expect("the root plans");

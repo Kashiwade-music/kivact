@@ -1,17 +1,18 @@
 //! Role: Tests of the plan builder's hashing of raster scenes across frames.
 
 use arvane_protocol::{
-    CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Plane, RasterGrid, RasterPaint,
-    RenderCmd, RenderScene,
+    CompositeLayer, Composition, LayerEffects, LayerFilter, LayerItem, LayerKey, Plane, RasterGrid,
+    RasterPaint, RenderCmd, RenderScene,
 };
 use kivact_types::Matrix4;
 use kivact_types::Rgba;
 use kivact_types::geometry::Rect;
+use kivact_types::ids::NodeId;
 use kivact_types::paint::BackfaceVisibility;
 use kivact_types::scene::Outline;
 
 use super::build;
-use crate::cache::CacheIndex;
+use crate::cache::{CacheIndex, ChunkKey, ChunkRole};
 
 /// The commands of the raster scene of the test.
 const N: usize = 500;
@@ -87,4 +88,81 @@ fn each_scene_is_hashed_once_and_a_kept_layer_never() {
     let (hashed, changed) = frame(&mut cache, &root_only(2, Some(7)));
     assert_eq!(hashed, N, "a new version hashes each command once");
     assert_ne!(changed, first, "a new version changes the signature");
+}
+
+/// A raster item of one solid square covering `rect`.
+fn raster(rect: Rect) -> LayerItem {
+    LayerItem::Raster(RenderScene {
+        commands: vec![RenderCmd::FillShape {
+            shape: Outline::Rect(rect),
+            paint: RasterPaint::Solid(Rgba {
+                r: 0.2,
+                g: 0.5,
+                b: 0.3,
+                a: 1.0,
+            }),
+        }],
+    })
+}
+
+/// The window with two small squares and a blurred child layer between them.
+fn small_items() -> Composition {
+    let root = CompositeLayer {
+        key: LayerKey::Root,
+        transform: Matrix4::IDENTITY,
+        bounds: Rect::new(0.0, 0.0, f64::from(SIZE.0), f64::from(SIZE.1)),
+        plane: Plane::Flat,
+        backface: BackfaceVisibility::Visible,
+        grid: RasterGrid::Target,
+        effects: LayerEffects::default(),
+        content_version: 1,
+        items: vec![
+            raster(Rect::new(100.0, 100.0, 10.0, 10.0)),
+            LayerItem::Layer {
+                index: 1,
+                clips: vec![],
+            },
+            raster(Rect::new(900.0, 50.0, 10.0, 10.0)),
+        ],
+    };
+    let child = CompositeLayer {
+        key: LayerKey::Node(NodeId(2)),
+        transform: Matrix4::IDENTITY,
+        bounds: Rect::new(500.0, 700.0, 100.0, 100.0),
+        plane: Plane::Flat,
+        backface: BackfaceVisibility::Visible,
+        grid: RasterGrid::Target,
+        effects: LayerEffects {
+            filters: vec![LayerFilter::Blur { std_dev: 2.0 }],
+            ..LayerEffects::default()
+        },
+        content_version: 1,
+        items: vec![raster(Rect::new(500.0, 700.0, 100.0, 100.0))],
+    };
+    Composition {
+        layers: vec![root, child],
+        exports: Vec::new(),
+    }
+}
+
+/// A content chunk covers only the 64 px cells its commands reach, not the window.
+#[test]
+fn a_chunk_covers_only_its_cells() {
+    let composition = small_items();
+    let cache = CacheIndex::default();
+    let plan = build(&composition, SIZE, 1.0, &cache, false).expect("the frame plans");
+    for task in &plan.chunks {
+        let size = task.size;
+        if let ChunkKey {
+            layer: LayerKey::Root,
+            role: ChunkRole::Content(_),
+        } = task.key
+        {
+            assert_eq!(
+                size,
+                (64, 64),
+                "a content chunk took the whole window: {size:?}"
+            );
+        }
+    }
 }

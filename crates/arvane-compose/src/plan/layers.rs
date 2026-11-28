@@ -9,7 +9,7 @@ use arvane_protocol::{
 use kivact_types::Composite;
 use kivact_types::Matrix4;
 use kivact_types::geometry::{Affine, Point, Rect, Size};
-use kivact_types::geometry3d::Projective;
+use kivact_types::geometry3d::{Polygon, Projective};
 use kivact_types::pixel::BlendMode;
 use kivact_types::scene::Outline;
 
@@ -21,6 +21,7 @@ use super::frame::{
 };
 use super::hash::{self, WordHash};
 use super::ops::{DrawOp, Grid, Op, PlanError, Sampling, Scissor, Source, TargetId, TargetKind};
+use super::polygon::project_rect;
 use crate::cache::{ChunkKey, ChunkRole, LayerRecord, Retained};
 
 /// The largest surface side in px (a larger surface is rastered at a lower scale).
@@ -60,6 +61,28 @@ impl Geo {
             size: self.size,
         }
     }
+}
+
+/// What a surface's draw reads: its layer-space rectangle and where its px (0, 0) lies in the surface's grid px.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct Drawn {
+    /// The layer-space rectangle the draw covers.
+    area: Rect,
+    /// Where the drawn part's px (0, 0) lies in the surface's grid px.
+    offset: (u32, u32),
+}
+
+/// Where a drawn surface lands: the projected points of its area, and the map from target px to the
+/// px of the drawn part (the surface's px less the part's offset).
+pub(super) fn placed(
+    to_t: &Matrix4,
+    ms: &Matrix4,
+    drawn: Drawn,
+) -> Option<(Vec<[f64; 3]>, Projective)> {
+    let points = project_rect(to_t, drawn.area)?;
+    let (ox, oy) = (f64::from(drawn.offset.0), f64::from(drawn.offset.1));
+    let map = px_map(to_t, &ms.then(Matrix4::translate(-ox, -oy, 0.0)))?;
+    Some((points, map))
 }
 
 /// The scene of a layer that is a single raster with default effects: its chunk is its surface.
@@ -379,8 +402,10 @@ impl<'a> Builder<'a> {
             };
             self.emit_items(&cx)?;
         } else {
-            let src = self.build_surface(index, layer, &geo, &to_win, sig)?;
-            self.draw_surface(layer, &geo, src, t, cover);
+            let (src, drawn) = self.build_surface(index, layer, &geo, &to_win, sig)?;
+            if let Some(drawn) = drawn {
+                self.draw_surface(layer, &to_t, &geo, drawn, src, t, cover);
+            }
         }
         self.expand_effects(layer, &geo, mark, &to_win);
         let win = mapped_bounds(&to_win, geo.rect);
@@ -388,7 +413,8 @@ impl<'a> Builder<'a> {
         Ok(())
     }
 
-    /// Plan a layer's surface (or its chunk) and everything that fills it, returning what the parent draws.
+    /// Plan a layer's surface (or its chunk) and everything that fills it. Returns what the parent draws
+    /// and the part of it to draw: None when the chunk draws nothing.
     pub(super) fn build_surface(
         &mut self,
         index: u32,
@@ -396,15 +422,19 @@ impl<'a> Builder<'a> {
         geo: &Geo,
         to_win: &Matrix4,
         sig: u64,
-    ) -> Result<Source<'a>, PlanError> {
+    ) -> Result<(Source<'a>, Option<Drawn>), PlanError> {
         if let Some(scene) = chunk_shortcut(layer) {
             let key = ChunkKey {
                 layer: layer.key,
                 role: ChunkRole::Content(0),
             };
             let version = Some(layer.content_version);
-            self.chunk(key, Cow::Borrowed(scene), geo.grid(), to_win, true, version)?;
-            return Ok(Source::Chunk(key));
+            let cell = self.chunk(key, Cow::Borrowed(scene), geo.grid(), to_win, true, version)?;
+            let drawn = cell.map(|c| Drawn {
+                area: geo.grid().cell(c).rect(),
+                offset: (c.x, c.y),
+            });
+            return Ok((Source::Chunk(key), drawn));
         }
         let cache = self.cache;
         let reuse = self.cacheable()
@@ -422,10 +452,14 @@ impl<'a> Builder<'a> {
         } else {
             self.new_temp(geo.size)
         };
+        let whole = Drawn {
+            area: geo.rect,
+            offset: (0, 0),
+        };
         if reuse {
             self.reused_surfaces += 1;
             self.reuse_subtree(index)?;
-            return Ok(Source::Target(surface));
+            return Ok((Source::Target(surface), Some(whole)));
         }
         if self.cacheable() {
             self.ops.push(Op::Clear {
@@ -465,7 +499,7 @@ impl<'a> Builder<'a> {
         self.behind.pop();
         emitted?;
         self.emit_effects(layer, geo, content, surface, to_win)?;
-        Ok(Source::Target(surface))
+        Ok((Source::Target(surface), Some(whole)))
     }
 
     /// Draw what lies behind a backdrop layer, filter it, and draw it into the surface under the backdrop's shape.
@@ -603,20 +637,22 @@ impl<'a> Builder<'a> {
         Ok(())
     }
 
-    /// Draw a planned surface into its target.
+    /// Draw the drawn part of a planned surface into its target.
     pub(super) fn draw_surface(
         &mut self,
         layer: &CompositeLayer,
+        to_t: &Matrix4,
         geo: &Geo,
+        drawn: Drawn,
         src: Source<'a>,
         t: TargetId,
         cover: Option<ChunkKey>,
     ) {
-        let Some(map) = geo.h.invert().map(|inv| inv.then(geo.ms.flatten())) else {
+        let Some((points, map)) = placed(to_t, &geo.ms, drawn) else {
             return;
         };
-        let Some(polygon) = geo.h.map_rect(geo.rect) else {
-            return;
+        let polygon = Polygon {
+            points: points.iter().map(|p| Point::new(p[0], p[1])).collect(),
         };
         self.ops.push(Op::Draw(DrawOp {
             target: t,

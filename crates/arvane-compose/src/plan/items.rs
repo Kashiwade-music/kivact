@@ -40,17 +40,21 @@ impl<'a> Builder<'a> {
             layer: cx.layer.key,
             role: ChunkRole::Content(raster_ordinal(cx.layer, at)),
         };
-        self.chunk(
+        let Some(cell) = self.chunk(
             key,
             Cow::Borrowed(scene),
             cx.grid,
             &cx.to_win,
             cx.cache_chunks,
             Some(cx.layer.content_version),
-        )?;
+        )?
+        else {
+            return Ok(());
+        };
+        let cell_grid = cx.grid.cell(cell);
         let (Some(polygon), Some(map)) = (
-            cx.dest.to.flatten().map_rect(cx.grid.rect()),
-            px_map(&cx.dest.to, &cx.grid.to_px()),
+            cx.dest.to.flatten().map_rect(cell_grid.rect()),
+            px_map(&cx.dest.to, &cell_grid.to_px()),
         ) else {
             return Ok(());
         };

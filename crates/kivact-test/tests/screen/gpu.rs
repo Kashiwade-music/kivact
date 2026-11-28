@@ -313,6 +313,10 @@ fn gpu_frames_in_a_real_window_match_cpu_frames() {
     let (gpu, gpu_renderer) = shot_of(true, || plates(false).into_view());
     assert_eq!(gpu_renderer, Some(Renderer::Gpu));
     assert_close(&cpu, &gpu, "gpu_shadows");
+    let (cpu, _) = shot_of(false, || plates(true).into_view());
+    let (gpu, gpu_renderer) = shot_of(true, || plates(true).into_view());
+    assert_eq!(gpu_renderer, Some(Renderer::Gpu));
+    assert_close(&cpu, &gpu, "gpu_shadow_surfaces");
 }
 
 /// A host transition is sampled before presenting through each real surface.

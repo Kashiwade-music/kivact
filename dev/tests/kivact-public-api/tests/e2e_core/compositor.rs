@@ -714,3 +714,83 @@ fn many_scattered_changes_stay_partial() {
     let fresh = render(|| diagonal(signal(RED))).screenshot();
     assert_same_pixels(&changed, &fresh, 2, "the diagonal");
 }
+
+/// A canvas of `n` small rects in a 20-column grid at (`x`, `y`), coloured by `colour`, filling the window.
+fn rects_canvas(n: u32, colour: Signal<u32>, x: f64, y: f64) -> impl IntoView {
+    canvas(move |d, _| {
+        let c = rgb(colour.get());
+        for i in 0..n {
+            d.fill_rect(
+                Rect::new(
+                    x + f64::from(i % 20) * 12.0,
+                    y + f64::from(i / 20) * 12.0,
+                    8.0,
+                    8.0,
+                ),
+                c,
+            );
+        }
+    })
+    .style(style().position(Position::Absolute).inset(0.0))
+}
+
+/// A blurred box, then a canvas of 400 rects at (300, 200) coloured by `c`.
+fn shifted_cell(c: Signal<u32>) -> impl IntoView {
+    node()
+        .child((
+            node().style(
+                at(20, 20, 100, 80)
+                    .background(rgb(GREEN))
+                    .filter(Filter::new().blur(4)),
+            ),
+            rects_canvas(400, c, 300.0, 200.0),
+        ))
+        .style(style().size(800, 600).background(Color::WHITE))
+}
+
+/// A chunk whose cell does not start at the grid's corner redraws its part at the right place.
+#[test]
+fn a_shifted_cell_redraws_its_part() {
+    let (screen, c) = mount(|| {
+        let c = signal(BLUE);
+        (c, shifted_cell(c))
+    });
+    screen.screenshot();
+    c.set(RED);
+    let shot = screen.screenshot();
+    let fresh = render(|| shifted_cell(signal(RED))).screenshot();
+    assert_same_pixels(&shot, &fresh, 2, "the shifted cell");
+}
+
+/// A flat child of a window with `space` as its root's transform style: a will-change layer whose canvas
+/// draws 400 rects at (200, 150) inside it, so its content chunk starts away from the grid's corner.
+fn flat_child_window(colour: Signal<u32>, space: TransformStyle) -> impl IntoView {
+    node()
+        .child(
+            node()
+                .style(at(100, 100, 500, 400).will_change(WillChange::Transform))
+                .child(rects_canvas(400, colour, 200.0, 150.0)),
+        )
+        .style(
+            style()
+                .size(800, 600)
+                .background(Color::WHITE)
+                .transform_style(space),
+        )
+}
+
+/// A flat child of a preserve-3d context redraws its part where it lies, and draws as it does flat.
+#[test]
+fn a_flat_child_in_3d_redraws_its_part() {
+    let (screen, c) = mount(|| {
+        let c = signal(BLUE);
+        (c, flat_child_window(c, TransformStyle::Preserve3d))
+    });
+    screen.screenshot();
+    c.set(RED);
+    let shot = screen.screenshot();
+    let fresh = render(|| flat_child_window(signal(RED), TransformStyle::Preserve3d)).screenshot();
+    let flat = render(|| flat_child_window(signal(RED), TransformStyle::Flat)).screenshot();
+    assert_same_pixels(&fresh, &flat, 2, "a flat child in 3D draws as it does flat");
+    assert_same_pixels(&shot, &fresh, 2, "the changed flat child in 3D");
+}

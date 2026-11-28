@@ -80,6 +80,18 @@ impl Grid {
             f64::from(self.size.1) / self.scale,
         )
     }
+
+    /// The grid of `cell`, a px rectangle of this grid: its origin at the cell's corner, its size the cell's.
+    pub(crate) fn cell(self, cell: PixelRect) -> Grid {
+        Grid {
+            origin: Point::new(
+                self.origin.x + f64::from(cell.x) / self.scale,
+                self.origin.y + f64::from(cell.y) / self.scale,
+            ),
+            scale: self.scale,
+            size: (cell.width, cell.height),
+        }
+    }
 }
 
 /// What a target holds for the frame's use.
@@ -124,12 +136,14 @@ pub(crate) struct ChunkTask<'a> {
     pub(crate) key: ChunkKey,
     /// What it draws (borrowed from the composition or built by the plan).
     pub(crate) scene: Cow<'a, RenderScene>,
-    /// Layer point at chunk px (0, 0).
+    /// Layer point at chunk px (0, 0) of the chunk's cell.
     pub(crate) origin: Point,
     /// Chunk px per layer unit.
     pub(crate) scale: f64,
-    /// Size in px.
+    /// Size in px of the chunk's cell.
     pub(crate) size: (u32, u32),
+    /// Where the chunk's px (0, 0) lies in its layer grid's px (`index` is in layer grid px).
+    pub(crate) offset: (u32, u32),
     /// The part to raster.
     pub(crate) redraw: Redraw,
     /// Each command's pixel reach, for culling.

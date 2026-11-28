@@ -19,6 +19,8 @@ use crate::cache::{ChunkKey, ChunkRecord, Indexed, LayerRecord, Reach};
 const SEARCH: usize = 64;
 /// Damaged rectangles beyond which the whole window redraws.
 const FULL_AT: usize = 17;
+/// The cell, in px, a content chunk's grid snaps out to.
+const CHUNK_CELL_PX: u32 = 64;
 
 /// The px rectangle of `r` in a grid of px, clipped to `size`; None when nothing is left.
 fn clip_px(r: Rect, origin: Point, scale: f64, size: (u32, u32)) -> Option<PixelRect> {
@@ -124,6 +126,65 @@ fn cluster(rects: Vec<PixelRect>) -> Vec<PixelRect> {
     clusters
 }
 
+/// The cells of a chunk grid of `size` px that `index` draws: the union of its `Reach::Draws` rects, its left and top edges rounded down and its right and bottom edges rounded up to `CHUNK_CELL_PX`, kept inside the grid; `None` when nothing draws.
+fn content_cell(index: &[Indexed], size: (u32, u32)) -> Option<PixelRect> {
+    let draws: Vec<PixelRect> = index
+        .iter()
+        .filter_map(|entry| match entry.reach {
+            Reach::Draws(rect) => Some(rect),
+            Reach::Opens(_) | Reach::Nothing => None,
+        })
+        .collect();
+    let union = union_px(&draws)?;
+    let cell = CHUNK_CELL_PX;
+    let x0 = union.x / cell * cell;
+    let y0 = union.y / cell * cell;
+    let x1 = ((union.x + union.width).div_ceil(cell) * cell).min(size.0);
+    let y1 = ((union.y + union.height).div_ceil(cell) * cell).min(size.1);
+    Some(PixelRect {
+        x: x0,
+        y: y0,
+        width: x1 - x0,
+        height: y1 - y0,
+    })
+}
+
+/// The part of `r` (layer grid px) inside `cell` (layer grid px), in the cell's px; `None` when none is left.
+fn cut(r: PixelRect, cell: PixelRect) -> Option<PixelRect> {
+    let x0 = r.x.max(cell.x);
+    let y0 = r.y.max(cell.y);
+    let x1 = (r.x + r.width).min(cell.x + cell.width);
+    let y1 = (r.y + r.height).min(cell.y + cell.height);
+    if x1 > x0 && y1 > y0 {
+        Some(PixelRect {
+            x: x0 - cell.x,
+            y: y0 - cell.y,
+            width: x1 - x0,
+            height: y1 - y0,
+        })
+    } else {
+        None
+    }
+}
+
+/// What a chunk of an unchanged grid redraws when `changed` (layer grid px) changed: nothing when its
+/// cell draws nothing, the whole cell when the cell moved, else the changed parts of the cell.
+fn redraw_of(
+    changed: &[PixelRect],
+    cell: Option<PixelRect>,
+    prev_cell: Option<PixelRect>,
+) -> Option<Redraw> {
+    let cell = cell?;
+    if changed.is_empty() {
+        None
+    } else if prev_cell != Some(cell) {
+        Some(Redraw::All)
+    } else {
+        let parts: Vec<PixelRect> = changed.iter().filter_map(|r| cut(*r, cell)).collect();
+        (!parts.is_empty()).then_some(Redraw::Rects(parts))
+    }
+}
+
 /// The index entry of a command with its chunk px bounds.
 fn indexed(command: &RenderCmd, hash: u64, clipped: Option<PixelRect>) -> Indexed {
     let reach = match (command, clipped) {
@@ -219,6 +280,7 @@ impl<'a> Builder<'a> {
     ///
     /// `cache_it` is false for chunks of inline layers, which are always redrawn and never cached.
     /// `version` is the layer's content version for its content chunks, None otherwise.
+    /// Returns the chunk's cell in the layer grid's px; None when it draws nothing.
     pub(super) fn chunk(
         &mut self,
         key: ChunkKey,
@@ -227,10 +289,18 @@ impl<'a> Builder<'a> {
         to_win: &Matrix4,
         cache_it: bool,
         version: Option<u64>,
-    ) -> Result<(), PlanError> {
+    ) -> Result<Option<PixelRect>, PlanError> {
         let cached = cache_it && self.cacheable();
-        if self.keep_chunk(key, &scene, grid, cached, version)? {
-            return Ok(());
+        if let Some(prev) = self.keep_chunk(key, &scene, grid, cached, version)? {
+            let cell = prev.cell;
+            self.chunk_records.push((
+                key,
+                ChunkRecord {
+                    frame: self.frame,
+                    ..prev
+                },
+            ));
+            return Ok(cell);
         }
         let bounds = scene_bounds(&scene)?;
         let hashed = match &scene {
@@ -248,43 +318,27 @@ impl<'a> Builder<'a> {
                 indexed(command, h, clipped)
             })
             .collect();
-        let cache = self.cache;
-        let previous = cache.chunk(&key).filter(|_| cached);
-        let redraw = match previous {
-            Some(prev)
-                if prev.scale == grid.scale
-                    && prev.origin.x == grid.origin.x
-                    && prev.origin.y == grid.origin.y
-                    && prev.size == grid.size =>
-            {
-                if prev.index[..] == index[..] {
-                    None
-                } else {
-                    let rects = diff(&prev.index, &index);
-                    if rects.is_empty() {
-                        None
-                    } else {
-                        for rect in &rects {
-                            self.damage
-                                .extend(mapped_bounds(to_win, layer_rect(*rect, grid)));
-                        }
-                        Some(Redraw::Rects(rects))
-                    }
-                }
-            }
-            Some(_) => {
-                self.damage.extend(mapped_bounds(to_win, grid.rect()));
-                Some(Redraw::All)
-            }
-            None => Some(Redraw::All),
+        // A content chunk covers the cells its commands reach; the other chunks cover their whole grid.
+        let cell = if version.is_some() {
+            content_cell(&index, grid.size)
+        } else {
+            Some(PixelRect {
+                x: 0,
+                y: 0,
+                width: grid.size.0,
+                height: grid.size.1,
+            })
         };
-        if let Some(redraw) = redraw {
+        let redraw = self.redraw_chunk(key, cached, grid, to_win, &index, cell);
+        if let (Some(cell), Some(redraw)) = (cell, redraw) {
+            let sub = grid.cell(cell);
             self.chunks.push(ChunkTask {
                 key,
                 scene,
-                origin: grid.origin,
-                scale: grid.scale,
-                size: grid.size,
+                origin: sub.origin,
+                scale: sub.scale,
+                size: sub.size,
+                offset: (cell.x, cell.y),
                 redraw,
                 index: Arc::clone(&index),
             });
@@ -296,6 +350,7 @@ impl<'a> Builder<'a> {
                     scale: grid.scale,
                     origin: grid.origin,
                     size: grid.size,
+                    cell,
                     index,
                     version,
                     frame: self.frame,
@@ -305,26 +360,63 @@ impl<'a> Builder<'a> {
         } else {
             self.forgets.push(key);
         }
-        Ok(())
+        Ok(cell)
     }
 
-    /// Keep the previous record of a content chunk whose layer has the same
-    /// content version and grid: nothing is hashed, diffed or drawn. Returns
-    /// whether the chunk was kept.
-    fn keep_chunk(
+    /// What a chunk with `index` and `cell` redraws against the record kept for `key` (none when the
+    /// cache keeps none), damaging the window where its pixels change.
+    fn redraw_chunk(
         &mut self,
+        key: ChunkKey,
+        cached: bool,
+        grid: Grid,
+        to_win: &Matrix4,
+        index: &[Indexed],
+        cell: Option<PixelRect>,
+    ) -> Option<Redraw> {
+        let cache = self.cache;
+        match cache.chunk(&key).filter(|_| cached) {
+            Some(prev)
+                if prev.scale == grid.scale
+                    && prev.origin.x == grid.origin.x
+                    && prev.origin.y == grid.origin.y
+                    && prev.size == grid.size =>
+            {
+                if prev.index[..] == *index {
+                    None
+                } else {
+                    let changed = diff(&prev.index, index);
+                    for rect in &changed {
+                        self.damage
+                            .extend(mapped_bounds(to_win, layer_rect(*rect, grid)));
+                    }
+                    redraw_of(&changed, cell, prev.cell)
+                }
+            }
+            Some(_) => {
+                self.damage.extend(mapped_bounds(to_win, grid.rect()));
+                cell.map(|_| Redraw::All)
+            }
+            None => cell.map(|_| Redraw::All),
+        }
+    }
+
+    /// The previous record of a content chunk whose layer has the same content
+    /// version and grid, when it is kept: nothing is hashed, diffed or drawn.
+    fn keep_chunk(
+        &self,
         key: ChunkKey,
         scene: &RenderScene,
         grid: Grid,
         cached: bool,
         version: Option<u64>,
-    ) -> Result<bool, PlanError> {
+    ) -> Result<Option<ChunkRecord>, PlanError> {
         let cache = self.cache;
         let Some(version) = version else {
-            return Ok(false);
+            return Ok(None);
         };
         let Some(prev) = cache.chunk(&key).filter(|_| cached) else {
-            return Ok(false);
+            return Ok(None);
         };
         if prev.version != Some(version)
             || prev.scale != grid.scale
@@ -332,19 +424,12 @@ impl<'a> Builder<'a> {
             || prev.origin.y != grid.origin.y
             || prev.size != grid.size
         {
-            return Ok(false);
+            return Ok(None);
         }
         if cfg!(debug_assertions) {
             check_version(scene, prev, grid, key, version)?;
         }
-        self.chunk_records.push((
-            key,
-            ChunkRecord {
-                frame: self.frame,
-                ..prev.clone()
-            },
-        ));
-        Ok(true)
+        Ok(Some(prev.clone()))
     }
 
     /// The output's damage this frame, from the records and the changes of the frame.
