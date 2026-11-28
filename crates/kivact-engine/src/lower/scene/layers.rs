@@ -17,9 +17,9 @@ use crate::lower::sanitize;
 use arvane_protocol::{Group, LayerEffects, Plane, RasterGrid, RenderCmd as D};
 use kivact_types::Composite;
 use kivact_types::geometry3d::Matrix4;
-use kivact_types::paint::TransformStyle;
-use kivact_types::scene::Outline;
-use kivact_types::{DrawCmd, DrawList, DrawingLayer, Point, Rect};
+use kivact_types::paint::{Fill, FilterOp, TransformStyle};
+use kivact_types::scene::{Outline, RoundedRect};
+use kivact_types::{DrawCmd, DrawList, DrawingLayer, Mix, Point, Rect, Rgba};
 
 /// Whether `cmd` is an item of a layer: an external frame, a drawable or a
 /// shader fill (its own item, which a group cannot span).
@@ -34,9 +34,97 @@ pub(crate) fn is_item(cmd: &DrawCmd) -> bool {
     }
 }
 
+/// The box shadow a drawing layer stands for.
+struct CastShadow {
+    /// The shadowed shape, in the drawing's coordinates.
+    shape: RoundedRect,
+    /// The shadow's offset.
+    offset: Point,
+    /// The shadow's blur as a standard deviation.
+    std_dev: f64,
+    /// The shadow's colour, its alpha times the alpha of the shape's fill.
+    color: Rgba,
+}
+
+/// The box shadow `layer` stands for when its only effect is one drop shadow and it draws one
+/// solid rectangle, rounded rectangle, circle or ellipse (`rest`: the commands after its push).
+fn cast_shadow(layer: &DrawingLayer, rest: &[DrawCmd]) -> Option<CastShadow> {
+    if layer.transform.is_some()
+        || layer.clip.is_some()
+        || !layer.masks.is_empty()
+        || layer.opacity != 1.0
+        || layer.mix != Mix::Normal
+    {
+        return None;
+    }
+    let [
+        FilterOp::DropShadow {
+            offset,
+            blur,
+            color,
+        },
+    ] = layer.filter.as_slice()
+    else {
+        return None;
+    };
+    let [shape, DrawCmd::PopLayer, ..] = rest else {
+        return None;
+    };
+    let (shape, fill) = solid_shape(shape)?;
+    Some(CastShadow {
+        shape,
+        offset: Point {
+            x: sanitize::offset(offset.x),
+            y: sanitize::offset(offset.y),
+        },
+        std_dev: super::layer_effects::blur_px(*blur) / 2.0,
+        color: Rgba {
+            a: color.a * fill.a,
+            ..*color
+        },
+    })
+}
+
+/// The shape and the solid colour of `cmd` when it draws one solid rectangle, rounded rectangle,
+/// circle or ellipse without a stroke (`None` for any other command or a shape that is not finite).
+fn solid_shape(cmd: &DrawCmd) -> Option<(RoundedRect, Rgba)> {
+    let (shape, fill) = match cmd {
+        DrawCmd::Rect { rect, fill } => (RoundedRect::new(*rect, 0.0), fill),
+        DrawCmd::RoundedRect { rect, radius, fill } => (RoundedRect::new(*rect, *radius), fill),
+        DrawCmd::Shape(sp) if sp.stroke.is_none() => {
+            let shape = match sp.shape.to_shape() {
+                Outline::Rect(r) => RoundedRect::new(r, 0.0),
+                Outline::RoundedRect(r) => r,
+                _ => return None,
+            };
+            (shape, &sp.paint)
+        }
+        _ => return None,
+    };
+    let Fill::Solid(color) = fill else {
+        return None;
+    };
+    finite_box(&shape).then_some((shape, *color))
+}
+
+/// Whether the bounds of `shape` are finite and its size and radii are not negative.
+fn finite_box(shape: &RoundedRect) -> bool {
+    let r = shape.rect;
+    [r.x, r.y, r.width, r.height].iter().all(|v| v.is_finite())
+        && r.width >= 0.0
+        && r.height >= 0.0
+        && shape
+            .radii
+            .iter()
+            .all(|c| c.x.is_finite() && c.y.is_finite() && c.x >= 0.0 && c.y >= 0.0)
+}
+
 /// Whether the `PushLayer` of `layer` opens a surface, given the commands
 /// that follow it (up to its pop).
 fn needs_surface(layer: &DrawingLayer, rest: &[DrawCmd]) -> bool {
+    if cast_shadow(layer, rest).is_some() {
+        return false;
+    }
     layer.transform.is_some()
         || !layer.filter.is_empty()
         || !layer.masks.is_empty()
@@ -123,6 +211,9 @@ impl Context<'_> {
                         state.frames.pop();
                         state.out.close_layer();
                     }
+                    Some(Frame::Flat) => {
+                        state.frames.pop();
+                    }
                     _ => self.drop_command(),
                 }
                 true
@@ -179,6 +270,25 @@ impl Context<'_> {
 
     /// Open the layer `layer`: a surface when it needs one, else a group.
     fn push_layer(&self, layer: &DrawingLayer, rest: &[DrawCmd], state: &mut State<'_>) {
+        if let Some(shadow) = cast_shadow(layer, rest) {
+            let color = state.current_tint.color(shadow.color);
+            if color.a > 0.0 {
+                state.out.push(D::BoxShadow(arvane_protocol::BoxShadow {
+                    shape: RoundedRect {
+                        rect: moved(shadow.shape.rect, state.origin),
+                        radii: shadow.shape.radii,
+                    },
+                    offset: shadow.offset,
+                    spread: 0.0,
+                    std_dev: shadow.std_dev,
+                    color,
+                    inset: false,
+                    knockout: false,
+                }));
+            }
+            state.frames.push(Frame::Flat);
+            return;
+        }
         if needs_surface(layer, rest) {
             let props = self.surface(layer, state);
             state.out.open_layer(props);
